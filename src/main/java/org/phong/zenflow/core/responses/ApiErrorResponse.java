@@ -27,7 +27,7 @@ public class ApiErrorResponse {
 
     public ApiErrorResponse(int status, SystemError message, String path, String error) {
         this.status = status;
-        this.message = message.getMessageKey();
+        this.message = message.getErrorMessage();
         this.path = path;
         this.error = error;
     }

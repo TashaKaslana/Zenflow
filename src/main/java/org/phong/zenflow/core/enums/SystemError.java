@@ -17,9 +17,9 @@ public enum SystemError {
     NOT_FOUND_ENDPOINT("system.not_found_endpoint"),
     ;
 
-    private final String messageKey;
+    private final String errorMessage;
 
-    SystemError(String messageKey) {
-        this.messageKey = messageKey;
+    SystemError(String errorMessage) {
+        this.errorMessage = errorMessage;
     }
 }
