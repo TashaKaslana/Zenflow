@@ -18,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -86,9 +85,10 @@ public class UserService {
     /**
      * Find user by ID
      */
-    public Optional<UserDto> findById(UUID id) {
+    public UserDto findById(UUID id) {
         return userRepository.findById(id)
-            .map(userMapper::toDto);
+            .map(userMapper::toDto)
+            .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + id));
     }
 
     /**
@@ -196,17 +196,19 @@ public class UserService {
     /**
      * Find user by email using repository method
      */
-    public Optional<UserDto> findByEmail(String email) {
+    public UserDto findByEmail(String email) {
         return userRepository.findByEmail(email)
-            .map(userMapper::toDto);
+            .map(userMapper::toDto)
+            .orElseThrow(() -> new IllegalArgumentException("User not found with email: " + email));
     }
 
     /**
      * Find user by username using repository method
      */
-    public Optional<UserDto> findByUsername(String username) {
+    public UserDto findByUsername(String username) {
         return userRepository.findByUsername(username)
-            .map(userMapper::toDto);
+            .map(userMapper::toDto)
+            .orElseThrow(() -> new IllegalArgumentException("User not found with username: " + username));
     }
 
     /**

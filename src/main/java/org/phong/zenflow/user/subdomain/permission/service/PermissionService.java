@@ -14,7 +14,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -51,9 +50,10 @@ public class PermissionService {
     /**
      * Find permission by ID
      */
-    public Optional<PermissionDto> findById(UUID id) {
+    public PermissionDto findById(UUID id) {
         return permissionRepository.findById(id)
-            .map(permissionMapper::toDto);
+            .map(permissionMapper::toDto)
+            .orElseThrow(() -> new IllegalArgumentException("Permission not found with id: " + id));
     }
 
     /**
@@ -154,9 +154,10 @@ public class PermissionService {
     /**
      * Find permission by feature and action using repository method
      */
-    public Optional<PermissionDto> findByFeatureAndAction(String feature, String action) {
+    public PermissionDto findByFeatureAndAction(String feature, String action) {
         return permissionRepository.findByFeatureAndAction(feature, action)
-            .map(permissionMapper::toDto);
+            .map(permissionMapper::toDto)
+            .orElseThrow(() -> new IllegalArgumentException("Permission not found for feature: " + feature + " and action: " + action));
     }
 
     /**

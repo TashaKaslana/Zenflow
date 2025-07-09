@@ -25,8 +25,7 @@ public class UserPermissionService {
      * Get user permissions
      */
     public List<PermissionDto> getUserPermissions(UUID userId) {
-        UserDto user = userService.findById(userId)
-            .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + userId));
+        UserDto user = userService.findById(userId);
 
         if (user.getRole() == null) {
             return List.of();
@@ -41,8 +40,7 @@ public class UserPermissionService {
      * Check if user has specific permission
      */
     public boolean userHasPermission(UUID userId, String feature, String action) {
-        UserDto user = userService.findById(userId)
-            .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + userId));
+        UserDto user = userService.findById(userId);
 
         if (user.getRole() == null) {
             return false;
@@ -55,9 +53,7 @@ public class UserPermissionService {
      * Check if user has any of the specified permissions
      */
     public boolean userHasAnyPermission(UUID userId, List<String> features, List<String> actions) {
-        UserDto user = userService.findById(userId)
-            .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + userId));
-
+        UserDto user = userService.findById(userId);
         if (user.getRole() == null) {
             return false;
         }
@@ -77,8 +73,7 @@ public class UserPermissionService {
      * Check if user has all specified permissions
      */
     public boolean userHasAllPermissions(UUID userId, List<String> features, List<String> actions) {
-        UserDto user = userService.findById(userId)
-            .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + userId));
+        UserDto user = userService.findById(userId);
 
         if (user.getRole() == null) {
             return false;

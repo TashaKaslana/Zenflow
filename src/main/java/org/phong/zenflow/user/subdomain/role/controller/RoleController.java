@@ -1,13 +1,13 @@
 package org.phong.zenflow.user.subdomain.role.controller;
 
 import lombok.RequiredArgsConstructor;
+import org.phong.zenflow.core.responses.RestApiResponse;
 import org.phong.zenflow.user.subdomain.role.dtos.CreateRoleRequest;
 import org.phong.zenflow.user.subdomain.role.dtos.RoleDto;
 import org.phong.zenflow.user.subdomain.role.enums.UserRoleEnum;
 import org.phong.zenflow.user.subdomain.role.service.RoleService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,105 +23,100 @@ public class RoleController {
     private final RoleService roleService;
 
     @PostMapping
-    public ResponseEntity<RoleDto> createRole(@Valid @RequestBody CreateRoleRequest request) {
+    public ResponseEntity<RestApiResponse<RoleDto>> createRole(@Valid @RequestBody CreateRoleRequest request) {
         RoleDto createdRole = roleService.createRole(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdRole);
+        return RestApiResponse.created(createdRole, "Role created successfully");
     }
 
     @PostMapping("/bulk")
-    public ResponseEntity<List<RoleDto>> createRoles(@Valid @RequestBody List<CreateRoleRequest> requests) {
+    public ResponseEntity<RestApiResponse<List<RoleDto>>> createRoles(@Valid @RequestBody List<CreateRoleRequest> requests) {
         List<RoleDto> createdRoles = roleService.createRoles(requests);
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdRoles);
+        return RestApiResponse.created(createdRoles, "Roles created successfully");
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<RoleDto> getRoleById(@PathVariable UUID id) {
-        return roleService.findById(id)
-            .map(role -> ResponseEntity.ok(role))
-            .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<RestApiResponse<RoleDto>> getRoleById(@PathVariable UUID id) {
+        RoleDto role = roleService.findById(id);
+        return RestApiResponse.success(role, "Role retrieved successfully");
     }
 
     @GetMapping
-    public ResponseEntity<List<RoleDto>> getAllRoles() {
+    public ResponseEntity<RestApiResponse<List<RoleDto>>> getAllRoles() {
         List<RoleDto> roles = roleService.findAll();
-        return ResponseEntity.ok(roles);
+        return RestApiResponse.success(roles, "Roles retrieved successfully");
     }
 
     @GetMapping("/paginated")
-    public ResponseEntity<Page<RoleDto>> getAllRoles(Pageable pageable) {
+    public ResponseEntity<RestApiResponse<List<RoleDto>>> getAllRoles(Pageable pageable) {
         Page<RoleDto> roles = roleService.findAll(pageable);
-        return ResponseEntity.ok(roles);
+        return RestApiResponse.success(roles, "Roles retrieved successfully");
     }
 
     @GetMapping("/name/{name}")
-    public ResponseEntity<RoleDto> getRoleByName(@PathVariable UserRoleEnum name) {
-        return roleService.findByName(name)
-            .map(role -> ResponseEntity.ok(role))
-            .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<RestApiResponse<RoleDto>> getRoleByName(@PathVariable UserRoleEnum name) {
+        RoleDto role = roleService.findByName(name);
+        return RestApiResponse.success(role, "Role retrieved successfully");
     }
 
     @PostMapping("/names")
-    public ResponseEntity<List<RoleDto>> getRolesByNames(@RequestBody List<UserRoleEnum> names) {
+    public ResponseEntity<RestApiResponse<List<RoleDto>>> getRolesByNames(@RequestBody List<UserRoleEnum> names) {
         List<RoleDto> roles = roleService.findByNames(names);
-        return ResponseEntity.ok(roles);
+        return RestApiResponse.success(roles, "Roles retrieved successfully");
     }
 
     @GetMapping("/check/name/{name}")
-    public ResponseEntity<Boolean> checkRoleExistsByName(@PathVariable UserRoleEnum name) {
+    public ResponseEntity<RestApiResponse<Boolean>> checkRoleExistsByName(@PathVariable UserRoleEnum name) {
         boolean exists = roleService.existsByName(name);
-        return ResponseEntity.ok(exists);
+        return RestApiResponse.success(exists, "Role existence checked");
     }
 
     @GetMapping("/default")
-    public ResponseEntity<RoleDto> getDefaultRole() {
-        return roleService.getDefaultRole()
-            .map(role -> ResponseEntity.ok(role))
-            .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<RestApiResponse<RoleDto>> getDefaultRole() {
+        RoleDto role = roleService.getDefaultRole();
+        return RestApiResponse.success(role, "Default role retrieved successfully");
     }
 
     @GetMapping("/admin")
-    public ResponseEntity<RoleDto> getAdminRole() {
-        return roleService.getAdminRole()
-            .map(role -> ResponseEntity.ok(role))
-            .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<RestApiResponse<RoleDto>> getAdminRole() {
+        RoleDto role = roleService.getAdminRole();
+        return RestApiResponse.success(role, "Admin role retrieved successfully");
     }
 
     @GetMapping("/owner")
-    public ResponseEntity<RoleDto> getOwnerRole() {
-        return roleService.getOwnerRole()
-            .map(role -> ResponseEntity.ok(role))
-            .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<RestApiResponse<RoleDto>> getOwnerRole() {
+        RoleDto role = roleService.getOwnerRole();
+        return RestApiResponse.success(role, "Owner role retrieved successfully");
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<RoleDto> updateRole(
+    public ResponseEntity<RestApiResponse<RoleDto>> updateRole(
             @PathVariable UUID id,
             @Valid @RequestBody CreateRoleRequest request) {
         RoleDto updatedRole = roleService.updateRole(id, request);
-        return ResponseEntity.ok(updatedRole);
+        return RestApiResponse.success(updatedRole, "Role updated successfully");
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteRole(@PathVariable UUID id) {
+    public ResponseEntity<RestApiResponse<Void>> deleteRole(@PathVariable UUID id) {
         roleService.deleteRole(id);
-        return ResponseEntity.noContent().build();
+        return RestApiResponse.success("Role deleted successfully");
     }
 
     @DeleteMapping("/bulk")
-    public ResponseEntity<Void> deleteRoles(@RequestBody List<UUID> ids) {
+    public ResponseEntity<RestApiResponse<Void>> deleteRoles(@RequestBody List<UUID> ids) {
         roleService.deleteRoles(ids);
-        return ResponseEntity.noContent().build();
+        return RestApiResponse.success("Roles deleted successfully");
     }
 
     @GetMapping("/count")
-    public ResponseEntity<Long> getRoleCount() {
+    public ResponseEntity<RestApiResponse<Long>> getRoleCount() {
         long count = roleService.count();
-        return ResponseEntity.ok(count);
+        return RestApiResponse.success(count, "Role count retrieved successfully");
     }
 
     @GetMapping("/{id}/exists")
-    public ResponseEntity<Boolean> checkRoleExists(@PathVariable UUID id) {
+    public ResponseEntity<RestApiResponse<Boolean>> checkRoleExists(@PathVariable UUID id) {
         boolean exists = roleService.existsById(id);
-        return ResponseEntity.ok(exists);
+        return RestApiResponse.success(exists, "Role existence checked");
     }
 }

@@ -84,7 +84,7 @@ public class RestApiResponse<T> {
         return ResponseEntity.ok(new RestApiResponse<>(data, "SUCCESS"));
     }
 
-    public static ResponseEntity<RestApiResponse<String>> success(String message) {
+    public static ResponseEntity<RestApiResponse<Void>> success(String message) {
         return ResponseEntity.ok(new RestApiResponse<>(message));
     }
 

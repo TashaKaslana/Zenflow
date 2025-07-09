@@ -48,11 +48,12 @@ public class RoleService {
     }
 
     /**
-     * Find role by ID
+     * Find a role by ID
      */
-    public Optional<RoleDto> findById(UUID id) {
+    public RoleDto findById(UUID id) {
         return roleRepository.findById(id)
-            .map(roleMapper::toDto);
+            .map(roleMapper::toDto)
+            .orElseThrow(() -> new IllegalArgumentException("Role not found with id: " + id));
     }
 
     /**
@@ -72,7 +73,7 @@ public class RoleService {
     }
 
     /**
-     * Update role using DTO
+     * Update a role using DTO
      */
     @Transactional
     public RoleDto updateRole(UUID id, CreateRoleRequest request) {
@@ -105,7 +106,7 @@ public class RoleService {
     }
 
     /**
-     * Check if role exists
+     * Check if a role exists
      */
     public boolean existsById(UUID id) {
         return roleRepository.existsById(id);
@@ -119,11 +120,12 @@ public class RoleService {
     }
 
     /**
-     * Find role by name using repository method
+     * Find a role by name using repository method
      */
-    public Optional<RoleDto> findByName(UserRoleEnum name) {
+    public RoleDto findByName(UserRoleEnum name) {
         return roleRepository.findByName(name)
-            .map(roleMapper::toDto);
+            .map(roleMapper::toDto)
+            .orElseThrow(() -> new IllegalArgumentException("Role not found with name: " + name));
     }
 
     /**
@@ -135,7 +137,7 @@ public class RoleService {
     }
 
     /**
-     * Check if role exists by name using repository method
+     * Check if a role exists by name using repository method
      */
     public boolean existsByName(UserRoleEnum name) {
         return roleRepository.existsByName(name);
@@ -144,21 +146,21 @@ public class RoleService {
     /**
      * Get default user role
      */
-    public Optional<RoleDto> getDefaultRole() {
+    public RoleDto getDefaultRole() {
         return findByName(UserRoleEnum.USER);
     }
 
     /**
      * Get admin role
      */
-    public Optional<RoleDto> getAdminRole() {
+    public RoleDto getAdminRole() {
         return findByName(UserRoleEnum.ADMIN);
     }
 
     /**
-     * Get owner role
+     * Get an owner role
      */
-    public Optional<RoleDto> getOwnerRole() {
+    public RoleDto getOwnerRole() {
         return findByName(UserRoleEnum.OWNER);
     }
 
