@@ -1,0 +1,315 @@
+package org.phong.zenflow.user.service;
+
+import lombok.RequiredArgsConstructor;
+import org.phong.zenflow.user.dtos.CreateUserRequest;
+import org.phong.zenflow.user.dtos.UserDto;
+import org.phong.zenflow.user.infrastructure.mapstruct.UserMapper;
+import org.phong.zenflow.user.infrastructure.persistence.entities.User;
+import org.phong.zenflow.user.infrastructure.persistence.projections.UserEmailProjection;
+import org.phong.zenflow.user.infrastructure.persistence.projections.UserUsernameProjection;
+import org.phong.zenflow.user.infrastructure.persistence.repositories.UserRepository;
+import org.phong.zenflow.user.subdomain.role.infrastructure.persistence.entities.Role;
+import org.phong.zenflow.user.subdomain.role.service.RoleService;
+import org.phong.zenflow.user.subdomain.role.enums.UserRoleEnum;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class UserService {
+
+    private final UserRepository userRepository;
+    private final RoleService roleService;
+    private final UserMapper userMapper;
+
+    /**
+     * Create a new user using DTO
+     */
+    @Transactional
+    public UserDto createUser(CreateUserRequest request) {
+        // Validate uniqueness
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new IllegalArgumentException("Email already exists: " + request.getEmail());
+        }
+        if (userRepository.existsByUsername(request.getUsername())) {
+            throw new IllegalArgumentException("Username already exists: " + request.getUsername());
+        }
+
+        // Get role entity
+        Role role = roleService.findEntityByName(request.getRoleName() != null ? request.getRoleName() : UserRoleEnum.USER)
+            .orElseThrow(() -> new IllegalArgumentException("Role not found: " + request.getRoleName()));
+
+        User user = userMapper.toEntity(request);
+        user.setRole(role);
+        User savedUser = userRepository.save(user);
+        return userMapper.toDto(savedUser);
+    }
+
+    /**
+     * Create multiple users in bulk
+     */
+    @Transactional
+    public List<UserDto> createUsers(List<CreateUserRequest> requests) {
+        // Validate all requests first
+        for (CreateUserRequest request : requests) {
+            if (userRepository.existsByEmail(request.getEmail())) {
+                throw new IllegalArgumentException("Email already exists: " + request.getEmail());
+            }
+            if (userRepository.existsByUsername(request.getUsername())) {
+                throw new IllegalArgumentException("Username already exists: " + request.getUsername());
+            }
+        }
+
+        List<User> users = requests.stream()
+            .map(request -> {
+                Role role = roleService.findEntityByName(request.getRoleName() != null ? request.getRoleName() : UserRoleEnum.USER)
+                    .orElseThrow(() -> new IllegalArgumentException("Role not found: " + request.getRoleName()));
+
+                User user = userMapper.toEntity(request);
+                user.setRole(role);
+                return user;
+            })
+            .toList();
+
+        List<User> savedUsers = userRepository.saveAll(users);
+        return userMapper.toDtoList(savedUsers);
+    }
+
+    /**
+     * Find user by ID
+     */
+    public Optional<UserDto> findById(UUID id) {
+        return userRepository.findById(id)
+            .map(userMapper::toDto);
+    }
+
+    /**
+     * Find all users
+     */
+    public List<UserDto> findAll() {
+        List<User> users = userRepository.findAll();
+        return userMapper.toDtoList(users);
+    }
+
+    /**
+     * Find users with pagination
+     */
+    public Page<UserDto> findAll(Pageable pageable) {
+        return userRepository.findAll(pageable)
+            .map(userMapper::toDto);
+    }
+
+    /**
+     * Update user using DTO
+     */
+    @Transactional
+    public UserDto updateUser(UUID id, CreateUserRequest request) {
+        User user = userRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + id));
+
+        // Check if another user takes email/username
+        if (!user.getEmail().equals(request.getEmail()) && userRepository.existsByEmail(request.getEmail())) {
+            throw new IllegalArgumentException("Email already exists: " + request.getEmail());
+        }
+        if (!user.getUsername().equals(request.getUsername()) && userRepository.existsByUsername(request.getUsername())) {
+            throw new IllegalArgumentException("Username already exists: " + request.getUsername());
+        }
+
+        // Get role if specified
+        if (request.getRoleName() != null) {
+            Role role = roleService.findEntityByName(request.getRoleName())
+                .orElseThrow(() -> new IllegalArgumentException("Role not found: " + request.getRoleName()));
+            user.setRole(role);
+        }
+
+        userMapper.updateEntity(request, user);
+        User savedUser = userRepository.save(user);
+        return userMapper.toDto(savedUser);
+    }
+
+    /**
+     * Update user password
+     */
+    @Transactional
+    public UserDto updatePassword(UUID id, String newPasswordHash) {
+        User user = userRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + id));
+
+        user.setPasswordHash(newPasswordHash);
+        User savedUser = userRepository.save(user);
+        return userMapper.toDto(savedUser);
+    }
+
+    /**
+     * Soft delete user
+     */
+    @Transactional
+    public void deleteUser(UUID id) {
+        User user = userRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + id));
+
+        user.setDeletedAt(OffsetDateTime.now());
+        userRepository.save(user);
+    }
+
+    /**
+     * Delete multiple users in bulk
+     */
+    @Transactional
+    public void deleteUsers(List<UUID> ids) {
+        List<User> users = userRepository.findByIdIn(ids);
+        OffsetDateTime now = OffsetDateTime.now();
+        users.forEach(user -> user.setDeletedAt(now));
+        userRepository.saveAll(users);
+    }
+
+    /**
+     * Hard delete user
+     */
+    @Transactional
+    public void hardDeleteUser(UUID id) {
+        userRepository.deleteById(id);
+    }
+
+    /**
+     * Check if user exists
+     */
+    public boolean existsById(UUID id) {
+        return userRepository.existsById(id);
+    }
+
+    /**
+     * Count all users
+     */
+    public long count() {
+        return userRepository.count();
+    }
+
+    /**
+     * Find user by email using repository method
+     */
+    public Optional<UserDto> findByEmail(String email) {
+        return userRepository.findByEmail(email)
+            .map(userMapper::toDto);
+    }
+
+    /**
+     * Find user by username using repository method
+     */
+    public Optional<UserDto> findByUsername(String username) {
+        return userRepository.findByUsername(username)
+            .map(userMapper::toDto);
+    }
+
+    /**
+     * Find users by role using repository method
+     */
+    public List<UserDto> findByRole(UserRoleEnum roleName) {
+        Role role = roleService.findEntityByName(roleName)
+            .orElseThrow(() -> new IllegalArgumentException("Role not found: " + roleName));
+
+        List<User> users = userRepository.findByRole(role);
+        return userMapper.toDtoList(users);
+    }
+
+    /**
+     * Find users by multiple emails in bulk
+     */
+    public List<UserDto> findByEmails(List<String> emails) {
+        List<User> users = userRepository.findByEmailIn(emails);
+        return userMapper.toDtoList(users);
+    }
+
+    /**
+     * Find users by multiple usernames in bulk
+     */
+    public List<UserDto> findByUsernames(List<String> usernames) {
+        List<User> users = userRepository.findByUsernameIn(usernames);
+        return userMapper.toDtoList(users);
+    }
+
+    /**
+     * Find active users using repository method
+     */
+    public List<UserDto> findActiveUsers() {
+        List<User> users = userRepository.findActiveUsers();
+        return userMapper.toDtoList(users);
+    }
+
+    /**
+     * Find deleted users using repository method
+     */
+    public List<UserDto> findDeletedUsers() {
+        List<User> users = userRepository.findDeletedUsers();
+        return userMapper.toDtoList(users);
+    }
+
+    /**
+     * Restore deleted user
+     */
+    @Transactional
+    public UserDto restoreUser(UUID id) {
+        User user = userRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + id));
+
+        user.setDeletedAt(null);
+        User savedUser = userRepository.save(user);
+        return userMapper.toDto(savedUser);
+    }
+
+    /**
+     * Check if email is already taken using repository method
+     */
+    public boolean isEmailTaken(String email) {
+        return userRepository.existsByEmail(email);
+    }
+
+    /**
+     * Check if username is already taken using repository method
+     */
+    public boolean isUsernameTaken(String username) {
+        return userRepository.existsByUsername(username);
+    }
+
+    /**
+     * Change user role
+     */
+    @Transactional
+    public UserDto changeUserRole(UUID userId, UserRoleEnum newRole) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + userId));
+
+        Role role = roleService.findEntityByName(newRole)
+            .orElseThrow(() -> new IllegalArgumentException("Role not found: " + newRole));
+
+        user.setRole(role);
+        User savedUser = userRepository.save(user);
+        return userMapper.toDto(savedUser);
+    }
+
+    /**
+     * Get all unique emails using projection for efficiency
+     */
+    public List<String> getAllEmails() {
+        return userRepository.findAllEmails().stream()
+            .map(UserEmailProjection::getEmail)
+            .toList();
+    }
+
+    /**
+     * Get all unique usernames using projection for efficiency
+     */
+    public List<String> getAllUsernames() {
+        return userRepository.findAllUsernames().stream()
+            .map(UserUsernameProjection::getUsername)
+            .toList();
+    }
+}
