@@ -16,9 +16,4 @@ public class RoleDomainException  extends RuntimeException {
         super(error.formatMessage(details));
         this.error = error;
     }
-
-    public String getErrorCode() {
-        return error.getCode();
-    }
-
 }

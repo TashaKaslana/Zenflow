@@ -3,6 +3,7 @@ package org.phong.zenflow.user.subdomain.permission.service;
 import lombok.RequiredArgsConstructor;
 import org.phong.zenflow.user.subdomain.permission.dtos.CreatePermissionRequest;
 import org.phong.zenflow.user.subdomain.permission.dtos.PermissionDto;
+import org.phong.zenflow.user.subdomain.permission.exception.PermissionNotFoundException;
 import org.phong.zenflow.user.subdomain.permission.infrastructure.mapstruct.PermissionMapper;
 import org.phong.zenflow.user.subdomain.permission.infrastructure.persistence.entities.Permission;
 import org.phong.zenflow.user.subdomain.permission.infrastructure.persistence.projections.PermissionActionProjection;
@@ -53,7 +54,7 @@ public class PermissionService {
     public PermissionDto findById(UUID id) {
         return permissionRepository.findById(id)
             .map(permissionMapper::toDto)
-            .orElseThrow(() -> new IllegalArgumentException("Permission not found with id: " + id));
+            .orElseThrow(() -> new PermissionNotFoundException(id.toString()));
     }
 
     /**
@@ -78,7 +79,7 @@ public class PermissionService {
     @Transactional
     public PermissionDto updatePermission(UUID id, CreatePermissionRequest request) {
         Permission permission = permissionRepository.findById(id)
-            .orElseThrow(() -> new IllegalArgumentException("Permission not found with id: " + id));
+            .orElseThrow(() -> new PermissionNotFoundException(id.toString()));
 
         permissionMapper.updateEntity(request, permission);
         Permission savedPermission = permissionRepository.save(permission);
@@ -91,7 +92,7 @@ public class PermissionService {
     @Transactional
     public void deletePermission(UUID id) {
         if (!permissionRepository.existsById(id)) {
-            throw new IllegalArgumentException("Permission not found with id: " + id);
+            throw new PermissionNotFoundException(id.toString());
         }
         permissionRepository.deleteById(id);
     }
@@ -157,7 +158,7 @@ public class PermissionService {
     public PermissionDto findByFeatureAndAction(String feature, String action) {
         return permissionRepository.findByFeatureAndAction(feature, action)
             .map(permissionMapper::toDto)
-            .orElseThrow(() -> new IllegalArgumentException("Permission not found for feature: " + feature + " and action: " + action));
+            .orElseThrow(() -> new PermissionNotFoundException(feature, action));
     }
 
     /**
