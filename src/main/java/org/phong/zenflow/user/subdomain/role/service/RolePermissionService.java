@@ -1,8 +1,13 @@
 package org.phong.zenflow.user.subdomain.role.service;
 
 import lombok.RequiredArgsConstructor;
+import org.phong.zenflow.user.subdomain.permission.enums.PermissionError;
+import org.phong.zenflow.user.subdomain.permission.exception.PermissionNotFoundException;
 import org.phong.zenflow.user.subdomain.permission.infrastructure.persistence.entities.Permission;
 import org.phong.zenflow.user.subdomain.permission.infrastructure.persistence.repositories.PermissionRepository;
+import org.phong.zenflow.user.subdomain.role.exception.PermissionAlreadyAssignedException;
+import org.phong.zenflow.user.subdomain.role.exception.PermissionNotAssignedException;
+import org.phong.zenflow.user.subdomain.role.exception.RoleNotFoundException;
 import org.phong.zenflow.user.subdomain.role.infrastructure.persistence.entities.Role;
 import org.phong.zenflow.user.subdomain.role.infrastructure.persistence.entities.RolePermission;
 import org.phong.zenflow.user.subdomain.role.infrastructure.persistence.key.RolePermissionId;
@@ -28,12 +33,12 @@ public class RolePermissionService {
      * Assign permission to role
      */
     @Transactional
-    public RolePermission assignPermissionToRole(UUID roleId, UUID permissionId) {
+    public void assignPermissionToRole(UUID roleId, UUID permissionId) {
         Role role = roleRepository.findById(roleId)
-            .orElseThrow(() -> new IllegalArgumentException("Role not found with id: " + roleId));
+            .orElseThrow(() -> new RoleNotFoundException(roleId.toString()));
 
         Permission permission = permissionRepository.findById(permissionId)
-            .orElseThrow(() -> new IllegalArgumentException("Permission not found with id: " + permissionId));
+            .orElseThrow(() -> new PermissionNotFoundException(permissionId.toString()));
 
         RolePermissionId id = new RolePermissionId();
         id.setRoleId(roleId);
@@ -41,7 +46,7 @@ public class RolePermissionService {
 
         // Check if the assignment already exists
         if (rolePermissionRepository.existsById(id)) {
-            throw new IllegalArgumentException("Permission already assigned to role");
+            throw new PermissionAlreadyAssignedException(roleId.toString(), permissionId.toString());
         }
 
         RolePermission rolePermission = new RolePermission();
@@ -49,7 +54,7 @@ public class RolePermissionService {
         rolePermission.setRole(role);
         rolePermission.setPermission(permission);
 
-        return rolePermissionRepository.save(rolePermission);
+        rolePermissionRepository.save(rolePermission);
     }
 
     /**
@@ -62,7 +67,7 @@ public class RolePermissionService {
         id.setPermissionId(permissionId);
 
         if (!rolePermissionRepository.existsById(id)) {
-            throw new IllegalArgumentException("Permission not assigned to role");
+            throw new PermissionNotAssignedException(roleId.toString(), permissionId.toString());
         }
 
         rolePermissionRepository.deleteById(id);
@@ -121,7 +126,7 @@ public class RolePermissionService {
     @Transactional
     public void assignPermissionsToRole(UUID roleId, List<UUID> permissionIds) {
         Role role = roleRepository.findById(roleId)
-            .orElseThrow(() -> new IllegalArgumentException("Role not found with id: " + roleId));
+            .orElseThrow(() -> new RoleNotFoundException(roleId.toString()));
 
         // Get existing permissions for this role
         List<UUID> existingPermissionIds = rolePermissionRepository.findByRoleId(roleId).stream()
@@ -137,7 +142,7 @@ public class RolePermissionService {
             // Verify all permissions exist
             List<Permission> permissions = permissionRepository.findByIdIn(newPermissionIds);
             if (permissions.size() != newPermissionIds.size()) {
-                throw new IllegalArgumentException("Some permissions not found");
+                throw new PermissionNotFoundException(PermissionError.PERMISSION_LIST_NOT_FOUND.getMessage());
             }
 
             // Create role permissions in bulk

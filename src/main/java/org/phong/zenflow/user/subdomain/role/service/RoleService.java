@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.phong.zenflow.user.subdomain.role.dtos.CreateRoleRequest;
 import org.phong.zenflow.user.subdomain.role.dtos.RoleDto;
 import org.phong.zenflow.user.subdomain.role.enums.UserRoleEnum;
+import org.phong.zenflow.user.subdomain.role.exception.RoleNotFoundException;
 import org.phong.zenflow.user.subdomain.role.infrastructure.mapstruct.RoleMapper;
 import org.phong.zenflow.user.subdomain.role.infrastructure.persistence.entities.Role;
 import org.phong.zenflow.user.subdomain.role.infrastructure.persistence.repositories.RoleRepository;
@@ -53,7 +54,7 @@ public class RoleService {
     public RoleDto findById(UUID id) {
         return roleRepository.findById(id)
             .map(roleMapper::toDto)
-            .orElseThrow(() -> new IllegalArgumentException("Role not found with id: " + id));
+            .orElseThrow(() -> new RoleNotFoundException(id.toString()));
     }
 
     /**
@@ -78,7 +79,7 @@ public class RoleService {
     @Transactional
     public RoleDto updateRole(UUID id, CreateRoleRequest request) {
         Role role = roleRepository.findById(id)
-            .orElseThrow(() -> new IllegalArgumentException("Role not found with id: " + id));
+            .orElseThrow(() -> new RoleNotFoundException(id.toString()));
 
         roleMapper.updateEntity(request, role);
         Role savedRole = roleRepository.save(role);
@@ -91,7 +92,7 @@ public class RoleService {
     @Transactional
     public void deleteRole(UUID id) {
         if (!roleRepository.existsById(id)) {
-            throw new IllegalArgumentException("Role not found with id: " + id);
+            throw new RoleNotFoundException(id.toString());
         }
         roleRepository.deleteById(id);
     }
@@ -125,7 +126,7 @@ public class RoleService {
     public RoleDto findByName(UserRoleEnum name) {
         return roleRepository.findByName(name)
             .map(roleMapper::toDto)
-            .orElseThrow(() -> new IllegalArgumentException("Role not found with name: " + name));
+            .orElseThrow(() -> new RoleNotFoundException("name", name.toString()));
     }
 
     /**
