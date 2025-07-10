@@ -1,0 +1,5 @@
+ALTER TABLE audit_logs
+    ADD COLUMN IF NOT EXISTS description VARCHAR(150),
+    ADD COLUMN IF NOT EXISTS user_agent VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS ip_address VARCHAR(45);
+

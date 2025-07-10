@@ -10,13 +10,13 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- Using ENUMs for status fields improves data integrity and performance.
 -- =================================================================
 
-CREATE TYPE workflow_status_enum AS ENUM ('running', 'success', 'error', 'waiting');
-CREATE TYPE trigger_type_enum AS ENUM ('manual', 'schedule', 'webhook', 'event');
-CREATE TYPE trigger_log_status_enum AS ENUM ('success', 'error', 'running');
-CREATE TYPE secret_scope_enum AS ENUM ('global', 'project', 'workflow');
-CREATE TYPE notification_type_enum AS ENUM ('info', 'success', 'error', 'warning');
-CREATE TYPE log_status_enum AS ENUM ('running', 'success', 'error');
-CREATE TYPE user_role_enum AS ENUM ('owner', 'admin', 'user');
+CREATE TYPE workflow_status_enum AS ENUM ('RUNNING', 'SUCCESS', 'ERROR', 'WAITING');
+CREATE TYPE trigger_type_enum AS ENUM ('MANUAL', 'SCHEDULE', 'WEBHOOK', 'EVENT');
+CREATE TYPE trigger_log_status_enum AS ENUM ('SUCCESS', 'ERROR', 'RUNNING');
+CREATE TYPE secret_scope_enum AS ENUM ('GLOBAL', 'PROJECT', 'WORKFLOW');
+CREATE TYPE notification_type_enum AS ENUM ('INFO', 'SUCCESS', 'ERROR', 'WARNING');
+CREATE TYPE log_status_enum AS ENUM ('RUNNING', 'SUCCESS', 'ERROR');
+CREATE TYPE user_role_enum AS ENUM ('OWNER', 'ADMIN', 'USER');
 
 -- =================================================================
 -- PERMISSIONS & ROLES

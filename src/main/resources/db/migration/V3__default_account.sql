@@ -9,8 +9,8 @@ FROM (
      ) AS u(username, email, password_hash)
          JOIN roles r ON LOWER(r.name) =
                          CASE u.username
-                             WHEN 'owner_user' THEN 'owner'
-                             WHEN 'admin_user' THEN 'admin'
-                             ELSE 'user'
+                             WHEN 'owner_user' THEN 'USER'
+                             WHEN 'admin_user' THEN 'ADMIN'
+                             ELSE 'USER'
                              END
     ON CONFLICT (email) DO NOTHING;

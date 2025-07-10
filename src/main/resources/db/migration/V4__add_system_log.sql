@@ -1,6 +1,13 @@
 CREATE TYPE system_log_type_enum AS ENUM (
-    'info', 'warning', 'error', 'startup', 'schedule', 'plugin', 'other'
+    'INFO',
+    'WARNING',
+    'ERROR',
+    'STARTUP',
+    'SCHEDULE',
+    'PLUGIN',
+    'OTHER'
     );
+
 
 CREATE TABLE IF NOT EXISTS system_logs (
                                            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
