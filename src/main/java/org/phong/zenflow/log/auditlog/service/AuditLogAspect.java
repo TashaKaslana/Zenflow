@@ -103,9 +103,8 @@ public class AuditLogAspect {
                     )
             );
         } catch (Exception e) {
-            log.error("Failed to log activity after method successfully for method: {}, Error message: {}",
-                    joinPoint.getSignature().getName(), e.getMessage()
-            );
+            log.error("Failed to log activity after method successfully for method: {}",
+                    joinPoint.getSignature().getName(), e);
         }
     }
 
@@ -143,9 +142,11 @@ public class AuditLogAspect {
 
     //if not description is not provided, using this generated content
     private String generateDescription(JoinPoint joinPoint, String activityCode) {
-        return String.format("User action [%s] completed. Args: %s",
+        log.debug("Audit log args: {}", Arrays.toString(joinPoint.getArgs()));
+
+        return String.format("User action [%s] on method [%s]",
                 activityCode,
-                Arrays.toString(joinPoint.getArgs())
+                joinPoint.getSignature().getName()
         );
     }
 }

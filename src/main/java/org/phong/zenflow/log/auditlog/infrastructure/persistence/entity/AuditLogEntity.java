@@ -5,11 +5,11 @@ import jakarta.persistence.AttributeOverrides;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Index;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
-import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import org.phong.zenflow.core.superbase.BaseIdEntity;
@@ -52,14 +52,18 @@ public class AuditLogEntity extends BaseIdEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     private Map<String, Object> metadata;
 
-    @Column(name = "user_agent")
+    @Column(name = "user_agent", length = 255)
     private String userAgent;
 
     @Column(name = "ip_address", length = 45)
     private String ipAddress;
 
     @NotNull
-    @CreationTimestamp
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = OffsetDateTime.now();
+    }
 }

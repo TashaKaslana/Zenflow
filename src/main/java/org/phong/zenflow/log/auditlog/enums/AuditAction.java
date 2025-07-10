@@ -6,9 +6,9 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 public enum AuditAction {
-    WORKFLOW_DELETE("workflow.delete", TargetType.WORKFLOW, "Delete workflow");
+    WORKFLOW_DELETE("workflow.delete", TargetType.WORKFLOW);
 
     final String action;
     final TargetType targetType;
-    final String description;
+//    final String description;
 }
