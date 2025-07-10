@@ -7,11 +7,6 @@ import org.phong.zenflow.user.subdomain.role.enums.RoleError;
 public class RoleDomainException  extends RuntimeException {
     private final RoleError error;
 
-    public RoleDomainException(RoleError error) {
-        super(error.getMessage());
-        this.error = error;
-    }
-
     public RoleDomainException(RoleError error, String details) {
         super(error.formatMessage(details));
         this.error = error;

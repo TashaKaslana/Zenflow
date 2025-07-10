@@ -10,11 +10,6 @@ import org.phong.zenflow.user.subdomain.permission.enums.PermissionError;
 public class PermissionDomainException extends RuntimeException {
     private final PermissionError error;
 
-    public PermissionDomainException(PermissionError error) {
-        super(error.getMessage());
-        this.error = error;
-    }
-
     public PermissionDomainException(PermissionError error, String details) {
         super(error.formatMessage(details));
         this.error = error;
