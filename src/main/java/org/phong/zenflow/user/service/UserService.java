@@ -3,11 +3,15 @@ package org.phong.zenflow.user.service;
 import lombok.RequiredArgsConstructor;
 import org.phong.zenflow.user.dtos.CreateUserRequest;
 import org.phong.zenflow.user.dtos.UserDto;
+import org.phong.zenflow.user.exception.UserEmailExistsException;
+import org.phong.zenflow.user.exception.UserNotFoundException;
+import org.phong.zenflow.user.exception.UserUsernameExistsException;
 import org.phong.zenflow.user.infrastructure.mapstruct.UserMapper;
 import org.phong.zenflow.user.infrastructure.persistence.entities.User;
 import org.phong.zenflow.user.infrastructure.persistence.projections.UserEmailProjection;
 import org.phong.zenflow.user.infrastructure.persistence.projections.UserUsernameProjection;
 import org.phong.zenflow.user.infrastructure.persistence.repositories.UserRepository;
+import org.phong.zenflow.user.subdomain.role.exception.RoleNotFoundException;
 import org.phong.zenflow.user.subdomain.role.infrastructure.persistence.entities.Role;
 import org.phong.zenflow.user.subdomain.role.service.RoleService;
 import org.phong.zenflow.user.subdomain.role.enums.UserRoleEnum;
@@ -36,15 +40,15 @@ public class UserService {
     public UserDto createUser(CreateUserRequest request) {
         // Validate uniqueness
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new IllegalArgumentException("Email already exists: " + request.getEmail());
+            throw new UserEmailExistsException(request.getEmail());
         }
         if (userRepository.existsByUsername(request.getUsername())) {
-            throw new IllegalArgumentException("Username already exists: " + request.getUsername());
+            throw new UserUsernameExistsException(request.getUsername());
         }
 
         // Get role entity
         Role role = roleService.findEntityByName(request.getRoleName() != null ? request.getRoleName() : UserRoleEnum.USER)
-            .orElseThrow(() -> new IllegalArgumentException("Role not found: " + request.getRoleName()));
+            .orElseThrow(() -> new RoleNotFoundException("name", request.getRoleName()));
 
         User user = userMapper.toEntity(request);
         user.setRole(role);
@@ -60,17 +64,17 @@ public class UserService {
         // Validate all requests first
         for (CreateUserRequest request : requests) {
             if (userRepository.existsByEmail(request.getEmail())) {
-                throw new IllegalArgumentException("Email already exists: " + request.getEmail());
+                throw new UserEmailExistsException(request.getEmail());
             }
             if (userRepository.existsByUsername(request.getUsername())) {
-                throw new IllegalArgumentException("Username already exists: " + request.getUsername());
+                throw new UserUsernameExistsException(request.getUsername());
             }
         }
 
         List<User> users = requests.stream()
             .map(request -> {
                 Role role = roleService.findEntityByName(request.getRoleName() != null ? request.getRoleName() : UserRoleEnum.USER)
-                    .orElseThrow(() -> new IllegalArgumentException("Role not found: " + request.getRoleName()));
+                    .orElseThrow(() -> new RoleNotFoundException("name", request.getRoleName()));
 
                 User user = userMapper.toEntity(request);
                 user.setRole(role);
@@ -88,7 +92,7 @@ public class UserService {
     public UserDto findById(UUID id) {
         return userRepository.findById(id)
             .map(userMapper::toDto)
-            .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + id));
+            .orElseThrow(() -> new UserNotFoundException(id.toString()));
     }
 
     /**
@@ -113,20 +117,20 @@ public class UserService {
     @Transactional
     public UserDto updateUser(UUID id, CreateUserRequest request) {
         User user = userRepository.findById(id)
-            .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + id));
+            .orElseThrow(() -> new UserNotFoundException(id.toString()));
 
         // Check if another user takes email/username
         if (!user.getEmail().equals(request.getEmail()) && userRepository.existsByEmail(request.getEmail())) {
-            throw new IllegalArgumentException("Email already exists: " + request.getEmail());
+            throw new UserEmailExistsException(request.getEmail());
         }
         if (!user.getUsername().equals(request.getUsername()) && userRepository.existsByUsername(request.getUsername())) {
-            throw new IllegalArgumentException("Username already exists: " + request.getUsername());
+            throw new UserUsernameExistsException(request.getUsername());
         }
 
         // Get role if specified
         if (request.getRoleName() != null) {
             Role role = roleService.findEntityByName(request.getRoleName())
-                .orElseThrow(() -> new IllegalArgumentException("Role not found: " + request.getRoleName()));
+                .orElseThrow(() -> new RoleNotFoundException("name", request.getRoleName()));
             user.setRole(role);
         }
 
@@ -141,7 +145,7 @@ public class UserService {
     @Transactional
     public UserDto updatePassword(UUID id, String newPasswordHash) {
         User user = userRepository.findById(id)
-            .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + id));
+            .orElseThrow(() -> new UserNotFoundException(id.toString()));
 
         user.setPasswordHash(newPasswordHash);
         User savedUser = userRepository.save(user);
@@ -154,7 +158,7 @@ public class UserService {
     @Transactional
     public void deleteUser(UUID id) {
         User user = userRepository.findById(id)
-            .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + id));
+            .orElseThrow(() -> new UserNotFoundException(id.toString()));
 
         user.setDeletedAt(OffsetDateTime.now());
         userRepository.save(user);
@@ -199,7 +203,7 @@ public class UserService {
     public UserDto findByEmail(String email) {
         return userRepository.findByEmail(email)
             .map(userMapper::toDto)
-            .orElseThrow(() -> new IllegalArgumentException("User not found with email: " + email));
+            .orElseThrow(() -> new UserNotFoundException("email", email));
     }
 
     /**
@@ -208,7 +212,7 @@ public class UserService {
     public UserDto findByUsername(String username) {
         return userRepository.findByUsername(username)
             .map(userMapper::toDto)
-            .orElseThrow(() -> new IllegalArgumentException("User not found with username: " + username));
+            .orElseThrow(() -> new UserNotFoundException("username", username));
     }
 
     /**
@@ -216,7 +220,7 @@ public class UserService {
      */
     public List<UserDto> findByRole(UserRoleEnum roleName) {
         Role role = roleService.findEntityByName(roleName)
-            .orElseThrow(() -> new IllegalArgumentException("Role not found: " + roleName));
+            .orElseThrow(() -> new RoleNotFoundException("name", roleName));
 
         List<User> users = userRepository.findByRole(role);
         return userMapper.toDtoList(users);
@@ -260,7 +264,7 @@ public class UserService {
     @Transactional
     public UserDto restoreUser(UUID id) {
         User user = userRepository.findById(id)
-            .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + id));
+            .orElseThrow(() -> new UserNotFoundException(id.toString()));
 
         user.setDeletedAt(null);
         User savedUser = userRepository.save(user);
@@ -287,10 +291,10 @@ public class UserService {
     @Transactional
     public UserDto changeUserRole(UUID userId, UserRoleEnum newRole) {
         User user = userRepository.findById(userId)
-            .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + userId));
+            .orElseThrow(() -> new UserNotFoundException(userId.toString()));
 
         Role role = roleService.findEntityByName(newRole)
-            .orElseThrow(() -> new IllegalArgumentException("Role not found: " + newRole));
+            .orElseThrow(() -> new RoleNotFoundException("name", newRole));
 
         user.setRole(role);
         User savedUser = userRepository.save(user);
