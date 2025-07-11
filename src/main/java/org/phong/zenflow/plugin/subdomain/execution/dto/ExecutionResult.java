@@ -1,17 +1,17 @@
 package org.phong.zenflow.plugin.subdomain.execution.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
-import lombok.Getter;
+import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 import java.util.List;
 import java.util.Map;
 
 @AllArgsConstructor
-@Getter
-@Setter
+@Data
 @NoArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class ExecutionResult {
     private String status;
     private List<String> logs;

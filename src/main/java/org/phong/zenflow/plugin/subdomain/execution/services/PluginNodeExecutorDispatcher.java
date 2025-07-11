@@ -5,6 +5,7 @@ import org.phong.zenflow.plugin.infrastructure.persistence.entity.PluginNode;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.exceptions.ExecutorException;
 import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
+import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -19,6 +20,7 @@ public class PluginNodeExecutorDispatcher {
 
     public ExecutionResult dispatch(PluginNode node, Map<String, Object> config, Map<String, Object> context) {
         String key = node.getPlugin().getName() + ":" + node.getName();
+        context = TemplateEngine.resolveAll(config, context);
 
         if ("builtin".equalsIgnoreCase(node.getExecutorType())) {
             return registry.getExecutor(key)
