@@ -1,6 +1,6 @@
-package org.phong.zenflow.plugin.subdomain.executor.interfaces;
+package org.phong.zenflow.plugin.subdomain.execution.interfaces;
 
-import org.phong.zenflow.plugin.subdomain.executor.dto.ExecutionResult;
+import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 
 import java.util.Map;
 

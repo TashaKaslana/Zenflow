@@ -1,6 +1,6 @@
-package org.phong.zenflow.plugin.subdomain.executor.registry;
+package org.phong.zenflow.plugin.subdomain.execution.registry;
 
-import org.phong.zenflow.plugin.subdomain.executor.interfaces.PluginNodeExecutor;
+import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;

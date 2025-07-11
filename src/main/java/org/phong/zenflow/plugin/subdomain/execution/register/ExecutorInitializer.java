@@ -1,8 +1,8 @@
-package org.phong.zenflow.plugin.subdomain.executor.register;
+package org.phong.zenflow.plugin.subdomain.execution.register;
 
 import lombok.RequiredArgsConstructor;
-import org.phong.zenflow.plugin.subdomain.executor.interfaces.PluginNodeExecutor;
-import org.phong.zenflow.plugin.subdomain.executor.registry.PluginNodeExecutorRegistry;
+import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
+import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.lang.NonNull;

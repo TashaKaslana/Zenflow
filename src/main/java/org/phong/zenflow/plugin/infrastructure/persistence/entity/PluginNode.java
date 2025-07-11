@@ -52,4 +52,11 @@ public class PluginNode extends BaseEntity {
     @Column(name = "config_schema")
     @JdbcTypeCode(SqlTypes.JSON)
     private Map<String, Object> configSchema;
+
+    @NotNull
+    @Column(name = "executor_type", nullable = false, length = 50)
+    private String executorType;
+
+    @Column(name = "entrypoint", length = Integer.MAX_VALUE)
+    private String entrypoint;
 }
