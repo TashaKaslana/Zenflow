@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/system-logs")
+@RequestMapping("/system-logs")
 @RequiredArgsConstructor
 class SystemLogController {
     private final SystemLogService systemLogService;
