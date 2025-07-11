@@ -6,6 +6,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.services.AuthService;
 import org.phong.zenflow.core.utils.HttpRequestUtils;
 import org.phong.zenflow.log.auditlog.dtos.CreateAuditLog;
+import org.phong.zenflow.log.auditlog.events.AuditLogBatchEvent;
+import org.phong.zenflow.log.auditlog.events.AuditLogEvent;
 import org.phong.zenflow.log.auditlog.events.AuditLogPublishableEvent;
 import org.phong.zenflow.log.auditlog.events.CreateAuditLogPayload;
 import org.phong.zenflow.log.auditlog.service.AuditLogService;
@@ -18,11 +20,12 @@ import org.springframework.transaction.event.TransactionalEventListener;
 @Slf4j
 public class AuditLogListener {
     private final AuditLogService activityLoggingService;
+    private final AuditLogService auditLogService;
     private final AuthService authService;
 
     @TransactionalEventListener
     @Async("applicationTaskExecutor")
-    public void handleHistoryActivityEvent(AuditLogPublishableEvent event) {
+    public void handleLogPublishableEvent(AuditLogPublishableEvent event) {
         CreateAuditLogPayload auditLog = event.getAuditLog();
 
         HttpServletRequest request = HttpRequestUtils.getCurrentHttpRequest();
@@ -46,5 +49,15 @@ public class AuditLogListener {
                 ipAddress,
                 userAgent
         ));
+    }
+
+    @TransactionalEventListener()
+    public void handle(AuditLogEvent event) {
+        auditLogService.logActivity(event.log());
+    }
+
+    @TransactionalEventListener()
+    public void handleBatch(AuditLogBatchEvent event) {
+        auditLogService.logBulkActions(event.logs());
     }
 }

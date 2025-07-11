@@ -12,6 +12,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @AllArgsConstructor
 @Slf4j
@@ -33,6 +35,13 @@ public class AuditLogService {
             );
         }
     }
+
+    public void logBulkActions(List<CreateAuditLog> actions) {
+        List<AuditLogEntity> logs = actions.stream().map(auditLogMapper::toEntity).toList();
+
+        auditLogRepository.saveAll(logs);
+    }
+
 
     public Page<AuditLogDto> logPage(Pageable pageable) {
         Page<AuditLogEntity> auditLogEntities = auditLogRepository.findAll(pageable);
