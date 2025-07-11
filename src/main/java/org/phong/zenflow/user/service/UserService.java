@@ -1,6 +1,8 @@
 package org.phong.zenflow.user.service;
 
 import lombok.RequiredArgsConstructor;
+import org.phong.zenflow.log.auditlog.annotations.AuditLog;
+import org.phong.zenflow.log.auditlog.enums.AuditAction;
 import org.phong.zenflow.user.dtos.CreateUserRequest;
 import org.phong.zenflow.user.dtos.UserDto;
 import org.phong.zenflow.user.exception.UserEmailExistsException;
@@ -37,6 +39,7 @@ public class UserService {
      * Create a new user using DTO
      */
     @Transactional
+    @AuditLog(action = AuditAction.USER_CREATE, targetIdExpression = "returnObject.id")
     public UserDto createUser(CreateUserRequest request) {
         // Validate uniqueness
         if (userRepository.existsByEmail(request.getEmail())) {
@@ -60,6 +63,7 @@ public class UserService {
      * Create multiple users in bulk
      */
     @Transactional
+    @AuditLog(action = AuditAction.USER_CREATE, description = "Bulk user creation", targetIdExpression = "returnObject.![id]")
     public List<UserDto> createUsers(List<CreateUserRequest> requests) {
         // Validate all requests first
         for (CreateUserRequest request : requests) {
@@ -115,6 +119,7 @@ public class UserService {
      * Update user using DTO
      */
     @Transactional
+    @AuditLog(action = AuditAction.USER_UPDATE, targetIdExpression = "#id")
     public UserDto updateUser(UUID id, CreateUserRequest request) {
         User user = userRepository.findById(id)
             .orElseThrow(() -> new UserNotFoundException(id.toString()));
@@ -143,6 +148,7 @@ public class UserService {
      * Update user password
      */
     @Transactional
+    @AuditLog(action = AuditAction.USER_UPDATE, description = "Password update", targetIdExpression = "#id")
     public UserDto updatePassword(UUID id, String newPasswordHash) {
         User user = userRepository.findById(id)
             .orElseThrow(() -> new UserNotFoundException(id.toString()));
@@ -156,6 +162,7 @@ public class UserService {
      * Soft delete user
      */
     @Transactional
+    @AuditLog(action = AuditAction.USER_DELETE, targetIdExpression = "#id")
     public void deleteUser(UUID id) {
         User user = userRepository.findById(id)
             .orElseThrow(() -> new UserNotFoundException(id.toString()));
@@ -168,6 +175,7 @@ public class UserService {
      * Delete multiple users in bulk
      */
     @Transactional
+    @AuditLog(action = AuditAction.USER_DELETE, description = "Bulk user deletion", targetIdExpression = "#ids")
     public void deleteUsers(List<UUID> ids) {
         List<User> users = userRepository.findByIdIn(ids);
         OffsetDateTime now = OffsetDateTime.now();
@@ -179,6 +187,7 @@ public class UserService {
      * Hard delete user
      */
     @Transactional
+    @AuditLog(action = AuditAction.USER_DELETE, description = "Hard user deletion", targetIdExpression = "#id")
     public void hardDeleteUser(UUID id) {
         userRepository.deleteById(id);
     }
@@ -262,6 +271,7 @@ public class UserService {
      * Restore deleted user
      */
     @Transactional
+    @AuditLog(action = AuditAction.USER_UPDATE, description = "User restoration", targetIdExpression = "#id")
     public UserDto restoreUser(UUID id) {
         User user = userRepository.findById(id)
             .orElseThrow(() -> new UserNotFoundException(id.toString()));
@@ -289,6 +299,7 @@ public class UserService {
      * Change user role
      */
     @Transactional
+    @AuditLog(action = AuditAction.USER_UPDATE, description = "User role change", targetIdExpression = "#userId")
     public UserDto changeUserRole(UUID userId, UserRoleEnum newRole) {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new UserNotFoundException(userId.toString()));

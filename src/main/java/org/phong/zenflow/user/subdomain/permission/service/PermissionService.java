@@ -1,6 +1,8 @@
 package org.phong.zenflow.user.subdomain.permission.service;
 
 import lombok.RequiredArgsConstructor;
+import org.phong.zenflow.log.auditlog.annotations.AuditLog;
+import org.phong.zenflow.log.auditlog.enums.AuditAction;
 import org.phong.zenflow.user.subdomain.permission.dtos.CreatePermissionRequest;
 import org.phong.zenflow.user.subdomain.permission.dtos.PermissionDto;
 import org.phong.zenflow.user.subdomain.permission.exception.PermissionNotFoundException;
@@ -29,6 +31,7 @@ public class PermissionService {
      * Create a new permission using DTO
      */
     @Transactional
+    @AuditLog(action = AuditAction.PERMISSION_CREATE, targetIdExpression = "returnObject.id")
     public PermissionDto createPermission(CreatePermissionRequest request) {
         Permission permission = permissionMapper.toEntity(request);
         Permission savedPermission = permissionRepository.save(permission);
@@ -39,6 +42,7 @@ public class PermissionService {
      * Create multiple permissions in bulk
      */
     @Transactional
+    @AuditLog(action = AuditAction.PERMISSION_CREATE, description = "Bulk permission creation", targetIdExpression = "returnObject.![id]")
     public List<PermissionDto> createPermissions(List<CreatePermissionRequest> requests) {
         List<Permission> permissions = requests.stream()
             .map(permissionMapper::toEntity)
@@ -77,6 +81,7 @@ public class PermissionService {
      * Update permission using DTO
      */
     @Transactional
+    @AuditLog(action = AuditAction.PERMISSION_UPDATE, targetIdExpression = "#id")
     public PermissionDto updatePermission(UUID id, CreatePermissionRequest request) {
         Permission permission = permissionRepository.findById(id)
             .orElseThrow(() -> new PermissionNotFoundException(id.toString()));
@@ -90,6 +95,7 @@ public class PermissionService {
      * Delete permission
      */
     @Transactional
+    @AuditLog(action = AuditAction.PERMISSION_DELETE, targetIdExpression = "#id")
     public void deletePermission(UUID id) {
         if (!permissionRepository.existsById(id)) {
             throw new PermissionNotFoundException(id.toString());
@@ -101,6 +107,7 @@ public class PermissionService {
      * Delete multiple permissions in bulk
      */
     @Transactional
+    @AuditLog(action = AuditAction.PERMISSION_DELETE, description = "Bulk permission deletion", targetIdExpression = "#ids")
     public void deletePermissions(List<UUID> ids) {
         List<Permission> permissions = permissionRepository.findByIdIn(ids);
         permissionRepository.deleteAll(permissions);

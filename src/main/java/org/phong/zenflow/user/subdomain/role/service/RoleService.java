@@ -1,6 +1,8 @@
 package org.phong.zenflow.user.subdomain.role.service;
 
 import lombok.RequiredArgsConstructor;
+import org.phong.zenflow.log.auditlog.annotations.AuditLog;
+import org.phong.zenflow.log.auditlog.enums.AuditAction;
 import org.phong.zenflow.user.subdomain.role.dtos.CreateRoleRequest;
 import org.phong.zenflow.user.subdomain.role.dtos.RoleDto;
 import org.phong.zenflow.user.subdomain.role.enums.UserRoleEnum;
@@ -29,6 +31,7 @@ public class RoleService {
      * Create a new role using DTO
      */
     @Transactional
+    @AuditLog(action = AuditAction.ROLE_CREATE, targetIdExpression = "returnObject.id")
     public RoleDto createRole(CreateRoleRequest request) {
         Role role = roleMapper.toEntity(request);
         Role savedRole = roleRepository.save(role);
@@ -39,6 +42,7 @@ public class RoleService {
      * Create multiple roles in bulk
      */
     @Transactional
+    @AuditLog(action = AuditAction.ROLE_CREATE, description = "Bulk role creation", targetIdExpression = "returnObject.![id]")
     public List<RoleDto> createRoles(List<CreateRoleRequest> requests) {
         List<Role> roles = requests.stream()
             .map(roleMapper::toEntity)
@@ -77,6 +81,7 @@ public class RoleService {
      * Update a role using DTO
      */
     @Transactional
+    @AuditLog(action = AuditAction.ROLE_UPDATE, targetIdExpression = "#id")
     public RoleDto updateRole(UUID id, CreateRoleRequest request) {
         Role role = roleRepository.findById(id)
             .orElseThrow(() -> new RoleNotFoundException(id.toString()));
@@ -90,6 +95,7 @@ public class RoleService {
      * Delete role
      */
     @Transactional
+    @AuditLog(action = AuditAction.ROLE_DELETE, targetIdExpression = "#id")
     public void deleteRole(UUID id) {
         if (!roleRepository.existsById(id)) {
             throw new RoleNotFoundException(id.toString());
@@ -101,6 +107,7 @@ public class RoleService {
      * Delete multiple roles in bulk
      */
     @Transactional
+    @AuditLog(action = AuditAction.ROLE_DELETE, description = "Bulk role deletion", targetIdExpression = "#ids")
     public void deleteRoles(List<UUID> ids) {
         List<Role> roles = roleRepository.findByIdIn(ids);
         roleRepository.deleteAll(roles);
