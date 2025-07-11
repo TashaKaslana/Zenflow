@@ -11,7 +11,7 @@ import java.util.UUID;
 /**
  * DTO for {@link AuditLogEntity}
  */
-public record AuditLogDto(UUID id, @NotNull UUID userId, @NotNull String action,
+public record AuditLogDto(@NotNull UUID id, @NotNull UUID userId, @NotNull String action,
                           @NotNull String targetType, @NotNull UUID targetId,
                           String description, Map<String, Object> metadata, String userAgent, String ipAddress,
                           @NotNull OffsetDateTime createdAt) implements Serializable {

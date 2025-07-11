@@ -2,10 +2,13 @@ package org.phong.zenflow.log.auditlog.service;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.phong.zenflow.log.auditlog.dtos.AuditLogDto;
 import org.phong.zenflow.log.auditlog.dtos.CreateAuditLog;
 import org.phong.zenflow.log.auditlog.infrastructure.mapstruct.AuditLogMapper;
 import org.phong.zenflow.log.auditlog.infrastructure.persistence.entity.AuditLogEntity;
 import org.phong.zenflow.log.auditlog.infrastructure.persistence.repository.AuditLogRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +32,11 @@ public class AuditLogService {
                     request.userId(), request.action(), e.getMessage()
             );
         }
+    }
+
+    public Page<AuditLogDto> logPage(Pageable pageable) {
+        Page<AuditLogEntity> auditLogEntities = auditLogRepository.findAll(pageable);
+        return auditLogEntities.map(auditLogMapper::toDto);
     }
 
     private static void logToConsole(CreateAuditLog request) {
