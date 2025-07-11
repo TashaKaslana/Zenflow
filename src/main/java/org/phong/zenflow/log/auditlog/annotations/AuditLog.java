@@ -10,7 +10,7 @@ import java.lang.annotation.Target;
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface AuditLog {
-    AuditAction action();
+    AuditAction action() default AuditAction.UNKNOWN;
     String description() default "";
     String targetIdExpression() default "";
 }
