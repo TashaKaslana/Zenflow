@@ -1,4 +1,4 @@
-package org.phong.zenflow.plugin.dto;
+package org.phong.zenflow.plugin.subdomain.node.dto;
 
 import jakarta.validation.constraints.NotNull;
 
@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * DTO for {@link org.phong.zenflow.plugin.infrastructure.persistence.entity.PluginNode}
+ * DTO for {@link org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.entity.PluginNode}
  */
 public record PluginNodeDto(@NotNull UUID id, @NotNull OffsetDateTime createdAt, @NotNull OffsetDateTime updatedAt,
                             UUID pluginId, @NotNull String name, @NotNull String type, String pluginNodeVersion,

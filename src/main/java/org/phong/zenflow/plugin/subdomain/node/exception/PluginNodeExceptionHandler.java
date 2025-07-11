@@ -1,4 +1,4 @@
-package org.phong.zenflow.plugin.exception;
+package org.phong.zenflow.plugin.subdomain.node.exception;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

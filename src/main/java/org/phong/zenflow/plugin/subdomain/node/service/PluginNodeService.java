@@ -1,16 +1,20 @@
-package org.phong.zenflow.plugin.services;
+package org.phong.zenflow.plugin.subdomain.node.service;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.log.auditlog.annotations.AuditLog;
 import org.phong.zenflow.log.auditlog.enums.AuditAction;
-import org.phong.zenflow.plugin.dto.CreatePluginNode;
-import org.phong.zenflow.plugin.dto.UpdatePluginNodeRequest;
-import org.phong.zenflow.plugin.exception.PluginNodeException;
-import org.phong.zenflow.plugin.infrastructure.mapstruct.PluginNodeMapper;
+import org.phong.zenflow.plugin.services.PluginService;
+import org.phong.zenflow.plugin.subdomain.node.dto.CreatePluginNode;
+import org.phong.zenflow.plugin.subdomain.node.dto.PluginNodeDto;
+import org.phong.zenflow.plugin.subdomain.node.dto.UpdatePluginNodeRequest;
+import org.phong.zenflow.plugin.subdomain.node.exception.PluginNodeException;
 import org.phong.zenflow.plugin.infrastructure.persistence.entity.Plugin;
-import org.phong.zenflow.plugin.infrastructure.persistence.entity.PluginNode;
-import org.phong.zenflow.plugin.infrastructure.persistence.repository.PluginNodeRepository;
+import org.phong.zenflow.plugin.subdomain.node.infrastructure.mapstruct.PluginNodeMapper;
+import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.entity.PluginNode;
+import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.repository.PluginNodeRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,16 +35,24 @@ public class PluginNodeService {
                 .orElseThrow(() -> new PluginNodeException("PluginNode not found with id: " + id));
     }
 
+    public PluginNodeDto findPluginNodeById(UUID id) {
+        return pluginNodeMapper.toDto(findById(id));
+    }
+
     @AuditLog(
             action = AuditAction.PLUGIN_NODE_CREATE,
             targetIdExpression = "returnObject.id"
     )
     @Transactional
-    public PluginNode createPluginNode(UUID pluginId, CreatePluginNode createPluginNode) {
+    public PluginNodeDto createPluginNode(UUID pluginId, CreatePluginNode createPluginNode) {
         PluginNode pluginNode = pluginNodeMapper.toEntity(createPluginNode);
         Plugin plugin = pluginService.findPluginById(pluginId);
         pluginNode.setPlugin(plugin);
-        return pluginNodeRepository.save(pluginNode);
+        return pluginNodeMapper.toDto(pluginNodeRepository.save(pluginNode));
+    }
+
+    public Page<PluginNodeDto> findAllByPluginId(Pageable pageable, UUID pluginId) {
+        return pluginNodeRepository.findAllByPluginId(pluginId, pageable).map(pluginNodeMapper::toDto);
     }
 
     @AuditLog(
@@ -48,11 +60,11 @@ public class PluginNodeService {
             targetIdExpression = "returnObject.id"
     )
     @Transactional
-    public PluginNode updatePluginNode(UUID id, UpdatePluginNodeRequest updatePluginNodeRequest) {
+    public PluginNodeDto updatePluginNode(UUID id, UpdatePluginNodeRequest updatePluginNodeRequest) {
         PluginNode existingPluginNode = findById(id);
         PluginNode updatedPluginNode = pluginNodeMapper.partialUpdate(updatePluginNodeRequest, existingPluginNode);
 
-        return pluginNodeRepository.save(updatedPluginNode);
+        return pluginNodeMapper.toDto(pluginNodeRepository.save(updatedPluginNode));
     }
 
     @AuditLog(
@@ -74,8 +86,8 @@ public class PluginNodeService {
         pluginNodeRepository.deleteAllById(ids);
     }
 
-    public PluginNode findPluginNodeByName(String name) {
-        return pluginNodeRepository.findByName(name)
-                .orElseThrow(() -> new PluginNodeException("PluginNode not found with name: " + name));
+    public PluginNodeDto findPluginNodeByName(String name) {
+        return pluginNodeMapper.toDto(pluginNodeRepository.findByName(name)
+                .orElseThrow(() -> new PluginNodeException("PluginNode not found with name: " + name)));
     }
 }

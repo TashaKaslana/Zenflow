@@ -1,11 +1,11 @@
 package org.phong.zenflow.plugin.subdomain.execution.services;
 
 import lombok.AllArgsConstructor;
-import org.phong.zenflow.plugin.infrastructure.persistence.entity.PluginNode;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.exceptions.ExecutorException;
 import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
 import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
+import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.entity.PluginNode;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 

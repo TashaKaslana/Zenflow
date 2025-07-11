@@ -1,4 +1,4 @@
-package org.phong.zenflow.plugin.infrastructure.persistence.entity;
+package org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.entity;
 
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.AttributeOverrides;
@@ -17,6 +17,7 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 import org.hibernate.type.SqlTypes;
 import org.phong.zenflow.core.superbase.BaseEntity;
+import org.phong.zenflow.plugin.infrastructure.persistence.entity.Plugin;
 
 import java.util.Map;
 
