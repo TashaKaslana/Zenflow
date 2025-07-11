@@ -28,7 +28,11 @@ public enum AuditAction {
 
     // ==== PLUGIN ====
     PLUGIN_UPLOAD("plugin.upload", TargetType.PLUGIN),
+    PLUGIN_UPDATE("plugin.update", TargetType.PLUGIN),
     PLUGIN_DELETE("plugin.delete", TargetType.PLUGIN),
+    PLUGIN_NODE_CREATE("plugin.node.create", TargetType.PLUGIN),
+    PLUGIN_NODE_UPDATE("plugin.node.update", TargetType.PLUGIN),
+    PLUGIN_NODE_DELETE("plugin.node.delete", TargetType.PLUGIN),
 
     // ==== SETTING ====
     SETTING_UPDATE("setting.update", TargetType.SETTING),
