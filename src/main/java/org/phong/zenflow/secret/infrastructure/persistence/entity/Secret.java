@@ -7,13 +7,14 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
-import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
@@ -25,14 +26,14 @@ import org.phong.zenflow.user.infrastructure.persistence.entities.User;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Getter
 @Setter
 @Entity
-@Table(name = "secrets", indexes = {
-        @Index(name = "idx_secrets_user_id", columnList = "user_id"),
-        @Index(name = "idx_secrets_project_id", columnList = "project_id")
+@Table(name = "secrets", uniqueConstraints = {
+        @UniqueConstraint(name = "secrets_scope_project_id_workflow_id_group_name_key_key", columnNames = {"scope", "project_id", "workflow_id", "group_name", "key"})
 })
 @AttributeOverrides({
         @AttributeOverride(name = "id", column = @Column(name = "id", nullable = false)),
@@ -57,21 +58,41 @@ public class Secret extends BaseEntity {
     private Workflow workflow;
 
     @NotNull
-    @Column(name = "name", nullable = false, length = Integer.MAX_VALUE)
-    private String name;
+    @Column(name = "group_name", nullable = false, length = Integer.MAX_VALUE)
+    private String groupName;
 
     @NotNull
-    @Column(name = "value", nullable = false, length = Integer.MAX_VALUE)
-    private String value;
+    @Column(name = "key", nullable = false, length = Integer.MAX_VALUE)
+    private String key;
+
+    @NotNull
+    @Column(name = "encrypted_value", nullable = false, length = Integer.MAX_VALUE)
+    private String encryptedValue;
+
+    @Column(name = "description", length = Integer.MAX_VALUE)
+    private String description;
+
+    @Column(name = "tags")
+    private List<String> tags;
+
+    @NotNull
+    @ColumnDefault("1")
+    @Column(name = "version")
+    private Integer version = 1;
+
+    @NotNull
+    @ColumnDefault("true")
+    @Column(name = "is_active")
+    private Boolean isActive = true;
+
+    @Column(name = "updated_by")
+    private UUID updatedBy;
+    @Column(name = "deleted_at")
+    private OffsetDateTime deletedAt;
 
     @NotNull
     @Column(name = "scope")
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     private SecretScope scope;
-
-    @Column(name = "updated_by")
-    private UUID updatedBy;
-    @Column(name = "deleted_at")
-    private OffsetDateTime deletedAt;
 }

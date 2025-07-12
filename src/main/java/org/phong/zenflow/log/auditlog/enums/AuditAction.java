@@ -14,6 +14,11 @@ public enum AuditAction {
     USER_UPDATE("user.update", TargetType.USER),
     USER_DELETE("user.delete", TargetType.USER),
 
+    // ==== SECRET ====
+    SECRET_CREATE("secret.create", TargetType.SECRET),
+    SECRET_UPDATE("secret.update", TargetType.SECRET),
+    SECRET_DELETE("secret.delete", TargetType.SECRET),
+
     // ==== WORKFLOW ====
     WORKFLOW_CREATE("workflow.create", TargetType.WORKFLOW),
     WORKFLOW_UPDATE("workflow.update", TargetType.WORKFLOW),

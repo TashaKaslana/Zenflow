@@ -7,6 +7,7 @@ import lombok.Getter;
 @AllArgsConstructor
 public enum TargetType {
     USER("user"),
+    SECRET("secret"),
     WORKFLOW("workflow"),
     PROJECT("project"),
     SETTING("setting"),
