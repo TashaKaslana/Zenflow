@@ -1,0 +1,65 @@
+package org.phong.zenflow.workflow.infrastructure.persistence.entity;
+
+import jakarta.persistence.AttributeOverride;
+import jakarta.persistence.AttributeOverrides;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotNull;
+import lombok.Getter;
+import lombok.Setter;
+import org.hibernate.annotations.ColumnDefault;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
+import org.hibernate.type.SqlTypes;
+import org.phong.zenflow.core.superbase.BaseFullAuditEntity;
+import org.phong.zenflow.project.infrastructure.persistence.entity.Project;
+
+import java.time.OffsetDateTime;
+import java.util.Map;
+
+@Getter
+@Setter
+@Entity
+@Table(name = "workflows", indexes = {
+        @Index(name = "idx_workflows_project_id", columnList = "project_id")
+})
+@AttributeOverrides({
+        @AttributeOverride(name = "id", column = @Column(name = "id", nullable = false)),
+        @AttributeOverride(name = "createdAt", column = @Column(name = "created_at", nullable = false)),
+        @AttributeOverride(name = "updatedAt", column = @Column(name = "updated_at", nullable = false)),
+        @AttributeOverride(name = "createdBy", column = @Column(name = "created_by")),
+        @AttributeOverride(name = "updatedBy", column = @Column(name = "updated_by"))
+})
+public class Workflow extends BaseFullAuditEntity {
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    @JoinColumn(name = "project_id", nullable = false)
+    private Project project;
+
+    @NotNull
+    @Column(name = "name", nullable = false, length = Integer.MAX_VALUE)
+    private String name;
+
+    @Column(name = "definition")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private Map<String, Object> definition;
+
+    @Column(name = "start_node", length = Integer.MAX_VALUE)
+    private String startNode;
+
+    @NotNull
+    @ColumnDefault("false")
+    @Column(name = "is_active", nullable = false)
+    private Boolean isActive = false;
+
+    @Column(name = "deleted_at")
+    private OffsetDateTime deletedAt;
+
+}

@@ -17,7 +17,6 @@ public interface PluginNodeMapper {
     @Mapping(source = "plugin.id", target = "pluginId")
     PluginNodeDto toDto(PluginNode pluginNode);
 
-    @Mapping(source = "pluginId", target = "plugin.id")
     PluginNode toEntity(CreatePluginNode createPluginNode);
 
     PluginNode toEntity(UpdatePluginNodeRequest updatePluginNodeRequest);
