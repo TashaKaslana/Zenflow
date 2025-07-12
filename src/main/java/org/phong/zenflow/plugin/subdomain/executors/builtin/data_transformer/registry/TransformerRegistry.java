@@ -1,7 +1,7 @@
-package org.phong.zenflow.plugin.subdomain.executor.builtin.data_transformer.registry;
+package org.phong.zenflow.plugin.subdomain.executors.builtin.data_transformer.registry;
 
 import org.phong.zenflow.plugin.subdomain.execution.exceptions.ExecutorException;
-import org.phong.zenflow.plugin.subdomain.executor.builtin.data_transformer.interfaces.DataTransformer;
+import org.phong.zenflow.plugin.subdomain.executors.builtin.data_transformer.interfaces.DataTransformer;
 import org.springframework.stereotype.Component;
 
 import java.util.List;

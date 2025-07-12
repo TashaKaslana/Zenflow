@@ -1,11 +1,11 @@
-package org.phong.zenflow.plugin.subdomain.executor.builtin.http;
+package org.phong.zenflow.plugin.subdomain.executors.builtin.http.executor;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
-import org.phong.zenflow.plugin.subdomain.execution.exceptions.ExecutorException;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
+import org.phong.zenflow.plugin.subdomain.executors.builtin.http.exception.HttpExecutorException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
@@ -66,13 +66,13 @@ public class HttpRequestExecutor implements PluginNodeExecutor {
         if (headers != null) {
             headers.forEach((key, value) -> {
                 if (!VALID_HEADER_NAME.matcher(key).matches()) {
-                    throw new ExecutorException("Invalid HTTP header name: " + key);
+                    throw new HttpExecutorException("Invalid HTTP header name: " + key);
                 }
 
                 if (value instanceof String) {
                     httpHeaders.set(key, (String) value);
                 } else {
-                    throw new ExecutorException("Unsupported header value type: " + value.getClass());
+                    throw new HttpExecutorException("Unsupported header value type: " + value.getClass());
                 }
             });
         }
