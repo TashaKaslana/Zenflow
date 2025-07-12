@@ -22,21 +22,21 @@ public class PluginNodeExecutorDispatcher {
         String key = node.getPlugin().getName() + ":" + node.getName();
         context = TemplateEngine.resolveAll(config, context);
 
-        if ("builtin".equalsIgnoreCase(node.getExecutorType())) {
-            return registry.getExecutor(key)
-                    .orElseThrow(() -> new ExecutorException("Executor not found: " + key))
-                    .execute(config, context);
+        switch (node.getExecutorType().toLowerCase()) {
+            case "builtin" -> {
+                return registry.getExecutor(key)
+                        .orElseThrow(() -> new ExecutorException("Executor not found: " + key))
+                        .execute(config, context);
+            }
+            case "remote" -> {
+                return webClient.post()
+                        .uri(node.getEntrypoint())
+                        .bodyValue(Map.of("config", config, "input", context))
+                        .retrieve()
+                        .bodyToMono(ExecutionResult.class)
+                        .block();
+            }
+            default ->  throw new ExecutorException("Unknown executor type: " + node.getExecutorType());
         }
-
-        if ("remote".equalsIgnoreCase(node.getExecutorType())) {
-            return webClient.post()
-                    .uri(node.getEntrypoint())
-                    .bodyValue(Map.of("config", config, "input", context))
-                    .retrieve()
-                    .bodyToMono(ExecutionResult.class)
-                    .block();
-        }
-
-        throw new ExecutorException("Unknown executor type: " + node.getExecutorType());
     }
 }

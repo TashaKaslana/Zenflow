@@ -1,6 +1,7 @@
-package org.phong.zenflow.plugin.subdomain.execution.executor;
+package org.phong.zenflow.plugin.subdomain.executor.builtin.http;
 
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.exceptions.ExecutorException;
@@ -18,6 +19,7 @@ import java.util.regex.Pattern;
 
 @Component
 @AllArgsConstructor
+@Slf4j
 public class HttpRequestExecutor implements PluginNodeExecutor {
     private static final Pattern VALID_HEADER_NAME = Pattern.compile("^[!#$%&'*+.^_`|~0-9a-zA-Z-]+$");
     private final WebClient webClient;
@@ -51,9 +53,11 @@ public class HttpRequestExecutor implements PluginNodeExecutor {
             return ExecutionResult.success(Map.of("response", response != null ? response : "No response"), logs);
         } catch (WebClientResponseException e) {
             logs.add("HTTP error with status " + e.getStatusCode());
+            log.debug("HTTP error with status {}", e.getStatusCode());
             return ExecutionResult.error(e.getResponseBodyAsString(), logs);
         } catch (Exception e) {
             logs.add("Unexpected error occurred");
+            log.debug("Unexpected error during HTTP request execution", e);
             return ExecutionResult.error(e.getMessage(), logs);
         }
     }
