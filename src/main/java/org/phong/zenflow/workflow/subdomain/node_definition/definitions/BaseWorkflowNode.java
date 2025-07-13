@@ -12,7 +12,7 @@ import java.util.Map;
 @Data
 @AllArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class BaseNodeDefinition {
+public class BaseWorkflowNode {
     @NotNull
     private final String key;
 

@@ -2,7 +2,7 @@ package org.phong.zenflow.workflow.subdomain.node_definition.definitions.base.ti
 
 import lombok.Getter;
 import lombok.Setter;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseNodeDefinition;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
 
 import java.util.List;
@@ -10,7 +10,7 @@ import java.util.Map;
 
 @Setter
 @Getter
-public final class TimeoutDefinition extends BaseNodeDefinition {
+public final class TimeoutDefinition extends BaseWorkflowNode {
     private final String duration;
     private final String unit;
 

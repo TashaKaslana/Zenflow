@@ -3,7 +3,7 @@ package org.phong.zenflow.workflow.subdomain.node_definition.definitions.base.co
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseNodeDefinition;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
 
 import java.util.List;
@@ -11,7 +11,7 @@ import java.util.Map;
 
 @Getter
 @Setter
-public final class SwitchDefinition extends BaseNodeDefinition {
+public final class SwitchDefinition extends BaseWorkflowNode {
     @NotNull
     private final String compare;
 

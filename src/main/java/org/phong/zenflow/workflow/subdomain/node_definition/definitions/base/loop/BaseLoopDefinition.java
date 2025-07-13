@@ -3,7 +3,7 @@ package org.phong.zenflow.workflow.subdomain.node_definition.definitions.base.lo
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseNodeDefinition;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
 
 import java.util.List;
@@ -11,7 +11,7 @@ import java.util.Map;
 
 @Getter
 @Setter
-public class BaseLoopDefinition extends BaseNodeDefinition {
+public class BaseLoopDefinition extends BaseWorkflowNode {
     @NotNull
     private final String loopType; //"for", "while"
 
