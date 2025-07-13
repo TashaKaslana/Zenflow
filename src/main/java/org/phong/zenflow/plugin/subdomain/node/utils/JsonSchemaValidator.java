@@ -1,4 +1,4 @@
-package org.phong.zenflow.core.utils.schema;
+package org.phong.zenflow.plugin.subdomain.node.utils;
 
 import org.everit.json.schema.Schema;
 import org.everit.json.schema.loader.SchemaLoader;
