@@ -109,6 +109,25 @@ public class RestApiResponse<T> {
         return ResponseEntity.noContent().build(); //204 No Content
     }
 
+    //Factory for 202 Accepted
+    public static <T> ResponseEntity<RestApiResponse<T>> accepted(T data, String message) {
+        RestApiResponse<T> body = new RestApiResponse<>(data, message);
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(body);
+    }
+
+    public static <T> ResponseEntity<RestApiResponse<T>> accepted(T data) {
+        return accepted(data, "ACCEPTED");
+    }
+
+    public static ResponseEntity<RestApiResponse<Void>> accepted(String message) {
+        RestApiResponse<Void> body = new RestApiResponse<>(message);
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(body);
+    }
+
+    public static ResponseEntity<RestApiResponse<Void>> accepted() {
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(new RestApiResponse<>("ACCEPTED"));
+    }
+
     // --- Error Factories (Now wrap ApiErrorResponse) ---
 
     // Helper to create ApiErrorResponse and wrap it
