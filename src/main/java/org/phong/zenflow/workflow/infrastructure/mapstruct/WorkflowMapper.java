@@ -17,7 +17,6 @@ public interface WorkflowMapper {
     @Mapping(source = "project.id", target = "projectId")
     WorkflowDto toDto(Workflow workflow);
 
-    @Mapping(source = "projectId", target = "project.id")
     Workflow toEntity(CreateWorkflowRequest createWorkflowRequest);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
