@@ -1,0 +1,21 @@
+package org.phong.zenflow.workflow.subdomain.node_definition.definitions.base.loop;
+
+import lombok.Getter;
+import lombok.Setter;
+import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
+
+import java.util.List;
+import java.util.Map;
+
+@Setter
+@Getter
+public final class WhileLoopDefinition extends BaseLoopDefinition {
+    private final String condition;
+
+    public WhileLoopDefinition(String key, NodeType type, List<String> next, Map<String, Object> config,
+                               Map<String, Object> metadata, Map<String, Object> policy,
+                               String loopType, List<String> loopEnd, String condition) {
+        super(key, type, next, config, metadata, policy, loopType, loopEnd);
+        this.condition = condition;
+    }
+}
