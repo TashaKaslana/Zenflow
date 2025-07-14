@@ -12,6 +12,7 @@ import java.util.Map;
 @Getter
 public final class TimeoutDefinition extends BaseWorkflowNode {
     private final String duration;
+    //supports: millisecond, seconds
     private final String unit;
 
     public TimeoutDefinition(String key, NodeType type, List<String> next, Map<String, Object> config,
