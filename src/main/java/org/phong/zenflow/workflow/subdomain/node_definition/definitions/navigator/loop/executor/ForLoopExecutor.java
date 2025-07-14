@@ -14,11 +14,46 @@ import java.util.Map;
 
 @Component
 public class ForLoopExecutor implements NodeExecutor<ForLoopDefinition> {
+
     @Override
     public ExecutionResult execute(ForLoopDefinition node, Map<String, Object> context) {
         String stateKey = "__loop_state__:" + node.getKey();
         Map<String, Object> loopState = ObjectConversion.convertObjectToMap(context.get(stateKey));
 
+        Result result = getResult(node, context, loopState, stateKey);
+
+        if (result.index() >= result.total()) {
+            context.remove(stateKey);
+            return ExecutionResult.nextNode(node.getLoopEnd().getFirst());
+        }
+
+        // Set loop vars
+        String indexVar = (String) node.getConfig().getOrDefault("indexVar", "index");
+        context.put(indexVar, result.index());
+
+        if (result.loopState().containsKey("items")) {
+            List<?> items = (List<?>) result.loopState().get("items");
+            context.put(node.getItemVar(), items.get(result.index()));
+        }
+
+        // Evaluate breakCondition
+        if (evalCondition(node.getConfig().get("breakCondition"), context)) {
+            context.remove(stateKey);
+            return ExecutionResult.nextNode(node.getLoopEnd().getFirst());
+        }
+
+        // Evaluate continueCondition
+        if (evalCondition(node.getConfig().get("continueCondition"), context)) {
+            result.loopState().put("index", result.index() + 1);
+            return ExecutionResult.nextNode(node.getKey()); // re-enter same node (next iteration)
+        }
+
+        // Continue loop
+        result.loopState().put("index", result.index() + 1);
+        return ExecutionResult.nextNode(node.getNext().getFirst());
+    }
+
+    private static Result getResult(ForLoopDefinition node, Map<String, Object> context, Map<String, Object> loopState, String stateKey) {
         if (loopState == null) {
             loopState = new HashMap<>();
             int total;
@@ -43,35 +78,19 @@ public class ForLoopExecutor implements NodeExecutor<ForLoopDefinition> {
 
         int index = (int) loopState.get("index");
         int total = (int) loopState.get("total");
+        return new Result(loopState, index, total);
+    }
 
-        if (index >= total) {
-            context.remove(stateKey);
-            return ExecutionResult.nextNode(node.getLoopEnd().getFirst());
-        }
+    private record Result(Map<String, Object> loopState, int index, int total) {
+    }
 
-        // index variable
-        String indexVar = (String) node.getConfig().getOrDefault("indexVar", "index");
-        context.put(indexVar, index);
-
-        if (loopState.containsKey("items")) {
-            List<?> items = (List<?>) loopState.get("items");
-            context.put(node.getItemVar(), items.get(index));
-        }
-
-        Object breakRaw = node.getConfig().get("breakCondition");
-        if (breakRaw instanceof String rawCondition && !rawCondition.isBlank()) {
-            String interpolated = TemplateEngine.resolveTemplate(rawCondition, context).toString();
+    private boolean evalCondition(Object rawExpr, Map<String, Object> context) {
+        if (rawExpr instanceof String expr && !expr.isBlank()) {
+            String interpolated = TemplateEngine.resolveTemplate(expr, context).toString();
             Object result = AviatorEvaluator.execute(interpolated);
-            if (Boolean.TRUE.equals(result)) {
-                context.remove(stateKey); // clear loop state
-                return ExecutionResult.nextNode(node.getLoopEnd().getFirst());
-            }
+            return Boolean.TRUE.equals(result);
         }
-
-        //continue to next iteration
-        loopState.put("index", index + 1);
-
-        return ExecutionResult.nextNode(node.getNext().getFirst());
+        return false;
     }
 }
 
