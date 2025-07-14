@@ -17,7 +17,6 @@ public interface WorkflowRunMapper {
     @Mapping(source = "workflow.id", target = "workflowId")
     WorkflowRunDto toDto(WorkflowRun workflowRun);
 
-    @Mapping(source = "workflowId", target = "workflow.id")
     WorkflowRun toEntity(CreateWorkflowRunRequest createWorkflowRunRequest);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)

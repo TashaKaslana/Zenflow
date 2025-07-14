@@ -7,6 +7,9 @@ import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * DTO for creating {@link org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger}
+ */
 @Data
 public class WorkflowTriggerDto {
     private UUID id;
