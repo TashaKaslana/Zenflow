@@ -28,10 +28,11 @@ public class WorkflowRunnerService {
             description = "Run a workflow with the given ID",
             targetIdExpression = "#workflowId"
     )
-    public void runWorkflow(UUID workflowRunId, UUID workflowId, WorkflowRunnerRequest request) {
+    public void runWorkflow(UUID workflowRunId, TriggerType triggerType, UUID workflowId, WorkflowRunnerRequest request) {
         log.debug("Starting workflow with ID: {}", workflowId);
+        triggerType = triggerType != null ? triggerType : TriggerType.MANUAL;
         try {
-            workflowRunService.startWorkflowRun(workflowRunId, workflowId, TriggerType.MANUAL);
+            workflowRunService.startWorkflowRun(workflowRunId, workflowId, triggerType);
             workflowEngineService.runWorkflow(workflowId);
             log.debug("Workflow with ID: {} completed successfully", workflowId);
         } catch (Exception e) {
