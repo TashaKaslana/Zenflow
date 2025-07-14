@@ -1,4 +1,4 @@
-package org.phong.zenflow.workflow.subdomain.node_definition.definitions.navigator.condition;
+package org.phong.zenflow.workflow.subdomain.node_definition.definitions.branch;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

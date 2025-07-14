@@ -5,7 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.navigator.NodeExecutor;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.navigator.loop.WhileLoopDefinition;
 import org.springframework.stereotype.Component;
 

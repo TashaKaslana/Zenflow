@@ -1,7 +1,7 @@
 package org.phong.zenflow.workflow.subdomain.node_definition.definitions.navigator.timeout.executor;
 
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.navigator.NodeExecutor;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.navigator.timeout.TimeoutDefinition;
 import org.springframework.stereotype.Component;
 

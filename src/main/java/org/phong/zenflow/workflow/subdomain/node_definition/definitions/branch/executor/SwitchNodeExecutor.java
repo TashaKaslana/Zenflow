@@ -1,10 +1,10 @@
-package org.phong.zenflow.workflow.subdomain.node_definition.definitions.navigator.condition.executor;
+package org.phong.zenflow.workflow.subdomain.node_definition.definitions.branch.executor;
 
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.navigator.NodeExecutor;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.navigator.condition.SwitchCaseDefinition;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.navigator.condition.SwitchDefinition;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.NodeExecutor;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.branch.SwitchCaseDefinition;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.branch.SwitchDefinition;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;

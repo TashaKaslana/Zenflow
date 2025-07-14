@@ -1,13 +1,13 @@
-package org.phong.zenflow.workflow.subdomain.node_definition.definitions.navigator.condition.executor;
+package org.phong.zenflow.workflow.subdomain.node_definition.definitions.branch.executor;
 
 import com.googlecode.aviator.AviatorEvaluator;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.navigator.NodeExecutor;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.navigator.condition.ConditionDefinition;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.navigator.condition.ConditionalCaseDefinition;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.NodeExecutor;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.branch.ConditionDefinition;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.branch.ConditionalCaseDefinition;
 import org.springframework.stereotype.Component;
 
 import java.util.List;

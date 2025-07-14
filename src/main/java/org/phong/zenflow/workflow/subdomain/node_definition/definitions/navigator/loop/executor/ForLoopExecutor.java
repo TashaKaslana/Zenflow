@@ -4,7 +4,7 @@ import com.googlecode.aviator.AviatorEvaluator;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.navigator.NodeExecutor;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.navigator.loop.ForLoopDefinition;
 import org.springframework.stereotype.Component;
 
