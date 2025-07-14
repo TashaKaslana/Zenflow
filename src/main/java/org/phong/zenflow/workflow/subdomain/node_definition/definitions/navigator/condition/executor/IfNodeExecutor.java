@@ -20,6 +20,9 @@ public class IfNodeExecutor implements NodeExecutor<IfDefinition> {
 
         // 1. Interpolate all templates first
         String interpolated = TemplateEngine.resolveTemplate(rawCondition, context).toString();
+        if (interpolated == null || interpolated.isBlank()) {
+            throw new IllegalArgumentException("If condition is null or blank after interpolation.");
+        }
         log.debug("Resolved IF condition: {}", interpolated);
 
         // 2. Evaluate expression using Aviator

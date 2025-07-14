@@ -1,6 +1,5 @@
 package org.phong.zenflow.workflow.subdomain.node_definition.definitions.navigator.condition.executor;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.googlecode.aviator.AviatorEvaluator;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +24,9 @@ public class ConditionNodeExecutor implements NodeExecutor<ConditionDefinition> 
             for (ConditionalCaseDefinition caseDef: cases) {
                 String rawCondition  = caseDef.when();
                 String interpolated = TemplateEngine.resolveTemplate(rawCondition, context).toString();
+                if (interpolated == null || interpolated.isBlank()) {
+                    throw new IllegalArgumentException("Node condition is null or blank after interpolation.");
+                }
                 log.debug("Resolved condition: {}", interpolated);
 
                 Boolean isMatch = (Boolean) AviatorEvaluator.execute(interpolated);
