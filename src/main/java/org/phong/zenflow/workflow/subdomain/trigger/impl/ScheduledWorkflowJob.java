@@ -1,4 +1,4 @@
-package org.phong.zenflow.workflow.subdomain.trigger.services;
+package org.phong.zenflow.workflow.subdomain.trigger.impl;
 
 import lombok.AllArgsConstructor;
 import org.phong.zenflow.workflow.subdomain.runner.service.WorkflowRunnerService;

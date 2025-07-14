@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.CreateWorkflowTriggerRequest;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.UpdateWorkflowTriggerRequest;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerDto;
+import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.phong.zenflow.workflow.subdomain.trigger.exception.WorkflowTriggerException;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.mapstruct.WorkflowTriggerMapper;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
@@ -27,6 +28,7 @@ public class WorkflowTriggerService {
 
     private final WorkflowTriggerRepository triggerRepository;
     private final WorkflowTriggerMapper triggerMapper;
+    private final WorkflowSchedulerService workflowSchedulerService;
 
     @Transactional
     public WorkflowTriggerDto createTrigger(CreateWorkflowTriggerRequest request) {
@@ -37,6 +39,10 @@ public class WorkflowTriggerService {
 
         WorkflowTrigger trigger = triggerMapper.toEntity(request);
         trigger = triggerRepository.save(trigger);
+
+        if (trigger.getType() == TriggerType.SCHEDULE) {
+            workflowSchedulerService.registerSchedule(trigger);
+        }
 
         log.info("Created workflow trigger with ID: {}", trigger.getId());
         return triggerMapper.toDto(trigger);
@@ -81,6 +87,9 @@ public class WorkflowTriggerService {
 
         triggerMapper.updateEntity(request, trigger);
         trigger = triggerRepository.save(trigger);
+        if (trigger.getType() == TriggerType.SCHEDULE && request.getType() != TriggerType.SCHEDULE) {
+            workflowSchedulerService.removeSchedule(triggerId);
+        }
 
         log.info("Updated workflow trigger with ID: {}", triggerId);
         return triggerMapper.toDto(trigger);
@@ -89,12 +98,15 @@ public class WorkflowTriggerService {
     @Transactional
     public void deleteTrigger(UUID triggerId) {
         log.info("Deleting workflow trigger with ID: {}", triggerId);
-
-        if (!triggerRepository.existsById(triggerId)) {
-            throw new WorkflowTriggerException.WorkflowTriggerNotFound(triggerId.toString());
-        }
+        WorkflowTrigger trigger = triggerRepository.findById(triggerId).orElseThrow(
+                () -> new WorkflowTriggerException.WorkflowTriggerNotFound(triggerId.toString())
+        );
 
         triggerRepository.deleteById(triggerId);
+
+        if (trigger.getType() == TriggerType.SCHEDULE) {
+            workflowSchedulerService.removeSchedule(triggerId);
+        }
         log.info("Deleted workflow trigger with ID: {}", triggerId);
     }
 
@@ -139,7 +151,7 @@ public class WorkflowTriggerService {
         validateTriggerConfigurationForType(request.getType(), request.getConfig());
     }
 
-    private void validateTriggerConfigurationForType(org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType type, java.util.Map<String, Object> config) {
+    private void validateTriggerConfigurationForType(TriggerType type, java.util.Map<String, Object> config) {
         switch (type) {
             case SCHEDULE:
                 if (config == null || !config.containsKey("cron")) {

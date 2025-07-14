@@ -2,7 +2,10 @@ package org.phong.zenflow.workflow.subdomain.trigger.services;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
+import org.phong.zenflow.workflow.subdomain.trigger.exception.WorkflowTriggerException;
+import org.phong.zenflow.workflow.subdomain.trigger.impl.ScheduledWorkflowJob;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
 import org.quartz.CronScheduleBuilder;
 import org.quartz.JobBuilder;
@@ -21,6 +24,7 @@ import java.util.UUID;
 
 @Service
 @AllArgsConstructor
+@Slf4j
 public class WorkflowSchedulerService {
     private final Scheduler scheduler;
 
@@ -53,7 +57,7 @@ public class WorkflowSchedulerService {
             }
             scheduler.scheduleJob(jobDetail, quartzTrigger);
         } catch (SchedulerException e) {
-            throw new RuntimeException("Failed to schedule job: " + trigger.getId(), e);
+            throw new WorkflowTriggerException("Failed to schedule job: " + trigger.getId(), e);
         }
     }
 
@@ -69,7 +73,8 @@ public class WorkflowSchedulerService {
         try {
             scheduler.deleteJob(JobKey.jobKey("job-" + triggerId));
         } catch (SchedulerException e) {
-            // log & continue
+            log.error("Failed to remove schedule for trigger ID: {}", triggerId, e);
+            throw new WorkflowTriggerException("Failed to remove schedule for trigger ID: " + triggerId, e);
         }
     }
 }
