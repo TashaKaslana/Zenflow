@@ -8,7 +8,7 @@ import org.phong.zenflow.log.auditlog.annotations.AuditLog;
 import org.phong.zenflow.log.auditlog.enums.AuditAction;
 import org.phong.zenflow.workflow.subdomain.engine.service.WorkflowEngineService;
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
-import org.phong.zenflow.workflow.subdomain.workflow_run.enums.TriggerType;
+import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.phong.zenflow.workflow.subdomain.workflow_run.service.WorkflowRunService;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;

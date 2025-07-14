@@ -1,7 +1,7 @@
 package org.phong.zenflow.workflow.subdomain.runner.interfaces;
 
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
-import org.phong.zenflow.workflow.subdomain.workflow_run.enums.TriggerType;
+import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 
 import java.util.UUID;
 

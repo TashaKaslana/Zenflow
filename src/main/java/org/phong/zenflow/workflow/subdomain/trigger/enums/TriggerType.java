@@ -1,4 +1,4 @@
-package org.phong.zenflow.workflow.subdomain.workflow_run.enums;
+package org.phong.zenflow.workflow.subdomain.trigger.enums;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

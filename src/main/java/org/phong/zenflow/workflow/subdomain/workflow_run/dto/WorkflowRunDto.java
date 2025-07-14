@@ -1,7 +1,7 @@
 package org.phong.zenflow.workflow.subdomain.workflow_run.dto;
 
 import jakarta.validation.constraints.NotNull;
-import org.phong.zenflow.workflow.subdomain.workflow_run.enums.TriggerType;
+import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.phong.zenflow.workflow.subdomain.workflow_run.enums.WorkflowStatus;
 
 import java.io.Serializable;

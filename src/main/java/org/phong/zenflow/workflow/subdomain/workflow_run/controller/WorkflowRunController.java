@@ -5,7 +5,7 @@ import org.phong.zenflow.core.responses.RestApiResponse;
 import org.phong.zenflow.workflow.subdomain.workflow_run.dto.CreateWorkflowRunRequest;
 import org.phong.zenflow.workflow.subdomain.workflow_run.dto.UpdateWorkflowRunRequest;
 import org.phong.zenflow.workflow.subdomain.workflow_run.dto.WorkflowRunDto;
-import org.phong.zenflow.workflow.subdomain.workflow_run.enums.TriggerType;
+import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.phong.zenflow.workflow.subdomain.workflow_run.enums.WorkflowStatus;
 import org.phong.zenflow.workflow.subdomain.workflow_run.service.WorkflowRunService;
 import org.springframework.data.domain.Page;

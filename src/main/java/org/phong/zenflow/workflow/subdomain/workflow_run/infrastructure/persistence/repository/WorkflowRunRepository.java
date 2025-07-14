@@ -1,6 +1,6 @@
 package org.phong.zenflow.workflow.subdomain.workflow_run.infrastructure.persistence.repository;
 
-import org.phong.zenflow.workflow.subdomain.workflow_run.enums.TriggerType;
+import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.phong.zenflow.workflow.subdomain.workflow_run.enums.WorkflowStatus;
 import org.phong.zenflow.workflow.subdomain.workflow_run.infrastructure.persistence.entity.WorkflowRun;
 import org.springframework.data.domain.Page;

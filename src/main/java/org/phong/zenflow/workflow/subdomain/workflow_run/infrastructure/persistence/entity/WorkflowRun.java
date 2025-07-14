@@ -19,7 +19,7 @@ import org.hibernate.annotations.OnDeleteAction;
 import org.hibernate.type.SqlTypes;
 import org.phong.zenflow.core.superbase.BaseIdEntity;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
-import org.phong.zenflow.workflow.subdomain.workflow_run.enums.TriggerType;
+import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.phong.zenflow.workflow.subdomain.workflow_run.enums.WorkflowStatus;
 
 import java.time.OffsetDateTime;
