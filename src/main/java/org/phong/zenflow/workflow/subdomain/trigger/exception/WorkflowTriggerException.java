@@ -1,8 +1,6 @@
 package org.phong.zenflow.workflow.subdomain.trigger.exception;
 
-import org.phong.zenflow.core.exception.BaseException;
-
-public class WorkflowTriggerException extends BaseException {
+public class WorkflowTriggerException extends RuntimeException {
     public WorkflowTriggerException(String message) {
         super(message);
     }

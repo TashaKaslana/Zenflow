@@ -6,7 +6,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.phong.zenflow.core.responses.ApiResponse;
+import org.phong.zenflow.core.responses.RestApiResponse;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.CreateWorkflowTriggerRequest;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.UpdateWorkflowTriggerRequest;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerDto;
@@ -14,7 +14,6 @@ import org.phong.zenflow.workflow.subdomain.trigger.services.WorkflowTriggerServ
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -32,128 +31,96 @@ public class WorkflowTriggerController {
 
     @Operation(summary = "Create a new workflow trigger")
     @PostMapping
-    public ResponseEntity<ApiResponse<WorkflowTriggerDto>> createTrigger(
+    public ResponseEntity<RestApiResponse<WorkflowTriggerDto>> createTrigger(
             @Valid @RequestBody CreateWorkflowTriggerRequest request) {
         log.info("Request to create workflow trigger for workflow ID: {}", request.getWorkflowId());
 
         WorkflowTriggerDto trigger = triggerService.createTrigger(request);
 
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.<WorkflowTriggerDto>builder()
-                        .success(true)
-                        .message("Workflow trigger created successfully")
-                        .data(trigger)
-                        .build());
+        return RestApiResponse.created(trigger, "Workflow trigger created successfully");
     }
 
     @Operation(summary = "Get a workflow trigger by ID")
     @GetMapping("/{triggerId}")
-    public ResponseEntity<ApiResponse<WorkflowTriggerDto>> getTriggerById(
+    public ResponseEntity<RestApiResponse<WorkflowTriggerDto>> getTriggerById(
             @Parameter(description = "Trigger ID") @PathVariable UUID triggerId) {
         log.info("Request to get workflow trigger with ID: {}", triggerId);
 
         WorkflowTriggerDto trigger = triggerService.getTriggerById(triggerId);
 
-        return ResponseEntity.ok(ApiResponse.<WorkflowTriggerDto>builder()
-                .success(true)
-                .message("Workflow trigger retrieved successfully")
-                .data(trigger)
-                .build());
+        return RestApiResponse.success(trigger, "Workflow trigger retrieved successfully");
     }
 
     @Operation(summary = "Get all workflow triggers")
     @GetMapping
-    public ResponseEntity<ApiResponse<Page<WorkflowTriggerDto>>> getAllTriggers(
+    public ResponseEntity<RestApiResponse<List<WorkflowTriggerDto>>> getAllTriggers(
             @PageableDefault(size = 20) Pageable pageable) {
         log.info("Request to get all workflow triggers");
 
         Page<WorkflowTriggerDto> triggers = triggerService.getAllTriggers(pageable);
 
-        return ResponseEntity.ok(ApiResponse.<Page<WorkflowTriggerDto>>builder()
-                .success(true)
-                .message("Workflow triggers retrieved successfully")
-                .data(triggers)
-                .build());
+        return RestApiResponse.success(triggers, "Workflow triggers retrieved successfully");
     }
 
     @Operation(summary = "Get workflow triggers by workflow ID")
     @GetMapping("/workflow/{workflowId}")
-    public ResponseEntity<ApiResponse<List<WorkflowTriggerDto>>> getTriggersByWorkflowId(
+    public ResponseEntity<RestApiResponse<List<WorkflowTriggerDto>>> getTriggersByWorkflowId(
             @Parameter(description = "Workflow ID") @PathVariable UUID workflowId) {
         log.info("Request to get triggers for workflow ID: {}", workflowId);
 
         List<WorkflowTriggerDto> triggers = triggerService.getTriggersByWorkflowId(workflowId);
 
-        return ResponseEntity.ok(ApiResponse.<List<WorkflowTriggerDto>>builder()
-                .success(true)
-                .message("Workflow triggers retrieved successfully")
-                .data(triggers)
-                .build());
+        return RestApiResponse.success(triggers, "Workflow triggers retrieved successfully");
     }
 
     @Operation(summary = "Update a workflow trigger")
     @PutMapping("/{triggerId}")
-    public ResponseEntity<ApiResponse<WorkflowTriggerDto>> updateTrigger(
+    public ResponseEntity<RestApiResponse<WorkflowTriggerDto>> updateTrigger(
             @Parameter(description = "Trigger ID") @PathVariable UUID triggerId,
             @Valid @RequestBody UpdateWorkflowTriggerRequest request) {
         log.info("Request to update workflow trigger with ID: {}", triggerId);
 
         WorkflowTriggerDto trigger = triggerService.updateTrigger(triggerId, request);
 
-        return ResponseEntity.ok(ApiResponse.<WorkflowTriggerDto>builder()
-                .success(true)
-                .message("Workflow trigger updated successfully")
-                .data(trigger)
-                .build());
+        return RestApiResponse.success(trigger, "Workflow trigger updated successfully");
     }
 
     @Operation(summary = "Delete a workflow trigger")
     @DeleteMapping("/{triggerId}")
-    public ResponseEntity<ApiResponse<Void>> deleteTrigger(
+    public ResponseEntity<RestApiResponse<Void>> deleteTrigger(
             @Parameter(description = "Trigger ID") @PathVariable UUID triggerId) {
         log.info("Request to delete workflow trigger with ID: {}", triggerId);
 
         triggerService.deleteTrigger(triggerId);
 
-        return ResponseEntity.ok(ApiResponse.<Void>builder()
-                .success(true)
-                .message("Workflow trigger deleted successfully")
-                .build());
+        return RestApiResponse.success("Workflow trigger deleted successfully");
     }
 
     @Operation(summary = "Enable a workflow trigger")
     @PostMapping("/{triggerId}/enable")
-    public ResponseEntity<ApiResponse<WorkflowTriggerDto>> enableTrigger(
+    public ResponseEntity<RestApiResponse<WorkflowTriggerDto>> enableTrigger(
             @Parameter(description = "Trigger ID") @PathVariable UUID triggerId) {
         log.info("Request to enable workflow trigger with ID: {}", triggerId);
 
         WorkflowTriggerDto trigger = triggerService.enableTrigger(triggerId);
 
-        return ResponseEntity.ok(ApiResponse.<WorkflowTriggerDto>builder()
-                .success(true)
-                .message("Workflow trigger enabled successfully")
-                .data(trigger)
-                .build());
+        return RestApiResponse.success(trigger, "Workflow trigger enabled successfully");
     }
 
     @Operation(summary = "Disable a workflow trigger")
     @PostMapping("/{triggerId}/disable")
-    public ResponseEntity<ApiResponse<WorkflowTriggerDto>> disableTrigger(
+    public ResponseEntity<RestApiResponse<WorkflowTriggerDto>> disableTrigger(
             @Parameter(description = "Trigger ID") @PathVariable UUID triggerId) {
         log.info("Request to disable workflow trigger with ID: {}", triggerId);
 
         WorkflowTriggerDto trigger = triggerService.disableTrigger(triggerId);
 
-        return ResponseEntity.ok(ApiResponse.<WorkflowTriggerDto>builder()
-                .success(true)
-                .message("Workflow trigger disabled successfully")
-                .data(trigger)
-                .build());
+        return RestApiResponse.success(trigger, "Workflow trigger disabled successfully");
     }
 
     @Operation(summary = "Manually trigger a workflow")
     @PostMapping("/{triggerId}/execute")
-    public ResponseEntity<ApiResponse<Void>> executeTrigger(
+    public ResponseEntity<RestApiResponse<Void>> executeTrigger(
             @Parameter(description = "Trigger ID") @PathVariable UUID triggerId) {
         log.info("Request to manually execute workflow trigger with ID: {}", triggerId);
 
@@ -163,9 +130,6 @@ public class WorkflowTriggerController {
         // TODO: Integrate with workflow execution service
         // workflowExecutionService.executeWorkflow(trigger.getWorkflowId(), triggerId);
 
-        return ResponseEntity.ok(ApiResponse.<Void>builder()
-                .success(true)
-                .message("Workflow trigger executed successfully")
-                .build());
+        return RestApiResponse.success("Workflow trigger executed successfully");
     }
 }

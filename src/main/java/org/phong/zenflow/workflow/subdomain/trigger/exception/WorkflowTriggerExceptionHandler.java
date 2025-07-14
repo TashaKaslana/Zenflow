@@ -1,63 +1,48 @@
 package org.phong.zenflow.workflow.subdomain.trigger.exception;
 
 import lombok.extern.slf4j.Slf4j;
-import org.phong.zenflow.core.responses.ErrorResponse;
-import org.springframework.http.HttpStatus;
+import org.phong.zenflow.core.responses.RestApiResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.WebRequest;
 
 @Slf4j
 @RestControllerAdvice
 public class WorkflowTriggerExceptionHandler {
 
     @ExceptionHandler(WorkflowTriggerException.WorkflowTriggerNotFound.class)
-    public ResponseEntity<ErrorResponse> handleWorkflowTriggerNotFound(WorkflowTriggerException.WorkflowTriggerNotFound ex) {
+    public ResponseEntity<RestApiResponse<Void>> handleWorkflowTriggerNotFound(
+            WorkflowTriggerException.WorkflowTriggerNotFound ex, WebRequest request) {
         log.error("Workflow trigger not found", ex);
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(ErrorResponse.builder()
-                        .message(ex.getMessage())
-                        .errorCode("WORKFLOW_TRIGGER_NOT_FOUND")
-                        .build());
+        return RestApiResponse.notFound(request.getDescription(false), ex.getMessage());
     }
 
     @ExceptionHandler(WorkflowTriggerException.WorkflowTriggerAlreadyExists.class)
-    public ResponseEntity<ErrorResponse> handleWorkflowTriggerAlreadyExists(WorkflowTriggerException.WorkflowTriggerAlreadyExists ex) {
+    public ResponseEntity<RestApiResponse<Void>> handleWorkflowTriggerAlreadyExists(
+            WorkflowTriggerException.WorkflowTriggerAlreadyExists ex, WebRequest request) {
         log.error("Workflow trigger already exists", ex);
-        return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(ErrorResponse.builder()
-                        .message(ex.getMessage())
-                        .errorCode("WORKFLOW_TRIGGER_ALREADY_EXISTS")
-                        .build());
+        return RestApiResponse.conflict(request.getDescription(false), ex.getMessage());
     }
 
     @ExceptionHandler(WorkflowTriggerException.InvalidTriggerConfiguration.class)
-    public ResponseEntity<ErrorResponse> handleInvalidTriggerConfiguration(WorkflowTriggerException.InvalidTriggerConfiguration ex) {
+    public ResponseEntity<RestApiResponse<Void>> handleInvalidTriggerConfiguration(
+            WorkflowTriggerException.InvalidTriggerConfiguration ex, WebRequest request) {
         log.error("Invalid trigger configuration", ex);
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ErrorResponse.builder()
-                        .message(ex.getMessage())
-                        .errorCode("INVALID_TRIGGER_CONFIGURATION")
-                        .build());
+        return RestApiResponse.badRequest(request.getDescription(false), ex.getMessage());
     }
 
     @ExceptionHandler(WorkflowTriggerException.TriggerExecutionFailure.class)
-    public ResponseEntity<ErrorResponse> handleTriggerExecutionFailure(WorkflowTriggerException.TriggerExecutionFailure ex) {
+    public ResponseEntity<RestApiResponse<Void>> handleTriggerExecutionFailure(
+            WorkflowTriggerException.TriggerExecutionFailure ex, WebRequest request) {
         log.error("Trigger execution failure", ex);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorResponse.builder()
-                        .message(ex.getMessage())
-                        .errorCode("TRIGGER_EXECUTION_FAILURE")
-                        .build());
+        return RestApiResponse.internalServerError(request.getDescription(false), ex.getMessage());
     }
 
     @ExceptionHandler(WorkflowTriggerException.class)
-    public ResponseEntity<ErrorResponse> handleGenericWorkflowTriggerException(WorkflowTriggerException ex) {
+    public ResponseEntity<RestApiResponse<Void>> handleGenericWorkflowTriggerException(
+            WorkflowTriggerException ex, WebRequest request) {
         log.error("Workflow trigger error", ex);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorResponse.builder()
-                        .message(ex.getMessage())
-                        .errorCode("WORKFLOW_TRIGGER_ERROR")
-                        .build());
+        return RestApiResponse.internalServerError(request.getDescription(false), ex.getMessage());
     }
 }
