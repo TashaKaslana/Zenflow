@@ -20,13 +20,13 @@ public class PluginNodeExecutorDispatcher {
 
     public ExecutionResult dispatch(PluginNode node, Map<String, Object> config, Map<String, Object> context) {
         String key = node.getPlugin().getName() + ":" + node.getName();
-        context = TemplateEngine.resolveAll(config, context);
+        Map<String, Object> resolvedContext = TemplateEngine.resolveAll(config, context);
 
         switch (node.getExecutorType().toLowerCase()) {
             case "builtin" -> {
                 return registry.getExecutor(key)
                         .orElseThrow(() -> new ExecutorException("Executor not found: " + key))
-                        .execute(config, context);
+                        .execute(config, resolvedContext);
             }
             case "remote" -> {
                 return webClient.post()

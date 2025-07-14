@@ -53,9 +53,12 @@ public class WorkflowEngineService {
 
             Map<String, Object> definition = workflow.getDefinition();
             List<BaseWorkflowNode> workflowSchema = objectMapper.readValue((JsonParser) definition.get("nodes"), new TypeReference<>() {});
-            String startNodeKey = (String) definition.get("start");
 
-            BaseWorkflowNode workingNode = workflowSchema.getFirst();
+            String startNodeKey = (String) definition.get("start");
+            BaseWorkflowNode workingNode = workflowSchema.stream()
+                    .filter(node -> node.getKey().equals(startNodeKey))
+                    .findFirst()
+                    .orElseThrow(() -> new WorkflowEngineException("Start node not found: " + startNodeKey));
             while (workingNode != null) {
                 if (workingNode.getType() == NodeType.PLUGIN) {
                     PluginDefinition pluginDefinition = (PluginDefinition) workingNode;
