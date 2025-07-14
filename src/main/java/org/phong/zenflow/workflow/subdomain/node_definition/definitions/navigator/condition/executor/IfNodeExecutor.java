@@ -15,6 +15,11 @@ import java.util.Map;
 @Slf4j
 public class IfNodeExecutor implements NodeExecutor<IfDefinition> {
     @Override
+    public String getNodeType() {
+        return "if";
+    }
+
+    @Override
     public ExecutionResult execute(IfDefinition node, Map<String, Object> context) {
         String rawCondition = node.getCondition(); // e.g. "{{user.age}} > 18"
 

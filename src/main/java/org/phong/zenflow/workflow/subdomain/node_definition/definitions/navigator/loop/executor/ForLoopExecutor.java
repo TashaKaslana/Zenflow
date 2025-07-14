@@ -16,6 +16,11 @@ import java.util.Map;
 public class ForLoopExecutor implements NodeExecutor<ForLoopDefinition> {
 
     @Override
+    public String getNodeType() {
+        return "for_loop";
+    }
+
+    @Override
     public ExecutionResult execute(ForLoopDefinition node, Map<String, Object> context) {
         String stateKey = "__loop_state__:" + node.getKey();
         Map<String, Object> loopState = ObjectConversion.convertObjectToMap(context.get(stateKey));

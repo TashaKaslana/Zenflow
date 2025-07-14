@@ -13,6 +13,11 @@ import java.util.Map;
 @Slf4j
 public class SwitchNodeExecutor implements NodeExecutor<SwitchDefinition> {
     @Override
+    public String getNodeType() {
+        return "switch";
+    }
+
+    @Override
     public ExecutionResult execute(SwitchDefinition node, Map<String, Object> context) {
         Object value = context.get(node.getCompare());
         if (value == null) {

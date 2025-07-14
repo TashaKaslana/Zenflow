@@ -14,6 +14,11 @@ public class TimeoutExecutor implements NodeExecutor<TimeoutDefinition> {
     private static final long MAX_SLEEP_MILLIS = 30_000;
 
     @Override
+    public String getNodeType() {
+        return "timeout";
+    }
+
+    @Override
     public ExecutionResult execute(TimeoutDefinition node, Map<String, Object> context) {
         try {
             if (node.getDuration() == null || node.getUnit() == null) {

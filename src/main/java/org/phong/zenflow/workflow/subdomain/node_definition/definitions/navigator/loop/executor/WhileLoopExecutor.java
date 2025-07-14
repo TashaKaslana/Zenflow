@@ -16,6 +16,11 @@ import java.util.Map;
 @Slf4j
 public class WhileLoopExecutor implements NodeExecutor<WhileLoopDefinition> {
     @Override
+    public String getNodeType() {
+        return "while_loop";
+    }
+
+    @Override
     public ExecutionResult execute(WhileLoopDefinition node, Map<String, Object> context) {
         String rawCondition = node.getCondition();
         String interpolated = TemplateEngine.resolveTemplate(rawCondition, context).toString();

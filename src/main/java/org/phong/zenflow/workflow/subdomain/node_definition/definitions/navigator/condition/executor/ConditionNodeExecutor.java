@@ -18,6 +18,11 @@ import java.util.Map;
 @AllArgsConstructor
 public class ConditionNodeExecutor implements NodeExecutor<ConditionDefinition> {
     @Override
+    public String getNodeType() {
+        return "condition";
+    }
+
+    @Override
     public ExecutionResult execute(ConditionDefinition node, Map<String, Object> context) {
         try {
             List<ConditionalCaseDefinition> cases = node.getCases();
