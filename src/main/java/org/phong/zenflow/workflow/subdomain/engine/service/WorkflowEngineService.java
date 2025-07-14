@@ -91,9 +91,7 @@ public class WorkflowEngineService {
                         PluginNodeDefinition pluginNodeDefinition = ((PluginDefinition) nodeSchema).getPluginNode();
                         nodeConfigSchema = schemaRegistry.getPluginSchema(pluginNodeDefinition.pluginName(), pluginNodeDefinition.nodeName());
                     }
-                    case CONDITION, SWITCH, IF, NodeType.FOR_LOOP, NodeType.WHILE_LOOP -> {
-                        nodeConfigSchema = schemaRegistry.getBuiltinSchema(nodeType.getType());
-                    }
+                    case CONDITION, SWITCH, IF, NodeType.FOR_LOOP, NodeType.WHILE_LOOP -> nodeConfigSchema = schemaRegistry.getBuiltinSchema(nodeType.getType());
                     default -> log.warn("Unknown node type: {}", nodeType);
                 }
 

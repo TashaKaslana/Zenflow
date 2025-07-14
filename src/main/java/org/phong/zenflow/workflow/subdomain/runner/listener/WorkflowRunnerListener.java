@@ -1,7 +1,7 @@
 package org.phong.zenflow.workflow.subdomain.runner.listener;
 
 import lombok.AllArgsConstructor;
-import org.phong.zenflow.workflow.subdomain.runner.interfaces.WorkflowRunnerPublishableEvent;
+import org.phong.zenflow.workflow.subdomain.runner.event.WorkflowRunnerPublishableEvent;
 import org.phong.zenflow.workflow.subdomain.runner.service.WorkflowRunnerService;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
@@ -19,7 +19,7 @@ public class WorkflowRunnerListener {
                 event.getWorkflowRunId(),
                 event.getTriggerType(),
                 event.getWorkflowId(),
-                event.getRequest()
+                event.request()
         );
     }
 }

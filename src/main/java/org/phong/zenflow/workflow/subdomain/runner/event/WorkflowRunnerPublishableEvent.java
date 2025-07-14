@@ -1,4 +1,4 @@
-package org.phong.zenflow.workflow.subdomain.runner.interfaces;
+package org.phong.zenflow.workflow.subdomain.runner.event;
 
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
@@ -12,5 +12,5 @@ public interface WorkflowRunnerPublishableEvent {
 
     UUID getWorkflowId();
 
-    WorkflowRunnerRequest getRequest();
+    WorkflowRunnerRequest request();
 }

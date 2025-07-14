@@ -2,14 +2,17 @@ package org.phong.zenflow.workflow.subdomain.trigger.services;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.CreateWorkflowTriggerRequest;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.UpdateWorkflowTriggerRequest;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerDto;
+import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.phong.zenflow.workflow.subdomain.trigger.exception.WorkflowTriggerException;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.mapstruct.WorkflowTriggerMapper;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.repository.WorkflowTriggerRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -29,6 +32,7 @@ public class WorkflowTriggerService {
     private final WorkflowTriggerRepository triggerRepository;
     private final WorkflowTriggerMapper triggerMapper;
     private final WorkflowSchedulerService workflowSchedulerService;
+    private final ApplicationEventPublisher publisher;
 
     @Transactional
     public WorkflowTriggerDto createTrigger(CreateWorkflowTriggerRequest request) {
@@ -137,14 +141,21 @@ public class WorkflowTriggerService {
     }
 
     @Transactional
-    public void markTriggered(UUID triggerId) {
+    public void executeTrigger(UUID triggerId, WorkflowRunnerRequest request) {
+        log.info("Execute workflow trigger with ID: {}", triggerId);
+        WorkflowTrigger trigger = markTriggered(triggerId);
+        publisher.publishEvent(new WorkflowTriggerEvent(trigger, request));
+    }
+
+    @Transactional
+    public WorkflowTrigger markTriggered(UUID triggerId) {
         log.debug("Marking trigger as triggered: {}", triggerId);
 
         WorkflowTrigger trigger = triggerRepository.findById(triggerId)
                 .orElseThrow(() -> new WorkflowTriggerException.WorkflowTriggerNotFound(triggerId.toString()));
 
         trigger.setLastTriggeredAt(OffsetDateTime.now());
-        triggerRepository.save(trigger);
+        return triggerRepository.save(trigger);
     }
 
     private void validateTriggerConfiguration(CreateWorkflowTriggerRequest request) {

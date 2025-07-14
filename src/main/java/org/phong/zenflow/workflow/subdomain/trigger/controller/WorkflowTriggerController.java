@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.responses.RestApiResponse;
+import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.CreateWorkflowTriggerRequest;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.UpdateWorkflowTriggerRequest;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerDto;
@@ -15,14 +16,21 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.UUID;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/v1/triggers")
+@RequestMapping("/api/v1/workflows/triggers")
 @RequiredArgsConstructor
 @Tag(name = "Workflow Triggers", description = "Endpoints for managing workflow triggers")
 public class WorkflowTriggerController {
@@ -121,14 +129,10 @@ public class WorkflowTriggerController {
     @Operation(summary = "Manually trigger a workflow")
     @PostMapping("/{triggerId}/execute")
     public ResponseEntity<RestApiResponse<Void>> executeTrigger(
-            @Parameter(description = "Trigger ID") @PathVariable UUID triggerId) {
-        log.info("Request to manually execute workflow trigger with ID: {}", triggerId);
-
-        // Mark the trigger as triggered
-        triggerService.markTriggered(triggerId);
-
-        // TODO: Integrate with workflow execution service
-        // workflowExecutionService.executeWorkflow(trigger.getWorkflowId(), triggerId);
+            @Parameter(description = "Trigger ID") @PathVariable UUID triggerId,
+            @Valid @RequestBody WorkflowRunnerRequest request
+    ) {
+        triggerService.executeTrigger(triggerId, request);
 
         return RestApiResponse.success("Workflow trigger executed successfully");
     }
