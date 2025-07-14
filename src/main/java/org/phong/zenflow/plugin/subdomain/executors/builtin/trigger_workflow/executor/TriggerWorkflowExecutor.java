@@ -8,6 +8,7 @@ import org.phong.zenflow.workflow.subdomain.runner.event.WorkflowRunnerPublishab
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
 import java.util.UUID;
@@ -19,10 +20,11 @@ public class TriggerWorkflowExecutor implements PluginNodeExecutor {
 
     @Override
     public String key() {
-        return "Core.TriggerWorkflow";
+        return "core.trigger_workflow";
     }
 
     @Override
+    @Transactional
     public ExecutionResult execute(Map<String, Object> config, Map<String, Object> context) {
         //TODO: ensure trigger workflow is enabled, exists and is own by the user
         UUID workflowRunId = (UUID) config.get("workflow_run_id");
