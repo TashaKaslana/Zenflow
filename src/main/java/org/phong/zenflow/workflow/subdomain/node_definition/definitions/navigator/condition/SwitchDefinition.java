@@ -1,4 +1,4 @@
-package org.phong.zenflow.workflow.subdomain.node_definition.definitions.base.condition;
+package org.phong.zenflow.workflow.subdomain.node_definition.definitions.navigator.condition;
 
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;

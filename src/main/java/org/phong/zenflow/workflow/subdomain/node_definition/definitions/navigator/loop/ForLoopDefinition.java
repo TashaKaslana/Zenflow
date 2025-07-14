@@ -1,4 +1,4 @@
-package org.phong.zenflow.workflow.subdomain.node_definition.definitions.base.loop;
+package org.phong.zenflow.workflow.subdomain.node_definition.definitions.navigator.loop;
 
 import lombok.Getter;
 import lombok.Setter;

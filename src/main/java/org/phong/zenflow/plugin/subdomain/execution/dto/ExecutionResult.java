@@ -17,6 +17,7 @@ public class ExecutionResult {
     private List<String> logs;
     private String error;
     private Map<String, Object> output;
+    private String nextNodeKey;
 
     public static ExecutionResult success(Map<String, Object> output, List<String> logs) {
         ExecutionResult result = new ExecutionResult();
@@ -31,6 +32,15 @@ public class ExecutionResult {
         result.setStatus("error");
         result.setError(errorMessage);
         result.setLogs(logs);
+        return result;
+    }
+
+    public static ExecutionResult nextNode(String nextNodeKey) {
+        ExecutionResult result = new ExecutionResult();
+        result.setStatus("next");
+        result.setNextNodeKey(nextNodeKey);
+        result.setOutput(null);
+        result.setLogs(null);
         return result;
     }
 }

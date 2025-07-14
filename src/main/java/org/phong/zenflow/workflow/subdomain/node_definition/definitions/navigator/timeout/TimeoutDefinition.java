@@ -1,4 +1,4 @@
-package org.phong.zenflow.workflow.subdomain.node_definition.definitions.base.timeout;
+package org.phong.zenflow.workflow.subdomain.node_definition.definitions.navigator.timeout;
 
 import lombok.Getter;
 import lombok.Setter;
