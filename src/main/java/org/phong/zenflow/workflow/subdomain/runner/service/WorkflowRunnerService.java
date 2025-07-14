@@ -10,6 +10,7 @@ import org.phong.zenflow.workflow.subdomain.engine.service.WorkflowEngineService
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.phong.zenflow.workflow.subdomain.workflow_run.service.WorkflowRunService;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -28,9 +29,10 @@ public class WorkflowRunnerService {
             description = "Run a workflow with the given ID",
             targetIdExpression = "#workflowId"
     )
-    public void runWorkflow(UUID workflowRunId, TriggerType triggerType, UUID workflowId, WorkflowRunnerRequest request) {
+    public void runWorkflow(UUID workflowRunId, TriggerType triggerType, UUID workflowId, @Nullable WorkflowRunnerRequest request) {
         log.debug("Starting workflow with ID: {}", workflowId);
         triggerType = triggerType != null ? triggerType : TriggerType.MANUAL;
+        boolean isNotifyByWebhook = request != null && !request.callbackUrl().isEmpty();
         try {
             workflowRunService.startWorkflowRun(workflowRunId, workflowId, triggerType);
             workflowEngineService.runWorkflow(workflowId);
@@ -38,10 +40,14 @@ public class WorkflowRunnerService {
         } catch (Exception e) {
             log.warn("Error running workflow with ID: {}", workflowId, e);
             workflowRunService.handleWorkflowError(workflowId, e);
-            notifyCallbackUrl(request.callbackUrl(), workflowRunId);
+            if (isNotifyByWebhook) {
+                notifyCallbackUrl(request.callbackUrl(), workflowRunId);
+            }
         } finally {
             workflowRunService.completeWorkflowRun(workflowId);
-            notifyCallbackUrl(request.callbackUrl(), workflowRunId);
+            if (isNotifyByWebhook) {
+                notifyCallbackUrl(request.callbackUrl(), workflowRunId);
+            }
         }
     }
 
