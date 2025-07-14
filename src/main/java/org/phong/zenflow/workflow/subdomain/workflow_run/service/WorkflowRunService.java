@@ -62,14 +62,42 @@ public class WorkflowRunService {
      */
     @Transactional
     @AuditLog(action = AuditAction.WORKFLOW_EXECUTE, targetIdExpression = "returnObject.id")
-    public WorkflowRunDto startWorkflowRun(UUID workflowId, TriggerType triggerType) {
+    public WorkflowRunDto startWorkflowRun(UUID workflowRunIdParam, UUID workflowId, TriggerType triggerType) {
+        UUID workflowRunId = workflowRunIdParam != null ? workflowRunIdParam : UUID.randomUUID();
         CreateWorkflowRunRequest request = new CreateWorkflowRunRequest(
+                workflowRunId,
                 workflowId,
                 WorkflowStatus.RUNNING,
                 null,
                 triggerType
         );
         return createWorkflowRun(request);
+    }
+
+    @Transactional
+    public void handleWorkflowError(UUID workflowId, Exception e) {
+        // Log the error and create a workflow run with error status
+        String errorMessage = e.getMessage() != null ? e.getMessage() : "Unknown error occurred";
+        UpdateWorkflowRunRequest request = new UpdateWorkflowRunRequest(
+                WorkflowStatus.ERROR,
+                errorMessage,
+                null,
+                OffsetDateTime.now()
+        );
+        updateWorkflowRun(workflowId, request);
+    }
+
+    @AuditLog(action = AuditAction.WORKFLOW_UPDATE, targetIdExpression = "#workflowId", description = "Complete workflow run")
+    @Transactional
+    public void completeWorkflowRun(UUID workflowId) {
+        // Complete the workflow run with success status
+        UpdateWorkflowRunRequest request = new UpdateWorkflowRunRequest(
+                WorkflowStatus.SUCCESS,
+                null,
+                null,
+                OffsetDateTime.now()
+        );
+        updateWorkflowRun(workflowId, request);
     }
 
     /**

@@ -37,7 +37,7 @@ public class WorkflowRunController {
     public ResponseEntity<RestApiResponse<WorkflowRunDto>> startWorkflowRun(
             @PathVariable UUID workflowId,
             @RequestParam(defaultValue = "MANUAL") TriggerType triggerType) {
-        WorkflowRunDto workflowRun = workflowRunService.startWorkflowRun(workflowId, triggerType);
+        WorkflowRunDto workflowRun = workflowRunService.startWorkflowRun(null, workflowId, triggerType);
         return RestApiResponse.created(workflowRun, "Workflow run started successfully");
     }
 

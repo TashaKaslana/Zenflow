@@ -10,6 +10,6 @@ import java.util.UUID;
 /**
  * DTO for creating {@link org.phong.zenflow.workflow.subdomain.workflow_run.infrastructure.persistence.entity.WorkflowRun}
  */
-public record CreateWorkflowRunRequest(@NotNull UUID workflowId, @NotNull WorkflowStatus status,
-                                      String error, TriggerType triggerType) implements Serializable {
+public record CreateWorkflowRunRequest(@NotNull UUID id, @NotNull UUID workflowId, @NotNull WorkflowStatus status,
+                                       String error, TriggerType triggerType) implements Serializable {
 }
