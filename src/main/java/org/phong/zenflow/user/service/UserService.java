@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.phong.zenflow.log.auditlog.annotations.AuditLog;
 import org.phong.zenflow.log.auditlog.enums.AuditAction;
 import org.phong.zenflow.user.dtos.CreateUserRequest;
+import org.phong.zenflow.user.dtos.UpdateUserRequest;
 import org.phong.zenflow.user.dtos.UserDto;
 import org.phong.zenflow.user.exception.UserEmailExistsException;
 import org.phong.zenflow.user.exception.UserNotFoundException;
@@ -120,22 +121,22 @@ public class UserService {
      */
     @Transactional
     @AuditLog(action = AuditAction.USER_UPDATE, targetIdExpression = "#id")
-    public UserDto updateUser(UUID id, CreateUserRequest request) {
+    public UserDto updateUser(UUID id, UpdateUserRequest request) {
         User user = userRepository.findById(id)
             .orElseThrow(() -> new UserNotFoundException(id.toString()));
 
         // Check if another user takes email/username
-        if (!user.getEmail().equals(request.getEmail()) && userRepository.existsByEmail(request.getEmail())) {
-            throw new UserEmailExistsException(request.getEmail());
+        if (!user.getEmail().equals(request.email()) && userRepository.existsByEmail(request.email())) {
+            throw new UserEmailExistsException(request.email());
         }
-        if (!user.getUsername().equals(request.getUsername()) && userRepository.existsByUsername(request.getUsername())) {
-            throw new UserUsernameExistsException(request.getUsername());
+        if (!user.getUsername().equals(request.username()) && userRepository.existsByUsername(request.username())) {
+            throw new UserUsernameExistsException(request.username());
         }
 
         // Get role if specified
-        if (request.getRoleName() != null) {
-            Role role = roleService.findEntityByName(request.getRoleName())
-                .orElseThrow(() -> new RoleNotFoundException("name", request.getRoleName()));
+        if (request.roleName() != null) {
+            Role role = roleService.findEntityByName(request.roleName())
+                .orElseThrow(() -> new RoleNotFoundException("name", request.roleName()));
             user.setRole(role);
         }
 
