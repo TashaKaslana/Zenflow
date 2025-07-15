@@ -18,8 +18,6 @@ public interface NotificationMapper {
     @Mapping(source = "workflow.id", target = "workflowId")
     NotificationDto toDto(Notification notification);
 
-    @Mapping(source = "userId", target = "user.id")
-    @Mapping(source = "workflowId", target = "workflow.id")
     Notification toEntity(CreateNotificationRequest createNotificationRequest);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)

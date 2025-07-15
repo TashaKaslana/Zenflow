@@ -32,6 +32,8 @@ public class DataTransformerExecutor implements PluginNodeExecutor {
     @Override
     public ExecutionResult execute(Map<String, Object> config, Map<String, Object> context) {
         List<String> logs = new ArrayList<>();
+        log.debug("Executing DataTransformerExecutor with config: {}", config);
+        logs.add("Executing DataTransformerExecutor with config: " + config);
 
         try {
             String transformerName = (String) config.get("name");
