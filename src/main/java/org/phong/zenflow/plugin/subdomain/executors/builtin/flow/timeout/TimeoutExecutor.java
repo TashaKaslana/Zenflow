@@ -1,34 +1,42 @@
-package org.phong.zenflow.workflow.subdomain.node_definition.definitions.navigator.timeout.executor;
+package org.phong.zenflow.plugin.subdomain.executors.builtin.flow.timeout;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.NodeExecutor;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.navigator.timeout.TimeoutDefinition;
+import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
 
 //TODO: a draft implementation of TimeoutExecutor, consider change status to 'paused' and add time to wakeup instead of sleeping the thread
 @Component
-public class TimeoutExecutor implements NodeExecutor<TimeoutDefinition> {
+public class TimeoutExecutor implements PluginNodeExecutor {
 
     private static final long MAX_SLEEP_MILLIS = 30_000;
 
     @Override
-    public String getNodeType() {
-        return "timeout";
+    public String key() {
+        return "core.timeout";
     }
 
     @Override
-    public ExecutionResult execute(TimeoutDefinition node, Map<String, Object> context) {
+    public ExecutionResult execute(Map<String, Object> config, Map<String, Object> context) {
         try {
-            if (node.getDuration() == null || node.getUnit() == null) {
+            String duration = (String) config.get("duration");
+            String unit = (String) config.get("unit");
+
+            if (duration == null || unit == null) {
                 throw new IllegalArgumentException("Timeout duration and unit must be specified.");
             }
 
-            long millis = parseDuration(node.getDuration(), node.getUnit());
+            long millis = parseDuration(duration, unit);
             Thread.sleep(millis);
 
-            return ExecutionResult.nextNode(node.getNext().isEmpty() ? null : node.getNext().getFirst());
+            Map<String, Object> nextConfig = ObjectConversion.safeConvert(config.get("next"), new TypeReference<>() {});
+            String nextNode = nextConfig != null && !nextConfig.isEmpty() ?
+                    (String) nextConfig.get("first") : null;
+
+            return ExecutionResult.nextNode(nextNode);
 
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -54,4 +62,3 @@ public class TimeoutExecutor implements NodeExecutor<TimeoutDefinition> {
         return millis;
     }
 }
-

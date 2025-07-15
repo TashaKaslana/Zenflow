@@ -1,11 +1,11 @@
-package org.phong.zenflow.workflow.subdomain.node_definition.definitions.navigator.loop.executor;
+package org.phong.zenflow.plugin.subdomain.executors.builtin.flow.loop;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.googlecode.aviator.AviatorEvaluator;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
+import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.NodeExecutor;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.navigator.loop.ForLoopDefinition;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -13,64 +13,65 @@ import java.util.List;
 import java.util.Map;
 
 @Component
-public class ForLoopExecutor implements NodeExecutor<ForLoopDefinition> {
-
+public class ForLoopExecutor implements PluginNodeExecutor {
     @Override
-    public String getNodeType() {
-        return "for_loop";
+    public String key() {
+        return "core.for_loop";
     }
 
     @Override
-    public ExecutionResult execute(ForLoopDefinition node, Map<String, Object> context) {
-        String stateKey = "__loop_state__:" + node.getKey();
+    public ExecutionResult execute(Map<String, Object> config, Map<String, Object> context) {
+        String stateKey = "__loop_state__:" + config.get("key");
         Map<String, Object> loopState = ObjectConversion.convertObjectToMap(context.get(stateKey));
 
-        Result result = getResult(node, context, loopState, stateKey);
+        Result result = getResult(config, context, loopState, stateKey);
+        List<String> loopEnd = ObjectConversion.safeConvert(config.get("loopEnd"), new TypeReference<>() {});
 
         if (result.index() >= result.total()) {
             context.remove(stateKey);
-            return ExecutionResult.nextNode(node.getLoopEnd().getFirst());
+            return ExecutionResult.nextNode(loopEnd.getFirst());
         }
 
         // Set loop vars
-        String indexVar = (String) node.getConfig().getOrDefault("indexVar", "index");
+        String indexVar = (String) config.getOrDefault("indexVar", "index");
         context.put(indexVar, result.index());
 
         if (result.loopState().containsKey("items")) {
             List<?> items = (List<?>) result.loopState().get("items");
-            context.put(node.getItemVar(), items.get(result.index()));
+            context.put((String) config.get("itemVar"), items.get(result.index()));
         }
 
         // Evaluate breakCondition
-        if (evalCondition(node.getConfig().get("breakCondition"), context)) {
+        if (evalCondition(config.get("breakCondition"), context)) {
             context.remove(stateKey);
-            return ExecutionResult.nextNode(node.getLoopEnd().getFirst());
+            return ExecutionResult.nextNode(loopEnd.getFirst());
         }
 
         // Evaluate continueCondition
-        if (evalCondition(node.getConfig().get("continueCondition"), context)) {
+        if (evalCondition(config.get("continueCondition"), context)) {
             result.loopState().put("index", result.index() + 1);
-            return ExecutionResult.nextNode(node.getKey()); // re-enter same node (next iteration)
+            return ExecutionResult.nextNode((String) config.get("key")); // re-enter same node (next iteration)
         }
 
         // Continue loop
         result.loopState().put("index", result.index() + 1);
-        return ExecutionResult.nextNode(node.getNext().getFirst());
+        return ExecutionResult.nextNode(loopEnd.getFirst());
     }
 
-    private static Result getResult(ForLoopDefinition node, Map<String, Object> context, Map<String, Object> loopState, String stateKey) {
+    private static Result getResult(Map<String, Object> config, Map<String, Object> context, Map<String, Object> loopState, String stateKey) {
         if (loopState == null) {
             loopState = new HashMap<>();
             int total;
 
-            if (node.getIterator() != null) {
-                Object iterableRaw = context.get(node.getIterator());
+            String iterator = (String) config.get("iterator");
+            if (iterator != null) {
+                Object iterableRaw = context.get(iterator);
                 if (!(iterableRaw instanceof List<?> items)) {
-                    throw new IllegalArgumentException("Iterator '" + node.getIterator() + "' is not a list.");
+                    throw new IllegalArgumentException("Iterator '" + iterator + "' is not a list.");
                 }
                 loopState.put("items", items);
                 total = items.size();
-            } else if (node.getConfig().get("times") instanceof Number timesRaw) {
+            } else if (config.get("times") instanceof Number timesRaw) {
                 total = timesRaw.intValue();
             } else {
                 throw new IllegalArgumentException("ForLoop requires either 'iterator' or 'times' in config.");
@@ -98,5 +99,3 @@ public class ForLoopExecutor implements NodeExecutor<ForLoopDefinition> {
         return false;
     }
 }
-
-

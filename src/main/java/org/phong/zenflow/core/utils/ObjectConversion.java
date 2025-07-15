@@ -27,7 +27,7 @@ public final class ObjectConversion {
     private ObjectConversion() {}
 
     public static Map<String, Object> convertObjectToMap(Object obj) {
-        return mapper.convertValue(obj, new TypeReference<Map<String, Object>>() {});
+        return mapper.convertValue(obj, new TypeReference<>() {});
     }
 
     public static Map<String, Object> convertObjectToFilteredMap(Object obj) {
@@ -69,6 +69,10 @@ public final class ObjectConversion {
 
     public static <T> T safeConvert(Object input, Class<T> targetType) {
         if (targetType.isInstance(input)) return targetType.cast(input);
-        return new ObjectMapper().convertValue(input, targetType);
+        return mapper.convertValue(input, targetType);
+    }
+
+    public static <T> T safeConvert(Object input, TypeReference<T> typeReference) {
+        return mapper.convertValue(input, typeReference);
     }
 }
