@@ -152,4 +152,8 @@ public class ProjectService {
     public long count() {
         return projectRepository.count();
     }
+
+    public Project getReferenceById(UUID id) {
+        return projectRepository.getReferenceById(id);
+    }
 }

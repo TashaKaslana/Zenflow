@@ -19,7 +19,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 import org.hibernate.type.SqlTypes;
-import org.phong.zenflow.core.superbase.BaseEntity;
+import org.phong.zenflow.core.superbase.BaseEntityWithUpdatedBy;
 import org.phong.zenflow.project.infrastructure.persistence.entity.Project;
 import org.phong.zenflow.secret.enums.SecretScope;
 import org.phong.zenflow.user.infrastructure.persistence.entities.User;
@@ -38,9 +38,10 @@ import java.util.UUID;
 @AttributeOverrides({
         @AttributeOverride(name = "id", column = @Column(name = "id", nullable = false)),
         @AttributeOverride(name = "createdAt", column = @Column(name = "created_at", nullable = false)),
-        @AttributeOverride(name = "updatedAt", column = @Column(name = "updated_at", nullable = false))
+        @AttributeOverride(name = "updatedAt", column = @Column(name = "updated_at", nullable = false)),
+        @AttributeOverride(name = "updatedBy", column = @Column(name = "updated_by"))
 })
-public class Secret extends BaseEntity {
+public class Secret extends BaseEntityWithUpdatedBy {
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
@@ -87,6 +88,7 @@ public class Secret extends BaseEntity {
 
     @Column(name = "updated_by")
     private UUID updatedBy;
+
     @Column(name = "deleted_at")
     private OffsetDateTime deletedAt;
 

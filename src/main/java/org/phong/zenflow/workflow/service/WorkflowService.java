@@ -205,4 +205,8 @@ public class WorkflowService {
     public long countActiveByProjectId(UUID projectId) {
         return workflowRepository.countByProjectIdAndIsActive(projectId, true);
     }
+
+    public Workflow getReferenceById(UUID id) {
+        return workflowRepository.getReferenceById(id);
+    }
 }

@@ -330,4 +330,8 @@ public class UserService {
             .map(UserUsernameProjection::getUsername)
             .toList();
     }
+
+    public User getReferenceById(UUID id) {
+        return userRepository.getReferenceById(id);
+    }
 }
