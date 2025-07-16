@@ -47,6 +47,9 @@ public class WorkflowRunService {
         WorkflowRun workflowRun = workflowRunMapper.toEntity(request);
         workflowRun.setWorkflow(workflow);
         workflowRun.setStartedAt(OffsetDateTime.now());
+        if (request.retryOfId() != null) {
+            workflowRun.setRetryOf(workflowRunRepository.getReferenceById(request.retryOfId()));
+        }
 
         // Set endedAt if status is completed
         if (request.status() == WorkflowStatus.SUCCESS || request.status() == WorkflowStatus.ERROR) {
@@ -69,7 +72,10 @@ public class WorkflowRunService {
                 workflowId,
                 WorkflowStatus.RUNNING,
                 null,
-                triggerType
+                triggerType,
+                null, // retryOfId
+                null, // retryAttempt
+                null  // nextRetryAt
         );
         return createWorkflowRun(request);
     }
@@ -82,7 +88,10 @@ public class WorkflowRunService {
                 WorkflowStatus.ERROR,
                 errorMessage,
                 null,
-                OffsetDateTime.now()
+                OffsetDateTime.now(),
+                null, // retryOfId
+                null, // retryAttempt
+                null  // nextRetryAt
         );
         updateWorkflowRun(workflowId, request);
     }
@@ -95,7 +104,10 @@ public class WorkflowRunService {
                 WorkflowStatus.SUCCESS,
                 null,
                 null,
-                OffsetDateTime.now()
+                OffsetDateTime.now(),
+                null, // retryOfId
+                null, // retryAttempt
+                null  // nextRetryAt
         );
         updateWorkflowRun(workflowId, request);
     }
@@ -264,7 +276,10 @@ public class WorkflowRunService {
                 WorkflowStatus.SUCCESS,
                 null,
                 null,
-                OffsetDateTime.now()
+                OffsetDateTime.now(),
+                null, // retryOfId
+                null, // retryAttempt
+                null  // nextRetryAt
         );
         return updateWorkflowRun(id, request);
     }
@@ -279,7 +294,10 @@ public class WorkflowRunService {
                 WorkflowStatus.ERROR,
                 errorMessage,
                 null,
-                OffsetDateTime.now()
+                OffsetDateTime.now(),
+                null, // retryOfId
+                null, // retryAttempt
+                null  // nextRetryAt
         );
         return updateWorkflowRun(id, request);
     }

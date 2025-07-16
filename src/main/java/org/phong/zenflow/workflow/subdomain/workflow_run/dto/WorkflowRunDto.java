@@ -13,5 +13,6 @@ import java.util.UUID;
  */
 public record WorkflowRunDto(@NotNull UUID id, @NotNull UUID workflowId, @NotNull WorkflowStatus status,
                             String error, TriggerType triggerType, @NotNull OffsetDateTime startedAt,
-                            OffsetDateTime endedAt) implements Serializable {
+                            OffsetDateTime endedAt, UUID retryOfId, Integer retryAttempt,
+                             OffsetDateTime nextRetryAt) implements Serializable {
 }

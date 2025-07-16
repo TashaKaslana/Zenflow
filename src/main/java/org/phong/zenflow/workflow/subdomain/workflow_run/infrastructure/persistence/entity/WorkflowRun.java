@@ -13,6 +13,7 @@ import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
@@ -60,4 +61,16 @@ public class WorkflowRun extends BaseIdEntity {
 
     @Column(name = "ended_at")
     private OffsetDateTime endedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @OnDelete(action = OnDeleteAction.SET_NULL)
+    @JoinColumn(name = "retry_of")
+    private WorkflowRun retryOf;
+
+    @ColumnDefault("0")
+    @Column(name = "retry_attempt")
+    private Integer retryAttempt = 0;
+
+    @Column(name = "next_retry_at")
+    private OffsetDateTime nextRetryAt;
 }
