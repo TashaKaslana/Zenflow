@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -112,5 +113,21 @@ public class WorkflowController {
     public ResponseEntity<RestApiResponse<Long>> countActiveWorkflowsByProjectId(@PathVariable UUID projectId) {
         long count = workflowService.countActiveByProjectId(projectId);
         return RestApiResponse.success(count, "Active workflow count retrieved successfully");
+    }
+
+    @PostMapping("/{id}/nodes")
+    public ResponseEntity<RestApiResponse<List<Map<String, Object>>>> upsertNodes(
+            @PathVariable UUID id,
+            @RequestBody List<Map<String, Object>> nodes) {
+        List<Map<String, Object>> updatedNodes = workflowService.upsertNodes(id, nodes);
+        return RestApiResponse.success(updatedNodes, "Workflow nodes updated successfully");
+    }
+
+    @DeleteMapping("/{id}/nodes/{nodeKey}")
+    public ResponseEntity<RestApiResponse<List<Map<String, Object>>>> removeNode(
+            @PathVariable UUID id,
+            @PathVariable String nodeKey) {
+        List<Map<String, Object>> remainingNodes = workflowService.removeNode(id, nodeKey);
+        return RestApiResponse.success(remainingNodes, "Workflow node removed successfully");
     }
 }

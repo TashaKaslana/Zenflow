@@ -1,6 +1,8 @@
 package org.phong.zenflow.workflow.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.RequiredArgsConstructor;
+import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.log.auditlog.annotations.AuditLog;
 import org.phong.zenflow.log.auditlog.enums.AuditAction;
 import org.phong.zenflow.project.exception.ProjectNotFoundException;
@@ -13,6 +15,7 @@ import org.phong.zenflow.workflow.exception.WorkflowException;
 import org.phong.zenflow.workflow.infrastructure.mapstruct.WorkflowMapper;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.infrastructure.persistence.repository.WorkflowRepository;
+import org.phong.zenflow.workflow.subdomain.node_definition.services.WorkflowDefinitionService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -20,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -30,6 +34,7 @@ public class WorkflowService {
     private final WorkflowRepository workflowRepository;
     private final ProjectRepository projectRepository;
     private final WorkflowMapper workflowMapper;
+    private final WorkflowDefinitionService definitionService;
 
     /**
      * Create a new workflow
@@ -58,6 +63,47 @@ public class WorkflowService {
         return requests.stream()
                 .map(this::createWorkflow)
                 .toList();
+    }
+
+    public List<Map<String, Object>> upsertNodes(UUID workflowId, List<Map<String, Object>> incomingNodes) {
+        Workflow workflow = getWorkflow(workflowId);
+        if (incomingNodes == null || incomingNodes.isEmpty()) {
+            throw new WorkflowException("Incoming nodes cannot be null or empty");
+        }
+        List<Map<String, Object>> nodes;
+        if (workflow.getDefinition() == null) {
+            nodes = List.of();
+        } else {
+            nodes = ObjectConversion.safeConvert(workflow.getDefinition().get("nodes"), new TypeReference<>() {
+            });
+        }
+
+        definitionService.upsertNodes(nodes, incomingNodes);
+
+        Map<String, Object> updatedDefinition = Map.of("nodes", nodes);
+        workflow.setDefinition(updatedDefinition);
+        workflowRepository.save(workflow);
+
+        return nodes;
+    }
+
+    public List<Map<String, Object>> removeNode(UUID workflowId, String keyToRemove) {
+        Workflow workflow = getWorkflow(workflowId);
+        List<Map<String, Object>> nodes = ObjectConversion.safeConvert(workflow.getDefinition().get("nodes"), new TypeReference<>() {
+        });
+
+        definitionService.removeNode(nodes, keyToRemove);
+
+        Map<String, Object> updatedJson = Map.of("nodes", nodes);
+        workflow.setDefinition(updatedJson);
+        workflowRepository.save(workflow);
+
+        return nodes;
+    }
+
+    private Workflow getWorkflow(UUID id) {
+        return workflowRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Workflow not found"));
     }
 
     /**
@@ -186,7 +232,7 @@ public class WorkflowService {
     }
 
     /**
-     * Check if workflow exists
+     * Check if the workflow exists
      */
     public boolean existsById(UUID id) {
         return workflowRepository.existsById(id);

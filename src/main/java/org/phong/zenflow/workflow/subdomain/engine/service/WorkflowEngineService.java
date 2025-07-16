@@ -61,7 +61,7 @@ public class WorkflowEngineService {
             List<BaseWorkflowNode> workflowSchema = objectMapper.readValue((JsonParser) definition.get("nodes"), new TypeReference<>() {
             });
 
-            String startNodeKey = (String) definition.get("start");
+            String startNodeKey = workflow.getStartNode();
             BaseWorkflowNode workingNode = workflowSchema.stream()
                     .filter(node -> node.getKey().equals(startNodeKey))
                     .findFirst()
