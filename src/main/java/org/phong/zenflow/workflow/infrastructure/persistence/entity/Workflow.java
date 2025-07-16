@@ -62,4 +62,10 @@ public class Workflow extends BaseFullAuditEntity {
     @Column(name = "deleted_at")
     private OffsetDateTime deletedAt;
 
+    @Column(name = "retry_policy")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private Map<String, Object> retryPolicy;
+
+    @Column(name = "description", length = Integer.MAX_VALUE)
+    private String description;
 }

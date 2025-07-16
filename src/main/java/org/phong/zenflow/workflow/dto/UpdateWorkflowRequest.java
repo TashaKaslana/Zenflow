@@ -8,6 +8,6 @@ import java.util.Map;
 /**
  * DTO for {@link org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow}
  */
-public record UpdateWorkflowRequest(@NotNull String name, Map<String, Object> definition, String startNode,
-                                    @NotNull Boolean isActive) implements Serializable {
+public record UpdateWorkflowRequest(@NotNull String name, String description, Map<String, Object> definition, String startNode,
+                                    @NotNull Boolean isActive, Map<String, Object> retryPolicy) implements Serializable {
 }

@@ -13,5 +13,5 @@ import java.util.UUID;
 public record WorkflowDto(@NotNull UUID id, @NotNull OffsetDateTime createdAt, @NotNull OffsetDateTime updatedAt,
                           UUID createdBy, UUID updatedBy, UUID projectId, @NotNull String name,
                           Map<String, Object> definition, String startNode, @NotNull Boolean isActive,
-                          OffsetDateTime deletedAt) implements Serializable {
+                          OffsetDateTime deletedAt, String description, Map<String, Object> retryPolicy) implements Serializable {
 }
