@@ -23,6 +23,8 @@ import org.phong.zenflow.workflow.subdomain.node_definition.definitions.NodeExec
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
+import org.phong.zenflow.workflow.subdomain.node_logs.enums.NodeLogStatus;
+import org.phong.zenflow.workflow.subdomain.node_logs.service.NodeLogService;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -42,8 +44,9 @@ public class WorkflowEngineService {
     private final PluginNodeRepository pluginNodeRepository;
     private final SecretService secretService;
     private final NodeExecutorRegistry nodeExecutorRegistry;
+    private final NodeLogService nodeLogService;
 
-    public void runWorkflow(UUID workflowId) {
+    public void runWorkflow(UUID workflowId, UUID workflowRunId) {
         Map<String, Object> secretOfWorkflow = ObjectConversion.convertObjectToMap(secretService.getSecretsByWorkflowId(workflowId));
         Map<String, Object> context = new ConcurrentHashMap<>(Map.of("secrets", secretOfWorkflow));
 
@@ -65,7 +68,7 @@ public class WorkflowEngineService {
                     .orElseThrow(() -> new WorkflowEngineException("Start node not found: " + startNodeKey));
             while (workingNode != null) {
                 if (workingNode.getType() == NodeType.PLUGIN) {
-                    workingNode = getNextNodeAfterPluginNode(workingNode, startNodeKey, context, workflowSchema);
+                    workingNode = getNextNodeAfterPluginNode(workflowRunId, workingNode, startNodeKey, context, workflowSchema);
                 } else {
                     ExecutionResult result = nodeExecutorRegistry.execute(workingNode, context);
                     context.put(workingNode.getKey(), result.getOutput());
@@ -84,19 +87,43 @@ public class WorkflowEngineService {
         }
     }
 
-    private BaseWorkflowNode getNextNodeAfterPluginNode(BaseWorkflowNode workingNode, String startNodeKey,
+    private BaseWorkflowNode getNextNodeAfterPluginNode(UUID workflowRunId, BaseWorkflowNode workingNode, String startNodeKey,
                                                         Map<String, Object> context, List<BaseWorkflowNode> workflowSchema) {
         PluginDefinition pluginDefinition = (PluginDefinition) workingNode;
         PluginNode pluginNode = pluginNodeRepository.findById(pluginDefinition.getPluginNode().pluginId()).orElseThrow(
                 () -> new WorkflowEngineException("Plugin node not found with ID: " + startNodeKey)
         );
+        nodeLogService.startNode(workflowRunId, workingNode.getKey());
         ExecutionResult result = executorDispatcher.dispatch(pluginNode, workingNode.getConfig(), context);
-        //Random UUID will be used as a key of a result for temporary approaching, consider using a more meaningful key later
+        resolveNodeLog(workflowRunId, workingNode, result);
+
         context.put(workingNode.getKey(), result.getOutput());
 
         String nextNodeKey = workingNode.getNext().getFirst(); // Assuming single next node for simplicity
         workingNode = workflowSchema.stream().filter(node -> node.getKey().equals(nextNodeKey)).findFirst().orElse(null);
         return workingNode;
+    }
+
+    private void resolveNodeLog(UUID workflowRunId, BaseWorkflowNode workingNode, ExecutionResult result) {
+        switch (result.getStatus()) {
+            case SUCCESS:
+                log.debug("Plugin node executed successfully: {}", workingNode.getKey());
+                nodeLogService.completeNode(workflowRunId, workingNode.getKey(), NodeLogStatus.SUCCESS, result.getError(), result.getOutput(), result.getLogs());
+                break;
+            case ERROR:
+                log.error("Plugin node execution failed: {}", workingNode.getKey());
+                nodeLogService.completeNode(workflowRunId, workingNode.getKey(), NodeLogStatus.ERROR, result.getError(), result.getOutput(), result.getLogs());
+            case WAITING:
+                log.debug("Plugin node execution skipped: {}", workingNode.getKey());
+                nodeLogService.waitNode(workflowRunId, workingNode.getKey(), NodeLogStatus.WAITING, result.getLogs(), result.getError());
+                break;
+            case RETRY:
+                log.debug("Plugin node execution retrying: {}", workingNode.getKey());
+                nodeLogService.retryNode(workflowRunId, workingNode.getKey(), result.getLogs());
+                break;
+            default:
+                log.warn("Unknown status for plugin node execution: {}", result.getStatus());
+        }
     }
 
     //TODO: navigator nodes don't get validation, review this later

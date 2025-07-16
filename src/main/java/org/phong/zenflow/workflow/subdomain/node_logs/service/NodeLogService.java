@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.log.auditlog.annotations.AuditLog;
 import org.phong.zenflow.log.auditlog.enums.AuditAction;
 import org.phong.zenflow.workflow.subdomain.node_logs.dto.CreateNodeLogRequest;
+import org.phong.zenflow.workflow.subdomain.node_logs.dto.LogEntry;
 import org.phong.zenflow.workflow.subdomain.node_logs.dto.NodeLogDto;
 import org.phong.zenflow.workflow.subdomain.node_logs.dto.UpdateNodeLogRequest;
 import org.phong.zenflow.workflow.subdomain.node_logs.enums.NodeLogStatus;
@@ -67,12 +68,15 @@ public class NodeLogService {
         return nodeLogMapper.toDto(nodeLogRepository.save(nodeLog));
     }
 
+    //TODO: make realtime log by insert log per step
     @Transactional
-    public NodeLogDto completeNode(UUID workflowRunId, String nodeKey, NodeLogStatus status, String error, Map<String, Object> output) {
+    public void completeNode(UUID workflowRunId, String nodeKey, NodeLogStatus status, String error,
+                                   Map<String, Object> output, List<LogEntry> logs) {
         NodeLog nodeLog = nodeLogRepository.findByWorkflowRunIdAndNodeKey(workflowRunId, nodeKey)
                 .orElseThrow(() -> new NodeLogException("NodeLog not found for workflowRunId: " + workflowRunId + " and nodeKey: " + nodeKey));
 
         nodeLog.setStatus(status);
+        nodeLog.setLogs(logs);
         if (error != null) {
             nodeLog.setError(error);
         }
@@ -83,21 +87,38 @@ public class NodeLogService {
             nodeLog.setEndedAt(OffsetDateTime.now());
         }
 
-        return nodeLogMapper.toDto(nodeLogRepository.save(nodeLog));
+        nodeLogMapper.toDto(nodeLogRepository.save(nodeLog));
     }
 
+
     @Transactional
-    public NodeLogDto retryNode(UUID workflowRunId, String nodeKey) {
+    public void waitNode(UUID workflowRunId, String nodeKey, NodeLogStatus status, List<LogEntry> logs, String reason) {
+        NodeLog nodeLog = nodeLogRepository.findByWorkflowRunIdAndNodeKey(workflowRunId, nodeKey)
+                .orElseThrow(() -> new NodeLogException("NodeLog not found for workflowRunId: " + workflowRunId + " and nodeKey: " + nodeKey));
+
+        nodeLog.setStatus(status);
+        nodeLog.setLogs(logs);
+        if (reason != null) {
+            nodeLog.setError(reason);
+        }
+
+        nodeLogMapper.toDto(nodeLogRepository.save(nodeLog));
+    }
+
+
+    @Transactional
+    public void retryNode(UUID workflowRunId, String nodeKey, List<LogEntry> logs) {
         NodeLog log = nodeLogRepository.findByWorkflowRunIdAndNodeKey(workflowRunId, nodeKey)
                 .orElseThrow(() -> new NodeLogException("NodeLog not found"));
 
         log.setAttempts(log.getAttempts() + 1);
-        log.setStatus(NodeLogStatus.WAITING);
+        log.setStatus(NodeLogStatus.RETRYING);
         log.setStartedAt(OffsetDateTime.now());
-        log.setEndedAt(null); // reset end time for retry
+        log.setLogs(logs);
 
-        return nodeLogMapper.toDto(nodeLogRepository.save(log));
+        nodeLogMapper.toDto(nodeLogRepository.save(log));
     }
+
 
     /**
      * Get a node log by ID
