@@ -27,6 +27,10 @@ public enum AuditAction {
     WORKFLOW_EXECUTE("workflow.execute", TargetType.WORKFLOW),
     WORKFLOW_VERSION_RESTORE("workflow.version.restore", TargetType.WORKFLOW),
 
+    NODE_LOG_CREATE("node.log.create", TargetType.WORKFLOW),
+    NODE_LOG_UPDATE("node.log.update", TargetType.WORKFLOW),
+    NODE_LOG_DELETE("node.log.delete", TargetType.WORKFLOW),
+
     // ==== PROJECT ====
     PROJECT_CREATE("project.create", TargetType.PROJECT),
     PROJECT_UPDATE("project.update", TargetType.PROJECT),
