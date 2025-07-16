@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotNull;
 
 import java.io.Serializable;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -13,5 +14,5 @@ import java.util.UUID;
 public record NodeLogDto(@NotNull UUID id, UUID workflowRunId, @NotNull String nodeKey, @NotNull String status,
                          String error, Integer attempts, Map<String, Object> output,
                          @NotNull OffsetDateTime startedAt, OffsetDateTime endedAt,
-                         Map<String, Object> logs) implements Serializable {
+                         List<LogEntry> logs) implements Serializable {
 }

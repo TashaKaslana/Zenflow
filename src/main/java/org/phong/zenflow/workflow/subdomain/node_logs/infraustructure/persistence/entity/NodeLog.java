@@ -2,6 +2,8 @@ package org.phong.zenflow.workflow.subdomain.node_logs.infraustructure.persisten
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
@@ -16,9 +18,12 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 import org.hibernate.type.SqlTypes;
 import org.phong.zenflow.core.superbase.BaseIdEntity;
+import org.phong.zenflow.workflow.subdomain.node_logs.dto.LogEntry;
+import org.phong.zenflow.workflow.subdomain.node_logs.enums.NodeLogStatus;
 import org.phong.zenflow.workflow.subdomain.workflow_run.infrastructure.persistence.entity.WorkflowRun;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Map;
 
 @Getter
@@ -40,7 +45,8 @@ public class NodeLog extends BaseIdEntity {
 
     @NotNull
     @Column(name = "status", nullable = false, length = Integer.MAX_VALUE)
-    private String status;
+    @Enumerated(EnumType.STRING)
+    private NodeLogStatus status = NodeLogStatus.RUNNING;
 
     @Column(name = "error", length = Integer.MAX_VALUE)
     private String error;
@@ -63,5 +69,5 @@ public class NodeLog extends BaseIdEntity {
 
     @Column(name = "logs")
     @JdbcTypeCode(SqlTypes.JSON)
-    private Map<String, Object> logs;
+    private List<LogEntry> logs;
 }

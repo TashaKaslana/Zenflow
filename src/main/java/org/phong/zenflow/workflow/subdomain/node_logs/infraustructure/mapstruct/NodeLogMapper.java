@@ -24,6 +24,5 @@ public interface NodeLogMapper {
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     NodeLog partialUpdate(UpdateNodeLogRequest updateNodeLogRequest, @MappingTarget NodeLog nodeLog);
 
-    @Mapping(source = "workflowRunId", target = "workflowRun.id")
     NodeLog toEntity(CreateNodeLogRequest createNodeLogRequest);
 }

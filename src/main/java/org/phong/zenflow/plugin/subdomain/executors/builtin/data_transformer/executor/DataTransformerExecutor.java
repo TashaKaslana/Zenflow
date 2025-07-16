@@ -11,9 +11,9 @@ import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecuto
 import org.phong.zenflow.plugin.subdomain.executors.builtin.data_transformer.dto.TransformStep;
 import org.phong.zenflow.plugin.subdomain.executors.builtin.data_transformer.exception.DataTransformerExecutorException;
 import org.phong.zenflow.plugin.subdomain.executors.builtin.data_transformer.registry.TransformerRegistry;
+import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -31,22 +31,22 @@ public class DataTransformerExecutor implements PluginNodeExecutor {
 
     @Override
     public ExecutionResult execute(Map<String, Object> config, Map<String, Object> context) {
-        List<String> logs = new ArrayList<>();
+        LogCollector logs = new LogCollector();
         log.debug("Executing DataTransformerExecutor with config: {}", config);
-        logs.add("Executing DataTransformerExecutor with config: " + config);
+        logs.info("Executing DataTransformerExecutor with config: " + config);
 
         try {
             String transformerName = (String) config.get("name");
             if (transformerName == null || transformerName.trim().isEmpty()) {
                 log.debug("Transformer name is missing in the configuration.");
-                logs.add("Transformer name is missing in the configuration.");
+                logs.error("Transformer name is missing in the configuration.");
                 throw new DataTransformerExecutorException("Transformer name is missing in the configuration.");
             }
 
             String input = (String) config.get("input");
             if (input == null || input.trim().isEmpty()) {
                 log.debug("Input data is missing in the configuration.");
-                logs.add("Input data is missing in the configuration.");
+                logs.error("Input data is missing in the configuration.");
                 throw new DataTransformerExecutorException("Input data is missing in the configuration.");
             }
 
@@ -55,12 +55,13 @@ public class DataTransformerExecutor implements PluginNodeExecutor {
             String result = input;
 
             result = getResultTransform(config, isPipeline, result, transformerName, input, params, logs);
+            logs.success("Data transformation completed successfully using transformer: " + transformerName);
 
-            return ExecutionResult.success(Map.of("result", result), logs);
+            return ExecutionResult.success(Map.of("result", result), logs.getLogs());
         } catch (Exception e) {
-            logs.add("Error occurred during data transformation: " + e.getMessage());
+            logs.error("Error occurred during data transformation: " + e.getMessage());
             log.debug("Data transformation failed {}", e.getMessage(), e);
-            return ExecutionResult.error(e.getMessage(), logs);
+            return ExecutionResult.error(e.getMessage(), logs.getLogs());
         }
     }
 
@@ -70,11 +71,11 @@ public class DataTransformerExecutor implements PluginNodeExecutor {
                                       String transformerName,
                                       String input,
                                       Map<String, Object> params,
-                                      List<String> logs) throws JsonProcessingException {
+                                      LogCollector logs) throws JsonProcessingException {
         if (isPipeline) {
             Object stepsRaw = config.get("steps");
             if (stepsRaw == null) {
-                logs.add("Pipeline steps are missing in the configuration.");
+                logs.error("Pipeline steps are missing in the configuration.");
                 log.debug("Pipeline steps are missing in the configuration.");
                 throw new DataTransformerExecutorException("Pipeline steps are missing in the configuration.");
             }
@@ -87,11 +88,11 @@ public class DataTransformerExecutor implements PluginNodeExecutor {
 
             for (TransformStep step : steps) {
                 result = registry.getTransformer(step.getTransformer()).transform(result, step.getParams());
-                logs.add(String.format("Applied transformer '%s' with params %s", step.getTransformer(), step.getParams()));
+                logs.info(String.format("Applied transformer '%s' with params %s", step.getTransformer(), step.getParams()));
             }
         } else {
             result = registry.getTransformer(transformerName).transform(input, params);
-            logs.add(String.format("Applied transformer '%s' with params %s", transformerName, params));
+            logs.info(String.format("Applied transformer '%s' with params %s", transformerName, params));
         }
         return result;
     }
