@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -33,6 +34,11 @@ public class WorkflowRunService {
     private final WorkflowRunRepository workflowRunRepository;
     private final WorkflowRepository workflowRepository;
     private final WorkflowRunMapper workflowRunMapper;
+
+    public WorkflowRun findEntityById(UUID id) {
+        return workflowRunRepository.findById(id)
+                .orElseThrow(() -> new WorkflowRunException("Workflow run not found with id: " + id));
+    }
 
     /**
      * Create a new workflow run
@@ -78,6 +84,14 @@ public class WorkflowRunService {
                 null  // nextRetryAt
         );
         return createWorkflowRun(request);
+    }
+
+    @Transactional
+    public void saveContext(UUID workflowRunId, Map<String, Object> context) {
+        WorkflowRun workflowRun = workflowRunRepository.findById(workflowRunId)
+                .orElseThrow(() -> new WorkflowRunException("WorkflowRun not found with id: " + workflowRunId));
+        workflowRun.setContext(context);
+        workflowRunRepository.save(workflowRun);
     }
 
     @Transactional

@@ -4,12 +4,10 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.services.PluginNodeExecutorDispatcher;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.entity.PluginNode;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.repository.PluginNodeRepository;
-import org.phong.zenflow.secret.service.SecretService;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.infrastructure.persistence.repository.WorkflowRepository;
 import org.phong.zenflow.workflow.subdomain.engine.dto.WorkflowExecutionStatus;
@@ -27,7 +25,6 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @AllArgsConstructor
@@ -37,15 +34,11 @@ public class WorkflowEngineService {
     private final ObjectMapper objectMapper;
     private final PluginNodeExecutorDispatcher executorDispatcher;
     private final PluginNodeRepository pluginNodeRepository;
-    private final SecretService secretService;
     private final NodeExecutorRegistry nodeExecutorRegistry;
     private final NodeLogService nodeLogService;
     private final WorkflowRetrySchedule workflowRetrySchedule;
 
-    public WorkflowExecutionStatus runWorkflow(UUID workflowId, UUID workflowRunId, @Nullable String startFromNodeKey) {
-        Map<String, Object> secretOfWorkflow = ObjectConversion.convertObjectToMap(secretService.getSecretsByWorkflowId(workflowId));
-        Map<String, Object> context = new ConcurrentHashMap<>(Map.of("secrets", secretOfWorkflow));
-
+    public WorkflowExecutionStatus runWorkflow(UUID workflowId, UUID workflowRunId, @Nullable String startFromNodeKey, Map<String, Object> context) {
         try {
             Workflow workflow = workflowRepository.findById(workflowId).orElseThrow(
                     () -> new WorkflowEngineException("Workflow not found with ID: " + workflowId)

@@ -4,18 +4,23 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.log.auditlog.annotations.AuditLog;
 import org.phong.zenflow.log.auditlog.enums.AuditAction;
+import org.phong.zenflow.secret.service.SecretService;
 import org.phong.zenflow.workflow.subdomain.engine.dto.WorkflowExecutionStatus;
 import org.phong.zenflow.workflow.subdomain.engine.service.WorkflowEngineService;
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
+import org.phong.zenflow.workflow.subdomain.workflow_run.infrastructure.persistence.entity.WorkflowRun;
 import org.phong.zenflow.workflow.subdomain.workflow_run.service.WorkflowRunService;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import org.phong.zenflow.workflow.service.WorkflowService;
 import org.phong.zenflow.workflow.exception.WorkflowException;
 
@@ -27,6 +32,7 @@ public class WorkflowRunnerService {
     private final WorkflowRunService workflowRunService;
     private final WebClient webClient;
     private final WorkflowService workflowService;
+    private final SecretService secretService;
 
     @AuditLog(
             action = AuditAction.WORKFLOW_EXECUTE,
@@ -43,8 +49,22 @@ public class WorkflowRunnerService {
         triggerType = triggerType != null ? triggerType : TriggerType.MANUAL;
         boolean isNotifyByWebhook = request != null && !request.callbackUrl().isEmpty();
         try {
-            workflowRunService.startWorkflowRun(workflowRunId, workflowId, triggerType);
-            WorkflowExecutionStatus status = workflowEngineService.runWorkflow(workflowId, workflowRunId, null);
+            WorkflowRun workflowRun = workflowRunService.findEntityById(workflowRunId);
+
+            Map<String, Object> context;
+            if (workflowRun.getContext() == null || workflowRun.getContext().isEmpty()) {
+                // First run: ensure the run is started and create a new context
+                log.debug("No existing context found for workflow run ID: {}. Starting new run.", workflowRunId);
+                workflowRunService.startWorkflowRun(workflowRunId, workflowId, triggerType);
+                Map<String, Object> secretOfWorkflow = ObjectConversion.convertObjectToMap(secretService.getSecretsByWorkflowId(workflowId));
+                context = new ConcurrentHashMap<>(Map.of("secrets", secretOfWorkflow));
+            } else {
+                // Resumed run: load existing context
+                log.debug("Existing context found for workflow run ID: {}. Loading context.", workflowRunId);
+                context = new ConcurrentHashMap<>(workflowRun.getContext());
+            }
+
+            WorkflowExecutionStatus status = workflowEngineService.runWorkflow(workflowId, workflowRunId, null, context);
 
             if (status == WorkflowExecutionStatus.COMPLETED) {
                 workflowRunService.completeWorkflowRun(workflowRunId);
@@ -52,8 +72,11 @@ public class WorkflowRunnerService {
                 if (isNotifyByWebhook) {
                     notifyCallbackUrl(request.callbackUrl(), workflowRunId);
                 }
+            } else if (status == WorkflowExecutionStatus.HALTED) {
+                // Workflow is paused (RETRY or WAITING), save the context for resumption.
+                log.debug("Workflow with ID: {} is halted. Saving context.", workflowId);
+                workflowRunService.saveContext(workflowRunId, context);
             }
-            // If status is HALTED, we do nothing. The workflow run remains in RUNNING state.
 
         } catch (Exception e) {
             log.warn("Error running workflow with ID: {}", workflowId, e);

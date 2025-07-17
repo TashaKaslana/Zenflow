@@ -3,6 +3,7 @@ ALTER TABLE workflows
     ADD COLUMN description TEXT;
 
 ALTER TABLE workflow_runs
+    ADD COLUMN context JSONB,
     ADD COLUMN retry_of UUID REFERENCES workflow_runs(id) ON DELETE SET NULL,
     ADD COLUMN retry_attempt INT DEFAULT 0,
     ADD COLUMN next_retry_at TIMESTAMPTZ;

@@ -24,6 +24,7 @@ import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.phong.zenflow.workflow.subdomain.workflow_run.enums.WorkflowStatus;
 
 import java.time.OffsetDateTime;
+import java.util.Map;
 
 @Getter
 @Setter
@@ -40,6 +41,10 @@ public class WorkflowRun extends BaseIdEntity {
     @OnDelete(action = OnDeleteAction.CASCADE)
     @JoinColumn(name = "workflow_id", nullable = false)
     private Workflow workflow;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "context")
+    private Map<String, Object> context;
 
     @NotNull
     @Enumerated
