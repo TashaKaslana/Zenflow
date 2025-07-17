@@ -81,7 +81,7 @@ public class WorkflowRunService {
     }
 
     @Transactional
-    public void handleWorkflowError(UUID workflowId, Exception e) {
+    public void handleWorkflowError(UUID workflowRunId, Exception e) {
         // Log the error and create a workflow run with error status
         String errorMessage = e.getMessage() != null ? e.getMessage() : "Unknown error occurred";
         UpdateWorkflowRunRequest request = new UpdateWorkflowRunRequest(
@@ -93,12 +93,12 @@ public class WorkflowRunService {
                 null, // retryAttempt
                 null  // nextRetryAt
         );
-        updateWorkflowRun(workflowId, request);
+        updateWorkflowRun(workflowRunId, request);
     }
 
-    @AuditLog(action = AuditAction.WORKFLOW_UPDATE, targetIdExpression = "#workflowId", description = "Complete workflow run")
+    @AuditLog(action = AuditAction.WORKFLOW_UPDATE, targetIdExpression = "#workflowRunId", description = "Complete workflow run")
     @Transactional
-    public void completeWorkflowRun(UUID workflowId) {
+    public void completeWorkflowRun(UUID workflowRunId) {
         // Complete the workflow run with success status
         UpdateWorkflowRunRequest request = new UpdateWorkflowRunRequest(
                 WorkflowStatus.SUCCESS,
@@ -109,7 +109,7 @@ public class WorkflowRunService {
                 null, // retryAttempt
                 null  // nextRetryAt
         );
-        updateWorkflowRun(workflowId, request);
+        updateWorkflowRun(workflowRunId, request);
     }
 
     /**
