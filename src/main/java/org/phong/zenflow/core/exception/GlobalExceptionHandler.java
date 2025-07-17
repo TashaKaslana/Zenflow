@@ -8,6 +8,7 @@ import org.phong.zenflow.core.enums.SystemError;
 import org.phong.zenflow.core.responses.ApiErrorResponse;
 import org.phong.zenflow.core.responses.RestApiResponse;
 import org.phong.zenflow.core.utils.HttpRequestUtils;
+import org.phong.zenflow.log.systemlog.service.SystemLogService;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
@@ -40,37 +41,7 @@ import java.util.stream.Collectors;
 public class GlobalExceptionHandler {
 
     private final ApplicationEventPublisher eventPublisher;
-//    private final AuthService authService;
-//
-//    private void publishLogEvent(LogSeverity severity, String eventMessage, String source, Throwable throwable, Map<String, Object> additionalContext) {
-//        UUID userId = null;
-//        try {
-//            userId = authService.getUserIdFromContext();
-//        } catch (Exception e) {
-//            log.trace("Could not retrieve userId for log event: {}", e.getMessage());
-//        }
-//
-//        CreateLogEntryRequest logRequest = new CreateLogEntryRequest();
-//        logRequest.setSeverity(severity);
-//        logRequest.setMessage(eventMessage + (throwable != null ? " - Exception: " + throwable.getMessage() : ""));
-//        logRequest.setSource(source);
-//        logRequest.setUserId(userId);
-//
-//        Map<String, Object> context = new HashMap<>();
-//        if (additionalContext != null) {
-//            context.putAll(additionalContext);
-//        }
-//        if (throwable != null) {
-//            context.put("exceptionType", throwable.getClass().getName());
-//        }
-//        logRequest.setContext(context);
-//
-//        try {
-//            eventPublisher.publishEvent(new CreateLogEntryEvent(this, logRequest));
-//        } catch (Exception e) {
-//            log.error("Failed to publish log event: {}", e.getMessage(), e);
-//        }
-//    }
+    private final SystemLogService systemLogService;
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<RestApiResponse<Void>> handleMethodArgumentNotValid(MethodArgumentNotValidException ex,
@@ -90,7 +61,10 @@ public class GlobalExceptionHandler {
         Map<String, Object> logContext = new HashMap<>();
         logContext.put("fieldErrors", fieldErrors);
         logContext.put("globalErrors", globalErrors);
-//        publishLogEvent(LogSeverity.WARNING, "Validation failed", HttpRequestUtils.getRequestPath(request), ex, logContext);
+        logContext.put("requestPath", HttpRequestUtils.getRequestPath(request));
+
+        // Log with SystemLogService
+        systemLogService.logError("Validation failed: " + ex.getMessage(), logContext);
 
         return RestApiResponse.validationError(
                 HttpRequestUtils.getRequestPath(request),
@@ -104,7 +78,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<RestApiResponse<Void>> handleHttpMessageNotReadable(HttpMessageNotReadableException ex,
                                                                               @NonNull WebRequest request) {
         log.warn("Malformed JSON request: {}", ex.getMessage());
-//        publishLogEvent(LogSeverity.WARNING, "Malformed JSON request", HttpRequestUtils.getRequestPath(request), ex, null);
+
+        Map<String, Object> logContext = new HashMap<>();
+        logContext.put("requestPath", HttpRequestUtils.getRequestPath(request));
+        logContext.put("errorType", ex.getClass().getName());
+
+        systemLogService.logError("Malformed JSON request: " + ex.getMessage(), logContext);
+
         return RestApiResponse.badRequest(HttpRequestUtils.getRequestPath(request), SystemError.MALFORMED_REQUEST_MSG.getErrorMessage());
     }
 
@@ -114,7 +94,12 @@ public class GlobalExceptionHandler {
             @NonNull WebRequest request) {
         String message = SystemError.METHOD_NOT_SUPPORTED_MSG + ". Supported methods: " + ex.getSupportedHttpMethods();
         log.warn("Method Not Supported: {}", ex.getMessage());
-//        publishLogEvent(LogSeverity.WARNING, "HTTP method not supported", HttpRequestUtils.getRequestPath(request), ex, Map.of("supportedMethods", String.valueOf(ex.getSupportedHttpMethods())));
+
+        Map<String, Object> logContext = new HashMap<>();
+        logContext.put("requestPath", HttpRequestUtils.getRequestPath(request));
+        logContext.put("supportedMethods", String.valueOf(ex.getSupportedHttpMethods()));
+
+        systemLogService.logError("HTTP method not supported: " + ex.getMessage(), logContext);
 
         HttpHeaders responseHeaders = new HttpHeaders();
         responseHeaders.setAllow(Objects.requireNonNull(ex.getSupportedHttpMethods()));
@@ -137,7 +122,14 @@ public class GlobalExceptionHandler {
             @NonNull WebRequest request) {
         log.warn("Missing Request Parameter: {}", ex.getParameterName());
         String message = SystemError.MISSING_PARAMETER_MSG.getErrorMessage() + ": " + ex.getParameterName() + " (" + ex.getParameterType() + ")";
-//        publishLogEvent(LogSeverity.WARNING, "Missing request parameter", HttpRequestUtils.getRequestPath(request), ex, Map.of("parameterName", ex.getParameterName(), "parameterType", ex.getParameterType()));
+
+        Map<String, Object> logContext = new HashMap<>();
+        logContext.put("requestPath", HttpRequestUtils.getRequestPath(request));
+        logContext.put("parameterName", ex.getParameterName());
+        logContext.put("parameterType", ex.getParameterType());
+
+        systemLogService.logError("Missing request parameter: " + ex.getParameterName(), logContext);
+
         ApiErrorResponse apiError = new ApiErrorResponse(
                 HttpStatus.BAD_REQUEST.value(),
                 message,
@@ -161,7 +153,13 @@ public class GlobalExceptionHandler {
                         violation -> violation.getPropertyPath().toString(),
                         ConstraintViolation::getMessage
                 ));
-//        publishLogEvent(LogSeverity.WARNING, "Constraint violation", HttpRequestUtils.getRequestPath(request), ex, Map.of("constraintErrors", constraintErrors));
+
+        Map<String, Object> logContext = new HashMap<>();
+        logContext.put("requestPath", HttpRequestUtils.getRequestPath(request));
+        logContext.put("constraintErrors", constraintErrors);
+
+        systemLogService.logError("Constraint violation: " + ex.getMessage(), logContext);
+
         ApiErrorResponse apiError = new ApiErrorResponse(
                 HttpStatus.BAD_REQUEST.value(),
                 SystemError.VALIDATION_FAILED_MSG,
@@ -179,13 +177,12 @@ public class GlobalExceptionHandler {
             Exception ex, WebRequest request) {
         log.error("SECURITY VULNERABILITY DETECTED: {}", ex.getMessage(), ex);
 
-//        publishLogEvent(
-//                LogSeverity.CRITICAL, // Mark security exceptions as CRITICAL
-//                "Security vulnerability detected",
-//                HttpRequestUtils.getRequestPath(request),
-//                ex,
-//                Map.of("securityThreat", "true", "threatTimestamp", System.currentTimeMillis())
-//        );
+        Map<String, Object> logContext = new HashMap<>();
+        logContext.put("requestPath", HttpRequestUtils.getRequestPath(request));
+        logContext.put("securityThreat", "true");
+        logContext.put("threatTimestamp", System.currentTimeMillis());
+
+        systemLogService.logError("Security vulnerability detected: " + ex.getMessage(), logContext);
 
         // Don't reveal details of security issues in the response
         return RestApiResponse.forbidden(HttpRequestUtils.getRequestPath(request),
@@ -203,8 +200,6 @@ public class GlobalExceptionHandler {
                                           rootCauseMessage.toLowerCase().contains("sql") &&
                                           (rootCauseMessage.contains("'") || rootCauseMessage.contains("--"));
 
-//        LogSeverity severity = potentialInjectionAttack ? LogSeverity.CRITICAL : LogSeverity.WARNING;
-
         if (potentialInjectionAttack) {
             log.error("POTENTIAL INJECTION ATTACK DETECTED: {}", ex.getMessage(), ex);
         } else {
@@ -217,15 +212,16 @@ public class GlobalExceptionHandler {
 
         Map<String, Object> context = new HashMap<>();
         context.put("rootCause", rootCauseMessage);
+        context.put("requestPath", HttpRequestUtils.getRequestPath(request));
         if (potentialInjectionAttack) {
             context.put("securityThreat", "potential-sql-injection");
         }
 
-//        publishLogEvent(severity,
-//                        potentialInjectionAttack ? "Potential SQL injection detected" : "Data integrity violation",
-//                        HttpRequestUtils.getRequestPath(request),
-//                        ex,
-//                        context);
+        systemLogService.logError(
+            potentialInjectionAttack ? "Potential SQL injection detected: " + ex.getMessage() :
+                                     "Data integrity violation: " + ex.getMessage(),
+            context
+        );
 
         return RestApiResponse.conflict(
                 HttpRequestUtils.getRequestPath(request),
@@ -243,6 +239,14 @@ public class GlobalExceptionHandler {
                 + " (" + Objects.requireNonNull(ex.getRequiredType()).getSimpleName() + "). "
                 + "Getting value type : " + Objects.requireNonNull(ex.getValue()).getClass().getSimpleName();
 
+        Map<String, Object> context = new HashMap<>();
+        context.put("requestPath", HttpRequestUtils.getRequestPath(request));
+        context.put("argumentName", ex.getName());
+        context.put("requiredType", ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "null");
+        context.put("providedValueType", ex.getValue() != null ? ex.getValue().getClass().getSimpleName() : "null");
+
+        systemLogService.logError("Method argument type mismatch: " + ex.getMessage(), context);
+
         ApiErrorResponse apiError = new ApiErrorResponse(
                 HttpStatus.BAD_REQUEST.value(),
                 message,
@@ -252,18 +256,6 @@ public class GlobalExceptionHandler {
                 null
         );
 
-//        publishLogEvent(
-//                LogSeverity.WARNING,
-//                "Method argument type mismatch",
-//                HttpRequestUtils.getRequestPath(request),
-//                ex,
-//                Map.of(
-//                        "argumentName", ex.getName(),
-//                        "requiredType", ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "null",
-//                        "providedValueType", ex.getValue() != null ? ex.getValue().getClass().getSimpleName() : "null"
-//                )
-//        );
-
         return RestApiResponse.badRequest(apiError, SystemError.INVALID_ARGUMENT_TYPE_MSG.getErrorMessage());
     }
 
@@ -272,16 +264,12 @@ public class GlobalExceptionHandler {
             NoHandlerFoundException ex, WebRequest request) {
         log.debug("No Handler Found: {}", ex.getMessage());
 
-//        publishLogEvent(
-//                LogSeverity.WARNING,
-//                "No handler found for request",
-//                HttpRequestUtils.getRequestPath(request),
-//                ex,
-//                Map.of(
-//                        "httpMethod", ex.getHttpMethod(),
-//                        "requestURL", ex.getRequestURL()
-//                )
-//        );
+        Map<String, Object> context = new HashMap<>();
+        context.put("requestPath", HttpRequestUtils.getRequestPath(request));
+        context.put("httpMethod", ex.getHttpMethod());
+        context.put("requestURL", ex.getRequestURL());
+
+        systemLogService.logError("No handler found for request: " + ex.getMessage(), context);
 
         return RestApiResponse.notFound(HttpRequestUtils.getRequestPath(request), SystemError.NOT_FOUND_ENDPOINT.getErrorMessage());
     }
@@ -291,13 +279,10 @@ public class GlobalExceptionHandler {
             AccessDeniedException ex, WebRequest request) {
         log.warn("Access Denied: {}", ex.getMessage());
 
-//        publishLogEvent(
-//                LogSeverity.WARNING,
-//                "Access denied",
-//                HttpRequestUtils.getRequestPath(request),
-//                ex,
-//                null
-//        );
+        Map<String, Object> context = new HashMap<>();
+        context.put("requestPath", HttpRequestUtils.getRequestPath(request));
+
+        systemLogService.logError("Access denied: " + ex.getMessage(), context);
 
         return RestApiResponse.forbidden(HttpRequestUtils.getRequestPath(request), SystemError.ACCESS_DENIED.getErrorMessage());
     }
@@ -307,13 +292,10 @@ public class GlobalExceptionHandler {
             AuthenticationException ex, WebRequest request) {
         log.warn("Authentication Failed: {}", ex.getMessage());
 
-//        publishLogEvent(
-//                LogSeverity.WARNING,
-//                "Authentication failed",
-//                HttpRequestUtils.getRequestPath(request),
-//                ex,
-//                null
-//        );
+        Map<String, Object> context = new HashMap<>();
+        context.put("requestPath", HttpRequestUtils.getRequestPath(request));
+
+        systemLogService.logError("Authentication failed: " + ex.getMessage(), context);
 
         return RestApiResponse.unauthorized(HttpRequestUtils.getRequestPath(request), SystemError.AUTHENTICATION_FAILED.getErrorMessage());
     }
@@ -324,7 +306,6 @@ public class GlobalExceptionHandler {
             Exception ex, WebRequest request) {
         // Determine if this is a critical exception
         boolean isCriticalException = isSystemCriticalException(ex);
-//        LogSeverity severity = isCriticalException ? LogSeverity.CRITICAL : LogSeverity.ERROR;
 
         if (isCriticalException) {
             log.error("CRITICAL SYSTEM EXCEPTION: {}", ex.getMessage(), ex);
@@ -333,18 +314,19 @@ public class GlobalExceptionHandler {
         }
 
         Map<String, Object> contextData = new HashMap<>();
+        contextData.put("requestPath", HttpRequestUtils.getRequestPath(request));
         if (isCriticalException) {
             contextData.put("critical", true);
             contextData.put("impactLevel", "system");
         }
+        contextData.put("exceptionType", ex.getClass().getName());
+        contextData.put("stackTrace", getStackTraceAsString(ex));
 
-//        publishLogEvent(
-//                severity,
-//                isCriticalException ? "Critical system exception detected" : "Unhandled exception occurred",
-//                HttpRequestUtils.getRequestPath(request),
-//                ex,
-//                contextData
-//        );
+        systemLogService.logError(
+            isCriticalException ? "Critical system exception detected: " + ex.getMessage() :
+                                "Unhandled exception occurred: " + ex.getMessage(),
+            contextData
+        );
 
         return RestApiResponse.internalServerError(HttpRequestUtils.getRequestPath(request),
                 SystemError.GENERIC_ERROR_MSG.getErrorMessage());
@@ -365,5 +347,16 @@ public class GlobalExceptionHandler {
                message.contains("disk full") ||
                message.contains("connection refused") ||
                message.contains("too many open files");
+    }
+
+    /**
+     * Convert stack trace to string for logging
+     */
+    private String getStackTraceAsString(Throwable ex) {
+        StringBuilder sb = new StringBuilder();
+        for (StackTraceElement element : ex.getStackTrace()) {
+            sb.append(element.toString()).append("\n");
+        }
+        return sb.toString();
     }
 }
