@@ -107,7 +107,7 @@ public class NodeLogService {
 
 
     @Transactional
-    public void retryNode(UUID workflowRunId, String nodeKey, List<LogEntry> logs) {
+    public NodeLogDto retryNode(UUID workflowRunId, String nodeKey, List<LogEntry> logs) {
         NodeLog log = nodeLogRepository.findByWorkflowRunIdAndNodeKey(workflowRunId, nodeKey)
                 .orElseThrow(() -> new NodeLogException("NodeLog not found"));
 
@@ -116,7 +116,7 @@ public class NodeLogService {
         log.setStartedAt(OffsetDateTime.now());
         log.setLogs(logs);
 
-        nodeLogMapper.toDto(nodeLogRepository.save(log));
+        return nodeLogMapper.toDto(nodeLogRepository.save(log));
     }
 
 

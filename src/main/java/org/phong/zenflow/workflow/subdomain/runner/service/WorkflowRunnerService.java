@@ -35,7 +35,7 @@ public class WorkflowRunnerService {
         boolean isNotifyByWebhook = request != null && !request.callbackUrl().isEmpty();
         try {
             workflowRunService.startWorkflowRun(workflowRunId, workflowId, triggerType);
-            workflowEngineService.runWorkflow(workflowId, workflowRunId);
+            workflowEngineService.runWorkflow(workflowId, workflowRunId, null);
             log.debug("Workflow with ID: {} completed successfully", workflowId);
         } catch (Exception e) {
             log.warn("Error running workflow with ID: {}", workflowId, e);

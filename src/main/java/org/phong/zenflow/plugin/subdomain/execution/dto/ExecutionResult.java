@@ -37,7 +37,7 @@ public class ExecutionResult {
         return result;
     }
 
-    public static ExecutionResult pause(List<LogEntry> logs) {
+    public static ExecutionResult waiting(List<LogEntry> logs) {
         ExecutionResult result = new ExecutionResult();
         result.setStatus(ExecutionStatus.WAITING);
         result.setLogs(logs);
