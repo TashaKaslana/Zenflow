@@ -33,6 +33,7 @@ public class WorkflowRunnerService {
     private final WebClient webClient;
     private final WorkflowService workflowService;
     private final SecretService secretService;
+    private static final String callbackUrlKeyOnContext =  "__zenflow_callback_url";
 
     @AuditLog(
             action = AuditAction.WORKFLOW_EXECUTE,
@@ -47,30 +48,35 @@ public class WorkflowRunnerService {
         }
 
         triggerType = triggerType != null ? triggerType : TriggerType.MANUAL;
-        boolean isNotifyByWebhook = request != null && !request.callbackUrl().isEmpty();
+        Map<String, Object> context = null;
+
         try {
             WorkflowRun workflowRun = workflowRunService.findEntityById(workflowRunId);
 
-            Map<String, Object> context;
             if (workflowRun.getContext() == null || workflowRun.getContext().isEmpty()) {
                 // First run: ensure the run is started and create a new context
                 log.debug("No existing context found for workflow run ID: {}. Starting new run.", workflowRunId);
                 workflowRunService.startWorkflowRun(workflowRunId, workflowId, triggerType);
                 Map<String, Object> secretOfWorkflow = ObjectConversion.convertObjectToMap(secretService.getSecretsByWorkflowId(workflowId));
                 context = new ConcurrentHashMap<>(Map.of("secrets", secretOfWorkflow));
+                if (request != null && request.callbackUrl() != null && !request.callbackUrl().isEmpty()) {
+                    context.put(callbackUrlKeyOnContext, request.callbackUrl());
+                }
             } else {
                 // Resumed run: load existing context
                 log.debug("Existing context found for workflow run ID: {}. Loading context.", workflowRunId);
                 context = new ConcurrentHashMap<>(workflowRun.getContext());
             }
 
-            WorkflowExecutionStatus status = workflowEngineService.runWorkflow(workflowId, workflowRunId, null, context);
+            String startFromNodeKey = (request != null) ? request.startFromNodeKey() : null;
+            WorkflowExecutionStatus status = workflowEngineService.runWorkflow(workflowId, workflowRunId, startFromNodeKey, context);
 
             if (status == WorkflowExecutionStatus.COMPLETED) {
                 workflowRunService.completeWorkflowRun(workflowRunId);
                 log.debug("Workflow with ID: {} completed successfully", workflowId);
-                if (isNotifyByWebhook) {
-                    notifyCallbackUrl(request.callbackUrl(), workflowRunId);
+                Object callbackUrlObj = context.get(callbackUrlKeyOnContext);
+                if (callbackUrlObj instanceof String callbackUrl && !callbackUrl.isEmpty()) {
+                    notifyCallbackUrl(callbackUrl, workflowRunId);
                 }
             } else if (status == WorkflowExecutionStatus.HALTED) {
                 // Workflow is paused (RETRY or WAITING), save the context for resumption.
@@ -81,8 +87,11 @@ public class WorkflowRunnerService {
         } catch (Exception e) {
             log.warn("Error running workflow with ID: {}", workflowId, e);
             workflowRunService.handleWorkflowError(workflowRunId, e);
-            if (isNotifyByWebhook) {
-                notifyCallbackUrl(request.callbackUrl(), workflowRunId);
+            if (context != null) {
+                Object callbackUrlObj = context.get(callbackUrlKeyOnContext);
+                if (callbackUrlObj instanceof String callbackUrl && !callbackUrl.isEmpty()) {
+                    notifyCallbackUrl(callbackUrl, workflowRunId);
+                }
             }
         }
     }

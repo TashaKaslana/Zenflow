@@ -2,10 +2,13 @@ package org.phong.zenflow.plugin.subdomain.executors.builtin.flow.timeout;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.phong.zenflow.workflow.subdomain.engine.service.WorkflowEngineService;
+import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
+import org.phong.zenflow.workflow.subdomain.runner.event.WorkflowRunnerPublishableEvent;
+import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.quartz.Job;
 import org.quartz.JobDataMap;
 import org.quartz.JobExecutionContext;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 import java.util.UUID;
@@ -14,7 +17,7 @@ import java.util.UUID;
 @Component
 @AllArgsConstructor
 public class TimeoutResumeJob implements Job {
-    private WorkflowEngineService workflowEngine;
+    private final ApplicationEventPublisher publisher;
 
     @Override
     public void execute(JobExecutionContext context) {
@@ -24,6 +27,26 @@ public class TimeoutResumeJob implements Job {
         String nodeKey = dataMap.getString("nodeKey");
 
         log.info("Resuming timeout node: {} in run {}", nodeKey, workflowRunId);
-        workflowEngine.runWorkflow(workflowId, workflowRunId, nodeKey);
+        publisher.publishEvent(new WorkflowRunnerPublishableEvent() {
+            @Override
+            public UUID getWorkflowRunId() {
+                return workflowRunId;
+            }
+
+            @Override
+            public TriggerType getTriggerType() {
+                return TriggerType.SCHEDULE;
+            }
+
+            @Override
+            public UUID getWorkflowId() {
+                return workflowId;
+            }
+
+            @Override
+            public WorkflowRunnerRequest request() {
+                return new WorkflowRunnerRequest(null, nodeKey);
+            }
+        });
     }
 }
