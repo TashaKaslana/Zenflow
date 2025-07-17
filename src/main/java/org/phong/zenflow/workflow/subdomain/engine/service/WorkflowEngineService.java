@@ -1,6 +1,5 @@
 package org.phong.zenflow.workflow.subdomain.engine.service;
 
-import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
@@ -13,6 +12,7 @@ import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.reposi
 import org.phong.zenflow.secret.service.SecretService;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.infrastructure.persistence.repository.WorkflowRepository;
+import org.phong.zenflow.workflow.subdomain.engine.dto.WorkflowExecutionStatus;
 import org.phong.zenflow.workflow.subdomain.engine.exception.WorkflowEngineException;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.NodeExecutorRegistry;
@@ -42,7 +42,7 @@ public class WorkflowEngineService {
     private final NodeLogService nodeLogService;
     private final WorkflowRetrySchedule workflowRetrySchedule;
 
-    public boolean runWorkflow(UUID workflowId, UUID workflowRunId, @Nullable String startFromNodeKey) {
+    public WorkflowExecutionStatus runWorkflow(UUID workflowId, UUID workflowRunId, @Nullable String startFromNodeKey) {
         Map<String, Object> secretOfWorkflow = ObjectConversion.convertObjectToMap(secretService.getSecretsByWorkflowId(workflowId));
         Map<String, Object> context = new ConcurrentHashMap<>(Map.of("secrets", secretOfWorkflow));
 
@@ -52,49 +52,54 @@ public class WorkflowEngineService {
             );
 
             Map<String, Object> definition = workflow.getDefinition();
-            List<BaseWorkflowNode> workflowSchema = objectMapper.readValue((JsonParser) definition.get("nodes"), new TypeReference<>() {
+            List<BaseWorkflowNode> workflowSchema = objectMapper.readValue(objectMapper.writeValueAsString(definition.get("nodes")), new TypeReference<>() {
             });
 
-            //currentNodeKey is a start node for a new workflow run or a node to resume, retry from
             String currentNodeKey = (startFromNodeKey != null) ? startFromNodeKey : workflow.getStartNode();
             BaseWorkflowNode workingNode = findNodeByKey(workflowSchema, currentNodeKey);
-            while (workingNode != null) {
-                if (workingNode.getType() == NodeType.PLUGIN) {
-                    workingNode = getNextNodeAfterPluginNode(workflowId, workflowRunId, workingNode, currentNodeKey, context, workflowSchema);
-                } else {
-                    ExecutionResult result = nodeExecutorRegistry.execute(workingNode, context);
-                    context.put(workingNode.getKey(), result.getOutput());
 
-                    String nextNodeKey = result.getNextNodeKey();
-                    if (nextNodeKey == null) {
-                        log.info("Workflow completed successfully with ID: {}", workflowId);
-                        break; // Exit loop if no next node is defined
-                    }
-                    workingNode = workflowSchema.stream().filter(node -> node.getKey().equals(nextNodeKey)).findFirst().orElse(null);
+            while (workingNode != null) {
+                ExecutionResult result;
+                nodeLogService.startNode(workflowRunId, workingNode.getKey());
+
+                if (workingNode.getType() == NodeType.PLUGIN) {
+                    PluginDefinition pluginDefinition = (PluginDefinition) workingNode;
+                    PluginNode pluginNode = pluginNodeRepository.findById(pluginDefinition.getPluginNode().pluginId()).orElseThrow(
+                            () -> new WorkflowEngineException("Plugin node not found with ID: " + pluginDefinition.getPluginNode().pluginId())
+                    );
+                    result = executorDispatcher.dispatch(pluginNode, workingNode.getConfig(), context);
+                } else {
+                    result = nodeExecutorRegistry.execute(workingNode, context);
+                }
+
+                context.put(workingNode.getKey(), result.getOutput());
+                resolveNodeLog(workflowId, workflowRunId, workingNode, result);
+
+                switch (result.getStatus()) {
+                    case SUCCESS:
+                        String nextNodeKey = result.getNextNodeKey();
+                        if (nextNodeKey == null) {
+                            log.info("Workflow completed successfully with ID: {}", workflowId);
+                            workingNode = null; // End of workflow
+                        } else {
+                            workingNode = findNodeByKey(workflowSchema, nextNodeKey);
+                        }
+                        break;
+                    case ERROR:
+                        throw new WorkflowEngineException("Workflow execution failed at node: " + workingNode.getKey());
+                    case RETRY:
+                    case WAITING:
+                        log.info("Workflow is now in {} state at node {}. Halting execution.", result.getStatus(), workingNode.getKey());
+                        return WorkflowExecutionStatus.HALTED;
+                    default:
+                        throw new WorkflowEngineException("Unknown execution status: " + result.getStatus());
                 }
             }
-            return true;
+            return WorkflowExecutionStatus.COMPLETED;
         } catch (Exception e) {
             log.warn("Error running workflow with ID: {}", workflowId, e);
-            return false;
+            throw new WorkflowEngineException("Workflow failed", e);
         }
-    }
-
-    private BaseWorkflowNode getNextNodeAfterPluginNode(UUID workflowId, UUID workflowRunId, BaseWorkflowNode workingNode, String startNodeKey,
-                                                        Map<String, Object> context, List<BaseWorkflowNode> workflowSchema) {
-        PluginDefinition pluginDefinition = (PluginDefinition) workingNode;
-        PluginNode pluginNode = pluginNodeRepository.findById(pluginDefinition.getPluginNode().pluginId()).orElseThrow(
-                () -> new WorkflowEngineException("Plugin node not found with ID: " + startNodeKey)
-        );
-        nodeLogService.startNode(workflowRunId, workingNode.getKey());
-        ExecutionResult result = executorDispatcher.dispatch(pluginNode, workingNode.getConfig(), context);
-        resolveNodeLog(workflowId, workflowRunId, workingNode, result);
-
-        context.put(workingNode.getKey(), result.getOutput());
-
-        String nextNodeKey = workingNode.getNext().getFirst(); // Assuming single next node for simplicity
-        workingNode = workflowSchema.stream().filter(node -> node.getKey().equals(nextNodeKey)).findFirst().orElse(null);
-        return workingNode;
     }
 
     private BaseWorkflowNode findNodeByKey(List<BaseWorkflowNode> schema, String key) {

@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.log.auditlog.annotations.AuditLog;
 import org.phong.zenflow.log.auditlog.enums.AuditAction;
+import org.phong.zenflow.workflow.subdomain.engine.dto.WorkflowExecutionStatus;
 import org.phong.zenflow.workflow.subdomain.engine.service.WorkflowEngineService;
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
@@ -43,12 +44,17 @@ public class WorkflowRunnerService {
         boolean isNotifyByWebhook = request != null && !request.callbackUrl().isEmpty();
         try {
             workflowRunService.startWorkflowRun(workflowRunId, workflowId, triggerType);
-            workflowEngineService.runWorkflow(workflowId, workflowRunId, null);
-            workflowRunService.completeWorkflowRun(workflowRunId);
-            log.debug("Workflow with ID: {} completed successfully", workflowId);
-            if (isNotifyByWebhook) {
-                notifyCallbackUrl(request.callbackUrl(), workflowRunId);
+            WorkflowExecutionStatus status = workflowEngineService.runWorkflow(workflowId, workflowRunId, null);
+
+            if (status == WorkflowExecutionStatus.COMPLETED) {
+                workflowRunService.completeWorkflowRun(workflowRunId);
+                log.debug("Workflow with ID: {} completed successfully", workflowId);
+                if (isNotifyByWebhook) {
+                    notifyCallbackUrl(request.callbackUrl(), workflowRunId);
+                }
             }
+            // If status is HALTED, we do nothing. The workflow run remains in RUNNING state.
+
         } catch (Exception e) {
             log.warn("Error running workflow with ID: {}", workflowId, e);
             workflowRunService.handleWorkflowError(workflowRunId, e);
