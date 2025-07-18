@@ -34,7 +34,7 @@ public class HttpRequestExecutor implements PluginNodeExecutor {
         try {
             String url = (String) config.get("url");
             HttpMethod method = HttpMethod.valueOf((String) config.get("method"));
-            String body = (String) config.getOrDefault("body", "");
+            Object body = config.getOrDefault("body", Map.of());
             Map<String, Object> headers = ObjectConversion.convertObjectToMap(config.getOrDefault("headers", Map.of()));
 
             logs.info("Sending HTTP request to " + url + " with method " + method);

@@ -71,7 +71,7 @@ public class WorkflowDefinitionService {
     private void validateNode(Map<String, Object> nodeMap) {
         try {
             String type = (String) nodeMap.get("type");
-            log.info("Validating node type '{}'", type);
+            log.debug("Validating node type '{}'", type);
 
             if (type.equalsIgnoreCase(NodeType.TRIGGER.name())) {
                 String triggerType = (String) nodeMap.get("triggerType");

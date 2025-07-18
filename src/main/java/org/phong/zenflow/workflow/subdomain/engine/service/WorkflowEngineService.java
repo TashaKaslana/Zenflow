@@ -21,6 +21,7 @@ import org.phong.zenflow.workflow.subdomain.node_logs.enums.NodeLogStatus;
 import org.phong.zenflow.workflow.subdomain.node_logs.service.NodeLogService;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -77,7 +78,7 @@ public class WorkflowEngineService {
 
                 switch (result.getStatus()) {
                     case SUCCESS:
-                        String nextNodeKey = result.getNextNodeKey();
+                        String nextNodeKey = workingNode.getNext().isEmpty() ? null : workingNode.getNext().getFirst();
                         if (nextNodeKey == null) {
                             log.info("Workflow completed successfully with ID: {}", workflowId);
                             workingNode = null; // End of workflow
@@ -86,6 +87,7 @@ public class WorkflowEngineService {
                         }
                         break;
                     case ERROR:
+                        log.error("Workflow in node completed with error: {}", result.getError());
                         throw new WorkflowEngineException("Workflow execution failed at node: " + workingNode.getKey());
                     case RETRY:
                     case WAITING:
@@ -118,7 +120,8 @@ public class WorkflowEngineService {
                 .orElse(null);
     }
 
-    private void resolveNodeLog(UUID workflowId, UUID workflowRunId, BaseWorkflowNode workingNode, ExecutionResult result) {
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    protected void resolveNodeLog(UUID workflowId, UUID workflowRunId, BaseWorkflowNode workingNode, ExecutionResult result) {
         switch (result.getStatus()) {
             case SUCCESS:
                 log.debug("Plugin node executed successfully: {}", workingNode.getKey());
@@ -136,6 +139,10 @@ public class WorkflowEngineService {
                 log.debug("Plugin node execution retrying: {}", workingNode.getKey());
                 NodeLogDto retryNode = nodeLogService.retryNode(workflowRunId, workingNode.getKey(), result.getLogs());
                 workflowRetrySchedule.scheduleRetry(workflowId, workflowRunId, workingNode.getKey(), retryNode.attempts());
+                break;
+            case NEXT:
+                log.debug("Plugin node execution next: {}", workingNode.getKey());
+//                nodeLogService.nextNode(workflowRunId, workingNode.getKey(), NodeLogStatus.NEXT, result.getLogs(), result.getError());
                 break;
             default:
                 log.warn("Unknown status for plugin node execution: {}", result.getStatus());
