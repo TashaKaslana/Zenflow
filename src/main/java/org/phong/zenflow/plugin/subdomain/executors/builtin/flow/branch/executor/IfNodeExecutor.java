@@ -19,7 +19,7 @@ import java.util.Map;
 public class IfNodeExecutor implements PluginNodeExecutor {
     @Override
     public String key() {
-        return "core.if";
+        return "core:flow.branch.if";
     }
 
     @Override

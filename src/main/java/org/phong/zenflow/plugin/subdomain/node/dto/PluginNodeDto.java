@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotNull;
 
 import java.io.Serializable;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -13,5 +14,5 @@ import java.util.UUID;
 public record PluginNodeDto(@NotNull UUID id, @NotNull OffsetDateTime createdAt, @NotNull OffsetDateTime updatedAt,
                             UUID pluginId, @NotNull String name, @NotNull String type, String pluginNodeVersion,
                             Map<String, Object> configSchema, @NotNull String executorType,
-                            String entrypoint) implements Serializable {
+                            String entrypoint, String description, List<List<String>> tags, String icon, String key) implements Serializable {
 }

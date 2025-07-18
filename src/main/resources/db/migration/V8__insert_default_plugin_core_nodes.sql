@@ -1,4 +1,7 @@
 ALTER TABLE plugin_nodes
+    ADD COLUMN IF NOT EXISTS icon TEXT,
+    ADD COLUMN IF NOT EXISTS key TEXT UNIQUE;
+ALTER TABLE plugins
     ADD COLUMN IF NOT EXISTS icon TEXT;
 
 INSERT INTO plugins (id,
@@ -10,17 +13,19 @@ INSERT INTO plugins (id,
                      created_at,
                      updated_at,
                      description,
-                     tags)
+                     tags,
+                     icon)
 VALUES (gen_random_uuid(),
         NULL,
-        'core',
+        'Core Plugin',
         '1.0.0',
         NULL,
         true,
         now(),
         now(),
         'Built-in core plugin containing essential nodes.',
-        ARRAY ['core', 'builtin'])
+        ARRAY ['core', 'builtin'],
+        'ph:core')
 ON CONFLICT (name) DO NOTHING;
 
 -- Insert plugin nodes for core plugin
@@ -29,10 +34,11 @@ WITH core_plugin AS (SELECT id
                      WHERE name = 'core'
                      LIMIT 1)
 INSERT
-INTO plugin_nodes (plugin_id, name, type, plugin_node_version, description, tags, icon, config_schema)
+INTO plugin_nodes (plugin_id, key, name, type, plugin_node_version, description, tags, icon, config_schema)
 VALUES
 -- 1. HTTP Request
 ((SELECT id FROM core_plugin),
+ 'http.request',
  'HTTP Request',
  'action',
  '1.0.0',
@@ -84,6 +90,7 @@ VALUES
 
 -- 2. Data Transformer
 ((SELECT id FROM core_plugin),
+ 'data.transformer',
  'Data Transformer',
  'action',
  '1.0.0',
@@ -159,6 +166,7 @@ VALUES
 
 -- 3. Trigger Workflow
 ((SELECT id FROM core_plugin),
+ 'workflow.trigger',
  'Trigger Workflow',
  'action',
  '1.0.0',
@@ -193,6 +201,7 @@ VALUES
 
 -- 4. If Condition
 ((SELECT id FROM core_plugin),
+ 'flow.branch.if',
  'If',
  'if',
  '1.0.0',
@@ -228,6 +237,7 @@ VALUES
 
 -- 5. Switch
 ((SELECT id FROM core_plugin),
+ 'flow.branch.switch',
  'Switch',
  'switch',
  '1.0.0',
@@ -279,6 +289,7 @@ VALUES
 
 -- 6. For Loop
 ((SELECT id FROM core_plugin),
+ 'flow.loop.for',
  'For Loop',
  'for_loop',
  '1.0.0',
@@ -345,6 +356,7 @@ VALUES
 
 -- 7. While Loop
 ((SELECT id FROM core_plugin),
+ 'flow.loop.while',
  'While Loop',
  'while_loop',
  '1.0.0',
@@ -382,6 +394,7 @@ VALUES
 
 -- 8. Timeout
 ((SELECT id FROM core_plugin),
+ 'flow.timeout',
  'Timeout',
  'timeout',
  '1.0.0',
@@ -421,6 +434,7 @@ VALUES
 
 -- 9. Condition
 ((SELECT id FROM core_plugin),
+ 'flow.branch.condition',
  'Condition',
  'condition',
  '1.0.0',

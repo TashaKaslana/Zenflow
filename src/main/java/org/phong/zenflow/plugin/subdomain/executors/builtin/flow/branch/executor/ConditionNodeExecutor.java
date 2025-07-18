@@ -20,7 +20,7 @@ import java.util.Map;
 public class ConditionNodeExecutor implements PluginNodeExecutor {
     @Override
     public String key() {
-        return "core.condition";
+        return "core:flow.branch.condition";
     }
 
     @Override

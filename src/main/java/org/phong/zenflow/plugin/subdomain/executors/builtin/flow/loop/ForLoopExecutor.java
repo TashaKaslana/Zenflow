@@ -16,7 +16,7 @@ import java.util.Map;
 public class ForLoopExecutor implements PluginNodeExecutor {
     @Override
     public String key() {
-        return "core.for_loop";
+        return "core:flow.loop.for";
     }
 
     @Override

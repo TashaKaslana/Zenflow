@@ -25,7 +25,7 @@ public class HttpRequestExecutor implements PluginNodeExecutor {
 
     @Override
     public String key() {
-        return "core.http_request";
+        return "core:http.request";
     }
 
     @Override

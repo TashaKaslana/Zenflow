@@ -19,7 +19,7 @@ import java.util.Map;
 public class WhileLoopExecutor implements PluginNodeExecutor {
     @Override
     public String key() {
-        return "core.while_loop";
+        return "core:flow.loop.while";
     }
 
     @Override

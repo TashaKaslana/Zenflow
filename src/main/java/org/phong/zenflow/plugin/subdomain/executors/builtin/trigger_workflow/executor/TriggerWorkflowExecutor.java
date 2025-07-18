@@ -21,7 +21,7 @@ public class TriggerWorkflowExecutor implements PluginNodeExecutor {
 
     @Override
     public String key() {
-        return "core.trigger_workflow";
+        return "core:trigger.workflow";
     }
 
     @Override

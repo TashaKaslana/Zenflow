@@ -1,13 +1,13 @@
 ALTER TABLE workflows
-    ADD COLUMN retry_policy JSONB,
-    ADD COLUMN description TEXT;
+    ADD COLUMN IF NOT EXISTS retry_policy JSONB,
+    ADD COLUMN IF NOT EXISTS description TEXT;
 
 ALTER TABLE workflow_runs
-    ADD COLUMN context JSONB,
-    ADD COLUMN retry_of UUID REFERENCES workflow_runs(id) ON DELETE SET NULL,
-    ADD COLUMN retry_attempt INT DEFAULT 0,
-    ADD COLUMN next_retry_at TIMESTAMPTZ;
+    ADD COLUMN IF NOT EXISTS context JSONB,
+    ADD COLUMN IF NOT EXISTS retry_of UUID REFERENCES workflow_runs(id) ON DELETE SET NULL,
+    ADD COLUMN IF NOT EXISTS retry_attempt INT DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS next_retry_at TIMESTAMPTZ;
 
 ALTER TABLE node_logs
     ALTER COLUMN status TYPE TEXT,
-    ADD COLUMN logs JSONB;
+    ADD COLUMN IF NOT EXISTS logs JSONB;

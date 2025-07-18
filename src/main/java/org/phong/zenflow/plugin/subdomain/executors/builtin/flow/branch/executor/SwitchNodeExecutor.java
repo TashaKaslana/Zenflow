@@ -16,7 +16,7 @@ import java.util.Map;
 public class SwitchNodeExecutor implements PluginNodeExecutor {
     @Override
     public String key() {
-        return "core.switch";
+        return "core:flow.branch.switch";
     }
 
     @Override

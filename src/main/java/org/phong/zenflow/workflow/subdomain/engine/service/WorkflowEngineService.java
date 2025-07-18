@@ -21,6 +21,7 @@ import org.phong.zenflow.workflow.subdomain.node_logs.enums.NodeLogStatus;
 import org.phong.zenflow.workflow.subdomain.node_logs.service.NodeLogService;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
@@ -38,6 +39,7 @@ public class WorkflowEngineService {
     private final NodeLogService nodeLogService;
     private final WorkflowRetrySchedule workflowRetrySchedule;
 
+    @Transactional
     public WorkflowExecutionStatus runWorkflow(UUID workflowId, UUID workflowRunId, @Nullable String startFromNodeKey, Map<String, Object> context) {
         try {
             Workflow workflow = workflowRepository.findById(workflowId).orElseThrow(

@@ -17,7 +17,7 @@ public class TimeoutExecutor implements PluginNodeExecutor {
 
     @Override
     public String key() {
-        return "core.timeout";
+        return "core:flow.timeout";
     }
 
     @Override

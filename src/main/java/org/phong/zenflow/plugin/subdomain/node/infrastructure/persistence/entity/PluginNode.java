@@ -19,6 +19,7 @@ import org.hibernate.type.SqlTypes;
 import org.phong.zenflow.core.superbase.BaseEntity;
 import org.phong.zenflow.plugin.infrastructure.persistence.entity.Plugin;
 
+import java.util.List;
 import java.util.Map;
 
 @Getter
@@ -60,4 +61,16 @@ public class PluginNode extends BaseEntity {
 
     @Column(name = "entrypoint", length = Integer.MAX_VALUE)
     private String entrypoint;
+
+    @Column(name = "description", length = Integer.MAX_VALUE)
+    private String description;
+
+    @Column(name = "tags")
+    private List<String> tags;
+
+    @Column(name = "icon", length = Integer.MAX_VALUE)
+    private String icon;
+
+    @Column(name = "key", length = Integer.MAX_VALUE)
+    private String key;
 }
