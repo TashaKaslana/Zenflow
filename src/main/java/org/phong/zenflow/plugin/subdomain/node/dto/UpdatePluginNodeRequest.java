@@ -11,6 +11,6 @@ import java.util.Map;
  */
 public record UpdatePluginNodeRequest(@NotNull String name, @NotNull String type, String pluginNodeVersion,
                                       Map<String, Object> configSchema, @NotNull String executorType,
-                                      String entrypoint, String description, List<List<String>> tags, String icon,
+                                      String entrypoint, String description, List<String> tags, String icon,
                                       String key) implements Serializable {
 }

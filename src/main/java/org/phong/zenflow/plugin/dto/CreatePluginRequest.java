@@ -10,5 +10,5 @@ import java.util.UUID;
  * DTO for {@link org.phong.zenflow.plugin.infrastructure.persistence.entity.Plugin}
  */
 public record CreatePluginRequest(UUID publisherId, @NotNull String name, @NotNull String version, String registryUrl,
-                                  @NotNull Boolean verified, String description, List<List<String>> tags) implements Serializable {
+                                  @NotNull Boolean verified, String description, List<String> tags) implements Serializable {
 }
