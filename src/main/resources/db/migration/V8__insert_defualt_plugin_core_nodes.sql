@@ -61,9 +61,10 @@ VALUES
        "description": "HTTP method to use for the request."
      },
      "body": {
-       "type": "string",
+       "type": "object",
        "description": "Optional body content for methods like POST or PUT.",
-       "default": ""
+       "additionalProperties": true,
+       "default": {}
      },
      "headers": {
        "type": "object",

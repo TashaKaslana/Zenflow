@@ -39,7 +39,7 @@ public class SchemaRegistry {
     public JSONObject getPluginSchema(UUID pluginId, UUID nodeId) {
         String cacheKey = pluginId.toString() + ":" + nodeId.toString();
         return pluginCache.computeIfAbsent(cacheKey, k -> {
-            String schemaJson = pluginProvider.getSchemaJson(pluginId, nodeId);
+            Map<String, Object> schemaJson = pluginProvider.getSchemaJson(pluginId, nodeId);
             if (schemaJson == null) {
                 throw new RuntimeException("No schema found for plugin node: " + pluginId + " with node id: " + nodeId);
             }

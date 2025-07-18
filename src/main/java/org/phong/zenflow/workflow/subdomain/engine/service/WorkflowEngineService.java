@@ -57,7 +57,7 @@ public class WorkflowEngineService {
 
                 if (workingNode.getType() == NodeType.PLUGIN) {
                     PluginDefinition pluginDefinition = (PluginDefinition) workingNode;
-                    PluginNode pluginNode = pluginNodeRepository.findById(pluginDefinition.getPluginNode().pluginId()).orElseThrow(
+                    PluginNode pluginNode = pluginNodeRepository.findById(pluginDefinition.getPluginNode().nodeId()).orElseThrow(
                             () -> new WorkflowEngineException("Plugin node not found with ID: " + pluginDefinition.getPluginNode().pluginId())
                     );
                     result = executorDispatcher.dispatch(pluginNode, workingNode.getConfig(), context);
@@ -65,7 +65,12 @@ public class WorkflowEngineService {
                     result = nodeExecutorRegistry.execute(workingNode, context);
                 }
 
-                context.put(workingNode.getKey(), result.getOutput());
+                Map<String, Object> output = result.getOutput();
+                if (output != null) {
+                    context.put(workingNode.getKey(), output);
+                } else {
+                    log.warn("Output of node {} is null, skipping putting into context", workingNode.getKey());
+                }
                 resolveNodeLog(workflowId, workflowRunId, workingNode, result);
 
                 switch (result.getStatus()) {
@@ -84,6 +89,15 @@ public class WorkflowEngineService {
                     case WAITING:
                         log.info("Workflow is now in {} state at node {}. Halting execution.", result.getStatus(), workingNode.getKey());
                         return WorkflowExecutionStatus.HALTED;
+                    case NEXT:
+                        String nextNode = result.getNextNodeKey();
+                        if (nextNode != null) {
+                            workingNode = findNodeByKey(workflowSchema, nextNode);
+                        } else {
+                            log.info("Reach the end of workflow, workflow completed successfully with ID: {}", workflowId);
+                            workingNode = null; // End of workflow
+                        }
+                        break;
                     default:
                         throw new WorkflowEngineException("Unknown execution status: " + result.getStatus());
                 }

@@ -11,10 +11,13 @@ import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.P
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
 import org.phong.zenflow.workflow.subdomain.node_definition.exception.WorkflowNodeDefinitionException;
+import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.phong.zenflow.workflow.utils.NodeKeyGenerator;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -61,13 +64,32 @@ public class WorkflowDefinitionService {
 
     /**
      * Validates a single node's schema
+     *
      * @param nodeMap The node to validate
      * @throws WorkflowNodeDefinitionException if validation fails
      */
     private void validateNode(Map<String, Object> nodeMap) {
         try {
             String type = (String) nodeMap.get("type");
-            if (type == null || !type.equalsIgnoreCase(NodeType.PLUGIN.name())) {
+            log.info("Validating node type '{}'", type);
+
+            if (type.equalsIgnoreCase(NodeType.TRIGGER.name())) {
+                String triggerType = (String) nodeMap.get("triggerType");
+
+                boolean isValidTrigger = triggerType != null &&
+                        Arrays.stream(TriggerType.values())
+                                .map(Enum::name)
+                                .anyMatch(name -> name.equalsIgnoreCase(triggerType));
+
+                if (!isValidTrigger) {
+                    throw new WorkflowNodeDefinitionException(
+                            "Trigger nodes must have a valid 'triggerType' that matches one of the known types: " +
+                                    Arrays.toString(TriggerType.values()));
+                }
+                return;
+            }
+
+            if (!type.equalsIgnoreCase(NodeType.PLUGIN.name())) {
                 log.debug("Skipping validation for non-plugin node type: {}", type);
                 return;
             }
