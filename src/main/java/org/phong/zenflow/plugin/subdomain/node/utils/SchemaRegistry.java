@@ -10,6 +10,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -29,13 +30,18 @@ public class SchemaRegistry {
         return builtinCache.computeIfAbsent(name, this::loadBuiltinSchemaFromFile);
     }
 
-    // Plugin node schema: key = "plugin:pluginName:nodeName"
-    public JSONObject getPluginSchema(String plugin, String node) {
-        String key = plugin + ":" + node;
-        return pluginCache.computeIfAbsent(key, k -> {
-            String schemaJson = pluginProvider.getSchemaJson(plugin, node);
+    /**
+     * Get plugin node schema using UUID for both plugin and node identifiers
+     * @param pluginId UUID of the plugin
+     * @param nodeId UUID of the node
+     * @return JSONObject containing the schema
+     */
+    public JSONObject getPluginSchema(UUID pluginId, UUID nodeId) {
+        String cacheKey = pluginId.toString() + ":" + nodeId.toString();
+        return pluginCache.computeIfAbsent(cacheKey, k -> {
+            String schemaJson = pluginProvider.getSchemaJson(pluginId, nodeId);
             if (schemaJson == null) {
-                throw new RuntimeException("No schema found for plugin node: " + plugin + ":" + node);
+                throw new RuntimeException("No schema found for plugin node: " + pluginId + " with node id: " + nodeId);
             }
             return new JSONObject(schemaJson);
         });

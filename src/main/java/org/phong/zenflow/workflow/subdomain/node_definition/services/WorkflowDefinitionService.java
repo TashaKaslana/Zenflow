@@ -82,8 +82,8 @@ public class WorkflowDefinitionService {
             if (nodeSchema instanceof PluginDefinition pluginDefinition) {
                 PluginNodeDefinition pluginNodeDefinition = pluginDefinition.getPluginNode();
                 nodeConfigSchema = schemaRegistry.getPluginSchema(
-                        pluginNodeDefinition.pluginName(),
-                        pluginNodeDefinition.nodeName()
+                        pluginNodeDefinition.pluginId(),
+                        pluginNodeDefinition.nodeId()
                 );
                 JsonSchemaValidator.validate(config, nodeConfigSchema);
                 log.debug("Node {} validated successfully", nodeSchema.getKey());
