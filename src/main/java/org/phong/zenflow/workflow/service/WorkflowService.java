@@ -2,6 +2,7 @@ package org.phong.zenflow.workflow.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.log.auditlog.annotations.AuditLog;
 import org.phong.zenflow.log.auditlog.enums.AuditAction;
@@ -22,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -29,6 +31,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@Slf4j
 public class WorkflowService {
 
     private final WorkflowRepository workflowRepository;
@@ -65,6 +68,7 @@ public class WorkflowService {
                 .toList();
     }
 
+    @Transactional
     public List<Map<String, Object>> upsertNodes(UUID workflowId, List<Map<String, Object>> incomingNodes) {
         Workflow workflow = getWorkflow(workflowId);
         if (incomingNodes == null || incomingNodes.isEmpty()) {
@@ -72,7 +76,7 @@ public class WorkflowService {
         }
         List<Map<String, Object>> nodes;
         if (workflow.getDefinition() == null) {
-            nodes = List.of();
+            nodes = new ArrayList<>();
         } else {
             nodes = ObjectConversion.safeConvert(workflow.getDefinition().get("nodes"), new TypeReference<>() {
             });
@@ -82,11 +86,14 @@ public class WorkflowService {
 
         Map<String, Object> updatedDefinition = Map.of("nodes", nodes);
         workflow.setDefinition(updatedDefinition);
-        workflowRepository.save(workflow);
+        Workflow upserted = workflowRepository.save(workflow);
+        log.debug("Workflow with ID: {} has been updated with new nodes", workflowId);
+        log.debug("Upserted nodes: {}", upserted.getDefinition());
 
         return nodes;
     }
 
+    @Transactional
     public List<Map<String, Object>> removeNode(UUID workflowId, String keyToRemove) {
         Workflow workflow = getWorkflow(workflowId);
         List<Map<String, Object>> nodes = ObjectConversion.safeConvert(workflow.getDefinition().get("nodes"), new TypeReference<>() {
@@ -96,14 +103,16 @@ public class WorkflowService {
 
         Map<String, Object> updatedJson = Map.of("nodes", nodes);
         workflow.setDefinition(updatedJson);
-        workflowRepository.save(workflow);
+        Workflow removed = workflowRepository.save(workflow);
+        log.debug("Workflow with ID: {} has been updated by removing node with key: {}", workflowId, keyToRemove);
+        log.debug("Updated nodes after removal: {}", removed.getDefinition());
 
         return nodes;
     }
 
     private Workflow getWorkflow(UUID id) {
         return workflowRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Workflow not found"));
+                .orElseThrow(() -> new WorkflowException("Workflow not found"));
     }
 
     /**

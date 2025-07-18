@@ -1,6 +1,7 @@
 package org.phong.zenflow.workflow.subdomain.workflow_run.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.log.auditlog.annotations.AuditLog;
 import org.phong.zenflow.log.auditlog.enums.AuditAction;
 import org.phong.zenflow.workflow.exception.WorkflowException;
@@ -18,6 +19,7 @@ import org.phong.zenflow.workflow.subdomain.workflow_run.infrastructure.persiste
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
@@ -29,6 +31,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@Slf4j
 public class WorkflowRunService {
 
     private final WorkflowRunRepository workflowRunRepository;
@@ -85,6 +88,25 @@ public class WorkflowRunService {
         );
         return createWorkflowRun(request);
     }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public WorkflowRun findOrCreateWorkflowRun(UUID workflowRunId, UUID workflowId, TriggerType triggerType) {
+        return workflowRunRepository.findById(workflowRunId)
+                .orElseGet(() -> {
+                    Workflow workflow = workflowRepository.findById(workflowId)
+                            .orElseThrow(() -> new WorkflowException("Workflow not found with id: " + workflowId));
+
+                    WorkflowRun newWorkflowRun = new WorkflowRun();
+                    newWorkflowRun.setId(workflowRunId);
+                    newWorkflowRun.setWorkflow(workflow);
+                    newWorkflowRun.setStatus(WorkflowStatus.RUNNING);
+                    newWorkflowRun.setTriggerType(triggerType);
+                    newWorkflowRun.setStartedAt(OffsetDateTime.now());
+
+                    return workflowRunRepository.save(newWorkflowRun);
+                });
+    }
+
 
     @Transactional
     public void saveContext(UUID workflowRunId, Map<String, Object> context) {

@@ -40,7 +40,7 @@ public class WorkflowDefinitionService {
         for (Map<String, Object> update : updates) {
             String type = (String) update.get("type");
             if (type == null || type.isBlank()) {
-                throw new IllegalArgumentException("Each node must have a 'type'");
+                throw new WorkflowNodeDefinitionException("Each node must have a 'type'");
             }
 
             String key = (String) update.get("key");
@@ -75,7 +75,8 @@ public class WorkflowDefinitionService {
             // Convert raw map to BaseWorkflowNode for validation
             BaseWorkflowNode nodeSchema = objectMapper.convertValue(nodeMap, BaseWorkflowNode.class);
 
-            JSONObject config = new JSONObject(nodeSchema.getConfig().toString());
+            log.debug("Validating node schema for key: {}, config: {}", nodeSchema.getKey(), nodeSchema.getConfig());
+            JSONObject config = new JSONObject(nodeSchema.getConfig());
             JSONObject nodeConfigSchema;
 
             if (nodeSchema instanceof PluginDefinition pluginDefinition) {

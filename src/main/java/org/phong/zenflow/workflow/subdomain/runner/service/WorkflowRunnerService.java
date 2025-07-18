@@ -4,9 +4,9 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.log.auditlog.annotations.AuditLog;
 import org.phong.zenflow.log.auditlog.enums.AuditAction;
+import org.phong.zenflow.secret.dto.SecretDto;
 import org.phong.zenflow.secret.service.SecretService;
 import org.phong.zenflow.workflow.subdomain.engine.dto.WorkflowExecutionStatus;
 import org.phong.zenflow.workflow.subdomain.engine.service.WorkflowEngineService;
@@ -18,6 +18,7 @@ import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -41,7 +42,7 @@ public class WorkflowRunnerService {
             targetIdExpression = "#workflowId"
     )
     public void runWorkflow(UUID workflowRunId, TriggerType triggerType, UUID workflowId, @Nullable WorkflowRunnerRequest request) {
-        log.debug("Starting workflow with ID: {}", workflowId);
+        log.info("Starting workflow with ID: {}", workflowId);
 
         if (!workflowService.findById(workflowId).isActive()) {
             throw new WorkflowException("Workflow with ID: " + workflowId + " is not active");
@@ -51,13 +52,13 @@ public class WorkflowRunnerService {
         Map<String, Object> context = null;
 
         try {
-            WorkflowRun workflowRun = workflowRunService.findEntityById(workflowRunId);
+            // This will create a new run if it doesn't exist, or return the existing one.
+            WorkflowRun workflowRun = workflowRunService.findOrCreateWorkflowRun(workflowRunId, workflowId, triggerType);
 
             if (workflowRun.getContext() == null || workflowRun.getContext().isEmpty()) {
                 // First run: ensure the run is started and create a new context
                 log.debug("No existing context found for workflow run ID: {}. Starting new run.", workflowRunId);
-                workflowRunService.startWorkflowRun(workflowRunId, workflowId, triggerType);
-                Map<String, Object> secretOfWorkflow = ObjectConversion.convertObjectToMap(secretService.getSecretsByWorkflowId(workflowId));
+                List<SecretDto> secretOfWorkflow = secretService.getSecretsByWorkflowId(workflowId);
                 context = new ConcurrentHashMap<>(Map.of("secrets", secretOfWorkflow));
                 if (request != null && request.callbackUrl() != null && !request.callbackUrl().isEmpty()) {
                     context.put(callbackUrlKeyOnContext, request.callbackUrl());

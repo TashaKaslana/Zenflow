@@ -1,11 +1,10 @@
 package org.phong.zenflow.workflow.subdomain.workflow_run.infrastructure.persistence.entity;
 
-import jakarta.persistence.AttributeOverride;
-import jakarta.persistence.AttributeOverrides;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -18,13 +17,13 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 import org.hibernate.type.SqlTypes;
-import org.phong.zenflow.core.superbase.BaseIdEntity;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.phong.zenflow.workflow.subdomain.workflow_run.enums.WorkflowStatus;
 
 import java.time.OffsetDateTime;
 import java.util.Map;
+import java.util.UUID;
 
 @Getter
 @Setter
@@ -32,10 +31,12 @@ import java.util.Map;
 @Table(name = "workflow_runs", indexes = {
         @Index(name = "idx_workflow_runs_workflow_id", columnList = "workflow_id")
 })
-@AttributeOverrides({
-        @AttributeOverride(name = "id", column = @Column(name = "id", nullable = false))
-})
-public class WorkflowRun extends BaseIdEntity {
+public class WorkflowRun{
+    @Id
+    @NotNull
+    @Column(name = "id", updatable = false, nullable = false)
+    private UUID id = UUID.randomUUID();
+
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
