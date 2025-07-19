@@ -1,6 +1,7 @@
 package org.phong.zenflow.plugin.subdomain.executors.builtin.flow.timeout;
 
 import lombok.RequiredArgsConstructor;
+import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
@@ -21,11 +22,13 @@ public class TimeoutExecutor implements PluginNodeExecutor {
     }
 
     @Override
-    public ExecutionResult execute(Map<String, Object> config, Map<String, Object> context) {
+    public ExecutionResult execute(Map<String, Object> config) {
         LogCollector logCollector = new LogCollector();
         logCollector.info("Starting timeout node execution");
-        String duration = (String) config.get("duration");
-        String unit = (String) config.get("unit");
+
+        Map<String, Object> input = ObjectConversion.convertObjectToMap(config.get("input"));
+        String duration = (String) input.get("duration");
+        String unit = (String) input.get("unit");
 
         if (duration == null || unit == null) {
             logCollector.error("Timeout duration and unit must be specified.");
@@ -33,9 +36,10 @@ public class TimeoutExecutor implements PluginNodeExecutor {
         }
 
         long millis = parseDuration(duration, unit);
-        UUID workflowId = UUID.fromString((String) context.get("workflowId"));
-        UUID workflowRunId = UUID.fromString((String) context.get("workflowRunId"));
-        String nodeKey = (String) context.get("nodeKey");
+
+        UUID workflowId = UUID.fromString(config.get("workflowId").toString());
+        UUID workflowRunId = UUID.fromString(config.get("workflowRunId").toString());
+        String nodeKey = (String) config.get("nodeKey");
 
         timeoutScheduler.scheduleTimeout(workflowId, workflowRunId, nodeKey, millis);
         logCollector.info("Timeout scheduled for {} {} ({} milliseconds)", duration, unit, millis);
@@ -45,6 +49,9 @@ public class TimeoutExecutor implements PluginNodeExecutor {
 
     private long parseDuration(String duration, String unit) {
         long value = Long.parseLong(duration);
+        if (value < 0) {
+            throw new IllegalArgumentException("Timeout duration must be a non-negative number.");
+        }
         return switch (unit.toLowerCase()) {
             case "milliseconds" -> value;
             case "seconds" -> value * 1000;
@@ -52,4 +59,3 @@ public class TimeoutExecutor implements PluginNodeExecutor {
         };
     }
 }
-

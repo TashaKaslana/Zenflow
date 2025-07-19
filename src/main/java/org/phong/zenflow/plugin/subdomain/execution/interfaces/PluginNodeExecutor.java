@@ -9,5 +9,5 @@ public interface PluginNodeExecutor {
     String key();
 
     // execute the plugin node with the given configuration and context
-    ExecutionResult execute(Map<String, Object> config, Map<String, Object> context);
+    ExecutionResult execute(Map<String, Object> config);
 }

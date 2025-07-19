@@ -7,7 +7,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
-import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -23,30 +22,29 @@ public class IfNodeExecutor implements PluginNodeExecutor {
     }
 
     @Override
-    public ExecutionResult execute(Map<String, Object> config, Map<String, Object> context) {
-        String rawCondition = (String) config.get("condition"); // e.g. "{{user.age}} > 18"
-        List<String> nextTrue = ObjectConversion.safeConvert(config.get("nextTrue").toString(), new TypeReference<>() {
+    public ExecutionResult execute(Map<String, Object> config) {
+        Map<String, Object> input = ObjectConversion.convertObjectToMap(config.get("input"));
+        String condition = (String) input.get("condition"); // e.g. "true", "1 > 0"
+        List<String> nextTrue = ObjectConversion.safeConvert(input.get("nextTrue").toString(), new TypeReference<>() {
         });
-        List<String> nextFalse = ObjectConversion.safeConvert(config.get("nextFalse").toString(), new TypeReference<>() {
+        List<String> nextFalse = ObjectConversion.safeConvert(input.get("nextFalse").toString(), new TypeReference<>() {
         });
 
-        // 1. Interpolate all templates first
-        String interpolated = TemplateEngine.resolveTemplate(rawCondition, context).toString();
-        if (interpolated == null || interpolated.isBlank()) {
-            throw new IllegalArgumentException("If condition is null or blank after interpolation.");
+        if (condition == null || condition.isBlank()) {
+            throw new IllegalArgumentException("If condition is null or blank.");
         }
-        log.debug("Resolved IF condition: {}", interpolated);
+        log.debug("Evaluating IF condition: {}", condition);
 
-        // 2. Evaluate expression using Aviator
+        // Evaluate expression using Aviator
         boolean result;
         try {
-            result = (Boolean) AviatorEvaluator.execute(interpolated);
+            result = (Boolean) AviatorEvaluator.execute(condition);
         } catch (Exception e) {
-            log.error("Failed to evaluate condition: {}", interpolated, e);
-            throw new RuntimeException("Invalid condition expression: " + interpolated, e);
+            log.error("Failed to evaluate condition: {}", condition, e);
+            throw new RuntimeException("Invalid condition expression: " + condition, e);
         }
 
-        // 3. Branch
+        // Branch
         String next = result
                 ? getFirstOrNull(nextTrue)
                 : getFirstOrNull(nextFalse);

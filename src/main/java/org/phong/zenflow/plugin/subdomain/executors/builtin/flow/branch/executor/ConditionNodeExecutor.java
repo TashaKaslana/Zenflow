@@ -7,7 +7,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
-import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
 import org.phong.zenflow.plugin.subdomain.executors.builtin.flow.branch.dto.ConditionalCase;
 import org.springframework.stereotype.Component;
 
@@ -24,27 +23,27 @@ public class ConditionNodeExecutor implements PluginNodeExecutor {
     }
 
     @Override
-    public ExecutionResult execute(Map<String, Object> config, Map<String, Object> context) {
+    public ExecutionResult execute(Map<String, Object> config) {
         try {
-            List<ConditionalCase> cases = ObjectConversion.safeConvert(config.get("cases").toString(), new TypeReference<>() {
+            Map<String, Object> input = ObjectConversion.convertObjectToMap(config.get("input"));
+            List<ConditionalCase> cases = ObjectConversion.safeConvert(input.get("cases").toString(), new TypeReference<>() {
             });
             for (ConditionalCase caseDef : cases) {
-                String rawCondition = caseDef.when();
-                String interpolated = TemplateEngine.resolveTemplate(rawCondition, context).toString();
-                if (interpolated == null || interpolated.isBlank()) {
-                    throw new IllegalArgumentException("Node condition is null or blank after interpolation.");
+                String condition = caseDef.when();
+                if (condition == null || condition.isBlank()) {
+                    throw new IllegalArgumentException("Node condition is null or blank.");
                 }
-                log.debug("Resolved condition: {}", interpolated);
+                log.debug("Evaluating condition: {}", condition);
 
-                Boolean isMatch = (Boolean) AviatorEvaluator.execute(interpolated);
+                Boolean isMatch = (Boolean) AviatorEvaluator.execute(condition);
                 if (isMatch) {
                     return ExecutionResult.nextNode(caseDef.then());
                 }
             }
-            return ExecutionResult.nextNode(config.get("default_case").toString());
+            return ExecutionResult.nextNode(input.get("default_case").toString());
         } catch (Exception e) {
-            log.error("Failed to parse cases from context", e);
-            throw new RuntimeException("Invalid cases format in context", e);
+            log.error("Failed to parse or evaluate cases", e);
+            throw new RuntimeException("Invalid cases format or condition expression", e);
         }
     }
 }

@@ -20,52 +20,56 @@ public class ForLoopExecutor implements PluginNodeExecutor {
     }
 
     @Override
-    public ExecutionResult execute(Map<String, Object> config, Map<String, Object> context) {
-        String stateKey = "__loop_state__:" + config.get("key");
-        Map<String, Object> loopState = ObjectConversion.convertObjectToMap(context.get(stateKey));
+    public ExecutionResult execute(Map<String, Object> config) {
+        Map<String, Object> input = ObjectConversion.convertObjectToMap(config.get("input"));
+        String stateKey = "__loop_state__:" + input.get("key");
+        Map<String, Object> loopState = ObjectConversion.convertObjectToMap(config.get(stateKey));
 
-        Result result = getResult(config, context, loopState, stateKey);
-        List<String> loopEnd = ObjectConversion.safeConvert(config.get("loopEnd"), new TypeReference<>() {});
+        Result result = getResult(input, loopState);
+        List<String> loopEnd = ObjectConversion.safeConvert(input.get("loopEnd"), new TypeReference<>() {});
+
+        Map<String, Object> output = new HashMap<>();
 
         if (result.index() >= result.total()) {
-            context.remove(stateKey);
             return ExecutionResult.nextNode(loopEnd.getFirst());
         }
 
-        // Set loop vars
-        String indexVar = (String) config.getOrDefault("indexVar", "index");
-        context.put(indexVar, result.index());
+        // Set loop vars for the current iteration
+        String indexVar = (String) input.getOrDefault("indexVar", "index");
+        output.put(indexVar, result.index());
 
         if (result.loopState().containsKey("items")) {
             List<?> items = (List<?>) result.loopState().get("items");
-            context.put((String) config.get("itemVar"), items.get(result.index()));
+            output.put((String) input.get("itemVar"), items.get(result.index()));
         }
 
         // Evaluate breakCondition
-        if (evalCondition(config.get("breakCondition"), context)) {
-            context.remove(stateKey);
+        if (evalCondition(input.get("breakCondition"), output)) {
             return ExecutionResult.nextNode(loopEnd.getFirst());
         }
 
         // Evaluate continueCondition
-        if (evalCondition(config.get("continueCondition"), context)) {
+        if (evalCondition(input.get("continueCondition"), output)) {
             result.loopState().put("index", result.index() + 1);
-            return ExecutionResult.nextNode((String) config.get("key")); // re-enter same node (next iteration)
+            output.put(stateKey, result.loopState());
+            return ExecutionResult.nextNode((String) input.get("key")); // re-enter same node (next iteration)
         }
 
-        // Continue loop
+        // Continue loop: update state and set next node
         result.loopState().put("index", result.index() + 1);
-        return ExecutionResult.nextNode(loopEnd.getFirst());
+        output.put(stateKey, result.loopState());
+
+        return ExecutionResult.nextNode(loopEnd.getFirst(), output);
     }
 
-    private static Result getResult(Map<String, Object> config, Map<String, Object> context, Map<String, Object> loopState, String stateKey) {
+    private static Result getResult(Map<String, Object> config, Map<String, Object> loopState) {
         if (loopState == null) {
             loopState = new HashMap<>();
             int total;
 
             String iterator = (String) config.get("iterator");
             if (iterator != null) {
-                Object iterableRaw = context.get(iterator);
+                Object iterableRaw = config.get(iterator);
                 if (!(iterableRaw instanceof List<?> items)) {
                     throw new IllegalArgumentException("Iterator '" + iterator + "' is not a list.");
                 }
@@ -79,7 +83,6 @@ public class ForLoopExecutor implements PluginNodeExecutor {
 
             loopState.put("index", 0);
             loopState.put("total", total);
-            context.put(stateKey, loopState);
         }
 
         int index = (int) loopState.get("index");

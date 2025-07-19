@@ -1,6 +1,7 @@
 package org.phong.zenflow.plugin.subdomain.executors.builtin.trigger_workflow.executor;
 
 import lombok.AllArgsConstructor;
+import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
@@ -26,18 +27,18 @@ public class TriggerWorkflowExecutor implements PluginNodeExecutor {
 
     @Override
     @Transactional
-    public ExecutionResult execute(Map<String, Object> config, Map<String, Object> context) {
+    public ExecutionResult execute(Map<String, Object> config) {
         LogCollector logs = new LogCollector();
+        logs.info("Executing TriggerWorkflowExecutor with config: " + config);
+
+        // Extract the 'input' map from the config
+        Map<String, Object> input = ObjectConversion.convertObjectToMap(config.get("input"));
+
         //TODO: ensure trigger workflow is enabled, exists and is own by the user
-        UUID workflowRunId = (UUID) config.get("workflow_run_id");
-        UUID workflowId = (UUID) config.get("workflow_id");
-//        boolean isPassContext = (boolean) config.getOrDefault("is_pass_context", false);
-        boolean isAsync = (boolean) config.getOrDefault("is_async", false);
-        logs.info("Executing DataTransformerExecutor with config: " + config);
-        if (workflowRunId == null || workflowId == null) {
-            logs.error("Workflow run ID or workflow ID is missing in the configuration.");
-            return ExecutionResult.error("Workflow run ID or workflow ID is missing in the configuration.", logs.getLogs());
-        }
+        UUID workflowRunId = UUID.fromString(input.get("workflow_run_id").toString());
+        UUID workflowId = UUID.fromString(input.get("workflow_id").toString());
+        boolean isAsync = (boolean) input.getOrDefault("is_async", false);
+
         logs.info("Triggering workflow with ID: " + workflowId + " and run ID: " + workflowRunId);
 
         eventPublisher.publishEvent(new WorkflowRunnerPublishableEvent() {

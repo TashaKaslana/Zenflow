@@ -7,7 +7,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
-import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -23,26 +22,25 @@ public class WhileLoopExecutor implements PluginNodeExecutor {
     }
 
     @Override
-    public ExecutionResult execute(Map<String, Object> config, Map<String, Object> context) {
-        String rawCondition = (String) config.get("condition");
-        List<String> next = ObjectConversion.safeConvert(config.get("next"), new TypeReference<>() {});
-        List<String> loopEnd = ObjectConversion.safeConvert(config.get("loopEnd"), new TypeReference<>() {});
+    public ExecutionResult execute(Map<String, Object> config) {
+        Map<String, Object> input = ObjectConversion.convertObjectToMap(config.get("input"));
+        String condition = (String) input.get("condition");
+        List<String> next = ObjectConversion.safeConvert(input.get("next"), new TypeReference<>() {});
+        List<String> loopEnd = ObjectConversion.safeConvert(input.get("loopEnd"), new TypeReference<>() {});
 
-        String interpolated = TemplateEngine.resolveTemplate(rawCondition, context).toString();
-
-        if (interpolated == null || interpolated.isBlank()) {
-            throw new IllegalArgumentException("WhileLoop condition is null or blank after interpolation.");
+        if (condition == null || condition.isBlank()) {
+            throw new IllegalArgumentException("WhileLoop condition is null or blank.");
         }
 
-        Object result = AviatorEvaluator.execute(interpolated);
+        Object result = AviatorEvaluator.execute(condition);
         if (!(result instanceof Boolean)) {
             throw new IllegalStateException("WhileLoop condition must evaluate to boolean, but got: " + result);
         }
 
         boolean isContinue = (Boolean) result;
-        log.debug("WhileLoop evaluated condition [{}] to [{}]", interpolated, isContinue);
+        log.debug("WhileLoop evaluated condition [{}] to [{}]", condition, isContinue);
 
-        if (!config.containsKey("next") || !config.containsKey("loopEnd")) {
+        if (!input.containsKey("next") || !input.containsKey("loopEnd")) {
             throw new IllegalStateException("WhileLoop node missing next or loopEnd target.");
         }
 
