@@ -5,9 +5,8 @@ import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.exceptions.ExecutorException;
 import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.entity.PluginNode;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.springframework.stereotype.Service;
-
-import java.util.Map;
 
 @Service
 @AllArgsConstructor
@@ -15,7 +14,7 @@ public class PluginNodeExecutorDispatcher {
 
     private final PluginNodeExecutorRegistry registry;
 
-    public ExecutionResult dispatch(PluginNode node, Map<String, Object> config) {
+    public ExecutionResult dispatch(PluginNode node, WorkflowConfig config) {
         switch (node.getExecutorType().toLowerCase()) {
             case "builtin" -> {
                 String key = "core" + ":" + node.getKey();

@@ -1,0 +1,8 @@
+package org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto;
+
+import jakarta.annotation.Nullable;
+
+import java.util.Map;
+
+public record WorkflowConfig(Map<String, Object> input, Map<String, Object> output, @Nullable Map<String, Object> entrypoint)  {
+}

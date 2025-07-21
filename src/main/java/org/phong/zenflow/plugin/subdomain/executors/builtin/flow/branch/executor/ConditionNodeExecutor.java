@@ -8,6 +8,7 @@ import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.plugin.subdomain.executors.builtin.flow.branch.dto.ConditionalCase;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -23,9 +24,9 @@ public class ConditionNodeExecutor implements PluginNodeExecutor {
     }
 
     @Override
-    public ExecutionResult execute(Map<String, Object> config) {
+    public ExecutionResult execute(WorkflowConfig config) {
         try {
-            Map<String, Object> input = ObjectConversion.convertObjectToMap(config.get("input"));
+            Map<String, Object> input = ObjectConversion.convertObjectToMap(config.input());
             List<ConditionalCase> cases = ObjectConversion.safeConvert(input.get("cases").toString(), new TypeReference<>() {
             });
             for (ConditionalCase caseDef : cases) {

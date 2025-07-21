@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
 import org.phong.zenflow.workflow.subdomain.runner.event.WorkflowRunnerPublishableEvent;
@@ -27,12 +28,12 @@ public class TriggerWorkflowExecutor implements PluginNodeExecutor {
 
     @Override
     @Transactional
-    public ExecutionResult execute(Map<String, Object> config) {
+    public ExecutionResult execute(WorkflowConfig config) {
         LogCollector logs = new LogCollector();
         logs.info("Executing TriggerWorkflowExecutor with config: " + config);
 
         // Extract the 'input' map from the config
-        Map<String, Object> input = ObjectConversion.convertObjectToMap(config.get("input"));
+        Map<String, Object> input = ObjectConversion.convertObjectToMap(config.input());
 
         //TODO: ensure trigger workflow is enabled, exists and is own by the user
         UUID workflowRunId = UUID.fromString(input.get("workflow_run_id").toString());

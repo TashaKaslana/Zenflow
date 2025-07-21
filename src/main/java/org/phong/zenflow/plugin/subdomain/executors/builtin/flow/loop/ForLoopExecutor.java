@@ -6,6 +6,7 @@ import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -20,10 +21,10 @@ public class ForLoopExecutor implements PluginNodeExecutor {
     }
 
     @Override
-    public ExecutionResult execute(Map<String, Object> config) {
-        Map<String, Object> input = ObjectConversion.convertObjectToMap(config.get("input"));
+    public ExecutionResult execute(WorkflowConfig config) {
+        Map<String, Object> input = ObjectConversion.convertObjectToMap(config.input());
         String stateKey = "__loop_state__:" + input.get("key");
-        Map<String, Object> loopState = ObjectConversion.convertObjectToMap(config.get(stateKey));
+        Map<String, Object> loopState = ObjectConversion.convertObjectToMap(input.get(stateKey));
 
         Result result = getResult(input, loopState);
         List<String> loopEnd = ObjectConversion.safeConvert(input.get("loopEnd"), new TypeReference<>() {});

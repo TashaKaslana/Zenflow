@@ -8,9 +8,13 @@ import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.plugin.subdomain.execution.exceptions.ExecutorException;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.plugin.subdomain.executors.builtin.http.executor.HttpRequestExecutor;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.springframework.stereotype.Component;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Component
 @AllArgsConstructor
@@ -24,9 +28,9 @@ public class RemoteNodeExecutor implements PluginNodeExecutor {
     }
 
     @Override
-    public ExecutionResult execute(Map<String, Object> config) {
-        Map<String, Object> entrypoint = ObjectConversion.convertObjectToMap(config.get("entrypoint"));
-        Map<String, Object> input = ObjectConversion.convertObjectToMap(config.get("input"));
+    public ExecutionResult execute(WorkflowConfig config) {
+        Map<String, Object> entrypoint = ObjectConversion.convertObjectToMap(config.entrypoint());
+        Map<String, Object> input = ObjectConversion.convertObjectToMap(config.input());
 
         String url = (String) entrypoint.get("url");
         String method = (String) entrypoint.getOrDefault("method", "POST");
@@ -41,8 +45,9 @@ public class RemoteNodeExecutor implements PluginNodeExecutor {
             rawHeaders.forEach((k, v) -> headers.put(k, String.valueOf(v)));
         }
 
-        if (config.containsKey("secrets")) {
-            List<Map<String, Object>> secrets = ObjectConversion.safeConvert(config.get("secrets"), new TypeReference<>() {});
+        if (input.containsKey("secrets")) {
+            List<Map<String, Object>> secrets = ObjectConversion.safeConvert(config.input().get("secrets"), new TypeReference<>() {
+            });
             for (Map<String, Object> secret : secrets) {
                 String key = (String) secret.get("key");
                 String injectAs = (String) secret.getOrDefault("inject_as", "header");
@@ -64,13 +69,15 @@ public class RemoteNodeExecutor implements PluginNodeExecutor {
         }
 
         // 🔗 Build HTTP request config
-        Map<String, Object> httpRequestConfig = Map.of(
-                "input", Map.of(
+        WorkflowConfig httpRequestConfig = new WorkflowConfig(
+                Map.of(
                         "url", url,
                         "method", method,
                         "headers", headers,
                         "body", input
-                )
+                ),
+                null,
+                null
         );
 
         ExecutionResult httpResult = httpRequestExecutor.execute(httpRequestConfig);

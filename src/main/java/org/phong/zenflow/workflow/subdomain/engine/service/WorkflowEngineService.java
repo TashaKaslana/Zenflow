@@ -63,7 +63,7 @@ public class WorkflowEngineService {
                     PluginNode pluginNode = pluginNodeRepository.findById(pluginDefinition.getPluginNode().nodeId()).orElseThrow(
                             () -> new WorkflowEngineException("Plugin node not found with ID: " + pluginDefinition.getPluginNode().pluginId())
                     );
-                    result = executorDispatcher.dispatch(pluginNode, workingNode.getConfig(), context);
+                    result = executorDispatcher.dispatch(pluginNode, workingNode.getConfig());
                 } else {
                     result = nodeExecutorRegistry.execute(workingNode, context);
                 }

@@ -6,6 +6,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.trigger.TriggerNodeDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
@@ -31,7 +32,7 @@ public class BaseWorkflowNode {
     @NotNull
     private final List<String> next;
 
-    private final Map<String, Object> config;
+    private final WorkflowConfig config;
 
     private final Map<String, Object> metadata;
 

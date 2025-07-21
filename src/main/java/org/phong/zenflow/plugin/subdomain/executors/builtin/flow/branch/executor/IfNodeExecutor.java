@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -22,8 +23,8 @@ public class IfNodeExecutor implements PluginNodeExecutor {
     }
 
     @Override
-    public ExecutionResult execute(Map<String, Object> config) {
-        Map<String, Object> input = ObjectConversion.convertObjectToMap(config.get("input"));
+    public ExecutionResult execute(WorkflowConfig config) {
+        Map<String, Object> input = ObjectConversion.convertObjectToMap(config.input());
         String condition = (String) input.get("condition"); // e.g. "true", "1 > 0"
         List<String> nextTrue = ObjectConversion.safeConvert(input.get("nextTrue").toString(), new TypeReference<>() {
         });

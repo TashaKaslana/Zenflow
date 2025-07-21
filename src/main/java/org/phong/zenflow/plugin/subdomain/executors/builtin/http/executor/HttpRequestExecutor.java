@@ -6,6 +6,7 @@ import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.plugin.subdomain.executors.builtin.http.exception.HttpExecutorException;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -31,10 +32,10 @@ public class HttpRequestExecutor implements PluginNodeExecutor {
     }
 
     @Override
-    public ExecutionResult execute(Map<String, Object> config) {
+    public ExecutionResult execute(WorkflowConfig config) {
         LogCollector logs = new LogCollector();
         try {
-            Map<String, Object> input = ObjectConversion.convertObjectToMap(config.get("input"));
+            Map<String, Object> input = ObjectConversion.convertObjectToMap(config.input());
 
             String url = (String) input.get("url");
             HttpMethod method = HttpMethod.valueOf((String) input.get("method"));

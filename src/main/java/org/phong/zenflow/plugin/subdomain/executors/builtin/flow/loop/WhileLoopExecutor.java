@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -22,8 +23,8 @@ public class WhileLoopExecutor implements PluginNodeExecutor {
     }
 
     @Override
-    public ExecutionResult execute(Map<String, Object> config) {
-        Map<String, Object> input = ObjectConversion.convertObjectToMap(config.get("input"));
+    public ExecutionResult execute(WorkflowConfig config) {
+        Map<String, Object> input = ObjectConversion.convertObjectToMap(config.input());
         String condition = (String) input.get("condition");
         List<String> next = ObjectConversion.safeConvert(input.get("next"), new TypeReference<>() {});
         List<String> loopEnd = ObjectConversion.safeConvert(input.get("loopEnd"), new TypeReference<>() {});
