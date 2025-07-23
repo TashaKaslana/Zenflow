@@ -8,7 +8,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.log.auditlog.annotations.AuditLog;
 import org.phong.zenflow.log.auditlog.enums.AuditAction;
-import org.phong.zenflow.secret.dto.SecretDto;
 import org.phong.zenflow.secret.service.SecretService;
 import org.phong.zenflow.workflow.exception.WorkflowException;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
@@ -65,20 +64,22 @@ public class WorkflowRunnerService {
 
             // Extract consumer map from the static context in the workflow definition
             Map<String, List<String>> consumers = getConsumersFromDefinition(workflow.getDefinition());
+            Map<String, String> aliasMap = ObjectConversion.safeConvert(workflow.getDefinition().metadata().get("alias"), new TypeReference<>() {
+            });
 
             if (workflowRun.getContext() == null || workflowRun.getContext().isEmpty()) {
                 // First run: ensure the run is started and create a new context
                 log.debug("No existing context found for workflow run ID: {}. Starting new run.", workflowRunId);
-                List<SecretDto> secretOfWorkflow = secretService.getSecretsByWorkflowId(workflowId);
+                Map<String, String> secretOfWorkflow = secretService.getSecretMapByWorkflowId(workflowId);
                 Map<String, Object> initialContext = new ConcurrentHashMap<>(Map.of("secrets", secretOfWorkflow));
                 if (request != null && request.callbackUrl() != null && !request.callbackUrl().isEmpty()) {
                     initialContext.put(callbackUrlKeyOnContext, request.callbackUrl());
                 }
-                context.initialize(initialContext, consumers);
+                context.initialize(initialContext, consumers, aliasMap);
             } else {
                 // Resumed run: load existing context
                 log.debug("Existing context found for workflow run ID: {}. Loading context.", workflowRunId);
-                context.initialize(new ConcurrentHashMap<>(workflowRun.getContext()), consumers);
+                context.initialize(new ConcurrentHashMap<>(workflowRun.getContext()), consumers, aliasMap);
             }
 
             String startFromNodeKey = (request != null) ? request.startFromNodeKey() : null;

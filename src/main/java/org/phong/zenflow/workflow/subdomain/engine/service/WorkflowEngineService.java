@@ -71,7 +71,7 @@ public class WorkflowEngineService {
 
                 Map<String, Object> output = result.getOutput();
                 if (output != null) {
-                    context.put(workingNode.getKey(), output);
+                    context.processOutputWithMetadata(workingNode.getKey(), output);
                 } else {
                     log.warn("Output of node {} is null, skipping putting into context", workingNode.getKey());
                 }

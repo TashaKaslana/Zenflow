@@ -3,6 +3,7 @@ package org.phong.zenflow.plugin.subdomain.execution.utils;
 import org.phong.zenflow.core.utils.ObjectConversion;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -13,6 +14,7 @@ import java.util.regex.*;
 
 public class TemplateEngine {
 
+    // Updated pattern to handle both simple references and function calls
     private static final Pattern TEMPLATE_PATTERN = Pattern.compile("\\{\\{\\s*([a-zA-Z0-9._-]+(?:\\(.*?\\))?)\\s*}}");
     private static final Map<String, Function<List<String>, Object>> functionRegistry = new HashMap<>();
     static {
@@ -24,6 +26,45 @@ public class TemplateEngine {
         functionRegistry.put("slug", args -> args.getFirst().toLowerCase().replaceAll("[^a-z0-9]+", "-"));
     }
 
+    /**
+     * Extracts all references from a template string.
+     * For example, "Hello {{user.name}}, your order {{order.id}} is ready" would return ["user.name", "order.id"]
+     *
+     * @param template The template string containing references
+     * @return List of references found in the template
+     */
+    public static List<String> extractRefs(String template) {
+        if (template == null) {
+            return new ArrayList<>();
+        }
+
+        List<String> refs = new ArrayList<>();
+        Matcher matcher = TEMPLATE_PATTERN.matcher(template);
+
+        while (matcher.find()) {
+            refs.add(matcher.group(1).trim());
+        }
+
+        return refs;
+    }
+
+    /**
+     * Determines if a string contains any template references.
+     *
+     * @param value The string to check
+     * @return true if the string contains template references, false otherwise
+     */
+    public static boolean isTemplate(String value) {
+        return value != null && TEMPLATE_PATTERN.matcher(value).find();
+    }
+
+    /**
+     * Resolves a template string by replacing references with their values from the context.
+     *
+     * @param value The template string to resolve
+     * @param context The context containing values for references
+     * @return The resolved template
+     */
     public static Object resolveTemplate(Object value, Map<String, Object> context) {
         if (!(value instanceof String template)) return value;
 
@@ -31,13 +72,19 @@ public class TemplateEngine {
         StringBuilder result = new StringBuilder();
 
         while (matcher.find()) {
-            String expr = matcher.group(1); // e.g., uuid(), user.name
+            String expr = matcher.group(1); // e.g., uuid(), user.name, secrets.API_KEY
 
             Object replacement;
             if (expr.matches("[a-zA-Z0-9._-]+\\(.*\\)")) {
                 replacement = evaluateFunctionWithArgs(expr);
             } else {
-                replacement = deepGet(context, expr);
+                // Check if this is a secret reference
+                if (expr.startsWith("secrets.")) {
+                    String secretName = expr.substring("secrets.".length());
+                    replacement = resolveSecret(context, secretName);
+                } else {
+                    replacement = deepGet(context, expr);
+                }
             }
 
             matcher.appendReplacement(result, Matcher.quoteReplacement(
@@ -49,6 +96,36 @@ public class TemplateEngine {
         return result.toString();
     }
 
+    /**
+     * Resolves a secret reference from the context.
+     *
+     * @param context The context containing the secrets map
+     * @param secretName The name of the secret to resolve
+     * @return The secret value, or null if not found
+     */
+    @SuppressWarnings("unchecked")
+    private static Object resolveSecret(Map<String, Object> context, String secretName) {
+        if (context == null) return null;
+
+        Object secretsObj = context.get("secrets");
+        if (secretsObj == null) return null;
+
+        // Handle both Map<String, String> and Map<String, Object> formats
+        if (secretsObj instanceof Map) {
+            return ((Map<String, ?>) secretsObj).get(secretName);
+        }
+
+        return null;
+    }
+
+    /**
+     * Retrieves a nested value from a map using dot notation.
+     * For example, "user.address.city" would retrieve context.get("user").get("address").get("city")
+     *
+     * @param map The map to search in
+     * @param dottedKey The key in dot notation
+     * @return The value found, or null if not found
+     */
     private static Object deepGet(Map<String, Object> map, String dottedKey) {
         String[] keys = dottedKey.split("\\.");
         Object current = map;
@@ -59,6 +136,13 @@ public class TemplateEngine {
         return current;
     }
 
+    /**
+     * Evaluates a function expression with arguments.
+     * For example, "uuid()" would call the uuid function.
+     *
+     * @param expr The function expression
+     * @return The result of the function call
+     */
     private static Object evaluateFunctionWithArgs(String expr) {
         int open = expr.indexOf('(');
         int close = expr.lastIndexOf(')');
@@ -76,8 +160,13 @@ public class TemplateEngine {
         return fn.apply(args);
     }
 
-
-    // Recursively resolve config map
+    /**
+     * Recursively resolves all templates in a map.
+     *
+     * @param input The map containing templates
+     * @param context The context containing values for references
+     * @return A new map with all templates resolved
+     */
     public static Map<String, Object> resolveAll(Map<String, Object> input, Map<String, Object> context) {
         Map<String, Object> resolved = new HashMap<>();
         for (Map.Entry<String, Object> entry : input.entrySet()) {
