@@ -101,7 +101,8 @@ VALUES
          "type": "object"
        }
      }
-   }
+   },
+   "secrets": []
  }'::jsonb),
 
 -- 2. Data Transformer
@@ -187,7 +188,8 @@ VALUES
          "type": "string"
        }
      }
-   }
+   },
+   "secrets": []
  }'::jsonb),
 
 -- 3. Trigger Workflow
@@ -227,7 +229,8 @@ VALUES
    },
    "output": {
      "type": "object"
-   }
+   },
+   "secrets": []
  }'::jsonb),
 
 -- 4. If Condition
@@ -268,7 +271,8 @@ VALUES
    },
    "output": {
      "type": "object"
-   }
+   },
+   "secrets": []
  }'::jsonb),
 
 -- 5. Switch
@@ -325,7 +329,8 @@ VALUES
    },
    "output": {
      "type": "object"
-   }
+   },
+   "secrets": []
  }'::jsonb),
 
 -- 6. For Loop
@@ -397,7 +402,8 @@ VALUES
    },
    "output": {
      "type": "object"
-   }
+   },
+   "secrets": []
  }'::jsonb),
 
 -- 7. While Loop
@@ -440,7 +446,8 @@ VALUES
    },
    "output": {
      "type": "object"
-   }
+   },
+   "secrets": []
  }'::jsonb),
 
 -- 8. Timeout
@@ -485,7 +492,8 @@ VALUES
    },
    "output": {
      "type": "object"
-   }
+   },
+   "secrets": []
  }'::jsonb),
 
 -- 9. Condition
@@ -534,5 +542,6 @@ VALUES
    },
    "output": {
      "type": "object"
-   }
+   },
+   "secrets": []
  }'::jsonb);

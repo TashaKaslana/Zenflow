@@ -14,6 +14,7 @@
       "type": "array",
       "title": "Secrets",
       "description": "Secrets to inject into the HTTP request.",
+      "minItems": 0,
       "items": {
         "type": "object",
         "title": "Secret Definition",
@@ -47,51 +48,7 @@
         },
         "required": ["key"]
       }
-    },
-    "entrypoint": {
-      "type": "object",
-      "title": "Entrypoint",
-      "description": "Defines the HTTP request trigger for this node.",
-      "properties": {
-        "url": {
-          "type": "string",
-          "title": "Request URL",
-          "format": "uri",
-          "description": "The URL to send the HTTP request to.",
-          "examples": ["https://api.example.com/data"]
-        },
-        "method": {
-          "type": "string",
-          "title": "HTTP Method",
-          "enum": [
-            "GET",
-            "POST",
-            "PUT",
-            "DELETE",
-            "PATCH",
-            "HEAD",
-            "OPTIONS"
-          ],
-          "description": "The HTTP method used for the request.",
-          "examples": ["POST"]
-        },
-        "headers": {
-          "type": "object",
-          "title": "Request Headers",
-          "description": "Optional headers to include in the request.",
-          "propertyNames": {
-            "type": "string",
-            "minLength": 1,
-            "pattern": "^[a-zA-Z0-9-]+$"
-          },
-          "additionalProperties": {
-            "type": "string",
-            "minLength": 1
-          }
-        }
-      },
-      "required": ["url", "method"]
     }
   },
-  "required": ["input", "entrypoint"]
+  "required": ["input", "secrets"]
 }
