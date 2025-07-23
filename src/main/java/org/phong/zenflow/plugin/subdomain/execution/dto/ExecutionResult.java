@@ -60,4 +60,10 @@ public class ExecutionResult {
         result.setLogs(null);
         return result;
     }
+
+    public static ExecutionResult nextNode(String nextNodeKey, Map<String, Object> output) {
+        ExecutionResult result = nextNode(nextNodeKey);
+        result.setOutput(output);
+        return result;
+    }
 }

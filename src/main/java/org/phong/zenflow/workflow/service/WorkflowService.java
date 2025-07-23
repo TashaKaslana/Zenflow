@@ -1,9 +1,7 @@
 package org.phong.zenflow.workflow.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.log.auditlog.annotations.AuditLog;
 import org.phong.zenflow.log.auditlog.enums.AuditAction;
 import org.phong.zenflow.project.exception.ProjectNotFoundException;
@@ -11,11 +9,15 @@ import org.phong.zenflow.project.infrastructure.persistence.entity.Project;
 import org.phong.zenflow.project.infrastructure.persistence.repository.ProjectRepository;
 import org.phong.zenflow.workflow.dto.CreateWorkflowRequest;
 import org.phong.zenflow.workflow.dto.UpdateWorkflowRequest;
+import org.phong.zenflow.workflow.dto.UpsertWorkflowDefinition;
 import org.phong.zenflow.workflow.dto.WorkflowDto;
 import org.phong.zenflow.workflow.exception.WorkflowException;
 import org.phong.zenflow.workflow.infrastructure.mapstruct.WorkflowMapper;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.infrastructure.persistence.repository.WorkflowRepository;
+import org.phong.zenflow.workflow.subdomain.context.WorkflowContextService;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.services.WorkflowDefinitionService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -24,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -33,11 +36,11 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 @Slf4j
 public class WorkflowService {
-
     private final WorkflowRepository workflowRepository;
     private final ProjectRepository projectRepository;
     private final WorkflowMapper workflowMapper;
     private final WorkflowDefinitionService definitionService;
+    private final WorkflowContextService workflowContextService;
 
     /**
      * Create a new workflow
@@ -68,49 +71,78 @@ public class WorkflowService {
                 .toList();
     }
 
+    /**
+     * Update workflow nodes. Accepts incoming nodes, validates them, and updates the workflow definition.
+     *
+     * @param workflowId ID of the workflow to update
+     * @param incomingNodes List of nodes to add or update
+     * @return Updated workflow definition
+     */
     @Transactional
-    public List<Map<String, Object>> upsertNodes(UUID workflowId, List<Map<String, Object>> incomingNodes) {
-        Workflow workflow = getWorkflow(workflowId);
-        if (incomingNodes == null || incomingNodes.isEmpty()) {
-            throw new WorkflowException("Incoming nodes cannot be null or empty");
-        }
-        List<Map<String, Object>> nodes;
-        if (workflow.getDefinition() == null) {
-            nodes = new ArrayList<>();
-        } else {
-            nodes = ObjectConversion.safeConvert(workflow.getDefinition().get("nodes"), new TypeReference<>() {
-            });
+    public WorkflowDefinition upsertNodes(UUID workflowId, UpsertWorkflowDefinition incomingNodes) {
+        Workflow workflow = workflowRepository.findById(workflowId)
+                .orElseThrow(() -> new WorkflowException("Workflow not found with id: " + workflowId));
+
+        WorkflowDefinition definition = workflow.getDefinition();
+        if (definition == null) {
+            definition = new WorkflowDefinition();
         }
 
-        definitionService.upsertNodes(nodes, incomingNodes);
+        List<BaseWorkflowNode> currentNodes = new ArrayList<>(definition.nodes());
+        definitionService.upsertNodes(currentNodes, incomingNodes.nodes());
+        definitionService.upsertMetadata(definition.metadata(), incomingNodes.metadata());
 
-        Map<String, Object> updatedDefinition = Map.of("nodes", nodes);
+        WorkflowDefinition updatedDefinition = updateStaticContext(workflow, currentNodes);
         workflow.setDefinition(updatedDefinition);
-        Workflow upserted = workflowRepository.save(workflow);
-        log.debug("Workflow with ID: {} has been updated with new nodes", workflowId);
-        log.debug("Upserted nodes: {}", upserted.getDefinition());
+        workflowRepository.save(workflow);
 
-        return nodes;
+        return updatedDefinition;
     }
 
+    /**
+     * Remove a node from a workflow by its key
+     *
+     * @param workflowId ID of the workflow
+     * @param keyToRemove Key of the node to remove
+     * @return Updated workflow definition
+     */
     @Transactional
-    public List<Map<String, Object>> removeNode(UUID workflowId, String keyToRemove) {
+    public WorkflowDefinition removeNode(UUID workflowId, String keyToRemove) {
         Workflow workflow = getWorkflow(workflowId);
-        List<Map<String, Object>> nodes = ObjectConversion.safeConvert(workflow.getDefinition().get("nodes"), new TypeReference<>() {
-        });
+        WorkflowDefinition definition = workflow.getDefinition();
+        if (definition == null || definition.nodes() == null) {
+            return new WorkflowDefinition();
+        }
 
-        definitionService.removeNode(nodes, keyToRemove);
+        List<BaseWorkflowNode> currentNodes = new ArrayList<>(definition.nodes());
 
-        Map<String, Object> updatedJson = Map.of("nodes", nodes);
-        workflow.setDefinition(updatedJson);
-        Workflow removed = workflowRepository.save(workflow);
+        definitionService.removeNode(currentNodes, keyToRemove);
+
+        WorkflowDefinition updatedDefinition = updateStaticContext(workflow, currentNodes);
+        workflow.setDefinition(updatedDefinition);
+        workflowRepository.save(workflow);
         log.debug("Workflow with ID: {} has been updated by removing node with key: {}", workflowId, keyToRemove);
-        log.debug("Updated nodes after removal: {}", removed.getDefinition());
 
-        return nodes;
+        return updatedDefinition;
     }
 
-    private Workflow getWorkflow(UUID id) {
+    private WorkflowDefinition updateStaticContext(Workflow workflow, List<BaseWorkflowNode> nodes) {
+        WorkflowDefinition definition = workflow.getDefinition();
+        if (definition == null) {
+            definition = new WorkflowDefinition();
+        }
+
+        Map<String, Object> metadata = definition.metadata();
+        if (metadata == null) {
+            metadata = new HashMap<>();
+        }
+
+        Map<String, Object> newMetadata = workflowContextService.buildStaticContext(nodes, metadata);
+
+        return new WorkflowDefinition(nodes, newMetadata);
+    }
+
+    public Workflow getWorkflow(UUID id) {
         return workflowRepository.findById(id)
                 .orElseThrow(() -> new WorkflowException("Workflow not found"));
     }

@@ -1,6 +1,7 @@
 package org.phong.zenflow.workflow.dto;
 
 import jakarta.validation.constraints.NotNull;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 
 import java.io.Serializable;
 import java.time.OffsetDateTime;
@@ -12,6 +13,7 @@ import java.util.UUID;
  */
 public record WorkflowDto(@NotNull UUID id, @NotNull OffsetDateTime createdAt, @NotNull OffsetDateTime updatedAt,
                           UUID createdBy, UUID updatedBy, UUID projectId, @NotNull String name,
-                          Map<String, Object> definition, String startNode, @NotNull Boolean isActive,
-                          OffsetDateTime deletedAt, String description, Map<String, Object> retryPolicy) implements Serializable {
+                          WorkflowDefinition definition, String startNode, @NotNull Boolean isActive,
+                          OffsetDateTime deletedAt, String description,
+                          Map<String, Object> retryPolicy) implements Serializable {
 }

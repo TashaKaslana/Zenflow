@@ -1,0 +1,99 @@
+{
+  "type": "object",
+  "title": "Plugin Node Configuration Schema",
+  "properties": {
+    "input": {
+      "$ref": "http://json-schema.org/draft-07/schema#",
+      "title": "Input Schema"
+    },
+    "output": {
+      "$ref": "http://json-schema.org/draft-07/schema#",
+      "title": "Output Schema"
+    },
+    "secrets": {
+      "type": "array",
+      "title": "Secrets",
+      "description": "Secrets to inject into the HTTP request.",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "title": "Secret Definition",
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Secret Key",
+            "description": "Environment key of the secret.",
+            "pattern": "^[A-Z0-9_]+$",
+            "minLength": 3,
+            "maxLength": 64
+          },
+          "required": {
+            "type": "boolean",
+            "title": "Is Required",
+            "default": true,
+            "description": "Whether this secret must be provided."
+          },
+          "description": {
+            "type": "string",
+            "title": "Secret Description",
+            "description": "Explanation of what this secret is used for."
+          },
+          "inject_as": {
+            "type": "string",
+            "title": "Inject As",
+            "enum": ["header", "query", "body"],
+            "default": "header",
+            "description": "How to inject the secret into the request."
+          }
+        },
+        "required": ["key"]
+      }
+    },
+    "entrypoint": {
+      "type": "object",
+      "title": "Entrypoint",
+      "description": "Defines the HTTP request trigger for this node.",
+      "properties": {
+        "url": {
+          "type": "string",
+          "title": "Request URL",
+          "format": "uri",
+          "description": "The URL to send the HTTP request to.",
+          "examples": ["https://api.example.com/data"]
+        },
+        "method": {
+          "type": "string",
+          "title": "HTTP Method",
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "DELETE",
+            "PATCH",
+            "HEAD",
+            "OPTIONS"
+          ],
+          "description": "The HTTP method used for the request.",
+          "examples": ["POST"]
+        },
+        "headers": {
+          "type": "object",
+          "title": "Request Headers",
+          "description": "Optional headers to include in the request.",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-zA-Z0-9-]+$"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": ["url", "method"]
+    }
+  },
+  "required": ["input", "entrypoint", "secrets"]
+}
+

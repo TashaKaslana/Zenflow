@@ -4,15 +4,17 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.log.auditlog.annotations.AuditLog;
 import org.phong.zenflow.log.auditlog.enums.AuditAction;
+import org.phong.zenflow.plugin.infrastructure.persistence.entity.Plugin;
 import org.phong.zenflow.plugin.services.PluginService;
 import org.phong.zenflow.plugin.subdomain.node.dto.CreatePluginNode;
 import org.phong.zenflow.plugin.subdomain.node.dto.PluginNodeDto;
 import org.phong.zenflow.plugin.subdomain.node.dto.UpdatePluginNodeRequest;
 import org.phong.zenflow.plugin.subdomain.node.exception.PluginNodeException;
-import org.phong.zenflow.plugin.infrastructure.persistence.entity.Plugin;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.mapstruct.PluginNodeMapper;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.entity.PluginNode;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.repository.PluginNodeRepository;
+import org.phong.zenflow.plugin.subdomain.node.utils.JsonSchemaValidator;
+import org.phong.zenflow.plugin.subdomain.node.utils.SchemaRegistry;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -26,9 +28,13 @@ import java.util.UUID;
 @Service
 @Transactional(readOnly = true)
 public class PluginNodeService {
+    private final static String PLUGIN_NODE_DEFINITION_SCHEMA_NAME = "plugin_node_definition_schema";
+    private final static String REMOTE_PLUGIN_NODE_DEFINITION_SCHEMA = "remote_plugin_node_definition_schema";
+
     private final PluginService pluginService;
     private final PluginNodeRepository pluginNodeRepository;
     private final PluginNodeMapper pluginNodeMapper;
+    private final SchemaRegistry schemaRegistry;
 
     public PluginNode findById(UUID id) {
         return pluginNodeRepository.findById(id)
@@ -46,6 +52,13 @@ public class PluginNodeService {
     @Transactional
     public PluginNodeDto createPluginNode(UUID pluginId, CreatePluginNode createPluginNode) {
         PluginNode pluginNode = pluginNodeMapper.toEntity(createPluginNode);
+        JsonSchemaValidator.validate(
+                schemaRegistry.getBuiltinSchema(
+                        createPluginNode.executorType().equalsIgnoreCase("builtin") ?
+                                PLUGIN_NODE_DEFINITION_SCHEMA_NAME : REMOTE_PLUGIN_NODE_DEFINITION_SCHEMA
+                ),
+                pluginNode.getConfigSchema()
+        );
         Plugin plugin = pluginService.findPluginById(pluginId);
         pluginNode.setPlugin(plugin);
         return pluginNodeMapper.toDto(pluginNodeRepository.save(pluginNode));
@@ -63,7 +76,13 @@ public class PluginNodeService {
     public PluginNodeDto updatePluginNode(UUID id, UpdatePluginNodeRequest updatePluginNodeRequest) {
         PluginNode existingPluginNode = findById(id);
         PluginNode updatedPluginNode = pluginNodeMapper.partialUpdate(updatePluginNodeRequest, existingPluginNode);
-
+        JsonSchemaValidator.validate(
+                schemaRegistry.getBuiltinSchema(
+                        updatedPluginNode.getExecutorType().equalsIgnoreCase("builtin") ?
+                                PLUGIN_NODE_DEFINITION_SCHEMA_NAME : REMOTE_PLUGIN_NODE_DEFINITION_SCHEMA
+                ),
+                updatedPluginNode.getConfigSchema()
+        );
         return pluginNodeMapper.toDto(pluginNodeRepository.save(updatedPluginNode));
     }
 

@@ -4,6 +4,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.log.auditlog.annotations.AuditLog;
 import org.phong.zenflow.log.auditlog.enums.AuditAction;
+import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
+import org.phong.zenflow.workflow.subdomain.engine.service.WorkflowRetrySchedule;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_logs.dto.CreateNodeLogRequest;
 import org.phong.zenflow.workflow.subdomain.node_logs.dto.LogEntry;
 import org.phong.zenflow.workflow.subdomain.node_logs.dto.NodeLogDto;
@@ -19,6 +22,7 @@ import org.phong.zenflow.workflow.subdomain.workflow_run.infrastructure.persiste
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
@@ -35,6 +39,7 @@ public class NodeLogService {
     private final NodeLogRepository nodeLogRepository;
     private final WorkflowRunRepository workflowRunRepository;
     private final NodeLogMapper nodeLogMapper;
+    private final WorkflowRetrySchedule workflowRetrySchedule;
 
     /**
      * Create a new node log
@@ -53,7 +58,7 @@ public class NodeLogService {
         return nodeLogMapper.toDto(savedNodeLog);
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public NodeLogDto startNode(UUID workflowRunId, String nodeKey) {
         WorkflowRun run = workflowRunRepository.findById(workflowRunId)
                 .orElseThrow(() -> new WorkflowRunException("WorkflowRun not found"));
@@ -69,7 +74,7 @@ public class NodeLogService {
     }
 
     //TODO: make realtime log by insert log per step
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void completeNode(UUID workflowRunId, String nodeKey, NodeLogStatus status, String error,
                                    Map<String, Object> output, List<LogEntry> logs) {
         NodeLog nodeLog = nodeLogRepository.findByWorkflowRunIdAndNodeKey(workflowRunId, nodeKey)
@@ -117,6 +122,35 @@ public class NodeLogService {
         log.setLogs(logs);
 
         return nodeLogMapper.toDto(nodeLogRepository.save(log));
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void resolveNodeLog(UUID workflowId, UUID workflowRunId, BaseWorkflowNode workingNode, ExecutionResult result) {
+        switch (result.getStatus()) {
+            case SUCCESS:
+                log.debug("Plugin node executed successfully: {}", workingNode.getKey());
+                completeNode(workflowRunId, workingNode.getKey(), NodeLogStatus.SUCCESS, result.getError(), result.getOutput(), result.getLogs());
+                break;
+            case ERROR:
+                log.error("Plugin node execution failed: {}", workingNode.getKey());
+                completeNode(workflowRunId, workingNode.getKey(), NodeLogStatus.ERROR, result.getError(), result.getOutput(), result.getLogs());
+                break;
+            case WAITING:
+                log.debug("Plugin node execution skipped: {}", workingNode.getKey());
+                waitNode(workflowRunId, workingNode.getKey(), NodeLogStatus.WAITING, result.getLogs(), result.getError());
+                break;
+            case RETRY:
+                log.debug("Plugin node execution retrying: {}", workingNode.getKey());
+                NodeLogDto retryNode = retryNode(workflowRunId, workingNode.getKey(), result.getLogs());
+                workflowRetrySchedule.scheduleRetry(workflowId, workflowRunId, workingNode.getKey(), retryNode.attempts());
+                break;
+            case NEXT:
+                log.debug("Plugin node execution next: {}", workingNode.getKey());
+//                nodeLogService.nextNode(workflowRunId, workingNode.getKey(), NodeLogStatus.NEXT, result.getLogs(), result.getError());
+                break;
+            default:
+                log.warn("Unknown status for plugin node execution: {}", result.getStatus());
+        }
     }
 
 

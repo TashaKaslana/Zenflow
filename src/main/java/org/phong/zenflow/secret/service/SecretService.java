@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -180,6 +181,21 @@ public class SecretService {
                 .stream()
                 .map(this::mapToDto)
                 .collect(Collectors.toList());
+    }
+
+    public Map<String, String> getSecretMapByWorkflowId(UUID workflowId) {
+        return secretRepository.findByWorkflowId(workflowId)
+                .stream()
+                .collect(Collectors.toMap(
+                        secret -> secret.getGroupName() + "." + secret.getKey(),
+                        secret -> {
+                            try {
+                                return aesUtil.decrypt(secret.getEncryptedValue());
+                            } catch (Exception e) {
+                                throw new SecretDomainException("Can't encrypted value for workflowId: " + workflowId, e);
+                            }
+                        }
+                ));
     }
 
     private SecretDto mapToDto(Secret secret) {
