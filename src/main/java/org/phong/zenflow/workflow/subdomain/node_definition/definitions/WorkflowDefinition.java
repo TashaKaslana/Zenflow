@@ -8,8 +8,4 @@ public record WorkflowDefinition(List<BaseWorkflowNode> nodes, Map<String, Objec
     public WorkflowDefinition() {
         this(List.of(), Map.of());
     }
-
-    public WorkflowDefinition(List<BaseWorkflowNode> nodes) {
-        this(nodes, Map.of());
-    }
 }

@@ -6,6 +6,7 @@ import org.phong.zenflow.workflow.dto.CreateWorkflowRequest;
 import org.phong.zenflow.workflow.dto.UpdateWorkflowRequest;
 import org.phong.zenflow.workflow.dto.WorkflowDto;
 import org.phong.zenflow.workflow.service.WorkflowService;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
@@ -116,18 +117,18 @@ public class WorkflowController {
     }
 
     @PostMapping("/{id}/nodes")
-    public ResponseEntity<RestApiResponse<List<Map<String, Object>>>> upsertNodes(
+    public ResponseEntity<RestApiResponse<WorkflowDefinition>> upsertNodes(
             @PathVariable UUID id,
             @RequestBody List<Map<String, Object>> nodes) {
-        List<Map<String, Object>> updatedNodes = workflowService.upsertNodes(id, nodes);
-        return RestApiResponse.success(updatedNodes, "Workflow nodes updated successfully");
+        WorkflowDefinition updatedDefinition = workflowService.upsertNodes(id, nodes);
+        return RestApiResponse.success(updatedDefinition, "Workflow nodes updated successfully");
     }
 
     @DeleteMapping("/{id}/nodes/{nodeKey}")
-    public ResponseEntity<RestApiResponse<List<Map<String, Object>>>> removeNode(
+    public ResponseEntity<RestApiResponse<WorkflowDefinition>> removeNode(
             @PathVariable UUID id,
             @PathVariable String nodeKey) {
-        List<Map<String, Object>> remainingNodes = workflowService.removeNode(id, nodeKey);
-        return RestApiResponse.success(remainingNodes, "Workflow node removed successfully");
+        WorkflowDefinition updatedDefinition = workflowService.removeNode(id, nodeKey);
+        return RestApiResponse.success(updatedDefinition, "Workflow node removed successfully");
     }
 }
