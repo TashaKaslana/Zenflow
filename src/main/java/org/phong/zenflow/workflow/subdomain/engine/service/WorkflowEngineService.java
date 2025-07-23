@@ -10,6 +10,7 @@ import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.entity
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.repository.PluginNodeRepository;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.infrastructure.persistence.repository.WorkflowRepository;
+import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.engine.dto.WorkflowExecutionStatus;
 import org.phong.zenflow.workflow.subdomain.engine.exception.WorkflowEngineException;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
@@ -41,7 +42,7 @@ public class WorkflowEngineService {
     private final WorkflowRetrySchedule workflowRetrySchedule;
 
     @Transactional
-    public WorkflowExecutionStatus runWorkflow(UUID workflowId, UUID workflowRunId, @Nullable String startFromNodeKey, Map<String, Object> context) {
+    public WorkflowExecutionStatus runWorkflow(UUID workflowId, UUID workflowRunId, @Nullable String startFromNodeKey, RuntimeContext context) {
         try {
             Workflow workflow = workflowRepository.findById(workflowId).orElseThrow(
                     () -> new WorkflowEngineException("Workflow not found with ID: " + workflowId)
@@ -65,7 +66,7 @@ public class WorkflowEngineService {
                     );
                     result = executorDispatcher.dispatch(pluginNode, workingNode.getConfig());
                 } else {
-                    result = nodeExecutorRegistry.execute(workingNode, context);
+                    result = nodeExecutorRegistry.execute(workingNode, context.getContext());
                 }
 
                 Map<String, Object> output = result.getOutput();

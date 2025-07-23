@@ -1,7 +1,9 @@
 package org.phong.zenflow.workflow.subdomain.context;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.springframework.stereotype.Service;
 
@@ -15,47 +17,25 @@ import java.util.Set;
 @Service
 @Slf4j
 public class WorkflowContextService {
-    @Data
-    public static class StaticContext {
-        private Map<String, Set<String>> nodeDependency = new HashMap<>();
-        private Map<String, OutputUsage> nodeConsumerFlat = new HashMap<>();
-        private Map<String, String> alias = new HashMap<>();
-    }
-
-    @Data
-    public static class OutputUsage {
-        private String type;
-        private List<String> consumers = new ArrayList<>();
-        private List<String> alias = new ArrayList<>();
-    }
-
-    public StaticContext buildStaticContext(List<BaseWorkflowNode> nodes) {
+    public Map<String, Object> buildStaticContext(List<BaseWorkflowNode> nodes, Map<String, Object> existingMetadata) {
         StaticContext ctx = new StaticContext();
 
-        // First pass: collect aliases from outputs
+        // Preserve existing aliases from metadata
+        if (existingMetadata != null && existingMetadata.containsKey("alias")) {
+            ctx.setAlias(ObjectConversion.safeConvert(existingMetadata.get("alias"), new TypeReference<>() {
+            }));
+        }
+
+        // First pass: collect all output references and pre-populate consumer map
         for (BaseWorkflowNode node : nodes) {
             Map<String, Object> output = node.getConfig().output();
             for (Map.Entry<String, Object> entry : output.entrySet()) {
-                String val = entry.getValue().toString();
-                if (TemplateUtils.isTemplate(val)) {
-                    List<String> refs = TemplateUtils.extractRefs(val);
-                    if (refs.size() == 1) {
-                        // Simple alias: output key -> referenced value
-                        String aliasKey = node.getKey() + ".output." + entry.getKey();
-                        ctx.getAlias().put(aliasKey, val);
-
-                        // Track alias in consumer metadata
-                        String sourceRef = refs.getFirst();
-                        ctx.getNodeConsumerFlat()
-                                .computeIfAbsent(sourceRef, k -> new OutputUsage())
-                                .getAlias()
-                                .add(aliasKey);
-                    }
-                }
+                String outputKey = node.getKey() + ".output." + entry.getKey();
+                ctx.getNodeConsumer().put(outputKey, new OutputUsage());
             }
         }
 
-        // Second pass: process input dependencies
+        // Second pass: process input dependencies to populate consumers and dependencies
         for (BaseWorkflowNode node : nodes) {
             String nodeKey = node.getKey();
             Map<String, Object> input = node.getConfig().input();
@@ -65,19 +45,21 @@ public class WorkflowContextService {
                 List<String> referenced = TemplateUtils.extractRefs(inputValue);
 
                 for (String ref : referenced) {
+                    String resolvedRef = resolveAlias(ref, ctx.getAlias());
+
                     // Add dependency
                     ctx.getNodeDependency()
                             .computeIfAbsent(nodeKey, k -> new HashSet<>())
-                            .add(ref);
+                            .add(resolvedRef);
 
                     // Track consumer
-                    ctx.getNodeConsumerFlat()
-                            .computeIfAbsent(ref, k -> new OutputUsage())
+                    ctx.getNodeConsumer()
+                            .computeIfAbsent(resolvedRef, k -> new OutputUsage())
                             .getConsumers()
                             .add(nodeKey);
 
                     // Infer type from input (basic type inference)
-                    OutputUsage usage = ctx.getNodeConsumerFlat().get(ref);
+                    OutputUsage usage = ctx.getNodeConsumer().get(resolvedRef);
                     if (usage.getType() == null) {
                         usage.setType(inferType(entry.getValue()));
                     }
@@ -85,7 +67,29 @@ public class WorkflowContextService {
             }
         }
 
-        return ctx;
+        // Third pass: link aliases back to the consumers map
+        for (Map.Entry<String, String> aliasEntry : ctx.getAlias().entrySet()) {
+            String aliasName = aliasEntry.getKey();
+            TemplateUtils.extractRefs(aliasEntry.getValue()).stream().findFirst().ifPresent(originalRef -> ctx.getNodeConsumer()
+                    .computeIfAbsent(originalRef, k -> new OutputUsage())
+                    .getAlias()
+                    .add(aliasName));
+        }
+
+        // Merge the generated context back into the existing metadata
+        Map<String, Object> newMetadata = new HashMap<>(existingMetadata != null ? existingMetadata : new HashMap<>());
+        newMetadata.put("nodeDependency", ctx.getNodeDependency());
+        newMetadata.put("nodeConsumer", ctx.getNodeConsumer());
+        newMetadata.put("alias", ctx.getAlias()); // Ensure aliases are preserved
+
+        return newMetadata;
+    }
+
+    private String resolveAlias(String ref, Map<String, String> aliases) {
+        if (aliases.containsKey(ref)) {
+            return TemplateUtils.extractRefs(aliases.get(ref)).stream().findFirst().orElse(ref);
+        }
+        return ref;
     }
 
     private String inferType(Object value) {
@@ -96,5 +100,19 @@ public class WorkflowContextService {
         } else {
             return "string";
         }
+    }
+
+    @Data
+    public static class StaticContext {
+        private Map<String, Set<String>> nodeDependency = new HashMap<>();
+        private Map<String, OutputUsage> nodeConsumer = new HashMap<>();
+        private Map<String, String> alias = new HashMap<>();
+    }
+
+    @Data
+    public static class OutputUsage {
+        private String type;
+        private List<String> consumers = new ArrayList<>();
+        private List<String> alias = new ArrayList<>();
     }
 }

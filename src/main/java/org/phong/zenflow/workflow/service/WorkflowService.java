@@ -1,6 +1,7 @@
 package org.phong.zenflow.workflow.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
@@ -16,6 +17,8 @@ import org.phong.zenflow.workflow.exception.WorkflowException;
 import org.phong.zenflow.workflow.infrastructure.mapstruct.WorkflowMapper;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.infrastructure.persistence.repository.WorkflowRepository;
+import org.phong.zenflow.workflow.subdomain.context.WorkflowContextService;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.services.WorkflowDefinitionService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -24,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -33,11 +37,12 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 @Slf4j
 public class WorkflowService {
-
     private final WorkflowRepository workflowRepository;
     private final ProjectRepository projectRepository;
     private final WorkflowMapper workflowMapper;
     private final WorkflowDefinitionService definitionService;
+    private final WorkflowContextService workflowContextService;
+    private final ObjectMapper objectMapper;
 
     /**
      * Create a new workflow
@@ -70,25 +75,27 @@ public class WorkflowService {
 
     @Transactional
     public List<Map<String, Object>> upsertNodes(UUID workflowId, List<Map<String, Object>> incomingNodes) {
-        Workflow workflow = getWorkflow(workflowId);
-        if (incomingNodes == null || incomingNodes.isEmpty()) {
-            throw new WorkflowException("Incoming nodes cannot be null or empty");
+        Workflow workflow = workflowRepository.findById(workflowId)
+                .orElseThrow(() -> new WorkflowException("Workflow not found with id: " + workflowId));
+
+        Map<String, Object> definition = workflow.getDefinition();
+        if (definition == null) {
+            definition = new HashMap<>();
         }
-        List<Map<String, Object>> nodes;
-        if (workflow.getDefinition() == null) {
+
+        List<Map<String, Object>> nodes = ObjectConversion.safeConvert(definition.get("nodes"), new TypeReference<>() {});
+        if (nodes == null) {
             nodes = new ArrayList<>();
-        } else {
-            nodes = ObjectConversion.safeConvert(workflow.getDefinition().get("nodes"), new TypeReference<>() {
-            });
         }
 
         definitionService.upsertNodes(nodes, incomingNodes);
 
-        Map<String, Object> updatedDefinition = Map.of("nodes", nodes);
-        workflow.setDefinition(updatedDefinition);
-        Workflow upserted = workflowRepository.save(workflow);
-        log.debug("Workflow with ID: {} has been updated with new nodes", workflowId);
-        log.debug("Upserted nodes: {}", upserted.getDefinition());
+        // Rebuild and save the static context
+        updateStaticContext(workflow, nodes);
+
+        definition.put("nodes", nodes);
+        workflow.setDefinition(definition);
+        workflowRepository.save(workflow);
 
         return nodes;
     }
@@ -96,13 +103,25 @@ public class WorkflowService {
     @Transactional
     public List<Map<String, Object>> removeNode(UUID workflowId, String keyToRemove) {
         Workflow workflow = getWorkflow(workflowId);
-        List<Map<String, Object>> nodes = ObjectConversion.safeConvert(workflow.getDefinition().get("nodes"), new TypeReference<>() {
+        Map<String, Object> definition = workflow.getDefinition();
+        if (definition == null) {
+            definition = new HashMap<>();
+        }
+        List<Map<String, Object>> nodes = ObjectConversion.safeConvert(definition.get("nodes"), new TypeReference<>() {
         });
+
+        if (nodes == null) {
+            // Nothing to remove from
+            return new ArrayList<>();
+        }
 
         definitionService.removeNode(nodes, keyToRemove);
 
-        Map<String, Object> updatedJson = Map.of("nodes", nodes);
-        workflow.setDefinition(updatedJson);
+        // Rebuild and save the static context
+        updateStaticContext(workflow, nodes);
+
+        definition.put("nodes", nodes);
+        workflow.setDefinition(definition);
         Workflow removed = workflowRepository.save(workflow);
         log.debug("Workflow with ID: {} has been updated by removing node with key: {}", workflowId, keyToRemove);
         log.debug("Updated nodes after removal: {}", removed.getDefinition());
@@ -110,7 +129,28 @@ public class WorkflowService {
         return nodes;
     }
 
-    private Workflow getWorkflow(UUID id) {
+    private void updateStaticContext(Workflow workflow, List<Map<String, Object>> nodes) {
+        List<BaseWorkflowNode> workflowNodes = nodes.stream()
+                .map(nodeMap -> objectMapper.convertValue(nodeMap, BaseWorkflowNode.class))
+                .toList();
+
+        Map<String, Object> definition = workflow.getDefinition();
+        if (definition == null) {
+            definition = new HashMap<>();
+        }
+
+        Map<String, Object> metadata = ObjectConversion.safeConvert(definition.get("metadata"), new TypeReference<>() {});
+        if (metadata == null) {
+            metadata = new HashMap<>();
+        }
+
+        Map<String, Object> newMetadata = workflowContextService.buildStaticContext(workflowNodes, metadata);
+
+        definition.put("metadata", newMetadata);
+        workflow.setDefinition(definition);
+    }
+
+    public Workflow getWorkflow(UUID id) {
         return workflowRepository.findById(id)
                 .orElseThrow(() -> new WorkflowException("Workflow not found"));
     }
