@@ -65,6 +65,31 @@ public class WorkflowDefinitionService {
         nodes.addAll(keyToNode.values());
     }
 
+    public void upsertMetadata(Map<String, Object> metadata, Map<String, Object> updates) {
+        if (metadata == null || updates.isEmpty()) {
+            log.debug("No metadata provided for upsert");
+            return;
+        }
+
+        log.debug("Upserting metadata: {}", updates);
+        for (Map.Entry<String, Object> entry : updates.entrySet()) {
+            String key = entry.getKey();
+            Object value = entry.getValue();
+
+            if (value == null) {
+                log.warn("Skipping null value for metadata key: {}", key);
+                continue;
+            }
+
+            if (metadata.containsKey(key)) {
+                log.debug("Updating existing metadata key: {}", key);
+            } else {
+                log.debug("Adding new metadata key: {}", key);
+            }
+            metadata.put(key, value);
+        }
+    }
+
     /**
      * Validates a single node's schema
      *

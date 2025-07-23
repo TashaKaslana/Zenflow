@@ -1,6 +1,5 @@
 package org.phong.zenflow.workflow.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.log.auditlog.annotations.AuditLog;
@@ -10,6 +9,7 @@ import org.phong.zenflow.project.infrastructure.persistence.entity.Project;
 import org.phong.zenflow.project.infrastructure.persistence.repository.ProjectRepository;
 import org.phong.zenflow.workflow.dto.CreateWorkflowRequest;
 import org.phong.zenflow.workflow.dto.UpdateWorkflowRequest;
+import org.phong.zenflow.workflow.dto.UpsertWorkflowDefinition;
 import org.phong.zenflow.workflow.dto.WorkflowDto;
 import org.phong.zenflow.workflow.exception.WorkflowException;
 import org.phong.zenflow.workflow.infrastructure.mapstruct.WorkflowMapper;
@@ -41,7 +41,6 @@ public class WorkflowService {
     private final WorkflowMapper workflowMapper;
     private final WorkflowDefinitionService definitionService;
     private final WorkflowContextService workflowContextService;
-    private final ObjectMapper objectMapper;
 
     /**
      * Create a new workflow
@@ -80,7 +79,7 @@ public class WorkflowService {
      * @return Updated workflow definition
      */
     @Transactional
-    public WorkflowDefinition upsertNodes(UUID workflowId, List<Map<String, Object>> incomingNodes) {
+    public WorkflowDefinition upsertNodes(UUID workflowId, UpsertWorkflowDefinition incomingNodes) {
         Workflow workflow = workflowRepository.findById(workflowId)
                 .orElseThrow(() -> new WorkflowException("Workflow not found with id: " + workflowId));
 
@@ -90,11 +89,8 @@ public class WorkflowService {
         }
 
         List<BaseWorkflowNode> currentNodes = new ArrayList<>(definition.nodes());
-        List<BaseWorkflowNode> incomingBaseNodes = incomingNodes.stream()
-                .map(nodeMap -> objectMapper.convertValue(nodeMap, BaseWorkflowNode.class))
-                .toList();
-
-        definitionService.upsertNodes(currentNodes, incomingBaseNodes);
+        definitionService.upsertNodes(currentNodes, incomingNodes.nodes());
+        definitionService.upsertMetadata(definition.metadata(), incomingNodes.metadata());
 
         WorkflowDefinition updatedDefinition = updateStaticContext(workflow, currentNodes);
         workflow.setDefinition(updatedDefinition);

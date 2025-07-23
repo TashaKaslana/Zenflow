@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.phong.zenflow.core.responses.RestApiResponse;
 import org.phong.zenflow.workflow.dto.CreateWorkflowRequest;
 import org.phong.zenflow.workflow.dto.UpdateWorkflowRequest;
+import org.phong.zenflow.workflow.dto.UpsertWorkflowDefinition;
 import org.phong.zenflow.workflow.dto.WorkflowDto;
 import org.phong.zenflow.workflow.service.WorkflowService;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
@@ -14,7 +15,6 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -119,8 +119,8 @@ public class WorkflowController {
     @PostMapping("/{id}/nodes")
     public ResponseEntity<RestApiResponse<WorkflowDefinition>> upsertNodes(
             @PathVariable UUID id,
-            @RequestBody List<Map<String, Object>> nodes) {
-        WorkflowDefinition updatedDefinition = workflowService.upsertNodes(id, nodes);
+            @RequestBody UpsertWorkflowDefinition definition) {
+        WorkflowDefinition updatedDefinition = workflowService.upsertNodes(id, definition);
         return RestApiResponse.success(updatedDefinition, "Workflow nodes updated successfully");
     }
 

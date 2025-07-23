@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
+import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.springframework.stereotype.Service;
 
@@ -27,22 +28,25 @@ public class WorkflowContextService {
         }
 
         // First pass: collect all output references and pre-populate consumer map
-        for (BaseWorkflowNode node : nodes) {
-            Map<String, Object> output = node.getConfig().output();
-            for (Map.Entry<String, Object> entry : output.entrySet()) {
-                String outputKey = node.getKey() + ".output." + entry.getKey();
-                ctx.getNodeConsumer().put(outputKey, new OutputUsage());
-            }
-        }
+//        for (BaseWorkflowNode node : nodes) {
+//            Map<String, Object> output = node.getConfig().output();
+//            for (Map.Entry<String, Object> entry : output.entrySet()) {
+//                String outputKey = node.getKey() + ".output." + entry.getKey();
+//                ctx.getNodeConsumer().put(outputKey, new OutputUsage());
+//            }
+//        }
 
         // Second pass: process input dependencies to populate consumers and dependencies
         for (BaseWorkflowNode node : nodes) {
             String nodeKey = node.getKey();
             Map<String, Object> input = node.getConfig().input();
+            if (input == null || input.isEmpty()) {
+                continue;
+            }
 
             for (Map.Entry<String, Object> entry : input.entrySet()) {
                 String inputValue = entry.getValue().toString();
-                List<String> referenced = TemplateUtils.extractRefs(inputValue);
+                List<String> referenced = TemplateEngine.extractRefs(inputValue);
 
                 for (String ref : referenced) {
                     String resolvedRef = resolveAlias(ref, ctx.getAlias());
@@ -70,7 +74,7 @@ public class WorkflowContextService {
         // Third pass: link aliases back to the consumers map
         for (Map.Entry<String, String> aliasEntry : ctx.getAlias().entrySet()) {
             String aliasName = aliasEntry.getKey();
-            TemplateUtils.extractRefs(aliasEntry.getValue()).stream().findFirst().ifPresent(originalRef -> ctx.getNodeConsumer()
+            TemplateEngine.extractRefs(aliasEntry.getValue()).stream().findFirst().ifPresent(originalRef -> ctx.getNodeConsumer()
                     .computeIfAbsent(originalRef, k -> new OutputUsage())
                     .getAlias()
                     .add(aliasName));
@@ -87,7 +91,7 @@ public class WorkflowContextService {
 
     private String resolveAlias(String ref, Map<String, String> aliases) {
         if (aliases.containsKey(ref)) {
-            return TemplateUtils.extractRefs(aliases.get(ref)).stream().findFirst().orElse(ref);
+            return TemplateEngine.extractRefs(aliases.get(ref)).stream().findFirst().orElse(ref);
         }
         return ref;
     }
