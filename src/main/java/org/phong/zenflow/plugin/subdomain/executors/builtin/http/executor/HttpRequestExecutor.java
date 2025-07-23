@@ -16,6 +16,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -67,11 +68,14 @@ public class HttpRequestExecutor implements PluginNodeExecutor {
 
     private Mono<Map<String, Object>> handleResponse(ClientResponse response) {
         return response.bodyToMono(Object.class)
-                .map(body -> Map.of(
-                        "status_code", response.statusCode().value(),
-                        "headers", response.headers().asHttpHeaders().toSingleValueMap(),
-                        "body", body != null ? body : "No response"
-                ));
+                .defaultIfEmpty("No response")
+                .map(body -> {
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("status_code", response.statusCode().value());
+                    result.put("headers", response.headers().asHttpHeaders().toSingleValueMap());
+                    result.put("body", body);
+                    return result;
+                });
     }
 
     private void getHeaders(LogCollector logs, HttpHeaders httpHeaders, Map<String, Object> headers) {

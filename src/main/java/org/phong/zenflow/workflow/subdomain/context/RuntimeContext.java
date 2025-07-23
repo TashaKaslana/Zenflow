@@ -61,37 +61,6 @@ public class RuntimeContext {
     }
 
     /**
-     * Process and store a node's execution output in the context.
-     * Each output value will be stored with a key in the format: "nodeKey.output.propertyName"
-     *
-     * @param nodeKey   The key of the node that produced the output
-     * @param outputMap The map of output values from the node execution
-     */
-    public void processOutput(String nodeKey, Map<String, Object> outputMap) {
-        if (outputMap == null || outputMap.isEmpty()) {
-            log.debug("No output to process for node '{}'", nodeKey);
-            return;
-        }
-
-        log.debug("Processing output for node '{}' with {} values", nodeKey, outputMap.size());
-
-        for (Map.Entry<String, Object> entry : outputMap.entrySet()) {
-            String outputKey = nodeKey + ".output." + entry.getKey();
-            Object outputValue = entry.getValue();
-
-            // Only store this output if it has consumers or if consumer tracking is not enabled
-            if (!consumers.isEmpty() && !hasConsumers(outputKey)) {
-                log.debug("Skipping storage of output '{}' as it has no consumers", outputKey);
-                continue;
-            }
-
-            context.put(outputKey, outputValue);
-            log.debug("Stored output '{}' with value type '{}'", outputKey,
-                    outputValue != null ? outputValue.getClass().getSimpleName() : "null");
-        }
-    }
-
-    /**
      * Process output based on output declaration mapping.
      * This is more efficient than storing all outputs as it only stores values
      * that are explicitly declared in the output mapping.
@@ -154,32 +123,36 @@ public class RuntimeContext {
      * This is the most efficient approach as it only stores values that are
      * actually needed by downstream nodes.
      *
-     * @param nodeKey The key of the node that produced the output
-     * @param output  The raw output values from execution
+     * @param outputKey The initial key of the node that produced the output
+     * @param output    The raw output values from execution
      */
-    public void processOutputWithMetadata(String nodeKey, Map<String, Object> output) {
+    public void processOutputWithMetadata(String outputKey, Map<String, Object> output) {
         if (output == null || output.isEmpty()) {
-            log.debug("No output to process for node '{}'.", nodeKey);
+            log.debug("No output to process for node '{}'.", outputKey);
             return;
         }
 
-        log.debug("Processing context-guided output for node '{}' with {} values", nodeKey, output.size());
+        log.debug("Processing context-guided output for node '{}' with {} values", outputKey, output.size());
 
         for (Map.Entry<String, Object> entry : output.entrySet()) {
             String outputProperty = entry.getKey();
-            String outputKey = nodeKey + ".output." + outputProperty;
+            String currentOutputKey = outputKey.concat(".").concat(outputProperty);
             Object value = entry.getValue();
 
+            if (value instanceof Map<?, ?> map) {
+                processOutputWithMetadata(currentOutputKey, ObjectConversion.convertObjectToMap(map));
+            }
+
             // Check if this output key has any consumers using the existing consumers map
-            if (!hasConsumers(outputKey)) {
-                log.debug("Skipping storage of '{}' as it has no registered consumers", outputKey);
+            if (!hasConsumers(currentOutputKey)) {
+                log.debug("Skipping storage of '{}' as it has no registered consumers", currentOutputKey);
                 continue;
             }
 
             // Store the value as it has consumers
-            context.put(outputKey, value);
+            context.put(currentOutputKey, value);
             log.debug("Stored context-guided output '{}' with value type '{}' for consumers: {}",
-                    outputKey, value != null ? value.getClass().getSimpleName() : "null", getConsumers(outputKey));
+                    currentOutputKey, value != null ? value.getClass().getSimpleName() : "null", getConsumers(currentOutputKey));
         }
     }
 
@@ -204,8 +177,9 @@ public class RuntimeContext {
             return null;
         }
 
-        // Direct key access
-        return getAndMarkConsumed(nodeKey, key);
+        // This path handles cases where a non-template key might be an alias
+        String resolvedKey = resolveAlias(key);
+        return getAndMarkConsumed(nodeKey, resolvedKey);
     }
 
     /**
@@ -240,6 +214,7 @@ public class RuntimeContext {
     private String resolveAlias(String key) {
         Object resolvedKey = aliases.get(key);
         if (resolvedKey != null) {
+            resolvedKey = resolvedKey.toString().substring(2, resolvedKey.toString().length() - 2).trim();
             return resolvedKey.toString();
         } else {
             return key;
@@ -285,7 +260,7 @@ public class RuntimeContext {
                         if (expr.matches("[a-zA-Z0-9._-]+\\(.*\\)")) {
                             yield TemplateEngine.evaluateFunction(expr);
                         } else {
-                            yield getAndClean(nodeKey, expr);
+                            yield getAndClean(nodeKey, str);
                         }
                     }
                 }
