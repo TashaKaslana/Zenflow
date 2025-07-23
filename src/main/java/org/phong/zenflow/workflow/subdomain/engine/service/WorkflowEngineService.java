@@ -14,6 +14,7 @@ import org.phong.zenflow.workflow.subdomain.engine.exception.WorkflowEngineExcep
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.NodeExecutorRegistry;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
 import org.phong.zenflow.workflow.subdomain.node_logs.dto.NodeLogDto;
@@ -58,13 +59,15 @@ public class WorkflowEngineService {
             while (workingNode != null) {
                 ExecutionResult result;
                 nodeLogService.startNode(workflowRunId, workingNode.getKey());
+                WorkflowConfig config = workingNode.getConfig() != null ? workingNode.getConfig() : new WorkflowConfig();
+                WorkflowConfig resolvedConfig = context.resolveConfig(workingNode.getKey(), config);
 
                 if (workingNode.getType() == NodeType.PLUGIN) {
                     PluginDefinition pluginDefinition = (PluginDefinition) workingNode;
                     PluginNode pluginNode = pluginNodeRepository.findById(pluginDefinition.getPluginNode().nodeId()).orElseThrow(
                             () -> new WorkflowEngineException("Plugin node not found with ID: " + pluginDefinition.getPluginNode().pluginId())
                     );
-                    result = executorDispatcher.dispatch(pluginNode, workingNode.getConfig());
+                    result = executorDispatcher.dispatch(pluginNode, resolvedConfig);
                 } else {
                     result = nodeExecutorRegistry.execute(workingNode, context.getContext());
                 }

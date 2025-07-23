@@ -5,4 +5,11 @@ import jakarta.annotation.Nullable;
 import java.util.Map;
 
 public record WorkflowConfig(Map<String, Object> input, Map<String, Object> output, @Nullable Map<String, Object> entrypoint)  {
+    public WorkflowConfig() {
+        this(Map.of(), Map.of(), null);
+    }
+
+    public WorkflowConfig(Map<String, Object> input, Map<String, Object> output) {
+        this(input, output, null);
+    }
 }

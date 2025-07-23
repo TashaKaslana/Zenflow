@@ -76,7 +76,7 @@ public class TemplateEngine {
 
             Object replacement;
             if (expr.matches("[a-zA-Z0-9._-]+\\(.*\\)")) {
-                replacement = evaluateFunctionWithArgs(expr);
+                replacement = evaluateFunction(expr);
             } else {
                 // Check if this is a secret reference
                 if (expr.startsWith("secrets.")) {
@@ -143,7 +143,7 @@ public class TemplateEngine {
      * @param expr The function expression
      * @return The result of the function call
      */
-    private static Object evaluateFunctionWithArgs(String expr) {
+    public static Object evaluateFunction(String expr) {
         int open = expr.indexOf('(');
         int close = expr.lastIndexOf(')');
         if (open < 0 || close < 0 || close <= open) {

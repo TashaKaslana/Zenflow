@@ -2,7 +2,9 @@ package org.phong.zenflow.workflow.subdomain.context;
 
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -54,7 +56,7 @@ public class RuntimeContext {
      * Process and store a node's execution output in the context.
      * Each output value will be stored with a key in the format: "nodeKey.output.propertyName"
      *
-     * @param nodeKey The key of the node that produced the output
+     * @param nodeKey   The key of the node that produced the output
      * @param outputMap The map of output values from the node execution
      */
     public void processOutput(String nodeKey, Map<String, Object> outputMap) {
@@ -86,9 +88,9 @@ public class RuntimeContext {
      * This is more efficient than storing all outputs as it only stores values
      * that are explicitly declared in the output mapping.
      *
-     * @param nodeKey The key of the node that produced the output
+     * @param nodeKey           The key of the node that produced the output
      * @param outputDeclaration The output declaration mapping from node config
-     * @param output The raw output values from execution
+     * @param output            The raw output values from execution
      */
     public void processOutput(String nodeKey, Map<String, Object> outputDeclaration, Map<String, Object> output) {
         if (outputDeclaration == null || output == null || output.isEmpty()) {
@@ -145,7 +147,7 @@ public class RuntimeContext {
      * actually needed by downstream nodes.
      *
      * @param nodeKey The key of the node that produced the output
-     * @param output The raw output values from execution
+     * @param output  The raw output values from execution
      */
     public void processOutputWithMetadata(String nodeKey, Map<String, Object> output) {
         if (output == null || output.isEmpty()) {
@@ -174,78 +176,12 @@ public class RuntimeContext {
     }
 
     /**
-     * Process output according to consumer information in the workflow metadata.
-     * This is useful during initialization when the consumer information is first loaded.
-     *
-     * @param nodeKey The key of the node that produced the output
-     * @param output The raw output values from execution
-     * @param nodeConsumerMap The node consumer information from workflow metadata
-     */
-    @SuppressWarnings("unchecked")
-    public void processOutputWithMetadata(String nodeKey, Map<String, Object> output,
-                                          Map<String, Map<String, Object>> nodeConsumerMap) {
-        if (output == null || output.isEmpty() || nodeConsumerMap == null) {
-            log.debug("No output or consumer metadata to process for node '{}'", nodeKey);
-            return;
-        }
-
-        log.debug("Processing metadata-guided output for node '{}' with {} values", nodeKey, output.size());
-
-        for (Map.Entry<String, Object> entry : output.entrySet()) {
-            String outputProperty = entry.getKey();
-            String outputKey = nodeKey + ".output." + outputProperty;
-            Object value = entry.getValue();
-
-            // Check if this output has any consumers according to metadata
-            Map<String, Object> consumerInfo = nodeConsumerMap.get(outputKey);
-            if (consumerInfo == null) {
-                log.debug("Skipping storage of '{}' as it has no metadata", outputKey);
-                continue;
-            }
-
-            // Extract the consumers list directly from metadata
-            List<String> nodeConsumers = (List<String>) consumerInfo.get("consumers");
-            if (nodeConsumers == null || nodeConsumers.isEmpty()) {
-                log.debug("Skipping storage of '{}' as it has no consumers in metadata", outputKey);
-                continue;
-            }
-
-            // Check if any of these consumers still exist in the workflow (not yet executed)
-            // This allows for partial workflow execution where some consumers may have already run
-            // Add logic here to check if the consumer node has already executed
-            // For now, assume all consumers are still active
-            List<String> remainingConsumers = new ArrayList<>(nodeConsumers);
-
-            if (remainingConsumers.isEmpty()) {
-                log.debug("Skipping storage of '{}' as all consumers have already executed", outputKey);
-                continue;
-            }
-
-            // Store the value and update the consumers map to enable proper garbage collection
-            context.put(outputKey, value);
-            consumers.put(outputKey, remainingConsumers);
-
-            log.debug("Stored metadata-guided output '{}' with value type '{}' for remaining consumers: {}",
-                    outputKey, value != null ? value.getClass().getSimpleName() : "null", remainingConsumers);
-
-            // If this output has aliases, store those too for proper resolution
-            List<String> aliases = (List<String>) consumerInfo.get("alias");
-            if (aliases != null && !aliases.isEmpty()) {
-                for (String alias : aliases) {
-                    this.aliases.put(alias, outputKey);
-                    log.debug("Registered alias '{}' for output key '{}'", alias, outputKey);
-                }
-            }
-        }
-    }
-
-    /**
      * Get a value from the context and mark it as consumed by the specified node.
      * This method also triggers garbage collection for the key if there are no more consumers.
      * If the key is a template reference, it will be resolved before returning.
      *
      * @param nodeKey The key of the node consuming this value
-     * @param key The key or template to retrieve from the context
+     * @param key     The key or template to retrieve from the context
      * @return The resolved value from the context, or null if not found
      */
     public Object getAndClean(String nodeKey, String key) {
@@ -268,7 +204,7 @@ public class RuntimeContext {
      * Gets a value from the context and marks it as consumed, handling garbage collection
      *
      * @param nodeKey The consuming node
-     * @param key The key to access
+     * @param key     The key to access
      * @return The value, or null if not found
      */
     private Object getAndMarkConsumed(String nodeKey, String key) {
@@ -304,55 +240,58 @@ public class RuntimeContext {
 
     /**
      * Resolve a configuration object using the RuntimeContext.
-     * Replaces all template references with their actual values.
+     * Replaces all template references with their actual values in input.
      *
      * @param nodeKey The key of the node using this configuration
-     * @param config The configuration object with templates
+     * @param config  The configuration object with templates
      * @return A new configuration object with resolved values
      */
-    public Object resolveConfig(String nodeKey, Object config) {
-        switch (config) {
-            case null -> {
-                return null;
-            }
-
-            // Handle string template
-            case String str -> {
-                if (TemplateEngine.isTemplate(str)) {
-                    // Single template replacement - just return the referenced value
-                    List<String> refs = TemplateEngine.extractRefs(str);
-                    if (refs.size() == 1 && str.trim().equals("{{" + refs.getFirst() + "}}")) {
-                        return getAndClean(nodeKey, refs.getFirst());
-                    }
-                }
-                return config; // Not a template or complex template - return as is
-            }
-
-            // Handle map
-            case Map<?, ?> map -> {
-                Map<String, Object> result = new HashMap<>();
-                for (Map.Entry<?, ?> entry : map.entrySet()) {
-                    String key = entry.getKey().toString();
-                    Object resolvedValue = resolveConfig(nodeKey, entry.getValue());
-                    result.put(key, resolvedValue);
-                }
-                return result;
-            }
-
-            // Handle list
-            case List<?> list -> {
-                List<Object> result = new ArrayList<>();
-                for (Object item : list) {
-                    result.add(resolveConfig(nodeKey, item));
-                }
-                return result;
-            }
-            default -> {
-            }
+    public WorkflowConfig resolveConfig(String nodeKey, WorkflowConfig config) {
+        if (config == null || config.input() == null) {
+            return config;
         }
 
-        // Other types (number, boolean, etc.) - return as is
-        return config;
+        Map<String, Object> resolvedInput = resolve(nodeKey, config.input());
+        return new WorkflowConfig(resolvedInput, config.output());
+    }
+
+    private Map<String, Object> resolve(String nodeKey, Map<String, Object> config) {
+        Map<String, Object> result = new HashMap<>();
+        for (Map.Entry<String, Object> entry : config.entrySet()) {
+            result.put(entry.getKey(), resolveValue(nodeKey, entry.getValue()));
+        }
+        return result;
+    }
+
+    private Object resolveValue(String nodeKey, Object value) {
+        return switch (value) {
+            case String str -> {
+                if (!TemplateEngine.isTemplate(str)) {
+                    yield str;
+                }
+                List<String> refs = TemplateEngine.extractRefs(str);
+                if (refs.size() == 1) {
+                    String expr = refs.getFirst();
+                    if (str.trim().equals("{{" + expr + "}}")) {
+                        // Single template, can be any type
+                        if (expr.matches("[a-zA-Z0-9._-]+\\(.*\\)")) {
+                            yield TemplateEngine.evaluateFunction(expr);
+                        } else {
+                            yield getAndClean(nodeKey, expr);
+                        }
+                    }
+                }
+                // For complex templates, resolve all and return as string
+                yield TemplateEngine.resolveTemplate(str, this.context);
+            }
+            case Map<?, ?> map ->
+                // To be safe, we assume the map is Map<String, Object>
+                resolve(nodeKey, ObjectConversion.convertObjectToMap(map));
+            case List<?> list -> list.stream()
+                    .map(item -> resolveValue(nodeKey, item))
+                    .toList();
+            default -> value;
+        };
     }
 
     /**
