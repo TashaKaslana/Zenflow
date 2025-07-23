@@ -5,16 +5,16 @@ import lombok.Getter;
 
 @Getter
 public enum SystemError {
-    VALIDATION_FAILED_MSG("system.validation_failed"),
-    MALFORMED_REQUEST_MSG("system.malformed_request"),
-    METHOD_NOT_SUPPORTED_MSG("system.method_not_supported"),
-    GENERIC_ERROR_MSG("system.generic_error"),
-    MISSING_PARAMETER_MSG("system.missing_parameter"),
-    DATA_INTEGRITY_VIOLATION("system.data_integrity_violation"),
-    INVALID_ARGUMENT_TYPE_MSG("system.invalid_argument_type"),
-    AUTHENTICATION_FAILED("system.authentication_failed"),
-    ACCESS_DENIED("system.access_denied"),
-    NOT_FOUND_ENDPOINT("system.not_found_endpoint"),
+    VALIDATION_FAILED_MSG("Validation failed. Please check your input."),
+    MALFORMED_REQUEST_MSG("The request is malformed or incorrectly formatted."),
+    METHOD_NOT_SUPPORTED_MSG("The HTTP method used is not supported for this endpoint."),
+    GENERIC_ERROR_MSG("An unexpected error occurred. Please try again later."),
+    MISSING_PARAMETER_MSG("A required parameter is missing in the request."),
+    DATA_INTEGRITY_VIOLATION("Data integrity violation. The operation could not be completed."),
+    INVALID_ARGUMENT_TYPE_MSG("Invalid argument type provided."),
+    AUTHENTICATION_FAILED("Authentication failed. Please check your credentials."),
+    ACCESS_DENIED("Access denied. You do not have the required permissions."),
+    NOT_FOUND_ENDPOINT("The requested endpoint was not found."),
     ;
 
     private final String errorMessage;

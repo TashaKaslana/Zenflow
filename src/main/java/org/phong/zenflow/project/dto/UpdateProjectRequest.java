@@ -4,11 +4,10 @@ import jakarta.validation.constraints.NotNull;
 
 import java.io.Serializable;
 import java.time.OffsetDateTime;
-import java.util.UUID;
 
 /**
  * DTO for {@link org.phong.zenflow.project.infrastructure.persistence.entity.Project}
  */
-public record UpdateProjectRequest(UUID userId, @NotNull String name, String description, UUID updatedBy,
+public record UpdateProjectRequest(@NotNull String name, String description,
                                    OffsetDateTime deletedAt) implements Serializable {
 }

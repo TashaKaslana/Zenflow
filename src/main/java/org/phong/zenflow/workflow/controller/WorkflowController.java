@@ -4,8 +4,10 @@ import lombok.RequiredArgsConstructor;
 import org.phong.zenflow.core.responses.RestApiResponse;
 import org.phong.zenflow.workflow.dto.CreateWorkflowRequest;
 import org.phong.zenflow.workflow.dto.UpdateWorkflowRequest;
+import org.phong.zenflow.workflow.dto.UpsertWorkflowDefinition;
 import org.phong.zenflow.workflow.dto.WorkflowDto;
 import org.phong.zenflow.workflow.service.WorkflowService;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
@@ -112,5 +114,21 @@ public class WorkflowController {
     public ResponseEntity<RestApiResponse<Long>> countActiveWorkflowsByProjectId(@PathVariable UUID projectId) {
         long count = workflowService.countActiveByProjectId(projectId);
         return RestApiResponse.success(count, "Active workflow count retrieved successfully");
+    }
+
+    @PostMapping("/{id}/nodes")
+    public ResponseEntity<RestApiResponse<WorkflowDefinition>> upsertNodes(
+            @PathVariable UUID id,
+            @RequestBody UpsertWorkflowDefinition definition) {
+        WorkflowDefinition updatedDefinition = workflowService.upsertNodes(id, definition);
+        return RestApiResponse.success(updatedDefinition, "Workflow nodes updated successfully");
+    }
+
+    @DeleteMapping("/{id}/nodes/{nodeKey}")
+    public ResponseEntity<RestApiResponse<WorkflowDefinition>> removeNode(
+            @PathVariable UUID id,
+            @PathVariable String nodeKey) {
+        WorkflowDefinition updatedDefinition = workflowService.removeNode(id, nodeKey);
+        return RestApiResponse.success(updatedDefinition, "Workflow node removed successfully");
     }
 }

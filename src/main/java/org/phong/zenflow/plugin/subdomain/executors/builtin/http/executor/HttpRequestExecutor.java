@@ -6,14 +6,17 @@ import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.plugin.subdomain.executors.builtin.http.exception.HttpExecutorException;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+import reactor.core.publisher.Mono;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -26,52 +29,67 @@ public class HttpRequestExecutor implements PluginNodeExecutor {
 
     @Override
     public String key() {
-        return "core.http_request";
+        return "core:http.request";
     }
 
     @Override
-    public ExecutionResult execute(Map<String, Object> config, Map<String, Object> context) {
-        List<String> logs = new ArrayList<>();
+    public ExecutionResult execute(WorkflowConfig config) {
+        LogCollector logs = new LogCollector();
         try {
-            String url = (String) config.get("url");
-            HttpMethod method = HttpMethod.valueOf((String) config.get("method"));
-            String body = (String) config.getOrDefault("body", "");
-            Map<String, Object> headers = ObjectConversion.convertObjectToMap(config.getOrDefault("headers", Map.of()));
+            Map<String, Object> input = ObjectConversion.convertObjectToMap(config.input());
 
-            logs.add("Sending HTTP request to " + url + " with method " + method);
+            String url = (String) input.get("url");
+            HttpMethod method = HttpMethod.valueOf((String) input.get("method"));
+            Object body = input.getOrDefault("body", Map.of());
+            Map<String, Object> headers = ObjectConversion.convertObjectToMap(input.getOrDefault("headers", Map.of()));
 
-            Object response = webClient.method(method)
+            logs.info("Sending HTTP request to " + url + " with method " + method);
+
+            Map<String, Object> response = webClient.method(method)
                     .uri(url)
                     .bodyValue(body)
-                    .headers(httpHeaders -> getHeaders(httpHeaders, headers))
-                    .retrieve()
-                    .bodyToMono(Object.class)
+                    .headers(httpHeaders -> getHeaders(logs, httpHeaders, headers))
+                    .exchangeToMono(this::handleResponse)
                     .block();
 
-            logs.add("Received response successfully");
+            logs.success("Received response successfully");
 
-            return ExecutionResult.success(Map.of("response", response != null ? response : "No response"), logs);
+            return ExecutionResult.success(response, logs.getLogs());
         } catch (WebClientResponseException e) {
-            logs.add("HTTP error with status " + e.getStatusCode());
+            logs.error("HTTP error with status {}", e.getStatusCode());
             log.debug("HTTP error with status {}", e.getStatusCode());
-            return ExecutionResult.error(e.getResponseBodyAsString(), logs);
+            return ExecutionResult.error(e.getResponseBodyAsString(), logs.getLogs());
         } catch (Exception e) {
-            logs.add("Unexpected error occurred");
+            logs.error("Unexpected error occurred: {}", e.getMessage());
             log.debug("Unexpected error during HTTP request execution", e);
-            return ExecutionResult.error(e.getMessage(), logs);
+            return ExecutionResult.error(e.getMessage(), logs.getLogs());
         }
     }
 
-    private void getHeaders(HttpHeaders httpHeaders, Map<String, Object> headers) {
+    private Mono<Map<String, Object>> handleResponse(ClientResponse response) {
+        return response.bodyToMono(Object.class)
+                .defaultIfEmpty("No response")
+                .map(body -> {
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("status_code", response.statusCode().value());
+                    result.put("headers", response.headers().asHttpHeaders().toSingleValueMap());
+                    result.put("body", body);
+                    return result;
+                });
+    }
+
+    private void getHeaders(LogCollector logs, HttpHeaders httpHeaders, Map<String, Object> headers) {
         if (headers != null) {
             headers.forEach((key, value) -> {
                 if (!VALID_HEADER_NAME.matcher(key).matches()) {
+                    logs.error("Invalid HTTP header name: " + key);
                     throw new HttpExecutorException("Invalid HTTP header name: " + key);
                 }
 
                 if (value instanceof String) {
                     httpHeaders.set(key, (String) value);
                 } else {
+                    logs.error("Unsupported header value type for key: " + key + ", expected String but got " + value.getClass());
                     throw new HttpExecutorException("Unsupported header value type: " + value.getClass());
                 }
             });

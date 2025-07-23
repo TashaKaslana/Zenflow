@@ -19,6 +19,7 @@ import org.hibernate.annotations.OnDeleteAction;
 import org.hibernate.type.SqlTypes;
 import org.phong.zenflow.core.superbase.BaseFullAuditEntity;
 import org.phong.zenflow.project.infrastructure.persistence.entity.Project;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 
 import java.time.OffsetDateTime;
 import java.util.Map;
@@ -49,7 +50,7 @@ public class Workflow extends BaseFullAuditEntity {
 
     @Column(name = "definition")
     @JdbcTypeCode(SqlTypes.JSON)
-    private Map<String, Object> definition;
+    private WorkflowDefinition definition;
 
     @Column(name = "start_node", length = Integer.MAX_VALUE)
     private String startNode;
@@ -62,4 +63,10 @@ public class Workflow extends BaseFullAuditEntity {
     @Column(name = "deleted_at")
     private OffsetDateTime deletedAt;
 
+    @Column(name = "retry_policy")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private Map<String, Object> retryPolicy;
+
+    @Column(name = "description", length = Integer.MAX_VALUE)
+    private String description;
 }

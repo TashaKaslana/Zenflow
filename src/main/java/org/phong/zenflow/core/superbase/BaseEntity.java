@@ -13,10 +13,11 @@ import java.time.OffsetDateTime;
 @MappedSuperclass
 public abstract class BaseEntity extends BaseIdEntity {
     @NotNull
-    @Column(updatable = false)
+    @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
 
     @NotNull
+    @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
 
     @PrePersist

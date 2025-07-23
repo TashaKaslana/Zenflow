@@ -6,4 +6,8 @@ public class WorkflowNodeDefinitionException extends WorkflowException {
     public WorkflowNodeDefinitionException(String message) {
         super(message);
     }
+
+    public WorkflowNodeDefinitionException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }

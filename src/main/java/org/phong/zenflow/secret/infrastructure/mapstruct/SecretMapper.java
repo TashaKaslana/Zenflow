@@ -1,10 +1,12 @@
 package org.phong.zenflow.secret.infrastructure.mapstruct;
 
 import org.mapstruct.BeanMapping;
+import org.mapstruct.Context;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingConstants;
 import org.mapstruct.MappingTarget;
+import org.mapstruct.Named;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.mapstruct.ReportingPolicy;
 import org.phong.zenflow.secret.dto.CreateSecretRequest;
@@ -26,4 +28,9 @@ public interface SecretMapper {
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "encryptedValue", source = "value")
     void updateEntityFromDto(UpdateSecretRequest updateSecretRequest, @MappingTarget Secret secret);
+
+    @Named("decrypt")
+    static String decrypt(String encryptedValue, @Context SecretMapperHelper helper) {
+        return helper.decrypt(encryptedValue);
+    }
 }

@@ -109,13 +109,6 @@ public class ProjectService {
         Project existingProject = projectRepository.findById(id)
                 .orElseThrow(() -> new ProjectNotFoundException(id));
 
-        // Validate user exists if user is being updated
-        if (request.userId() != null) {
-            User user = userRepository.findById(request.userId())
-                    .orElseThrow(() -> new UserNotFoundException(request.userId().toString()));
-            existingProject.setUser(user);
-        }
-
         Project updated = projectMapper.partialUpdate(request, existingProject);
         Project updatedProject = projectRepository.save(updated);
         return projectMapper.toDto(updatedProject);
@@ -158,5 +151,9 @@ public class ProjectService {
      */
     public long count() {
         return projectRepository.count();
+    }
+
+    public Project getReferenceById(UUID id) {
+        return projectRepository.getReferenceById(id);
     }
 }

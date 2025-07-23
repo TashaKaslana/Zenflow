@@ -141,10 +141,12 @@ public class WorkflowTriggerService {
     }
 
     @Transactional
-    public void executeTrigger(UUID triggerId, WorkflowRunnerRequest request) {
+    public UUID executeTrigger(UUID triggerId, WorkflowRunnerRequest request) {
+        UUID workflowRunId = UUID.randomUUID();
         log.info("Execute workflow trigger with ID: {}", triggerId);
         WorkflowTrigger trigger = markTriggered(triggerId);
-        publisher.publishEvent(new WorkflowTriggerEvent(trigger, request));
+        publisher.publishEvent(new WorkflowTriggerEvent(workflowRunId, trigger, request));
+        return workflowRunId;
     }
 
     @Transactional

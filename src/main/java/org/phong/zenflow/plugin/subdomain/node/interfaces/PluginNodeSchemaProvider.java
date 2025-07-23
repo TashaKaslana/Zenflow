@@ -1,5 +1,8 @@
 package org.phong.zenflow.plugin.subdomain.node.interfaces;
 
+import java.util.Map;
+import java.util.UUID;
+
 public interface PluginNodeSchemaProvider {
-    String getSchemaJson(String plugin, String node);
+    Map<String, Object> getSchemaJson(UUID pluginId, UUID nodeId);
 }

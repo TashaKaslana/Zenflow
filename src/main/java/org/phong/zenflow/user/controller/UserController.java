@@ -3,6 +3,7 @@ package org.phong.zenflow.user.controller;
 import lombok.RequiredArgsConstructor;
 import org.phong.zenflow.core.responses.RestApiResponse;
 import org.phong.zenflow.user.dtos.CreateUserRequest;
+import org.phong.zenflow.user.dtos.UpdateUserRequest;
 import org.phong.zenflow.user.dtos.UserDto;
 import org.phong.zenflow.user.service.UserPermissionService;
 import org.phong.zenflow.user.service.UserService;
@@ -98,7 +99,7 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<RestApiResponse<UserDto>> updateUser(@PathVariable UUID id, @Valid @RequestBody CreateUserRequest request) {
+    public ResponseEntity<RestApiResponse<UserDto>> updateUser(@PathVariable UUID id, @Valid @RequestBody UpdateUserRequest request) {
         UserDto updatedUser = userService.updateUser(id, request);
         return RestApiResponse.success(updatedUser, "User updated successfully");
     }
@@ -109,8 +110,8 @@ public class UserController {
         return RestApiResponse.success(updatedUser, "Password updated successfully");
     }
 
-    @PutMapping("/{id}/role")
-    public ResponseEntity<RestApiResponse<UserDto>> changeUserRole(@PathVariable UUID id, @RequestBody UserRoleEnum newRole) {
+    @PutMapping("/{id}/roles/{newRole}")
+    public ResponseEntity<RestApiResponse<UserDto>> changeUserRole(@PathVariable UUID id, @PathVariable UserRoleEnum newRole) {
         UserDto updatedUser = userService.changeUserRole(id, newRole);
         return RestApiResponse.success(updatedUser, "User role changed successfully");
     }

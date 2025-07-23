@@ -7,11 +7,11 @@ import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.e
 
 import java.util.UUID;
 
-public record WorkflowTriggerEvent(WorkflowTrigger workflowTrigger,
+public record WorkflowTriggerEvent(UUID workflowRunId, WorkflowTrigger workflowTrigger,
                                    WorkflowRunnerRequest request) implements WorkflowRunnerPublishableEvent {
     @Override
     public UUID getWorkflowRunId() {
-        return workflowTrigger.getId();
+        return workflowRunId;
     }
 
     @Override
@@ -22,5 +22,10 @@ public record WorkflowTriggerEvent(WorkflowTrigger workflowTrigger,
     @Override
     public UUID getWorkflowId() {
         return workflowTrigger.getWorkflowId();
+    }
+
+    @Override
+    public WorkflowRunnerRequest request() {
+        return request;
     }
 }

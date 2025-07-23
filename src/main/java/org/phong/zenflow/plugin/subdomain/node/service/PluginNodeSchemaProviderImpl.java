@@ -6,6 +6,9 @@ import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.reposi
 import org.phong.zenflow.plugin.subdomain.node.interfaces.PluginNodeSchemaProvider;
 import org.springframework.stereotype.Service;
 
+import java.util.Map;
+import java.util.UUID;
+
 @Service
 public class PluginNodeSchemaProviderImpl implements PluginNodeSchemaProvider {
 
@@ -16,11 +19,11 @@ public class PluginNodeSchemaProviderImpl implements PluginNodeSchemaProvider {
     }
 
     @Override
-    public String getSchemaJson(String plugin, String node) {
+    public Map<String, Object> getSchemaJson(UUID pluginId, UUID nodeId) {
         return pluginNodeRepository
-                .findByPluginNameAndName(plugin, node)
+                .findByPluginIdAndId(pluginId, nodeId)
                 .map(PluginNode::getConfigSchema).orElseThrow(
-                        () -> new ValidateNodeSchemaException("Node schema not found for plugin: " + plugin + ", node: " + node)
-                ).toString();
+                        () -> new ValidateNodeSchemaException("Node schema not found for pluginId: " + pluginId + ", nodeId: " + nodeId)
+                );
     }
 }

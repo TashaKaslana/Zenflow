@@ -4,6 +4,7 @@ import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.AttributeOverrides;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
@@ -16,6 +17,8 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 import org.phong.zenflow.core.superbase.BaseEntity;
 import org.phong.zenflow.user.infrastructure.persistence.entities.User;
+import org.springframework.data.annotation.LastModifiedBy;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -31,6 +34,7 @@ import java.util.UUID;
         @AttributeOverride(name = "createdAt", column = @Column(name = "created_at", nullable = false)),
         @AttributeOverride(name = "updatedAt", column = @Column(name = "updated_at", nullable = false))
 })
+@EntityListeners(AuditingEntityListener.class)
 public class Project extends BaseEntity {
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -45,6 +49,8 @@ public class Project extends BaseEntity {
     @Column(name = "description", length = Integer.MAX_VALUE)
     private String description;
 
+    //TODO: Doesn't work
+    @LastModifiedBy
     @Column(name = "updated_by")
     private UUID updatedBy;
 

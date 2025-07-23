@@ -6,12 +6,14 @@ import org.phong.zenflow.workflow.subdomain.workflow_run.enums.WorkflowStatus;
 
 import java.io.Serializable;
 import java.time.OffsetDateTime;
+import java.util.Map;
 import java.util.UUID;
 
 /**
  * DTO for {@link org.phong.zenflow.workflow.subdomain.workflow_run.infrastructure.persistence.entity.WorkflowRun}
  */
 public record WorkflowRunDto(@NotNull UUID id, @NotNull UUID workflowId, @NotNull WorkflowStatus status,
-                            String error, TriggerType triggerType, @NotNull OffsetDateTime startedAt,
-                            OffsetDateTime endedAt) implements Serializable {
+                             String error, TriggerType triggerType, @NotNull OffsetDateTime startedAt,
+                             OffsetDateTime endedAt, UUID retryOfId, Integer retryAttempt,
+                             OffsetDateTime nextRetryAt, Map<String, Object> context) implements Serializable {
 }

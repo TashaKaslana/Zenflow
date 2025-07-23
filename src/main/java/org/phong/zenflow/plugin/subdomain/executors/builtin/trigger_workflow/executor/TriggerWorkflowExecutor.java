@@ -1,8 +1,11 @@
 package org.phong.zenflow.plugin.subdomain.executors.builtin.trigger_workflow.executor;
 
 import lombok.AllArgsConstructor;
+import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
 import org.phong.zenflow.workflow.subdomain.runner.event.WorkflowRunnerPublishableEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
@@ -20,17 +23,24 @@ public class TriggerWorkflowExecutor implements PluginNodeExecutor {
 
     @Override
     public String key() {
-        return "core.trigger_workflow";
+        return "core:trigger.workflow";
     }
 
     @Override
     @Transactional
-    public ExecutionResult execute(Map<String, Object> config, Map<String, Object> context) {
+    public ExecutionResult execute(WorkflowConfig config) {
+        LogCollector logs = new LogCollector();
+        logs.info("Executing TriggerWorkflowExecutor with config: " + config);
+
+        // Extract the 'input' map from the config
+        Map<String, Object> input = ObjectConversion.convertObjectToMap(config.input());
+
         //TODO: ensure trigger workflow is enabled, exists and is own by the user
-        UUID workflowRunId = (UUID) config.get("workflow_run_id");
-        UUID workflowId = (UUID) config.get("workflow_id");
-//        boolean isPassContext = (boolean) config.getOrDefault("is_pass_context", false);
-        boolean isAsync = (boolean) config.getOrDefault("is_async", false);
+        UUID workflowRunId = UUID.fromString(input.get("workflow_run_id").toString());
+        UUID workflowId = UUID.fromString(input.get("workflow_id").toString());
+        boolean isAsync = (boolean) input.getOrDefault("is_async", false);
+
+        logs.info("Triggering workflow with ID: " + workflowId + " and run ID: " + workflowRunId);
 
         eventPublisher.publishEvent(new WorkflowRunnerPublishableEvent() {
             @Override
@@ -53,6 +63,8 @@ public class TriggerWorkflowExecutor implements PluginNodeExecutor {
                 return null;
             }
         });
-        return null;
+
+        logs.success("Create workflow trigger request successfully with ID: " + workflowId + " and run ID: " + workflowRunId);
+        return ExecutionResult.success(null, logs.getLogs());
     }
 }

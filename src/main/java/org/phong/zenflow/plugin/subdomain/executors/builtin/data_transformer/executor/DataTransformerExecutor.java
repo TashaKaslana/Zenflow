@@ -1,6 +1,5 @@
 package org.phong.zenflow.plugin.subdomain.executors.builtin.data_transformer.executor;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
@@ -11,9 +10,10 @@ import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecuto
 import org.phong.zenflow.plugin.subdomain.executors.builtin.data_transformer.dto.TransformStep;
 import org.phong.zenflow.plugin.subdomain.executors.builtin.data_transformer.exception.DataTransformerExecutorException;
 import org.phong.zenflow.plugin.subdomain.executors.builtin.data_transformer.registry.TransformerRegistry;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -26,70 +26,70 @@ public class DataTransformerExecutor implements PluginNodeExecutor {
 
     @Override
     public String key() {
-        return "core.data_transformer";
+        return "core:data.transformer";
     }
 
     @Override
-    public ExecutionResult execute(Map<String, Object> config, Map<String, Object> context) {
-        List<String> logs = new ArrayList<>();
+    public ExecutionResult execute(WorkflowConfig config) {
+        LogCollector logs = new LogCollector();
+        log.debug("Executing DataTransformerExecutor with config: {}", config);
+        logs.info("Executing DataTransformerExecutor with config: " + config);
 
         try {
-            String transformerName = (String) config.get("name");
-            if (transformerName == null || transformerName.trim().isEmpty()) {
-                log.debug("Transformer name is missing in the configuration.");
-                logs.add("Transformer name is missing in the configuration.");
-                throw new DataTransformerExecutorException("Transformer name is missing in the configuration.");
-            }
+            Map<String, Object> input = ObjectConversion.convertObjectToMap(config.input());
+            String transformerName = (String) input.get("name");
+            String inputValue = (String) input.get("input");
 
-            String input = (String) config.get("input");
-            if (input == null || input.trim().isEmpty()) {
+            if (inputValue == null || inputValue.trim().isEmpty()) {
                 log.debug("Input data is missing in the configuration.");
-                logs.add("Input data is missing in the configuration.");
+                logs.error("Input data is missing in the configuration.");
                 throw new DataTransformerExecutorException("Input data is missing in the configuration.");
             }
 
-            Map<String, Object> params = ObjectConversion.convertObjectToMap(config.get("params"));
-            boolean isPipeline = Boolean.parseBoolean(config.getOrDefault("isPipeline", false).toString());
-            String result = input;
+            Map<String, Object> params = ObjectConversion.convertObjectToMap(input.get("params"));
+            boolean isPipeline = Boolean.parseBoolean(input.getOrDefault("isPipeline", false).toString());
+            String result;
 
-            result = getResultTransform(config, isPipeline, result, transformerName, input, params, logs);
+            result = getResultTransform(input, isPipeline, inputValue, transformerName, params, logs);
+            logs.success("Data transformation completed successfully.");
 
-            return ExecutionResult.success(Map.of("result", result), logs);
+            return ExecutionResult.success(Map.of("result", result), logs.getLogs());
         } catch (Exception e) {
-            logs.add("Error occurred during data transformation: " + e.getMessage());
+            logs.error("Error occurred during data transformation: " + e.getMessage());
             log.debug("Data transformation failed {}", e.getMessage(), e);
-            return ExecutionResult.error(e.getMessage(), logs);
+            return ExecutionResult.error(e.getMessage(), logs.getLogs());
         }
     }
 
-    private String getResultTransform(Map<String, Object> config,
+    private String getResultTransform(Map<String, Object> input,
                                       boolean isPipeline,
-                                      String result,
+                                      String inputValue,
                                       String transformerName,
-                                      String input,
                                       Map<String, Object> params,
-                                      List<String> logs) throws JsonProcessingException {
+                                      LogCollector logs) {
+        String result = inputValue;
         if (isPipeline) {
-            Object stepsRaw = config.get("steps");
+            Object stepsRaw = input.get("steps");
             if (stepsRaw == null) {
-                logs.add("Pipeline steps are missing in the configuration.");
+                logs.error("Pipeline steps are missing in the configuration.");
                 log.debug("Pipeline steps are missing in the configuration.");
                 throw new DataTransformerExecutorException("Pipeline steps are missing in the configuration.");
             }
 
-            List<TransformStep> steps = objectMapper.readValue(
-                    stepsRaw.toString(),
-                    new TypeReference<>() {
-                    }
-            );
+            List<TransformStep> steps = objectMapper.convertValue(stepsRaw, new TypeReference<>() {});
 
             for (TransformStep step : steps) {
                 result = registry.getTransformer(step.getTransformer()).transform(result, step.getParams());
-                logs.add(String.format("Applied transformer '%s' with params %s", step.getTransformer(), step.getParams()));
+                logs.info(String.format("Applied transformer '%s' with params %s", step.getTransformer(), step.getParams()));
             }
         } else {
-            result = registry.getTransformer(transformerName).transform(input, params);
-            logs.add(String.format("Applied transformer '%s' with params %s", transformerName, params));
+            if (transformerName == null || transformerName.trim().isEmpty()) {
+                log.debug("Transformer name is missing in the configuration.");
+                logs.error("Transformer name is missing in the configuration.");
+                throw new DataTransformerExecutorException("Transformer name is missing in the configuration.");
+            }
+            result = registry.getTransformer(transformerName).transform(inputValue, params);
+            logs.info(String.format("Applied transformer '%s' with params %s", transformerName, params));
         }
         return result;
     }

@@ -17,7 +17,6 @@ public interface UserSettingMapper {
     @Mapping(source = "user.id", target = "userId")
     UserSettingDto toDto(UserSetting userSetting);
 
-    @Mapping(source = "userId", target = "user.id")
     UserSetting toEntity(CreateUserSettingRequest createUserSettingRequest);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)

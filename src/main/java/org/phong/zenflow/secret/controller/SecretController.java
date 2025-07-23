@@ -62,6 +62,12 @@ public class SecretController {
         return RestApiResponse.noContent();
     }
 
+    @PatchMapping("/{id}/restore")
+    public ResponseEntity<RestApiResponse<Void>> restoreSecret(@PathVariable UUID id) {
+        secretService.restoreSecret(id);
+        return RestApiResponse.noContent();
+    }
+
     @GetMapping("/user/{userId}")
     public ResponseEntity<RestApiResponse<List<SecretDto>>> getSecretsByUserId(@PathVariable UUID userId) {
         List<SecretDto> secrets = secretService.getSecretsByUserId(userId);

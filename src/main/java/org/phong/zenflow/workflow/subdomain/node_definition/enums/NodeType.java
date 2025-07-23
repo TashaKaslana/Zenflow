@@ -13,6 +13,7 @@ public enum NodeType {
     WHILE_LOOP("while_loop"),
     FOR_LOOP("for_loop"),
     TIMEOUT("timeout"),
+    TRIGGER("trigger"),
     START("start"),
     END("end");
 

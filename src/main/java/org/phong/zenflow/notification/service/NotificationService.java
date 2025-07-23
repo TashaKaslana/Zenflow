@@ -16,7 +16,7 @@ import org.phong.zenflow.user.infrastructure.persistence.repositories.UserReposi
 import org.phong.zenflow.user.exception.UserNotFoundException;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.infrastructure.persistence.repository.WorkflowRepository;
-import org.phong.zenflow.workflow.exceptions.WorkflowException;
+import org.phong.zenflow.workflow.exception.WorkflowException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;

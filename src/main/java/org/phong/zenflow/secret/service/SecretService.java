@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.log.auditlog.annotations.AuditLog;
 import org.phong.zenflow.log.auditlog.enums.AuditAction;
+import org.phong.zenflow.project.service.ProjectService;
 import org.phong.zenflow.secret.dto.CreateSecretRequest;
 import org.phong.zenflow.secret.dto.SecretDto;
 import org.phong.zenflow.secret.dto.UpdateSecretRequest;
@@ -13,6 +14,8 @@ import org.phong.zenflow.secret.infrastructure.mapstruct.SecretMapper;
 import org.phong.zenflow.secret.infrastructure.persistence.entity.Secret;
 import org.phong.zenflow.secret.infrastructure.persistence.repository.SecretRepository;
 import org.phong.zenflow.secret.util.AESUtil;
+import org.phong.zenflow.user.service.UserService;
+import org.phong.zenflow.workflow.service.WorkflowService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -20,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -31,6 +35,9 @@ public class SecretService {
     private final SecretRepository secretRepository;
     private final SecretMapper secretMapper;
     private final AESUtil aesUtil;
+    private final UserService userService;
+    private final WorkflowService workflowService;
+    private final ProjectService projectService;
 
     @Transactional(readOnly = true)
     public List<SecretDto> getAllSecrets() {
@@ -66,6 +73,10 @@ public class SecretService {
         log.info("Creating new secret with groupName: {} and key: {}", request.groupName(), request.key());
         try {
             Secret secret = secretMapper.toEntity(request);
+
+            secret.setUser(userService.getReferenceById(request.userId()));
+            secret.setProject(request.projectId() != null ? projectService.getReferenceById(request.projectId()) : null);
+            secret.setWorkflow(request.workflowId() != null ? workflowService.getReferenceById(request.workflowId()) : null);
             secret.setEncryptedValue(aesUtil.encrypt(request.value()));
 
             Secret savedSecret = secretRepository.save(secret);
@@ -117,6 +128,25 @@ public class SecretService {
     }
 
     @AuditLog(
+            action = AuditAction.SECRET_RESTORE,
+            targetIdExpression = "#id"
+    )
+    public void restoreSecret(UUID id) {
+        Secret secret = secretRepository.findById(id).orElseThrow(() -> {
+            log.error("Secret not found with id on restore: {}", id);
+            return new SecretNotFoundException("Secret not found with id: " + id);
+        });
+
+        if (secret.getDeletedAt() == null) {
+            log.warn("Secret with id {} is not deleted, cannot restore", id);
+            return;
+        }
+
+        secret.setDeletedAt(null);
+        secretRepository.save(secret);
+    }
+
+    @AuditLog(
             action = AuditAction.SECRET_DELETE,
             description = "Hard delete secret",
             targetIdExpression = "#id"
@@ -151,6 +181,21 @@ public class SecretService {
                 .stream()
                 .map(this::mapToDto)
                 .collect(Collectors.toList());
+    }
+
+    public Map<String, String> getSecretMapByWorkflowId(UUID workflowId) {
+        return secretRepository.findByWorkflowId(workflowId)
+                .stream()
+                .collect(Collectors.toMap(
+                        secret -> secret.getGroupName() + "." + secret.getKey(),
+                        secret -> {
+                            try {
+                                return aesUtil.decrypt(secret.getEncryptedValue());
+                            } catch (Exception e) {
+                                throw new SecretDomainException("Can't encrypted value for workflowId: " + workflowId, e);
+                            }
+                        }
+                ));
     }
 
     private SecretDto mapToDto(Secret secret) {

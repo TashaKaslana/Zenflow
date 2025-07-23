@@ -1,6 +1,7 @@
 package org.phong.zenflow.workflow.subdomain.workflow_run.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.log.auditlog.annotations.AuditLog;
 import org.phong.zenflow.log.auditlog.enums.AuditAction;
 import org.phong.zenflow.workflow.exception.WorkflowException;
@@ -18,21 +19,29 @@ import org.phong.zenflow.workflow.subdomain.workflow_run.infrastructure.persiste
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@Slf4j
 public class WorkflowRunService {
 
     private final WorkflowRunRepository workflowRunRepository;
     private final WorkflowRepository workflowRepository;
     private final WorkflowRunMapper workflowRunMapper;
+
+    public WorkflowRun findEntityById(UUID id) {
+        return workflowRunRepository.findById(id)
+                .orElseThrow(() -> new WorkflowRunException("Workflow run not found with id: " + id));
+    }
 
     /**
      * Create a new workflow run
@@ -47,6 +56,9 @@ public class WorkflowRunService {
         WorkflowRun workflowRun = workflowRunMapper.toEntity(request);
         workflowRun.setWorkflow(workflow);
         workflowRun.setStartedAt(OffsetDateTime.now());
+        if (request.retryOfId() != null) {
+            workflowRun.setRetryOf(workflowRunRepository.getReferenceById(request.retryOfId()));
+        }
 
         // Set endedAt if status is completed
         if (request.status() == WorkflowStatus.SUCCESS || request.status() == WorkflowStatus.ERROR) {
@@ -69,35 +81,71 @@ public class WorkflowRunService {
                 workflowId,
                 WorkflowStatus.RUNNING,
                 null,
-                triggerType
+                triggerType,
+                null, // retryOfId
+                null, // retryAttempt
+                null  // nextRetryAt
         );
         return createWorkflowRun(request);
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public WorkflowRun findOrCreateWorkflowRun(UUID workflowRunId, UUID workflowId, TriggerType triggerType) {
+        return workflowRunRepository.findById(workflowRunId)
+                .orElseGet(() -> {
+                    Workflow workflow = workflowRepository.findById(workflowId)
+                            .orElseThrow(() -> new WorkflowException("Workflow not found with id: " + workflowId));
+
+                    WorkflowRun newWorkflowRun = new WorkflowRun();
+                    newWorkflowRun.setId(workflowRunId);
+                    newWorkflowRun.setWorkflow(workflow);
+                    newWorkflowRun.setStatus(WorkflowStatus.RUNNING);
+                    newWorkflowRun.setTriggerType(triggerType);
+                    newWorkflowRun.setStartedAt(OffsetDateTime.now());
+
+                    return workflowRunRepository.save(newWorkflowRun);
+                });
+    }
+
+
     @Transactional
-    public void handleWorkflowError(UUID workflowId, Exception e) {
+    public void saveContext(UUID workflowRunId, Map<String, Object> context) {
+        WorkflowRun workflowRun = workflowRunRepository.findById(workflowRunId)
+                .orElseThrow(() -> new WorkflowRunException("WorkflowRun not found with id: " + workflowRunId));
+        workflowRun.setContext(context);
+        workflowRunRepository.save(workflowRun);
+    }
+
+    @Transactional
+    public void handleWorkflowError(UUID workflowRunId, Exception e) {
         // Log the error and create a workflow run with error status
         String errorMessage = e.getMessage() != null ? e.getMessage() : "Unknown error occurred";
         UpdateWorkflowRunRequest request = new UpdateWorkflowRunRequest(
                 WorkflowStatus.ERROR,
                 errorMessage,
                 null,
-                OffsetDateTime.now()
+                OffsetDateTime.now(),
+                null, // retryOfId
+                null, // retryAttempt
+                null  // nextRetryAt
         );
-        updateWorkflowRun(workflowId, request);
+        updateWorkflowRun(workflowRunId, request);
     }
 
-    @AuditLog(action = AuditAction.WORKFLOW_UPDATE, targetIdExpression = "#workflowId", description = "Complete workflow run")
+    @AuditLog(action = AuditAction.WORKFLOW_UPDATE, targetIdExpression = "#workflowRunId", description = "Complete workflow run")
     @Transactional
-    public void completeWorkflowRun(UUID workflowId) {
+    public void completeWorkflowRun(UUID workflowRunId) {
         // Complete the workflow run with success status
         UpdateWorkflowRunRequest request = new UpdateWorkflowRunRequest(
                 WorkflowStatus.SUCCESS,
                 null,
                 null,
-                OffsetDateTime.now()
+                OffsetDateTime.now(),
+                null, // retryOfId
+                null, // retryAttempt
+                null  // nextRetryAt
         );
-        updateWorkflowRun(workflowId, request);
+        updateWorkflowRun(workflowRunId, request);
     }
 
     /**
@@ -264,7 +312,10 @@ public class WorkflowRunService {
                 WorkflowStatus.SUCCESS,
                 null,
                 null,
-                OffsetDateTime.now()
+                OffsetDateTime.now(),
+                null, // retryOfId
+                null, // retryAttempt
+                null  // nextRetryAt
         );
         return updateWorkflowRun(id, request);
     }
@@ -279,7 +330,10 @@ public class WorkflowRunService {
                 WorkflowStatus.ERROR,
                 errorMessage,
                 null,
-                OffsetDateTime.now()
+                OffsetDateTime.now(),
+                null, // retryOfId
+                null, // retryAttempt
+                null  // nextRetryAt
         );
         return updateWorkflowRun(id, request);
     }

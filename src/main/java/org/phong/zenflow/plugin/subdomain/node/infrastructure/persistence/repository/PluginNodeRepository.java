@@ -13,5 +13,5 @@ public interface PluginNodeRepository extends JpaRepository<PluginNode, UUID> {
 
     Page<PluginNode> findAllByPluginId(UUID pluginId, Pageable pageable);
 
-    Optional<PluginNode> findByPluginNameAndName(String plugin, String node);
+    Optional<PluginNode> findByPluginIdAndId(UUID pluginId, UUID id);
 }

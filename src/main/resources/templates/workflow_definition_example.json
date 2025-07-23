@@ -1,0 +1,102 @@
+{
+    "nodes": [
+        {
+            "key": "node1",
+            "type": "plugin",
+            "pluginNode": {
+                "pluginId": "examplePlugin",
+                "nodeId": "exampleNode"
+            },
+            "next": ["node2"],
+            "config": {
+                "input": {
+                    "name": "John Doe",
+                    "age": 30
+                },
+                "output": {
+                    "name": "{{node1.output.name}}",
+                    "age": "{{node1.output.age}}",
+                    "email": "{{node1.output.email}}"
+                }
+            },
+            "metadata": {
+                "description": "This node processes user information and generates an email."
+            },
+            "policy": {
+
+            }
+        },
+        {
+            "key": "node2",
+            "type": "plugin",
+            "pluginNode": {
+                "pluginId": "examplePlugin",
+                "nodeId": "exampleNode"
+            },
+            "next": ["node3"],
+            "config": {
+                "input": {
+                    "name": "{{node1.output.name}}",
+                    "age": "{{node1.output.age}}",
+                    "email": "{{yahooEmail}}"
+                },
+                "output": {
+                    "email": "{{node2.output.email}}"
+                }
+            },
+            "metadata": {
+                "description": "This node consumes the output from node1 and processes it further."
+            },
+            "policy": {
+
+            }
+        },
+        {
+            "key": "node3",
+            "type": "plugin",
+            "pluginNode": {
+                "pluginId": "examplePlugin",
+                "nodeId": "exampleNode"
+            },
+            "next": [],
+            "config": {
+                "input": {
+                    
+                },
+                "output": {
+                    
+                }
+            },
+            "metadata": {
+                "description": "This node is the final step in the workflow."
+            },
+            "policy": {
+
+            }
+        }
+    ],
+    
+    "metadata": {
+        "alias": {
+            "yahooEmail": "{{node1.output.email}}"
+        },
+        "nodeDependency" : {
+            "node2": ["node1.output.name", "node1.output.email", "node1.output.age"]
+        },
+        "nodeConsumer": {
+            "node1.output.name": {
+                "type": "string",
+                "consumers": ["node2"]
+            },
+            "node1.output.age": {
+                "type": "number",
+                "consumers": ["node2"]
+            },
+            "node1.output.email": {
+                "type": "string",
+                "consumers": ["node2"],
+                "alias": ["yahooEmail"]
+            }
+        }
+    }
+}
