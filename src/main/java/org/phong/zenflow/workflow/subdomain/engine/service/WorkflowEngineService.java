@@ -17,12 +17,9 @@ import org.phong.zenflow.workflow.subdomain.node_definition.definitions.Workflow
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
-import org.phong.zenflow.workflow.subdomain.node_logs.dto.NodeLogDto;
-import org.phong.zenflow.workflow.subdomain.node_logs.enums.NodeLogStatus;
 import org.phong.zenflow.workflow.subdomain.node_logs.service.NodeLogService;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -38,7 +35,6 @@ public class WorkflowEngineService {
     private final PluginNodeRepository pluginNodeRepository;
     private final NodeExecutorRegistry nodeExecutorRegistry;
     private final NodeLogService nodeLogService;
-    private final WorkflowRetrySchedule workflowRetrySchedule;
 
     @Transactional
     public WorkflowExecutionStatus runWorkflow(UUID workflowId, UUID workflowRunId, @Nullable String startFromNodeKey, RuntimeContext context) {
@@ -78,7 +74,7 @@ public class WorkflowEngineService {
                 } else {
                     log.warn("Output of node {} is null, skipping putting into context", workingNode.getKey());
                 }
-                resolveNodeLog(workflowId, workflowRunId, workingNode, result);
+                nodeLogService.resolveNodeLog(workflowId, workflowRunId, workingNode, result);
 
                 switch (result.getStatus()) {
                     case SUCCESS:
@@ -122,34 +118,5 @@ public class WorkflowEngineService {
                 .filter(node -> node.getKey().equals(key))
                 .findFirst()
                 .orElse(null);
-    }
-
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    protected void resolveNodeLog(UUID workflowId, UUID workflowRunId, BaseWorkflowNode workingNode, ExecutionResult result) {
-        switch (result.getStatus()) {
-            case SUCCESS:
-                log.debug("Plugin node executed successfully: {}", workingNode.getKey());
-                nodeLogService.completeNode(workflowRunId, workingNode.getKey(), NodeLogStatus.SUCCESS, result.getError(), result.getOutput(), result.getLogs());
-                break;
-            case ERROR:
-                log.error("Plugin node execution failed: {}", workingNode.getKey());
-                nodeLogService.completeNode(workflowRunId, workingNode.getKey(), NodeLogStatus.ERROR, result.getError(), result.getOutput(), result.getLogs());
-                break;
-            case WAITING:
-                log.debug("Plugin node execution skipped: {}", workingNode.getKey());
-                nodeLogService.waitNode(workflowRunId, workingNode.getKey(), NodeLogStatus.WAITING, result.getLogs(), result.getError());
-                break;
-            case RETRY:
-                log.debug("Plugin node execution retrying: {}", workingNode.getKey());
-                NodeLogDto retryNode = nodeLogService.retryNode(workflowRunId, workingNode.getKey(), result.getLogs());
-                workflowRetrySchedule.scheduleRetry(workflowId, workflowRunId, workingNode.getKey(), retryNode.attempts());
-                break;
-            case NEXT:
-                log.debug("Plugin node execution next: {}", workingNode.getKey());
-//                nodeLogService.nextNode(workflowRunId, workingNode.getKey(), NodeLogStatus.NEXT, result.getLogs(), result.getError());
-                break;
-            default:
-                log.warn("Unknown status for plugin node execution: {}", result.getStatus());
-        }
     }
 }

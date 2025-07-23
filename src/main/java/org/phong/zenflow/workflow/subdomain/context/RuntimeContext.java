@@ -34,7 +34,15 @@ public class RuntimeContext {
             context.putAll(initialContext);
         }
         if (initialAliases != null) {
-            aliases.putAll(initialAliases);
+            aliases.putAll(
+                    initialAliases.entrySet().stream()
+                            .filter(e -> e.getValue() != null)
+                            .collect(
+                                    HashMap::new,
+                                    (m, e) -> m.put(e.getKey(), e.getValue()),
+                                    HashMap::putAll
+                            )
+            );
         }
     }
 
@@ -286,7 +294,7 @@ public class RuntimeContext {
             }
             case Map<?, ?> map ->
                 // To be safe, we assume the map is Map<String, Object>
-                resolve(nodeKey, ObjectConversion.convertObjectToMap(map));
+                    resolve(nodeKey, ObjectConversion.convertObjectToMap(map));
             case List<?> list -> list.stream()
                     .map(item -> resolveValue(nodeKey, item))
                     .toList();

@@ -55,11 +55,11 @@ public class HttpRequestExecutor implements PluginNodeExecutor {
 
             return ExecutionResult.success(response, logs.getLogs());
         } catch (WebClientResponseException e) {
-            logs.error("HTTP error with status " + e.getStatusCode());
+            logs.error("HTTP error with status {}", e.getStatusCode());
             log.debug("HTTP error with status {}", e.getStatusCode());
             return ExecutionResult.error(e.getResponseBodyAsString(), logs.getLogs());
         } catch (Exception e) {
-            logs.error("Unexpected error occurred");
+            logs.error("Unexpected error occurred: {}", e.getMessage());
             log.debug("Unexpected error during HTTP request execution", e);
             return ExecutionResult.error(e.getMessage(), logs.getLogs());
         }
