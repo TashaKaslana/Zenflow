@@ -10,10 +10,13 @@ import org.phong.zenflow.log.auditlog.annotations.AuditLog;
 import org.phong.zenflow.log.auditlog.enums.AuditAction;
 import org.phong.zenflow.secret.dto.SecretDto;
 import org.phong.zenflow.secret.service.SecretService;
+import org.phong.zenflow.workflow.exception.WorkflowException;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
+import org.phong.zenflow.workflow.service.WorkflowService;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.engine.dto.WorkflowExecutionStatus;
 import org.phong.zenflow.workflow.subdomain.engine.service.WorkflowEngineService;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.phong.zenflow.workflow.subdomain.workflow_run.infrastructure.persistence.entity.WorkflowRun;
@@ -22,25 +25,23 @@ import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-import org.phong.zenflow.workflow.service.WorkflowService;
-import org.phong.zenflow.workflow.exception.WorkflowException;
-
 @AllArgsConstructor
 @Slf4j
 @Service
 public class WorkflowRunnerService {
+    private static final String callbackUrlKeyOnContext = "__zenflow_callback_url";
     private final WorkflowEngineService workflowEngineService;
     private final WorkflowRunService workflowRunService;
     private final WebClient webClient;
     private final WorkflowService workflowService;
     private final SecretService secretService;
-    private static final String callbackUrlKeyOnContext =  "__zenflow_callback_url";
 
     @AuditLog(
             action = AuditAction.WORKFLOW_EXECUTE,
@@ -106,23 +107,32 @@ public class WorkflowRunnerService {
         }
     }
 
-    private Map<String, List<String>> getConsumersFromDefinition(Map<String, Object> definition) {
-        if (definition == null || !definition.containsKey("staticContext")) {
+    private Map<String, List<String>> getConsumersFromDefinition(WorkflowDefinition definition) {
+        if (definition == null || definition.metadata() == null) {
             return new ConcurrentHashMap<>();
         }
-        Map<String, Object> staticContext = ObjectConversion.convertObjectToMap(definition.get("staticContext"));
-        Map<String, Map<String, Object>> nodeConsumerFlat = ObjectConversion.safeConvert(staticContext.get("nodeConsumerFlat"), new TypeReference<>() {
+        Map<String, Object> metadata = definition.metadata();
+        if (!metadata.containsKey("nodeConsumer")) {
+            return new ConcurrentHashMap<>();
+        }
+
+        Map<String, Map<String, Object>> nodeConsumer = ObjectConversion.safeConvert(metadata.get("nodeConsumer"), new TypeReference<>() {
         });
 
-        if (nodeConsumerFlat == null) {
+        if (nodeConsumer == null) {
             return new ConcurrentHashMap<>();
         }
 
-        return nodeConsumerFlat.entrySet().stream()
+        return nodeConsumer.entrySet().stream()
                 .collect(Collectors.toConcurrentMap(
                         Map.Entry::getKey,
-                        entry -> ObjectConversion.safeConvert(entry.getValue().get("consumers"), new TypeReference<>() {
-                        })
+                        entry -> {
+                            if (entry.getValue() != null && entry.getValue().containsKey("consumers")) {
+                                return ObjectConversion.safeConvert(entry.getValue().get("consumers"), new TypeReference<>() {
+                                });
+                            }
+                            return new ArrayList<>();
+                        }
                 ));
     }
 

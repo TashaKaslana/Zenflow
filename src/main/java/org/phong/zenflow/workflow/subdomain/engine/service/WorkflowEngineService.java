@@ -1,7 +1,5 @@
 package org.phong.zenflow.workflow.subdomain.engine.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
@@ -15,6 +13,7 @@ import org.phong.zenflow.workflow.subdomain.engine.dto.WorkflowExecutionStatus;
 import org.phong.zenflow.workflow.subdomain.engine.exception.WorkflowEngineException;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.NodeExecutorRegistry;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
 import org.phong.zenflow.workflow.subdomain.node_logs.dto.NodeLogDto;
@@ -34,7 +33,6 @@ import java.util.UUID;
 @Slf4j
 public class WorkflowEngineService {
     private final WorkflowRepository workflowRepository;
-    private final ObjectMapper objectMapper;
     private final PluginNodeExecutorDispatcher executorDispatcher;
     private final PluginNodeRepository pluginNodeRepository;
     private final NodeExecutorRegistry nodeExecutorRegistry;
@@ -48,9 +46,11 @@ public class WorkflowEngineService {
                     () -> new WorkflowEngineException("Workflow not found with ID: " + workflowId)
             );
 
-            Map<String, Object> definition = workflow.getDefinition();
-            List<BaseWorkflowNode> workflowSchema = objectMapper.readValue(objectMapper.writeValueAsString(definition.get("nodes")), new TypeReference<>() {
-            });
+            WorkflowDefinition definition = workflow.getDefinition();
+            if (definition == null || definition.nodes() == null) {
+                throw new WorkflowEngineException("Workflow definition or nodes are missing for workflow ID: " + workflowId);
+            }
+            List<BaseWorkflowNode> workflowSchema = definition.nodes();
 
             String currentNodeKey = (startFromNodeKey != null) ? startFromNodeKey : workflow.getStartNode();
             BaseWorkflowNode workingNode = findNodeByKey(workflowSchema, currentNodeKey);
