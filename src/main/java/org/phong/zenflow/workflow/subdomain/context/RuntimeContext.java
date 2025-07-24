@@ -269,8 +269,21 @@ public class RuntimeContext {
                         }
                     }
                 }
+
                 // For complex templates, resolve all and return as string
-                yield TemplateEngine.resolveTemplate(str, this.context);
+                String result = str;
+                for (String ref : refs) {
+                    String templateRef = "{{" + ref + "}}";
+                    Object resolvedValue = getAndClean(nodeKey, templateRef);
+                    if (resolvedValue != null) {
+                        result = result.replace(templateRef, resolvedValue.toString());
+                    } else {
+                        // Keep the original template if it can't be resolved
+                        // This prevents malformed expressions like "null > 200"
+                        yield str;
+                    }
+                }
+                yield result;
             }
             case Map<?, ?> map ->
                 // To be safe, we assume the map is Map<String, Object>

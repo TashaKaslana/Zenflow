@@ -53,7 +53,7 @@ public class ConditionNodeExecutor implements PluginNodeExecutor {
                     Object result = AviatorEvaluator.execute(rawCondition);
                     Boolean isMatch = (Boolean) result;
                     if (Boolean.TRUE.equals(isMatch)) {
-                        logCollector.info("Condition matched: {}", rawCondition);
+                        logCollector.info("Condition matched: {} than next to {}", rawCondition, caseDef.then());
                         return ExecutionResult.nextNode(caseDef.then(), logCollector.getLogs());
                     }
                 } catch (Exception conditionException) {
