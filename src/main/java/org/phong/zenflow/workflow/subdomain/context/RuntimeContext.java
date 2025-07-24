@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -21,11 +22,11 @@ import java.util.concurrent.ConcurrentHashMap;
 public class RuntimeContext {
     @Getter
     private final Map<String, Object> context = new ConcurrentHashMap<>();
-    private final Map<String, List<String>> consumers = new ConcurrentHashMap<>();
+    private final Map<String, Set<String>> consumers = new ConcurrentHashMap<>();
     private final Map<String, String> aliases = new ConcurrentHashMap<>();
 
     public void initialize(Map<String, Object> initialContext,
-                           Map<String, List<String>> initialConsumers,
+                           Map<String, Set<String>> initialConsumers,
                            Map<String, String> initialAliases) {
         if (initialConsumers != null) {
             consumers.putAll(initialConsumers);
@@ -247,6 +248,10 @@ public class RuntimeContext {
     }
 
     private Object resolveValue(String nodeKey, Object value) {
+        if (value == null) {
+            return null;
+        }
+
         return switch (value) {
             case String str -> {
                 if (!TemplateEngine.isTemplate(str)) {
@@ -281,7 +286,7 @@ public class RuntimeContext {
      * Remove a specific consumer from a key's consumer list
      */
     private void removeConsumer(String key, String nodeKey) {
-        List<String> keyConsumers = consumers.get(key);
+        Set<String> keyConsumers = consumers.get(key);
         if (keyConsumers != null) {
             keyConsumers.remove(nodeKey);
             log.debug("Removed consumer '{}' from key '{}'", nodeKey, key);
@@ -298,7 +303,7 @@ public class RuntimeContext {
      * Perform garbage collection by removing context entries that have no consumers
      */
     private void performGarbageCollection(String key) {
-        List<String> keyConsumers = consumers.get(key);
+        Set<String> keyConsumers = consumers.get(key);
 
         // If there are no consumers left for this key, remove it from context
         if (keyConsumers == null || keyConsumers.isEmpty()) {
@@ -313,7 +318,7 @@ public class RuntimeContext {
      * Check if a key has any remaining consumers
      */
     public boolean hasConsumers(String key) {
-        List<String> keyConsumers = consumers.get(key);
+        Set<String> keyConsumers = consumers.get(key);
         return keyConsumers != null && !keyConsumers.isEmpty();
     }
 
@@ -321,7 +326,7 @@ public class RuntimeContext {
      * Get the list of consumers for a specific key
      */
     public List<String> getConsumers(String key) {
-        List<String> keyConsumers = consumers.get(key);
+        Set<String> keyConsumers = consumers.get(key);
         return keyConsumers != null ? new ArrayList<>(keyConsumers) : new ArrayList<>();
     }
 

@@ -116,7 +116,7 @@ public class WorkflowContextService {
     @Data
     public static class OutputUsage {
         private String type;
-        private List<String> consumers = new ArrayList<>();
+        private Set<String> consumers = new HashSet<>();
         private List<String> alias = new ArrayList<>();
     }
 }

@@ -6,4 +6,5 @@ public enum NodeLogStatus {
     ERROR,
     WAITING,
     RETRYING,
+    NEXT,
 }

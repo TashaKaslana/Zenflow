@@ -3,6 +3,7 @@ package org.phong.zenflow.workflow.subdomain.node_definition.services;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
+import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.node.utils.JsonSchemaValidator;
 import org.phong.zenflow.plugin.subdomain.node.utils.SchemaRegistry;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
@@ -123,7 +124,8 @@ public class WorkflowDefinitionService {
             }
 
             log.debug("Validating node schema for key: {}, config: {}", node.getKey(), node.getConfig());
-            JSONObject config = new JSONObject(node.getConfig());
+            Map<String, Object> configMap = ObjectConversion.convertObjectToMap(node.getConfig());
+            JSONObject config = new JSONObject(configMap);
 
             if (node instanceof PluginDefinition pluginDefinition) {
                 PluginNodeDefinition pluginNodeDef = pluginDefinition.getPluginNode();

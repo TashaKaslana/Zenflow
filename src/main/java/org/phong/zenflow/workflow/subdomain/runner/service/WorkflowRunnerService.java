@@ -24,9 +24,9 @@ import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -63,7 +63,7 @@ public class WorkflowRunnerService {
             WorkflowRun workflowRun = workflowRunService.findOrCreateWorkflowRun(workflowRunId, workflowId, triggerType);
 
             // Extract consumer map from the static context in the workflow definition
-            Map<String, List<String>> consumers = getConsumersFromDefinition(workflow.getDefinition());
+            Map<String, Set<String>> consumers = getConsumersFromDefinition(workflow.getDefinition());
             Map<String, String> aliasMap = ObjectConversion.safeConvert(workflow.getDefinition().metadata().get("alias"), new TypeReference<>() {
             });
 
@@ -108,7 +108,7 @@ public class WorkflowRunnerService {
         }
     }
 
-    private Map<String, List<String>> getConsumersFromDefinition(WorkflowDefinition definition) {
+    private Map<String, Set<String>> getConsumersFromDefinition(WorkflowDefinition definition) {
         if (definition == null || definition.metadata() == null) {
             return new ConcurrentHashMap<>();
         }
@@ -132,7 +132,7 @@ public class WorkflowRunnerService {
                                 return ObjectConversion.safeConvert(entry.getValue().get("consumers"), new TypeReference<>() {
                                 });
                             }
-                            return new ArrayList<>();
+                            return new HashSet<>();
                         }
                 ));
     }

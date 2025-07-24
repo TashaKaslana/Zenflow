@@ -73,6 +73,13 @@ public final class ObjectConversion {
     }
 
     public static <T> T safeConvert(Object input, TypeReference<T> typeReference) {
+        if (input instanceof String) {
+            try {
+                return mapper.readValue((String) input, typeReference);
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Failed to convert String to type: " + typeReference.getType(), e);
+            }
+        }
         return mapper.convertValue(input, typeReference);
     }
 }

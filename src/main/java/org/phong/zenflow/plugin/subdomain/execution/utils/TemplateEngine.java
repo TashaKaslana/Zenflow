@@ -1,5 +1,6 @@
 package org.phong.zenflow.plugin.subdomain.execution.utils;
 
+import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 
 import java.time.Instant;
@@ -12,6 +13,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.regex.*;
 
+@Slf4j
 public class TemplateEngine {
 
     // Updated pattern to handle both simple references and function calls
@@ -87,9 +89,24 @@ public class TemplateEngine {
                 }
             }
 
-            matcher.appendReplacement(result, Matcher.quoteReplacement(
-                    replacement != null ? replacement.toString() : ""
-            ));
+            // Handle null values gracefully
+            String replacementString;
+            if (replacement != null) {
+                replacementString = replacement.toString();
+            } else {
+                // If the entire template is just one reference that resolves to null,
+                // keep the original template syntax for better debugging
+                if (template.trim().equals("{{" + expr + "}}")) {
+                    log.warn("Template reference '{}' resolved to null, keeping original template", expr);
+                } else {
+                    // For complex templates with null references, return the original template
+                    // This prevents malformed expressions like "null > 200" from being created
+                    log.warn("Template reference '{}' in complex template '{}' resolved to null, returning original template", expr, template);
+                }
+                return template; // Return original template for single null references
+            }
+
+            matcher.appendReplacement(result, Matcher.quoteReplacement(replacementString));
         }
 
         matcher.appendTail(result);

@@ -59,7 +59,7 @@ public class NodeLogService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public NodeLogDto startNode(UUID workflowRunId, String nodeKey) {
+    public void startNode(UUID workflowRunId, String nodeKey) {
         WorkflowRun run = workflowRunRepository.findById(workflowRunId)
                 .orElseThrow(() -> new WorkflowRunException("WorkflowRun not found"));
 
@@ -70,7 +70,7 @@ public class NodeLogService {
         nodeLog.setStartedAt(OffsetDateTime.now());
         nodeLog.setAttempts(1);
 
-        return nodeLogMapper.toDto(nodeLogRepository.save(nodeLog));
+        nodeLogMapper.toDto(nodeLogRepository.save(nodeLog));
     }
 
     //TODO: make realtime log by insert log per step
@@ -146,7 +146,7 @@ public class NodeLogService {
                 break;
             case NEXT:
                 log.debug("Plugin node execution next: {}", workingNode.getKey());
-//                nodeLogService.nextNode(workflowRunId, workingNode.getKey(), NodeLogStatus.NEXT, result.getLogs(), result.getError());
+                completeNode(workflowRunId, workingNode.getKey(), NodeLogStatus.NEXT, result.getError(), result.getOutput(), result.getLogs());
                 break;
             default:
                 log.warn("Unknown status for plugin node execution: {}", result.getStatus());

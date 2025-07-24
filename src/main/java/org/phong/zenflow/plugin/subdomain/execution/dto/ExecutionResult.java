@@ -66,4 +66,10 @@ public class ExecutionResult {
         result.setOutput(output);
         return result;
     }
+
+    public static ExecutionResult nextNode(String nextNodeKey, List<LogEntry> logs) {
+        ExecutionResult result = nextNode(nextNodeKey);
+        result.setLogs(logs);
+        return result;
+    }
 }
