@@ -45,8 +45,12 @@ public class WorkflowContextService {
             }
 
             for (Map.Entry<String, Object> entry : input.entrySet()) {
-                String inputValue = entry.getValue().toString();
-                List<String> referenced = TemplateEngine.extractRefs(inputValue);
+                Object inputValue = entry.getValue();
+                if (inputValue == null) {
+                    continue; // Skip null inputs
+                }
+
+                List<String> referenced = TemplateEngine.extractRefs(inputValue.toString());
 
                 for (String ref : referenced) {
                     String resolvedRef = resolveAlias(ref, ctx.getAlias());
