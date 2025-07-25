@@ -2,71 +2,106 @@ package org.phong.zenflow.workflow.subdomain.node_definition.services;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.json.JSONObject;
-import org.phong.zenflow.core.utils.ObjectConversion;
-import org.phong.zenflow.plugin.subdomain.node.utils.JsonSchemaValidator;
-import org.phong.zenflow.plugin.subdomain.node.utils.SchemaRegistry;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginDefinition;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeDefinition;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.trigger.TriggerNodeDefinition;
-import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
+import org.phong.zenflow.workflow.subdomain.node_definition.exception.WorkflowDefinitionValidationException;
 import org.phong.zenflow.workflow.subdomain.node_definition.exception.WorkflowNodeDefinitionException;
-import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
+import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
+import org.phong.zenflow.workflow.subdomain.schema_validator.service.WorkflowValidationService;
 import org.phong.zenflow.workflow.utils.NodeKeyGenerator;
 import org.springframework.stereotype.Service;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+/**
+ * Service responsible for managing workflow definitions.
+ * Provides functionality for creating, updating, validating, and manipulating workflow definitions.
+ * This service ensures that workflow definitions maintain integrity during operations.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class WorkflowDefinitionService {
 
-    private final SchemaRegistry schemaRegistry;
+    private final WorkflowValidationService workflowValidationService;
 
     /**
-     * Upsert (update if exists, insert if not). Auto-generates key if missing.
-     * Validates each node as it's being upserted.
+     * Creates or updates a workflow definition by merging new definition with an existing one.
+     *
+     * @param newDef The new workflow definition to be applied
+     * @param existingDef The existing workflow definition to be updated
+     * @return The updated workflow definition
+     * @throws WorkflowNodeDefinitionException If the new definition is null or any node has invalid properties
+     * @throws WorkflowDefinitionValidationException If the resulting workflow fails in validation
      */
-    public void upsertNodes(List<BaseWorkflowNode> nodes, List<BaseWorkflowNode> updates) {
-        Map<String, BaseWorkflowNode> keyToNode = nodes.stream()
+    public WorkflowDefinition upsert(WorkflowDefinition newDef, WorkflowDefinition existingDef) {
+        if (newDef == null) {
+            throw new WorkflowNodeDefinitionException("Workflow definition cannot be null");
+
+        }
+        WorkflowDefinition tempDef = new WorkflowDefinition(newDef);
+
+        upsertNodes(existingDef, tempDef);
+        upsertMetadata(tempDef.metadata(), newDef.metadata());
+
+        ValidationResult validationResult = workflowValidationService.validateDefinition(tempDef);
+        if (!validationResult.isValid()) {
+            log.error("Workflow definition validation failed: {}", validationResult.getErrors());
+            throw new WorkflowDefinitionValidationException("Workflow definition validation failed!", validationResult);
+        }
+
+        return tempDef;
+    }
+
+    /**
+     * Updates or inserts nodes in the temporary definition based on the existing definition.
+     * Preserves existing nodes and adds new ones, generating keys for nodes without them.
+     *
+     * @param existingDef The existing workflow definition containing current nodes
+     * @param tempDef The temporary workflow definition being built
+     * @throws WorkflowNodeDefinitionException If any node has an empty type
+     */
+    private static void upsertNodes(WorkflowDefinition existingDef, WorkflowDefinition tempDef) {
+        Map<String, BaseWorkflowNode> keyToNode = existingDef.nodes().stream()
                 .collect(Collectors.toMap(
                         BaseWorkflowNode::getKey,
                         Function.identity(),
                         (existing, replacement) -> existing
                 ));
 
-        for (BaseWorkflowNode update : updates) {
-            String type = update.getType().name();
+        for (BaseWorkflowNode node : tempDef.nodes()) {
+            String type = node.getType().name();
             if (type.isBlank()) {
                 throw new WorkflowNodeDefinitionException("Each node must have a 'type'");
             }
 
-            String key = update.getKey();
+            String key = node.getKey();
             if (key == null || key.isBlank()) {
                 key = NodeKeyGenerator.generateKey(type);
-                update = new BaseWorkflowNode(
-                        key, update.getType(), update.getNext(),
-                        update.getConfig(), update.getMetadata(), update.getPolicy()
+                node = new BaseWorkflowNode(
+                        key, node.getType(), node.getNext(),
+                        node.getConfig(), node.getMetadata(), node.getPolicy()
                 );
             }
 
-            // Validate the node before adding it to the workflow
-            validateNode(update);
-            keyToNode.put(key, update);
+            keyToNode.put(key, node);
         }
 
-        // Replace full list
-        nodes.clear();
-        nodes.addAll(keyToNode.values());
+        tempDef.nodes().clear();
+        tempDef.nodes().addAll(keyToNode.values());
     }
 
-    public void upsertMetadata(Map<String, Object> metadata, Map<String, Object> updates) {
+    /**
+     * Updates or inserts metadata entries in the provided metadata map.
+     * Skips null values and logs metadata operations for debugging.
+     *
+     * @param metadata The metadata map to update
+     * @param updates The new metadata entries to add or update
+     */
+    private static void upsertMetadata(Map<String, Object> metadata, Map<String, Object> updates) {
         if (metadata == null || updates.isEmpty()) {
             log.debug("No metadata provided for upsert");
             return;
@@ -92,58 +127,11 @@ public class WorkflowDefinitionService {
     }
 
     /**
-     * Validates a single node's schema
+     * Removes a node from the provided list of nodes based on its key.
      *
-     * @param node The node to validate
-     * @throws WorkflowNodeDefinitionException if validation fails
+     * @param nodes The list of workflow nodes to modify
+     * @param keyToRemove The key of the node to remove
      */
-    private void validateNode(BaseWorkflowNode node) {
-        try {
-            String type = node.getType().name();
-            log.debug("Validating node type '{}'", type);
-
-            if (type.equalsIgnoreCase(NodeType.TRIGGER.name()) && node instanceof TriggerNodeDefinition triggerNode) {
-                String triggerType = triggerNode.getTriggerType().getType();
-
-                boolean isValidTrigger = triggerType != null &&
-                        Arrays.stream(TriggerType.values())
-                                .map(Enum::name)
-                                .anyMatch(name -> name.equalsIgnoreCase(triggerType));
-
-                if (!isValidTrigger) {
-                    throw new WorkflowNodeDefinitionException(
-                            "Trigger nodes must have a valid 'triggerType' that matches one of the known types: " +
-                                    Arrays.toString(TriggerType.values()));
-                }
-                return;
-            }
-
-            if (!type.equalsIgnoreCase(NodeType.PLUGIN.name())) {
-                log.debug("Skipping validation for non-plugin node type: {}", type);
-                return;
-            }
-
-            log.debug("Validating node schema for key: {}, config: {}", node.getKey(), node.getConfig());
-            Map<String, Object> configMap = ObjectConversion.convertObjectToMap(node.getConfig());
-            JSONObject config = new JSONObject(configMap);
-
-            if (node instanceof PluginDefinition pluginDefinition) {
-                PluginNodeDefinition pluginNodeDef = pluginDefinition.getPluginNode();
-                if (pluginNodeDef == null) {
-                    throw new WorkflowNodeDefinitionException("Plugin node definition is missing for node: " + node.getKey());
-                }
-
-                JSONObject schema = schemaRegistry.getPluginSchema(pluginNodeDef.pluginId(), pluginNodeDef.nodeId());
-                JsonSchemaValidator.validate(schema, config);
-                log.debug("Node schema validation successful for key: {}", node.getKey());
-            } else {
-                log.warn("Unable to validate node of type {} - not a plugin definition", type);
-            }
-        } catch (Exception e) {
-            throw new WorkflowNodeDefinitionException("Node validation failed for key " + node.getKey(), e);
-        }
-    }
-
     public void removeNode(List<BaseWorkflowNode> nodes, String keyToRemove) {
         nodes.removeIf(node -> keyToRemove.equals(node.getKey()));
     }

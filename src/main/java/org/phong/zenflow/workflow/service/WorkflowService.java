@@ -83,16 +83,16 @@ public class WorkflowService {
         Workflow workflow = workflowRepository.findById(workflowId)
                 .orElseThrow(() -> new WorkflowException("Workflow not found with id: " + workflowId));
 
-        WorkflowDefinition definition = workflow.getDefinition();
-        if (definition == null) {
-            definition = new WorkflowDefinition();
+        WorkflowDefinition existWorkflowDef = workflow.getDefinition();
+        if (existWorkflowDef == null) {
+            existWorkflowDef = new WorkflowDefinition();
         }
+        WorkflowDefinition newWorkflowDef = new WorkflowDefinition(incomingNodes.nodes(), incomingNodes.metadata());
 
-        List<BaseWorkflowNode> currentNodes = new ArrayList<>(definition.nodes());
-        definitionService.upsertNodes(currentNodes, incomingNodes.nodes());
-        definitionService.upsertMetadata(definition.metadata(), incomingNodes.metadata());
+        WorkflowDefinition upserted = definitionService.upsert(newWorkflowDef, existWorkflowDef);
 
-        WorkflowDefinition updatedDefinition = updateStaticContext(workflow, currentNodes);
+        WorkflowDefinition updatedDefinition = updateStaticContext(workflow, upserted.nodes());
+
         workflow.setDefinition(updatedDefinition);
         workflowRepository.save(workflow);
 

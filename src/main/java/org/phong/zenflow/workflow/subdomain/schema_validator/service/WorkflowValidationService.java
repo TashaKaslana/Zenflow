@@ -172,7 +172,7 @@ public class WorkflowValidationService {
                 .collect(Collectors.toSet());
 
         for (BaseWorkflowNode node : workflow.nodes()) {
-            extractNodeReferencesIfError(node, nodeKeys, errors);
+            extractNodeReferencesIfError(node, nodeKeys, workflow.metadata(), errors);
         }
 
         return errors;
@@ -186,12 +186,13 @@ public class WorkflowValidationService {
      * @param nodeKeys Set of valid node keys in the workflow
      * @param errors   List to collect validation errors
      */
-    private static void extractNodeReferencesIfError(BaseWorkflowNode node, Set<String> nodeKeys, List<ValidationError> errors) {
+    private static void extractNodeReferencesIfError(BaseWorkflowNode node, Set<String> nodeKeys,
+                                                     Map<String, Object> metadata, List<ValidationError> errors) {
         if (node.getConfig() != null) {
             List<String> templates = TemplateEngine.extractRefs(node.getConfig());
 
             for (String template : templates) {
-                Map<String, String> alias = ObjectConversion.safeConvert(node.getMetadata().get("alias"), new TypeReference<>() {
+                Map<String, String> alias = ObjectConversion.safeConvert(metadata.get("alias"), new TypeReference<>() {
                 });
                 String referencedNode = TemplateEngine.getReferencedNode(template, alias);
                 if (!nodeKeys.contains(referencedNode)) {
