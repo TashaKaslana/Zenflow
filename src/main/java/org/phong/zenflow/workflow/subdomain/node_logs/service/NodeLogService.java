@@ -16,6 +16,7 @@ import org.phong.zenflow.workflow.subdomain.node_logs.exception.NodeLogException
 import org.phong.zenflow.workflow.subdomain.node_logs.infraustructure.mapstruct.NodeLogMapper;
 import org.phong.zenflow.workflow.subdomain.node_logs.infraustructure.persistence.entity.NodeLog;
 import org.phong.zenflow.workflow.subdomain.node_logs.infraustructure.persistence.repository.NodeLogRepository;
+import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
 import org.phong.zenflow.workflow.subdomain.workflow_run.exception.WorkflowRunException;
 import org.phong.zenflow.workflow.subdomain.workflow_run.infrastructure.persistence.entity.WorkflowRun;
 import org.phong.zenflow.workflow.subdomain.workflow_run.infrastructure.persistence.repository.WorkflowRunRepository;
@@ -125,6 +126,20 @@ public class NodeLogService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void logValidationError(UUID workflowRunId, String nodeKey, ValidationResult validationResult) {
+        NodeLog nodeLog = nodeLogRepository.findByWorkflowRunIdAndNodeKey(workflowRunId, nodeKey)
+                .orElseThrow(() -> new NodeLogException("NodeLog not found for workflowRunId: " + workflowRunId + " and nodeKey: " + nodeKey));
+
+        String errorMessage = "Validation failed: " + validationResult.getErrors();
+        nodeLog.setStatus(NodeLogStatus.ERROR);
+        nodeLog.setError(errorMessage);
+        nodeLog.setEndedAt(OffsetDateTime.now());
+
+        nodeLogRepository.save(nodeLog);
+        log.error("Validation error in node {}: {}", nodeKey, errorMessage);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void resolveNodeLog(UUID workflowId, UUID workflowRunId, BaseWorkflowNode workingNode, ExecutionResult result) {
         switch (result.getStatus()) {
             case SUCCESS:
@@ -148,11 +163,14 @@ public class NodeLogService {
                 log.debug("Plugin node execution next: {}", workingNode.getKey());
                 completeNode(workflowRunId, workingNode.getKey(), NodeLogStatus.NEXT, result.getError(), result.getOutput(), result.getLogs());
                 break;
+            case VALIDATION_ERROR:
+                log.debug("Plugin node execution validation error: {}", workingNode.getKey());
+                logValidationError(workflowRunId, workingNode.getKey(), result.getValidationResult());
+                break;
             default:
                 log.warn("Unknown status for plugin node execution: {}", result.getStatus());
         }
     }
-
 
     /**
      * Get a node log by ID

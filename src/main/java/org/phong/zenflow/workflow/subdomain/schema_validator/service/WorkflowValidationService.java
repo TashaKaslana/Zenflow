@@ -7,6 +7,7 @@ import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
@@ -70,12 +71,12 @@ public class WorkflowValidationService {
      *                       </ul>
      * @return ValidationResult containing any runtime validation errors found
      */
-    public ValidationResult validateRuntime(String nodeKey, Map<String, Object> resolvedConfig, String templateString) {
+    public ValidationResult validateRuntime(String nodeKey, WorkflowConfig resolvedConfig, String templateString) {
         List<ValidationError> errors = new ArrayList<>();
 
         try {
             if (templateString != null) {
-                Object input = resolvedConfig.get("input");
+                Object input = resolvedConfig.input();
                 if (input != null) {
                     errors.addAll(schemaValidationService.validateAgainstSchema(
                             input, templateString, nodeKey + ".input"));
@@ -229,7 +230,7 @@ public class WorkflowValidationService {
      * @param nodeType       The type of node being validated
      * @return List of validation errors found during runtime constraint validation
      */
-    private List<ValidationError> validateRuntimeConstraints(String nodeKey, Map<String, Object> resolvedConfig, String nodeType) {
+    private List<ValidationError> validateRuntimeConstraints(String nodeKey, WorkflowConfig resolvedConfig, String nodeType) {
         List<ValidationError> errors = new ArrayList<>();
 
         // Add specific runtime validations based on a node type
@@ -248,11 +249,11 @@ public class WorkflowValidationService {
      * @param resolvedConfig The resolved configuration for the condition node
      * @return List of validation errors specific to condition node runtime validation
      */
-    private List<ValidationError> validateConditionNodeRuntime(String nodeKey, Map<String, Object> resolvedConfig) {
+    private List<ValidationError> validateConditionNodeRuntime(String nodeKey, WorkflowConfig resolvedConfig) {
         List<ValidationError> errors = new ArrayList<>();
 
-        Object input = resolvedConfig.get("input");
-        if (input instanceof Map) {
+        Object input = resolvedConfig.input();
+        if (input != null) {
             Map<String, Object> inputMap = ObjectConversion.convertObjectToMap(input);
 
             // Validate that case's array is not empty after resolution

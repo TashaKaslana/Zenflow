@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.workflow.subdomain.node_logs.dto.LogEntry;
+import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
 
 import java.util.List;
 import java.util.Map;
@@ -20,6 +21,7 @@ public class ExecutionResult {
     private String error;
     private Map<String, Object> output;
     private String nextNodeKey;
+    private ValidationResult validationResult;
 
     public static ExecutionResult success(Map<String, Object> output, List<LogEntry> logs) {
         ExecutionResult result = new ExecutionResult();
@@ -70,6 +72,14 @@ public class ExecutionResult {
     public static ExecutionResult nextNode(String nextNodeKey, List<LogEntry> logs) {
         ExecutionResult result = nextNode(nextNodeKey);
         result.setLogs(logs);
+        return result;
+    }
+
+    public static ExecutionResult validationError(ValidationResult validationResult, String nodeKey) {
+        ExecutionResult result = new ExecutionResult();
+        result.setStatus(ExecutionStatus.VALIDATION_ERROR);
+        result.setValidationResult(validationResult);
+        result.setNextNodeKey(nodeKey);
         return result;
     }
 }
