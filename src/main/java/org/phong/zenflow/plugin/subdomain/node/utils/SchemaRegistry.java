@@ -25,6 +25,34 @@ public class SchemaRegistry {
     private final Map<String, JSONObject> builtinCache = new ConcurrentHashMap<>();
     private final Map<String, JSONObject> pluginCache = new ConcurrentHashMap<>();
 
+    /**
+     * Retrieves a schema by template string, supporting both built-in and plugin schemas.
+     * <p>
+     * Template string formats:
+     * <ul>
+     *   <li>Built-in: <code>builtin:&#60;name&#62;</code> (e.g., <code>builtin:http-trigger</code>)</li>
+     *   <li>Plugin: <code>&#60;pluginId&#62;:&#60;nodeId&#62;</code> (e.g., <code>123e4567-e89b-12d3-a456-426614174000:123e4567-e89b-12d3-a456-426614174001</code>)</li>
+     * </ul>
+     * This unified naming convention allows easy differentiation and retrieval of schemas.
+     *
+     * @param templateString the schema name, either built-in or plugin-based
+     * @return JSONObject containing the schema
+     */
+    public JSONObject getSchemaByTemplateString(String templateString) {
+        // Check if the schema is a built-in one
+        if (templateString.startsWith("builtin:")) {
+            return getBuiltinSchema(templateString.substring(8));
+        }
+        // Otherwise, treat it as a plugin schema
+        String[] parts = templateString.split(":");
+        if (parts.length != 2) {
+            throw new IllegalArgumentException("Invalid schema name format. Expected 'pluginId:nodeId'.");
+        }
+        UUID pluginId = UUID.fromString(parts[0]);
+        UUID nodeId = UUID.fromString(parts[1]);
+        return getPluginSchema(pluginId, nodeId);
+    }
+
     // Built-in node schema: key = "http-trigger"
     public JSONObject getBuiltinSchema(String name) {
         return builtinCache.computeIfAbsent(name, this::loadBuiltinSchemaFromFile);

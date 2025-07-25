@@ -50,6 +50,25 @@ public class TemplateEngine {
         return refs;
     }
 
+    public static List<String> extractRefs(Object value) {
+        if (value instanceof String template) {
+            return extractRefs(template);
+        } else if (value instanceof Map<?, ?> map) {
+            List<String> refs = new ArrayList<>();
+            for (Object v : map.values()) {
+                refs.addAll(extractRefs(v));
+            }
+            return refs;
+        } else if (value instanceof List<?> list) {
+            List<String> refs = new ArrayList<>();
+            for (Object item : list) {
+                refs.addAll(extractRefs(item));
+            }
+            return refs;
+        }
+        return new ArrayList<>();
+    }
+
     /**
      * Determines if a string contains any template references.
      *
@@ -203,5 +222,24 @@ public class TemplateEngine {
             }
         }
         return resolved;
+    }
+
+    /**
+     * Extracts the referenced node from a template string.
+     * For example, "user.name" would return "user".
+     *
+     * @param templateExpression The template string to analyze
+     * @return The referenced node name, or null if not a valid template
+     */
+    public static String getReferencedNode(String templateExpression, Map<String, String> aliasMap) {
+        if (templateExpression == null || templateExpression.isEmpty()) {
+            return null;
+        }
+        if (aliasMap != null && !aliasMap.isEmpty()) {
+            String actualTemplate = aliasMap.get(templateExpression);
+            return actualTemplate.split("\\.")[0];
+        }
+
+        return templateExpression.split("\\.")[0];
     }
 }
