@@ -18,7 +18,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -67,7 +66,7 @@ public class WorkflowValidationService {
      * @param templateString Template string formats:
      *                       <ul>
      *                         <li>Built-in: <code>builtin:&#60;name&#62;</code> (e.g., <code>builtin:http-trigger</code>)</li>
-     *                         <li>Plugin: <code>&#60;pluginId&#62;:&#60;nodeId&#62;</code> (e.g., <code>123e4567-e89b-12d3-a456-426614174000:123e4567-e89b-12d3-a456-426614174001</code>)</li>
+     *                         <li>Plugin: <code>&#60;nodeId&#62;</code> (e.g., <code>123e4567-e89b-12d3-a456-426614174001</code>)</li>
      *                       </ul>
      * @return ValidationResult containing any runtime validation errors found
      */
@@ -135,9 +134,7 @@ public class WorkflowValidationService {
             }
             // Validate plugin-specific configuration
             if (pluginNode.getConfig() != null) {
-                String schemaName = getPluginTemplateString(
-                        pluginNode.getPluginNode().pluginId(), pluginNode.getPluginNode().nodeId()
-                );
+                String schemaName = pluginNode.getPluginNode().nodeId().toString();
 
                 errors.addAll(schemaValidationService.validateAgainstSchema(
                         pluginNode.getConfig(), schemaName, node.getKey() + ".config.input")
@@ -273,17 +270,5 @@ public class WorkflowValidationService {
         }
 
         return errors;
-    }
-
-    /**
-     * Creates a template string for retrieving a plugin node's schema.
-     * Format: "{pluginId}:{nodeId}"
-     *
-     * @param pluginId The UUID of the plugin
-     * @param nodeId   The UUID of the node within the plugin
-     * @return Formatted template string for schema lookup
-     */
-    private String getPluginTemplateString(UUID pluginId, UUID nodeId) {
-        return String.format("%s:%s", pluginId, nodeId);
     }
 }

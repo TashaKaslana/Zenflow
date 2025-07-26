@@ -86,7 +86,7 @@ public class SchemaRegistry {
     }
 
     // Built-in node schema: key = "http-trigger"
-    private JSONObject getBuiltinSchema(String name) {
+    public JSONObject getBuiltinSchema(String name) {
         return builtinCache.computeIfAbsent(name, this::loadBuiltinSchemaFromFile);
     }
 

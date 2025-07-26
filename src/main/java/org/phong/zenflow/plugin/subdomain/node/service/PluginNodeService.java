@@ -21,7 +21,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @AllArgsConstructor
 @Slf4j
@@ -66,6 +68,12 @@ public class PluginNodeService {
 
     public Page<PluginNodeDto> findAllByPluginId(Pageable pageable, UUID pluginId) {
         return pluginNodeRepository.findAllByPluginId(pluginId, pageable).map(pluginNodeMapper::toDto);
+    }
+
+    public Map<UUID, PluginNode> findAllByPluginId(List<UUID> nodeIds) {
+        return pluginNodeRepository.findAllById(nodeIds)
+                .stream()
+                .collect(Collectors.toMap(PluginNode::getId, node -> node));
     }
 
     @AuditLog(

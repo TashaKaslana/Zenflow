@@ -5,7 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.services.PluginNodeExecutorDispatcher;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.entity.PluginNode;
-import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.repository.PluginNodeRepository;
+import org.phong.zenflow.plugin.subdomain.node.service.PluginNodeService;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.infrastructure.persistence.repository.WorkflowRepository;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
@@ -35,10 +35,12 @@ import java.util.UUID;
 public class WorkflowEngineService {
     private final WorkflowRepository workflowRepository;
     private final PluginNodeExecutorDispatcher executorDispatcher;
-    private final PluginNodeRepository pluginNodeRepository;
+    private final PluginNodeService pluginNodeService;
     private final NodeExecutorRegistry nodeExecutorRegistry;
     private final NodeLogService nodeLogService;
     private final WorkflowValidationService workflowValidationService;
+
+
 
     @Transactional
     public WorkflowExecutionStatus runWorkflow(UUID workflowId, UUID workflowRunId, @Nullable String startFromNodeKey, RuntimeContext context) {
@@ -52,6 +54,13 @@ public class WorkflowEngineService {
                 throw new WorkflowEngineException("Workflow definition or nodes are missing for workflow ID: " + workflowId);
             }
             List<BaseWorkflowNode> workflowSchema = definition.nodes();
+            Map<UUID, PluginNode> pluginNodes = pluginNodeService.findAllByPluginId(
+                    workflowSchema.stream()
+                            .filter(node -> node.getType() == NodeType.PLUGIN)
+                            .map(node -> ((PluginDefinition) node).getPluginNode().nodeId())
+                            .toList()
+            );
+
             WorkflowExecutionStatus executionStatus = WorkflowExecutionStatus.COMPLETED;
 
             String currentNodeKey = (startFromNodeKey != null) ? startFromNodeKey : workflow.getStartNode();
@@ -59,7 +68,7 @@ public class WorkflowEngineService {
 
             while (workingNode != null) {
                 ExecutionResult result;
-                result = setupAndExecutionWorkflow(workflowId, workflowRunId, context, workingNode);
+                result = setupAndExecutionWorkflow(workflowId, workflowRunId, pluginNodes, context, workingNode);
 
                 switch (result.getStatus()) {
                     case SUCCESS:
@@ -89,14 +98,14 @@ public class WorkflowEngineService {
         }
     }
 
-    private ExecutionResult setupAndExecutionWorkflow(UUID workflowId, UUID workflowRunId, RuntimeContext context, BaseWorkflowNode workingNode) {
+    private ExecutionResult setupAndExecutionWorkflow(UUID workflowId, UUID workflowRunId, Map<UUID, PluginNode> pluginNodes, RuntimeContext context, BaseWorkflowNode workingNode) {
         ExecutionResult result;
         nodeLogService.startNode(workflowRunId, workingNode.getKey());
 
         WorkflowConfig config = workingNode.getConfig() != null ? workingNode.getConfig() : new WorkflowConfig();
         WorkflowConfig resolvedConfig = context.resolveConfig(workingNode.getKey(), config);
 
-        result = executeWorkingNode(context, workingNode, resolvedConfig);
+        result = executeWorkingNode(pluginNodes, context, workingNode, resolvedConfig);
 
         Map<String, Object> output = result.getOutput();
         if (output != null) {
@@ -108,18 +117,20 @@ public class WorkflowEngineService {
         return result;
     }
 
-    private ExecutionResult executeWorkingNode(RuntimeContext context, BaseWorkflowNode workingNode, WorkflowConfig resolvedConfig) {
+    private ExecutionResult executeWorkingNode(Map<UUID, PluginNode> pluginNodes, RuntimeContext context, BaseWorkflowNode workingNode, WorkflowConfig resolvedConfig) {
         ExecutionResult result;
         if (workingNode.getType() == NodeType.PLUGIN) {
-            PluginDefinition pluginDefinition = (PluginDefinition) workingNode;
-            PluginNode pluginNode = pluginNodeRepository.findById(pluginDefinition.getPluginNode().nodeId()).orElseThrow(
-                    () -> new WorkflowEngineException("Plugin node not found with ID: " + pluginDefinition.getPluginNode().nodeId())
-            );
+            UUID nodeId = ((PluginDefinition) workingNode).getPluginNode().nodeId();
+            PluginNode pluginNode = pluginNodes.get(nodeId);
+            if (pluginNode == null) {
+                log.error("Plugin node with ID {} not found in workflow schema", nodeId);
+                throw new WorkflowEngineException("Plugin node not found: " + nodeId);
+            }
 
             ValidationResult validationResult = workflowValidationService.validateRuntime(
                     workingNode.getKey(),
                     resolvedConfig,
-                    String.format("%s:%s", pluginNode.getPlugin().getId(), pluginNode.getId())
+                    nodeId.toString()
             );
             if (!validationResult.isValid()) {
                 return ExecutionResult.validationError(validationResult, workingNode.getKey());
