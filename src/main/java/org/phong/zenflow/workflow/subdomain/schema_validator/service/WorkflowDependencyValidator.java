@@ -41,12 +41,12 @@ public class WorkflowDependencyValidator {
                                                            WorkflowMetadata metadata) {
         List<ValidationError> errors = new ArrayList<>();
 
-        Set<String> dependencies = metadata.nodeDependency().get(nodeKey);
+        Set<String> dependencies = metadata.nodeDependencies().get(nodeKey);
         if (dependencies == null || dependencies.isEmpty()) {
             return errors;
         }
 
-        Map<String, String> aliases = metadata.alias();
+        Map<String, String> aliases = metadata.aliases();
 
         // Validate each dependency
         for (String dependency : dependencies) {
@@ -166,24 +166,24 @@ public class WorkflowDependencyValidator {
             String aliasName = aliasEntry.getKey();
             String aliasValue = aliasEntry.getValue(); // e.g., "{{node1.output.email}}"
 
-            // Extract template references from alias value
+            // Extract template references from aliases value
             Set<String> aliasRefs = TemplateEngine.extractRefs(aliasValue);
 
             for (String ref : aliasRefs) {
-                // For alias validation, we don't pass aliases to avoid circular resolution
+                // For aliases validation, we don't pass aliases to avoid circular resolution
                 String sourceNode = extractNodeKeyFromRef(ref);
 
                 if (sourceNode != null && !availableNodes.contains(sourceNode)) {
                     errors.add(ValidationError.builder()
                             .type("FUTURE_NODE_REFERENCE_IN_ALIAS")
-                            .path("metadata.alias." + aliasName)
+                            .path("metadata.aliases." + aliasName)
                             .message(String.format("Alias '%s' references future node '%s'. " +
                                             "Aliases can only reference previously executed nodes.",
                                     aliasName, sourceNode))
                             .value(aliasValue)
                             .template(ref)
                             .expectedType("previous_node_reference")
-                            .schemaPath("$.metadata.alias['" + aliasName + "']")
+                            .schemaPath("$.metadata.aliases['" + aliasName + "']")
                             .build());
                 }
             }
@@ -193,7 +193,7 @@ public class WorkflowDependencyValidator {
     }
 
     /**
-     * Simple node key extraction for alias validation
+     * Simple node key extraction for aliases validation
      */
     private String extractNodeKeyFromRef(String ref) {
         if (ref == null || ref.trim().isEmpty()) {

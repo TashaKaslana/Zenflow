@@ -239,7 +239,7 @@ public class TemplateEngine {
             return null;
         }
 
-        //if the template is an alias, return the actual template reference node
+        //if the template is an aliases, return the actual template reference node
         if (aliasMap != null && !aliasMap.isEmpty()) {
             String actualTemplate = aliasMap.get(templateExpression);
             if (actualTemplate != null) {

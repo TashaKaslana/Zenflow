@@ -118,7 +118,7 @@ public class WorkflowValidationService {
             //validate template references in the node's configuration
             if (templateString != null) {
                 Set<String> templates = TemplateEngine.extractRefs(node.getConfig());
-                Map<String, OutputUsage> nodeConsumers = workflow.metadata().nodeConsumer();
+                Map<String, OutputUsage> nodeConsumers = workflow.metadata().nodeConsumers();
                 errors.addAll(
                         schemaTemplateValidationService.validateTemplateType(
                                 node.getKey(), templateString, nodeConsumers, templates
@@ -184,7 +184,7 @@ public class WorkflowValidationService {
                 .collect(Collectors.toSet());
 
         for (BaseWorkflowNode node : workflow.nodes()) {
-            errors.addAll(validateNodeExistence(node, nodeKeys, workflow.metadata().alias()));
+            errors.addAll(validateNodeExistence(node, nodeKeys, workflow.metadata().aliases()));
         }
 
         return errors;

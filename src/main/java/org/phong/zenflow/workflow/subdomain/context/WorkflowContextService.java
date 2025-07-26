@@ -25,7 +25,7 @@ import java.util.Set;
  * This service builds a static context for workflow nodes, resolving dependencies and consumer relationships
  * based on the node configurations and existing metadata.
  * </p>
- * <p>It also handles alias resolution and type inference.</p>
+ * <p>It also handles aliases resolution and type inference.</p>
  */
 @Service
 @Slf4j
@@ -34,9 +34,9 @@ public class WorkflowContextService {
     private final SchemaRegistry schemaRegistry;
 
     private static void generateAliasLinkBackToConsumers(WorkflowMetadata ctx) {
-        for (Map.Entry<String, String> aliasEntry : ctx.alias().entrySet()) {
+        for (Map.Entry<String, String> aliasEntry : ctx.aliases().entrySet()) {
             String aliasName = aliasEntry.getKey();
-            TemplateEngine.extractRefs(aliasEntry.getValue()).stream().findFirst().ifPresent(originalRef -> ctx.nodeConsumer()
+            TemplateEngine.extractRefs(aliasEntry.getValue()).stream().findFirst().ifPresent(originalRef -> ctx.nodeConsumers()
                     .computeIfAbsent(originalRef, k -> new OutputUsage())
                     .getAlias()
                     .add(aliasName));
@@ -47,8 +47,8 @@ public class WorkflowContextService {
         WorkflowMetadata ctx = new WorkflowMetadata();
 
         // Preserve existing aliases from metadata
-        if (existingMetadata != null && existingMetadata.alias() != null) {
-            ctx.alias().putAll(ObjectConversion.safeConvert(existingMetadata.alias(), new TypeReference<>() {
+        if (existingMetadata != null && existingMetadata.aliases() != null) {
+            ctx.aliases().putAll(ObjectConversion.safeConvert(existingMetadata.aliases(), new TypeReference<>() {
             }));
         }
 
@@ -56,7 +56,7 @@ public class WorkflowContextService {
         generateTypeForConsumerFields(existingNodes, ctx);
         generateAliasLinkBackToConsumers(ctx);
 
-        return new WorkflowMetadata(ctx.alias(), ctx.nodeDependency(), ctx.nodeConsumer());
+        return new WorkflowMetadata(ctx.aliases(), ctx.nodeDependencies(), ctx.nodeConsumers());
     }
 
     private void generateDependenciesAndConsumers(List<BaseWorkflowNode> existingNodes, WorkflowMetadata ctx) {
@@ -76,15 +76,15 @@ public class WorkflowContextService {
                 Set<String> referenced = TemplateEngine.extractRefs(inputValue.toString());
 
                 for (String ref : referenced) {
-                    String resolvedRef = resolveAlias(ref, ctx.alias());
+                    String resolvedRef = resolveAlias(ref, ctx.aliases());
 
                     // Add dependency
-                    ctx.nodeDependency()
+                    ctx.nodeDependencies()
                             .computeIfAbsent(nodeKey, k -> new HashSet<>())
                             .add(resolvedRef);
 
                     // Track consumer
-                    ctx.nodeConsumer()
+                    ctx.nodeConsumers()
                             .computeIfAbsent(resolvedRef, k -> new OutputUsage())
                             .getConsumers()
                             .add(nodeKey);
@@ -136,7 +136,7 @@ public class WorkflowContextService {
                     for (String key : outputProperties.keySet()) {
                         String outputKey = node.getKey() + ".output." + key;
                         // This will create a new OutputUsage object for each potential output defined in the schema.
-                        OutputUsage outputUsage = ctx.nodeConsumer().computeIfAbsent(outputKey, k -> new OutputUsage());
+                        OutputUsage outputUsage = ctx.nodeConsumers().computeIfAbsent(outputKey, k -> new OutputUsage());
 
                         JSONObject fieldSchema = outputProperties.getJSONObject(key);
                         outputUsage.setType(determineSchemaType(fieldSchema));

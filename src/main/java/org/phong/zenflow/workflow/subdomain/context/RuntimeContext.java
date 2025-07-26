@@ -113,14 +113,14 @@ public class RuntimeContext {
         if (TemplateEngine.isTemplate(key)) {
             String refKey = TemplateEngine.extractRefs(key).stream().findFirst().orElse(null);
             if (refKey != null) {
-                // Check if it's an alias that needs resolution
+                // Check if it's an aliases that needs resolution
                 String resolvedKey = resolveAlias(refKey);
                 return getAndMarkConsumed(nodeKey, resolvedKey);
             }
             return null;
         }
 
-        // This path handles cases where a non-template key might be an alias
+        // This path handles cases where a non-template key might be an aliases
         String resolvedKey = resolveAlias(key);
         return getAndMarkConsumed(nodeKey, resolvedKey);
     }
@@ -149,9 +149,9 @@ public class RuntimeContext {
     }
 
     /**
-     * Resolves a possible alias to its actual reference key
+     * Resolves a possible aliases to its actual reference key
      *
-     * @param key The key that might be an alias
+     * @param key The key that might be an aliases
      * @return The resolved key
      */
     private String resolveAlias(String key) {

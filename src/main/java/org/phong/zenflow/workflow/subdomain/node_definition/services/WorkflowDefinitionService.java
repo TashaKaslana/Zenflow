@@ -83,9 +83,9 @@ public class WorkflowDefinitionService {
 
         log.debug("Upserting metadata: {}", updates);
         if (metadata != null) {
-            metadata.alias().putAll(updates.alias());
-            metadata.nodeDependency().putAll(updates.nodeDependency());
-            metadata.nodeConsumer().putAll(updates.nodeConsumer());
+            metadata.aliases().putAll(updates.aliases());
+            metadata.nodeDependencies().putAll(updates.nodeDependencies());
+            metadata.nodeConsumers().putAll(updates.nodeConsumers());
         }
     }
 

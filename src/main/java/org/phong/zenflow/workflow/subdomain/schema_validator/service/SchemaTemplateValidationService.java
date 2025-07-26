@@ -66,7 +66,7 @@ public class SchemaTemplateValidationService {
                         // Get the expected type from the input schema
                         String expectedType = getSchemaType(inputProperties.getJSONObject(inputField));
 
-                        // Get the actual type from the nodeConsumer map
+                        // Get the actual type from the nodeConsumers map
                         OutputUsage consumer = nodeConsumers.get(template);
                         String actualType = consumer.getType();
                         if (actualType != null && !isTypeCompatible(expectedType, actualType)) {
@@ -123,7 +123,7 @@ public class SchemaTemplateValidationService {
      * Checks if the actual type is compatible with the expected type
      *
      * @param expectedType The type expected by the schema
-     * @param actualType   The actual type from nodeConsumer
+     * @param actualType   The actual type from nodeConsumers
      * @return true if types are compatible
      */
     private boolean isTypeCompatible(String expectedType, String actualType) {

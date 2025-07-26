@@ -61,12 +61,12 @@ public class WorkflowRunnerService {
 
             // Extract consumer map from the static context in the workflow definition
             WorkflowMetadata metadata = workflow.getDefinition().metadata();
-            Map<String, Set<String>> consumers = metadata.nodeConsumer().entrySet().stream()
+            Map<String, Set<String>> consumers = metadata.nodeConsumers().entrySet().stream()
                     .collect(Collectors.toMap(
                             Map.Entry::getKey,
                             entry -> Set.of(entry.getValue().toString())
                     ));
-            Map<String, String> aliasMap = metadata.alias();
+            Map<String, String> aliasMap = metadata.aliases();
 
             if (workflowRun.getContext() == null || workflowRun.getContext().isEmpty()) {
                 // First run: ensure the run is started and create a new context

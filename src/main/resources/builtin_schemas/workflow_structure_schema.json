@@ -15,13 +15,13 @@
     "metadata": {
       "type": "object",
       "properties": {
-        "alias": {
+        "aliases": {
           "type": "object"
         },
-        "nodeDependency": {
+        "nodeDependencies": {
           "type": "object"
         },
-        "nodeConsumer": {
+        "nodeConsumers": {
           "type": "object"
         }
       }
