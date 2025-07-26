@@ -80,7 +80,7 @@ public class WorkflowContextService {
                     continue; // Skip null inputs
                 }
 
-                List<String> referenced = TemplateEngine.extractRefs(inputValue.toString());
+                Set<String> referenced = TemplateEngine.extractRefs(inputValue.toString());
 
                 for (String ref : referenced) {
                     String resolvedRef = resolveAlias(ref, ctx.getAlias());

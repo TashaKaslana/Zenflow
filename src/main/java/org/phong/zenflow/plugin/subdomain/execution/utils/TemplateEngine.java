@@ -4,11 +4,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.regex.*;
@@ -33,14 +34,14 @@ public class TemplateEngine {
      * For example, "Hello {{user.name}}, your order {{order.id}} is ready" would return ["user.name", "order.id"]
      *
      * @param template The template string containing references
-     * @return List of references found in the template
+     * @return Set of references found in the template
      */
-    public static List<String> extractRefs(String template) {
+    public static Set<String> extractRefs(String template) {
         if (template == null) {
-            return new ArrayList<>();
+            return new LinkedHashSet<>();
         }
 
-        List<String> refs = new ArrayList<>();
+        Set<String> refs = new LinkedHashSet<>();
         Matcher matcher = TEMPLATE_PATTERN.matcher(template);
 
         while (matcher.find()) {
@@ -50,24 +51,25 @@ public class TemplateEngine {
         return refs;
     }
 
-    public static List<String> extractRefs(Object value) {
+    public static Set<String> extractRefs(Object value) {
         if (value instanceof String template) {
             return extractRefs(template);
         } else if (value instanceof Map<?, ?> map) {
-            List<String> refs = new ArrayList<>();
+            Set<String> refs = new LinkedHashSet<>();
             for (Object v : map.values()) {
                 refs.addAll(extractRefs(v));
             }
             return refs;
         } else if (value instanceof List<?> list) {
-            List<String> refs = new ArrayList<>();
+            Set<String> refs = new LinkedHashSet<>();
             for (Object item : list) {
                 refs.addAll(extractRefs(item));
             }
             return refs;
         }
-        return new ArrayList<>();
+        return new LinkedHashSet<>();
     }
+
 
     /**
      * Determines if a string contains any template references.
@@ -225,8 +227,9 @@ public class TemplateEngine {
     }
 
     /**
-     * Extracts the referenced node from a template string.
-     * For example, "user.name" would return "user".
+     * Extracts the referenced node from a template string.<br>
+     * For example, "user.name" would return "user"
+     * or "node1.output.email" would return "node1".
      *
      * @param templateExpression The template string to analyze
      * @return The referenced node name, or null if not a valid template
@@ -235,9 +238,13 @@ public class TemplateEngine {
         if (templateExpression == null || templateExpression.isEmpty()) {
             return null;
         }
+
+        //if the template is an alias, return the actual template reference node
         if (aliasMap != null && !aliasMap.isEmpty()) {
             String actualTemplate = aliasMap.get(templateExpression);
-            return actualTemplate.split("\\.")[0];
+            if (actualTemplate != null) {
+                templateExpression = actualTemplate;
+            }
         }
 
         return templateExpression.split("\\.")[0];

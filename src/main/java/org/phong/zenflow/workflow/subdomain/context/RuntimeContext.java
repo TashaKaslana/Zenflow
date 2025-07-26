@@ -62,64 +62,6 @@ public class RuntimeContext {
     }
 
     /**
-     * Process output based on output declaration mapping.
-     * This is more efficient than storing all outputs as it only stores values
-     * that are explicitly declared in the output mapping.
-     *
-     * @param nodeKey           The key of the node that produced the output
-     * @param outputDeclaration The output declaration mapping from node config
-     * @param output            The raw output values from execution
-     */
-    public void processOutput(String nodeKey, Map<String, Object> outputDeclaration, Map<String, Object> output) {
-        if (outputDeclaration == null || output == null || output.isEmpty()) {
-            log.debug("No output to process for node '{}' with declaration", nodeKey);
-            return;
-        }
-
-        log.debug("Processing selective output for node '{}' with declaration: {}", nodeKey, outputDeclaration);
-
-        for (Map.Entry<String, Object> entry : outputDeclaration.entrySet()) {
-            String outputProperty = entry.getKey();
-            Object templateOrMapping = entry.getValue();
-
-            // Determine the target key where the output should be stored
-            String targetKey;
-            Object value;
-
-            if (templateOrMapping instanceof String template && TemplateEngine.isTemplate(template)) {
-                // If the value is a template reference, extract the target key
-                targetKey = template.substring(2, template.length() - 2).trim();
-                value = output.get(outputProperty);
-
-                // Skip storing if there are no consumers for this key
-                if (!consumers.isEmpty() && !hasConsumers(targetKey)) {
-                    log.debug("Skipping storage of output to '{}' as it has no consumers", targetKey);
-                    continue;
-                }
-            } else {
-                // Direct mapping: key in outputDeclaration -> standard node output key format
-                targetKey = nodeKey + ".output." + outputProperty;
-                value = output.get(outputProperty);
-
-                // Skip storing if there are no consumers for this key
-                if (!consumers.isEmpty() && !hasConsumers(targetKey)) {
-                    log.debug("Skipping storage of output to '{}' as it has no consumers in explicit output", targetKey);
-                    continue;
-                }
-            }
-
-            // Only store if we have a value
-            if (value != null) {
-                context.put(targetKey, value);
-                log.debug("Stored selective output '{}' with value type '{}'",
-                        targetKey, value.getClass().getSimpleName());
-            } else {
-                log.warn("Output value for '{}' is null, not storing", targetKey);
-            }
-        }
-    }
-
-    /**
      * Process output according to consumer information already in the RuntimeContext.
      * This is the most efficient approach as it only stores values that are
      * actually needed by downstream nodes.
@@ -257,9 +199,9 @@ public class RuntimeContext {
                 if (!TemplateEngine.isTemplate(str)) {
                     yield str;
                 }
-                List<String> refs = TemplateEngine.extractRefs(str);
+                Set<String> refs = TemplateEngine.extractRefs(str);
                 if (refs.size() == 1) {
-                    String expr = refs.getFirst();
+                    String expr = refs.iterator().next();
                     if (str.trim().equals("{{" + expr + "}}")) {
                         // Single template, can be any type
                         if (expr.matches("[a-zA-Z0-9._-]+\\(.*\\)")) {

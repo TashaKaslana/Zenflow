@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Service responsible for validating data against JSON schemas and templates.
@@ -86,7 +87,7 @@ public class SchemaValidationService {
     public List<ValidationError> validateTemplates(Object data, String basePath) {
         List<ValidationError> errors = new ArrayList<>();
 
-        List<String> templates = TemplateEngine.extractRefs(data);
+        Set<String> templates = TemplateEngine.extractRefs(data);
         for (String template : templates) {
             String fullTemplate = "{{" + template + "}}";
             if (!TemplateEngine.isTemplate(fullTemplate)) {

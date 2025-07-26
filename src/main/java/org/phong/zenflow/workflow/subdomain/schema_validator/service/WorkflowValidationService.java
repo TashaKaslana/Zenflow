@@ -31,7 +31,8 @@ import java.util.stream.Collectors;
 @Slf4j
 public class WorkflowValidationService {
     private final static String WORKFLOW_STRUCTURE_SCHEMA_NAME = "workflow_structure_schema";
-    private SchemaValidationService schemaValidationService;
+    private final SchemaValidationService schemaValidationService;
+    private final WorkflowDependencyValidator workflowDependencyValidator;
 
     /**
      * Phase 1: Validates a workflow definition against schema requirements.
@@ -53,6 +54,8 @@ public class WorkflowValidationService {
 
         // Validate node references
         errors.addAll(validateNodeReferences(workflow));
+
+        errors.addAll(workflowDependencyValidator.validateNodeDependencyLoops(workflow));
 
         return new ValidationResult("definition", errors);
     }
@@ -170,52 +173,40 @@ public class WorkflowValidationService {
                 .collect(Collectors.toSet());
 
         for (BaseWorkflowNode node : workflow.nodes()) {
-            extractNodeReferencesIfError(node, nodeKeys, workflow.metadata(), errors);
+            errors.addAll(validateNodeExistence(node, nodeKeys, workflow.metadata()));
         }
 
         return errors;
     }
 
-    /**
-     * Extracts and validates node references from a workflow node.
-     * Checks template references and 'next' node references against existing node keys.
-     *
-     * @param node     The node to extract references from
-     * @param nodeKeys Set of valid node keys in the workflow
-     * @param errors   List to collect validation errors
-     */
-    private static void extractNodeReferencesIfError(BaseWorkflowNode node, Set<String> nodeKeys,
-                                                     Map<String, Object> metadata, List<ValidationError> errors) {
+    private List<ValidationError> validateNodeExistence(BaseWorkflowNode node, Set<String> nodeKeys,
+                                                        Map<String, Object> metadata) {
+        List<ValidationError> errors = new ArrayList<>();
+
         if (node.getConfig() != null) {
-            List<String> templates = TemplateEngine.extractRefs(node.getConfig());
+            Set<String> templates = TemplateEngine.extractRefs(node.getConfig());
+            Map<String, String> aliases = ObjectConversion.safeConvert(metadata.get("alias"), new TypeReference<>() {
+            });
 
             for (String template : templates) {
-                Map<String, String> alias = ObjectConversion.safeConvert(metadata.get("alias"), new TypeReference<>() {
-                });
-                String referencedNode = TemplateEngine.getReferencedNode(template, alias);
-                if (!nodeKeys.contains(referencedNode)) {
+                String referencedNode = TemplateEngine.getReferencedNode(template, aliases);
+
+                // Only validate existence - dependency direction is handled by WorkflowDependencyValidator
+                if (referencedNode != null && !nodeKeys.contains(referencedNode)) {
                     errors.add(ValidationError.builder()
-                            .type("definition")
-                            .path(node.getKey())
-                            .message("Referenced node '" + referencedNode + "' does not exist")
+                            .type("MISSING_NODE_REFERENCE")
+                            .path(node.getKey() + ".config")
+                            .message("Referenced node '" + referencedNode + "' does not exist in workflow")
                             .template("{{" + template + "}}")
+                            .value(referencedNode)
+                            .expectedType("existing_node_key")
+                            .schemaPath("$.nodes[?(@.key=='" + node.getKey() + "')].config")
                             .build());
                 }
             }
         }
 
-        // Validate 'next' references
-        if (node.getNext() != null) {
-            for (String nextNode : node.getNext()) {
-                if (!nodeKeys.contains(nextNode)) {
-                    errors.add(ValidationError.builder()
-                            .type("definition")
-                            .path(node.getKey() + ".next")
-                            .message("Referenced next node '" + nextNode + "' does not exist")
-                            .build());
-                }
-            }
-        }
+        return errors;
     }
 
     /**
