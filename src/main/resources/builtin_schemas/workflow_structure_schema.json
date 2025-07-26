@@ -1,86 +1,128 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": [
-    "nodes"
-  ],
+  "required": ["nodes"],
   "properties": {
     "nodes": {
       "type": "array",
       "minItems": 1,
-      "items": {
-        "$ref": "#/definitions/workflowNode"
-      }
+      "items": { "$ref": "#/definitions/workflowNode" }
     },
     "metadata": {
       "type": "object",
       "properties": {
-        "aliases": {
-          "type": "object"
-        },
-        "nodeDependencies": {
-          "type": "object"
-        },
-        "nodeConsumers": {
-          "type": "object"
-        }
+        "aliases": { "type": "object" },
+        "nodeDependencies": { "type": "object" },
+        "nodeConsumers": { "type": "object" }
       }
     }
   },
 
   "definitions": {
+    "pluginConfigRemote": {
+      "type": "object",
+      "required": ["input", "secrets"],
+      "properties": {
+        "input": { "$ref": "http://json-schema.org/draft-07/schema#" },
+        "output": { "$ref": "http://json-schema.org/draft-07/schema#" },
+        "secrets": {
+          "type": "array",
+          "minItems": 0,
+          "items": {
+            "type": "object",
+            "required": ["key"],
+            "properties": {
+              "key": {
+                "type": "string",
+                "pattern": "^[A-Z0-9_]+$",
+                "minLength": 3,
+                "maxLength": 64
+              },
+              "required": { "type": "boolean", "default": true },
+              "description": { "type": "string" },
+              "inject_as": {
+                "type": "string",
+                "enum": ["header", "query", "body"],
+                "default": "header"
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "pluginConfigBuiltin": {
+      "allOf": [
+        { "$ref": "#/definitions/pluginConfigRemote" },
+        {
+          "type": "object",
+          "required": ["entrypoint"],
+          "properties": {
+            "entrypoint": {
+              "type": "object",
+              "required": ["url", "method"],
+              "properties": {
+                "url": { "type": "string", "format": "uri" },
+                "method": {
+                  "type": "string",
+                  "enum": ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"]
+                },
+                "headers": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^[a-zA-Z0-9-]+$"
+                  },
+                  "additionalProperties": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+
     "workflowNode": {
       "type": "object",
-      "required": [
-        "key",
-        "type"
-      ],
+      "required": ["key", "type"],
       "properties": {
         "key": {
           "type": "string",
-          "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$"
+          "pattern": "^[a-zA-Z_][a-zA-Z0-9_-]*$"
         },
-        "type": {
-          "type": "string"
-        },
+        "type": { "type": "string" },
         "pluginNode": {
-          "type": "object",
-          "required": [
-            "pluginId",
-            "nodeId"
-          ],
+          "type": ["object", "null"],
+          "required": ["pluginId", "nodeId"],
           "properties": {
-            "pluginId": {
-              "type": "string"
-            },
-            "nodeId": {
-              "type": "string"
-            }
+            "pluginId": { "type": "string" },
+            "nodeId": { "type": "string" }
           }
         },
         "next": {
           "type": "array",
-          "items": {
-            "type": "string"
-          }
+          "items": { "type": "string" }
         },
         "config": {
-          "type": "object",
-          "properties": {
-            "input": {
-              "type": "object"
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "properties": {
+                "input": { "type": ["object", "null"] },
+                "output": { "type": ["object", "null"] }
+              }
             },
-            "output": {
-              "type": "object"
-            }
-          }
+            { "$ref": "#/definitions/pluginConfigRemote" },
+            { "$ref": "#/definitions/pluginConfigBuiltin" }
+          ]
         },
-        "metadata": {
-          "type": "object"
-        },
-        "policy": {
-          "type": "object"
-        }
+        "metadata": { "type": ["object", "null"] },
+        "policy": { "type": ["object", "null"] }
       }
     }
   }

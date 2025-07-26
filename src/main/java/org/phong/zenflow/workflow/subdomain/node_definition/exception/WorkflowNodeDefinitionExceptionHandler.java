@@ -16,8 +16,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 
+import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @RestControllerAdvice
 @AllArgsConstructor
@@ -29,26 +29,11 @@ public class WorkflowNodeDefinitionExceptionHandler {
         log.debug("Workflow Definition Validation Exception occurred: {}", ex.getMessage());
 
         ValidationResult validationResult = ex.getValidationResult();
-        Map<String, Object> fieldErrors = null;
-
-        if (validationResult != null && validationResult.getErrors() != null) {
-            try {
-                fieldErrors = validationResult.getErrors().stream()
-                        .filter(error -> error != null && error.getPath() != null)
-                        .collect(Collectors.toMap(
-                                ValidationError::getPath,
-                                ObjectConversion::convertObjectToMap,
-                                (existing, replacement) -> existing // In case of duplicate keys
-                        ));
-            } catch (Exception e) {
-                log.warn("Error processing validation errors: {}", e.getMessage(), e);
-                // Create a simplified error representation
-                fieldErrors = Map.of("error", "Error processing validation details");
+        Map<String, Object> fieldErrors = new HashMap<>();
+        for (ValidationError error : validationResult.getErrors()) {
+            if (error != null && error.getPath() != null) {
+                fieldErrors.put(error.getPath(), ObjectConversion.convertObjectToMap(error));
             }
-        }
-
-        if (fieldErrors == null) {
-            fieldErrors = Map.of("error", "No detailed validation information available");
         }
 
         String requestPath = null;
