@@ -33,6 +33,7 @@ public class WorkflowValidationService {
     private final static String WORKFLOW_STRUCTURE_SCHEMA_NAME = "workflow_structure_schema";
     private final SchemaValidationService schemaValidationService;
     private final WorkflowDependencyValidator workflowDependencyValidator;
+    private final SchemaTemplateValidationService schemaTemplateValidationService;
 
     /**
      * Phase 1: Validates a workflow definition against schema requirements.
@@ -77,12 +78,9 @@ public class WorkflowValidationService {
         List<ValidationError> errors = new ArrayList<>();
 
         try {
-            if (templateString != null) {
-                Object input = resolvedConfig.input();
-                if (input != null) {
-                    errors.addAll(schemaValidationService.validateAgainstSchema(
-                            input, templateString, nodeKey + ".input"));
-                }
+            if (templateString != null && !templateString.isEmpty() && resolvedConfig != null) {
+                errors.addAll(schemaValidationService.validateAgainstSchema(
+                        resolvedConfig, templateString, nodeKey + ".config"));
             }
 
             // Additional runtime-specific validations
@@ -110,9 +108,22 @@ public class WorkflowValidationService {
         List<ValidationError> errors = new ArrayList<>();
 
         for (BaseWorkflowNode node : workflow.nodes()) {
+            String templateString = null;
             //Only handle plugin nodes for now
-            if (node.getType() == NodeType.PLUGIN) {
-                validatePluginNode(node, errors);
+            if (node.getType() == NodeType.PLUGIN && node instanceof PluginDefinition pluginNode) {
+                validatePluginNode(pluginNode, errors);
+                templateString = pluginNode.getPluginNode().nodeId().toString();
+            }
+
+            //validate template references in the node's configuration
+            if (templateString != null) {
+                Set<String> templates = TemplateEngine.extractRefs(node.getConfig());
+                Map<String, Object> nodeConsumers = ObjectConversion.convertObjectToMap(workflow.metadata().get("nodeConsumers"));
+                errors.addAll(
+                        schemaTemplateValidationService.validateTemplateType(
+                                node.getKey(), templateString, nodeConsumers, templates
+                        )
+                );
             }
         }
         return errors;
