@@ -23,8 +23,8 @@ import java.util.stream.Collectors;
 
 /**
  * Service responsible for validating workflow definitions and their runtime configurations.
- * Performs two main phases of validation:
- * 1. Definition-time validation - ensures the workflow structure is correct
+ * Performs two main phases of validation:<br>
+ * 1. Definition-time validation - ensures the workflow structure is correct<br>
  * 2. Runtime validation - validates resolved configurations against schemas
  */
 @Service

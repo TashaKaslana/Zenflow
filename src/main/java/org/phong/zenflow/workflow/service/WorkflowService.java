@@ -15,8 +15,6 @@ import org.phong.zenflow.workflow.exception.WorkflowException;
 import org.phong.zenflow.workflow.infrastructure.mapstruct.WorkflowMapper;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.infrastructure.persistence.repository.WorkflowRepository;
-import org.phong.zenflow.workflow.subdomain.context.WorkflowContextService;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.services.WorkflowDefinitionService;
 import org.springframework.data.domain.Page;
@@ -25,10 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -40,7 +35,6 @@ public class WorkflowService {
     private final ProjectRepository projectRepository;
     private final WorkflowMapper workflowMapper;
     private final WorkflowDefinitionService definitionService;
-    private final WorkflowContextService workflowContextService;
 
     /**
      * Create a new workflow
@@ -91,12 +85,10 @@ public class WorkflowService {
 
         WorkflowDefinition upserted = definitionService.upsert(newWorkflowDef, existWorkflowDef);
 
-        WorkflowDefinition updatedDefinition = updateStaticContext(workflow, upserted.nodes());
-
-        workflow.setDefinition(updatedDefinition);
+        workflow.setDefinition(upserted);
         workflowRepository.save(workflow);
 
-        return updatedDefinition;
+        return upserted;
     }
 
     /**
@@ -114,32 +106,13 @@ public class WorkflowService {
             return new WorkflowDefinition();
         }
 
-        List<BaseWorkflowNode> currentNodes = new ArrayList<>(definition.nodes());
+        WorkflowDefinition updatedDefinition = definitionService.removeNode(definition, keyToRemove);
 
-        definitionService.removeNode(currentNodes, keyToRemove);
-
-        WorkflowDefinition updatedDefinition = updateStaticContext(workflow, currentNodes);
         workflow.setDefinition(updatedDefinition);
         workflowRepository.save(workflow);
         log.debug("Workflow with ID: {} has been updated by removing node with key: {}", workflowId, keyToRemove);
 
         return updatedDefinition;
-    }
-
-    private WorkflowDefinition updateStaticContext(Workflow workflow, List<BaseWorkflowNode> nodes) {
-        WorkflowDefinition definition = workflow.getDefinition();
-        if (definition == null) {
-            definition = new WorkflowDefinition();
-        }
-
-        Map<String, Object> metadata = definition.metadata();
-        if (metadata == null) {
-            metadata = new HashMap<>();
-        }
-
-        Map<String, Object> newMetadata = workflowContextService.buildStaticContext(nodes, metadata);
-
-        return new WorkflowDefinition(nodes, newMetadata);
     }
 
     public Workflow getWorkflow(UUID id) {

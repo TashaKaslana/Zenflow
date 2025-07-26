@@ -15,6 +15,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * Static context service for workflow nodes.
+ * <p>
+ * This service builds a static context for workflow nodes, resolving dependencies and consumer relationships
+ * based on the node configurations and existing metadata.
+ * </p>
+ * <p>It also handles alias resolution and type inference.</p>
+ */
 @Service
 @Slf4j
 public class WorkflowContextService {

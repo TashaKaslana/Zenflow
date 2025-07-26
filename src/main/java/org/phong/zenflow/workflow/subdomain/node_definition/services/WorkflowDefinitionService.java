@@ -2,6 +2,7 @@ package org.phong.zenflow.workflow.subdomain.node_definition.services;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.phong.zenflow.workflow.subdomain.context.WorkflowContextService;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.exception.WorkflowDefinitionValidationException;
@@ -11,14 +12,14 @@ import org.phong.zenflow.workflow.subdomain.schema_validator.service.WorkflowVal
 import org.phong.zenflow.workflow.utils.NodeKeyGenerator;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * Service responsible for managing workflow definitions.
- * Provides functionality for creating, updating, validating, and manipulating workflow definitions.
+ * Service responsible for managing workflow definitions.<br>
+ * Provides functionality for creating, updating, validating, and manipulating workflow definitions.<br>
  * This service ensures that workflow definitions maintain integrity during operations.
  */
 @Service
@@ -27,41 +28,14 @@ import java.util.stream.Collectors;
 public class WorkflowDefinitionService {
 
     private final WorkflowValidationService workflowValidationService;
-
-    /**
-     * Creates or updates a workflow definition by merging new definition with an existing one.
-     *
-     * @param newDef The new workflow definition to be applied
-     * @param existingDef The existing workflow definition to be updated
-     * @return The updated workflow definition
-     * @throws WorkflowNodeDefinitionException If the new definition is null or any node has invalid properties
-     * @throws WorkflowDefinitionValidationException If the resulting workflow fails in validation
-     */
-    public WorkflowDefinition upsert(WorkflowDefinition newDef, WorkflowDefinition existingDef) {
-        if (newDef == null) {
-            throw new WorkflowNodeDefinitionException("Workflow definition cannot be null");
-
-        }
-        WorkflowDefinition tempDef = new WorkflowDefinition(newDef);
-
-        upsertNodes(existingDef, tempDef);
-        upsertMetadata(tempDef.metadata(), newDef.metadata());
-
-        ValidationResult validationResult = workflowValidationService.validateDefinition(tempDef);
-        if (!validationResult.isValid()) {
-            log.error("Workflow definition validation failed: {}", validationResult.getErrors());
-            throw new WorkflowDefinitionValidationException("Workflow definition validation failed!", validationResult);
-        }
-
-        return tempDef;
-    }
+    private final WorkflowContextService workflowContextService;
 
     /**
      * Updates or inserts nodes in the temporary definition based on the existing definition.
      * Preserves existing nodes and adds new ones, generating keys for nodes without them.
      *
      * @param existingDef The existing workflow definition containing current nodes
-     * @param tempDef The temporary workflow definition being built
+     * @param tempDef     The temporary workflow definition being built
      * @throws WorkflowNodeDefinitionException If any node has an empty type
      */
     private static void upsertNodes(WorkflowDefinition existingDef, WorkflowDefinition tempDef) {
@@ -99,7 +73,7 @@ public class WorkflowDefinitionService {
      * Skips null values and logs metadata operations for debugging.
      *
      * @param metadata The metadata map to update
-     * @param updates The new metadata entries to add or update
+     * @param updates  The new metadata entries to add or update
      */
     private static void upsertMetadata(Map<String, Object> metadata, Map<String, Object> updates) {
         if (metadata == null || updates.isEmpty()) {
@@ -127,12 +101,66 @@ public class WorkflowDefinitionService {
     }
 
     /**
+     * Creates or updates a workflow definition by merging new definition with an existing one.
+     *
+     * @param newDef      The new workflow definition to be applied
+     * @param existingDef The existing workflow definition to be updated
+     * @return The updated workflow definition
+     * @throws WorkflowNodeDefinitionException       If the new definition is null or any node has invalid properties
+     * @throws WorkflowDefinitionValidationException If the resulting workflow fails in validation
+     */
+    public WorkflowDefinition upsert(WorkflowDefinition newDef, WorkflowDefinition existingDef) {
+        if (newDef == null) {
+            throw new WorkflowNodeDefinitionException("Workflow definition cannot be null");
+
+        }
+        WorkflowDefinition tempDef = new WorkflowDefinition(newDef);
+
+        upsertNodes(existingDef, tempDef);
+        upsertMetadata(existingDef.metadata(), tempDef.metadata());
+
+        return constructStaticMetadataAndValidate(tempDef);
+    }
+
+    /**
      * Removes a node from the provided list of nodes based on its key.
      *
-     * @param nodes The list of workflow nodes to modify
-     * @param keyToRemove The key of the node to remove
+     * @param workflowDefinition The workflow definition containing the nodes
+     * @param keyToRemove        The key of the node to remove
+     * @return The updated workflow definition with the specified node removed
+     * @throws WorkflowNodeDefinitionException       If the node with the specified key does not exist
+     * @throws WorkflowDefinitionValidationException If the resulting workflow fails in validation
      */
-    public void removeNode(List<BaseWorkflowNode> nodes, String keyToRemove) {
-        nodes.removeIf(node -> keyToRemove.equals(node.getKey()));
+    public WorkflowDefinition removeNode(WorkflowDefinition workflowDefinition, String keyToRemove) {
+        workflowDefinition.nodes()
+                .removeIf(node -> keyToRemove.equals(node.getKey()));
+        return constructStaticMetadataAndValidate(workflowDefinition);
+    }
+
+    private WorkflowDefinition constructStaticMetadataAndValidate(WorkflowDefinition tempDef) {
+        WorkflowDefinition workflowDefinition = updateStaticContextMetadata(tempDef);
+
+        ValidationResult validationResult = workflowValidationService.validateDefinition(workflowDefinition);
+        if (!validationResult.isValid()) {
+            log.error("Workflow definition validation failed: {}", validationResult.getErrors());
+            throw new WorkflowDefinitionValidationException("Workflow definition validation failed!", validationResult);
+        }
+
+        return workflowDefinition;
+    }
+
+    private WorkflowDefinition updateStaticContextMetadata(WorkflowDefinition definition) {
+        if (definition == null) {
+            definition = new WorkflowDefinition();
+        }
+
+        Map<String, Object> metadata = definition.metadata();
+        if (metadata == null) {
+            metadata = new HashMap<>();
+        }
+
+        Map<String, Object> newMetadata = workflowContextService.buildStaticContext(definition.nodes(), metadata);
+
+        return new WorkflowDefinition(definition.nodes(), newMetadata);
     }
 }
