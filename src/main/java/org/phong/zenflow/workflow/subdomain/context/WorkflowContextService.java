@@ -38,7 +38,7 @@ public class WorkflowContextService {
             String aliasName = aliasEntry.getKey();
             TemplateEngine.extractRefs(aliasEntry.getValue()).stream().findFirst().ifPresent(originalRef -> ctx.nodeConsumers()
                     .computeIfAbsent(originalRef, k -> new OutputUsage())
-                    .getAlias()
+                    .getAliases()
                     .add(aliasName));
         }
     }

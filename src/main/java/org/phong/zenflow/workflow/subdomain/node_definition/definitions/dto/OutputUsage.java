@@ -20,5 +20,5 @@ import java.util.Set;
 public final class OutputUsage {
     private String type;
     private Set<String> consumers = new HashSet<>();
-    private List<String> alias = new ArrayList<>();
+    private List<String> aliases = new ArrayList<>();
 }
