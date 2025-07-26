@@ -9,6 +9,8 @@ import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -31,11 +33,11 @@ public class SchemaRegistry {
      * Template string formats:
      * <ul>
      *   <li>Built-in: <code>builtin:&#60;name&#62;</code> (e.g., <code>builtin:http-trigger</code>)</li>
-     *   <li>Plugin: <code>&#60;pluginId&#62;:&#60;nodeId&#62;</code> (e.g., <code>123e4567-e89b-12d3-a456-426614174000:123e4567-e89b-12d3-a456-426614174001</code>)</li>
+     *   <li>Plugin: <code>&#60;nodeId&#62;</code> (e.g., <code>123e4567-e89b-12d3-a456-426614174001</code>)</li>
      * </ul>
      * This unified naming convention allows easy differentiation and retrieval of schemas.
      *
-     * @param templateString the schema name, either built-in or plugin-based
+     * @param templateString the schema identifier, either built-in name or plugin nodeId
      * @return JSONObject containing the schema
      */
     public JSONObject getSchemaByTemplateString(String templateString) {
@@ -43,36 +45,117 @@ public class SchemaRegistry {
         if (templateString.startsWith("builtin:")) {
             return getBuiltinSchema(templateString.substring(8));
         }
-        // Otherwise, treat it as a plugin schema
-        String[] parts = templateString.split(":");
-        if (parts.length != 2) {
-            throw new IllegalArgumentException("Invalid schema name format. Expected 'pluginId:nodeId'.");
+
+        // Otherwise, treat it as a plugin schema by nodeId
+        try {
+            UUID nodeId = UUID.fromString(templateString);
+            return getPluginSchema(nodeId);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid schema identifier format. Expected 'builtin:name' or valid UUID for nodeId.", e);
         }
-        UUID pluginId = UUID.fromString(parts[0]);
-        UUID nodeId = UUID.fromString(parts[1]);
-        return getPluginSchema(pluginId, nodeId);
+    }
+
+    public Map<String, JSONObject> getSchemaMapByTemplateStrings(List<String> templateStrings) {
+        Map<String, JSONObject> result = new HashMap<>();
+
+        List<String> builtinNames = templateStrings.stream()
+                .filter(name -> name.startsWith("builtin:"))
+                .map(name -> name.substring(8))
+                .toList();
+        List<UUID> pluginNodeIds = templateStrings.stream()
+                .filter(name -> !name.startsWith("builtin:"))
+                .map(name -> {
+                    try {
+                        return UUID.fromString(name);
+                    } catch (IllegalArgumentException e) {
+                        throw new IllegalArgumentException("Invalid nodeId format: " + name, e);
+                    }
+                }).toList();
+
+        if (!builtinNames.isEmpty()) {
+            Map<String, JSONObject> builtinSchemas = getBuiltinSchemas(builtinNames);
+            result.putAll(builtinSchemas);
+        }
+
+        if (!pluginNodeIds.isEmpty()) {
+            Map<String, JSONObject> pluginSchemas = getPluginSchemasByNodeIds(pluginNodeIds);
+            result.putAll(pluginSchemas);
+        }
+
+        return result;
     }
 
     // Built-in node schema: key = "http-trigger"
-    public JSONObject getBuiltinSchema(String name) {
+    private JSONObject getBuiltinSchema(String name) {
         return builtinCache.computeIfAbsent(name, this::loadBuiltinSchemaFromFile);
     }
 
+    private Map<String, JSONObject> getBuiltinSchemas(List<String> names) {
+        return names.stream()
+                .collect(Collectors.toMap(
+                        name -> name,
+                        this::getBuiltinSchema
+                ));
+    }
+
     /**
-     * Get plugin node schema using UUID for both plugin and node identifiers
-     * @param pluginId UUID of the plugin
+     * Get plugin node schema using nodeId only
      * @param nodeId UUID of the node
      * @return JSONObject containing the schema
      */
-    public JSONObject getPluginSchema(UUID pluginId, UUID nodeId) {
-        String cacheKey = pluginId.toString() + ":" + nodeId.toString();
+    private JSONObject getPluginSchema(UUID nodeId) {
+        String cacheKey = nodeId.toString();
         return pluginCache.computeIfAbsent(cacheKey, k -> {
-            Map<String, Object> schemaJson = pluginProvider.getSchemaJson(pluginId, nodeId);
-            if (schemaJson == null) {
-                throw new RuntimeException("No schema found for plugin node: " + pluginId + " with node id: " + nodeId);
+            Map<String, Object> schema = pluginProvider.getSchemaJson(nodeId);
+            if (schema.isEmpty()) {
+                throw new RuntimeException("No schema found for node id: " + nodeId);
             }
-            return new JSONObject(schemaJson);
+            return new JSONObject(schema);
         });
+    }
+
+    /**
+     * Efficiently retrieve multiple plugin schemas by nodeIds in a single batch operation
+     * @param nodeIds List of node UUIDs
+     * @return Map of nodeId -> schema JSONObject
+     */
+    private Map<String, JSONObject> getPluginSchemasByNodeIds(List<UUID> nodeIds) {
+        // Filter out already cached schemas
+        List<UUID> uncachedNodeIds = nodeIds.stream()
+                .filter(nodeId -> !pluginCache.containsKey(nodeId.toString()))
+                .toList();
+
+        // Fetch uncached schemas in batch
+        if (!uncachedNodeIds.isEmpty()) {
+            List<Map<String, Object>> schemas = pluginProvider.getAllSchemasByNodeIds(uncachedNodeIds);
+
+            // Cache the new schemas
+            for (int i = 0; i < uncachedNodeIds.size(); i++) {
+                String cacheKey = uncachedNodeIds.get(i).toString();
+                pluginCache.put(cacheKey, new JSONObject(schemas.get(i)));
+            }
+        }
+
+        // Return all requested schemas (from cache)
+        return nodeIds.stream()
+                .collect(Collectors.toMap(
+                        UUID::toString,
+                        nodeId -> pluginCache.get(nodeId.toString())
+                ));
+    }
+
+    /**
+     * Convenience method to get schemas by UUID nodeIds and return with UUID keys
+     * @param nodeIds List of node UUIDs
+     * @return Map of UUID -> schema JSONObject
+     */
+    public Map<UUID, JSONObject> getPluginSchemasByNodeIdsAsUUID(List<UUID> nodeIds) {
+        Map<String, JSONObject> stringKeyMap = getPluginSchemasByNodeIds(nodeIds);
+        return stringKeyMap.entrySet().stream()
+                .collect(Collectors.toMap(
+                        entry -> UUID.fromString(entry.getKey()),
+                        Map.Entry::getValue
+                ));
     }
 
     private JSONObject loadBuiltinSchemaFromFile(String name) {

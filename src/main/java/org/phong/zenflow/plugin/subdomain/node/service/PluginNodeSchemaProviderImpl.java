@@ -1,11 +1,12 @@
 package org.phong.zenflow.plugin.subdomain.node.service;
 
 import org.phong.zenflow.plugin.subdomain.node.exception.ValidateNodeSchemaException;
-import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.entity.PluginNode;
+import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.projections.PluginNodeSchema;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.repository.PluginNodeRepository;
 import org.phong.zenflow.plugin.subdomain.node.interfaces.PluginNodeSchemaProvider;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -19,11 +20,19 @@ public class PluginNodeSchemaProviderImpl implements PluginNodeSchemaProvider {
     }
 
     @Override
-    public Map<String, Object> getSchemaJson(UUID pluginId, UUID nodeId) {
+    public Map<String, Object> getSchemaJson(UUID nodeId) {
         return pluginNodeRepository
-                .findByPluginIdAndId(pluginId, nodeId)
-                .map(PluginNode::getConfigSchema).orElseThrow(
-                        () -> new ValidateNodeSchemaException("Node schema not found for pluginId: " + pluginId + ", nodeId: " + nodeId)
+                .findByIdCustom(nodeId)
+                .map(PluginNodeSchema::getConfigSchema).orElseThrow(
+                        () -> new ValidateNodeSchemaException("Node schema not found for nodeId: " +  nodeId)
                 );
+    }
+
+    @Override
+    public List<Map<String, Object>> getAllSchemasByNodeIds(List<UUID> nodeIds) {
+        return pluginNodeRepository.findAllByIds(nodeIds)
+                .stream()
+                .map(PluginNodeSchema::getConfigSchema)
+                .toList();
     }
 }
