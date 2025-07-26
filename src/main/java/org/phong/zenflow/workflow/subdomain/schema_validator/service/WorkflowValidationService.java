@@ -1,12 +1,12 @@
 package org.phong.zenflow.workflow.subdomain.schema_validator.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.OutputUsage;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
@@ -118,7 +118,7 @@ public class WorkflowValidationService {
             //validate template references in the node's configuration
             if (templateString != null) {
                 Set<String> templates = TemplateEngine.extractRefs(node.getConfig());
-                Map<String, Object> nodeConsumers = ObjectConversion.convertObjectToMap(workflow.metadata().get("nodeConsumers"));
+                Map<String, OutputUsage> nodeConsumers = workflow.metadata().nodeConsumer();
                 errors.addAll(
                         schemaTemplateValidationService.validateTemplateType(
                                 node.getKey(), templateString, nodeConsumers, templates
@@ -184,20 +184,18 @@ public class WorkflowValidationService {
                 .collect(Collectors.toSet());
 
         for (BaseWorkflowNode node : workflow.nodes()) {
-            errors.addAll(validateNodeExistence(node, nodeKeys, workflow.metadata()));
+            errors.addAll(validateNodeExistence(node, nodeKeys, workflow.metadata().alias()));
         }
 
         return errors;
     }
 
     private List<ValidationError> validateNodeExistence(BaseWorkflowNode node, Set<String> nodeKeys,
-                                                        Map<String, Object> metadata) {
+                                                        Map<String, String> aliases) {
         List<ValidationError> errors = new ArrayList<>();
 
         if (node.getConfig() != null) {
             Set<String> templates = TemplateEngine.extractRefs(node.getConfig());
-            Map<String, String> aliases = ObjectConversion.safeConvert(metadata.get("alias"), new TypeReference<>() {
-            });
 
             for (String template : templates) {
                 String referencedNode = TemplateEngine.getReferencedNode(template, aliases);

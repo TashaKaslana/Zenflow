@@ -1,7 +1,6 @@
 package org.phong.zenflow.workflow.subdomain.context;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
@@ -10,11 +9,11 @@ import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
 import org.phong.zenflow.plugin.subdomain.node.utils.SchemaRegistry;
 import org.phong.zenflow.plugin.subdomain.node.utils.SchemaTemplateStringGenerator;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.OutputUsage;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowMetadata;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginDefinition;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -34,22 +33,22 @@ import java.util.Set;
 public class WorkflowContextService {
     private final SchemaRegistry schemaRegistry;
 
-    private static void generateAliasLinkBackToConsumers(StaticContext ctx) {
-        for (Map.Entry<String, String> aliasEntry : ctx.getAlias().entrySet()) {
+    private static void generateAliasLinkBackToConsumers(WorkflowMetadata ctx) {
+        for (Map.Entry<String, String> aliasEntry : ctx.alias().entrySet()) {
             String aliasName = aliasEntry.getKey();
-            TemplateEngine.extractRefs(aliasEntry.getValue()).stream().findFirst().ifPresent(originalRef -> ctx.getNodeConsumer()
+            TemplateEngine.extractRefs(aliasEntry.getValue()).stream().findFirst().ifPresent(originalRef -> ctx.nodeConsumer()
                     .computeIfAbsent(originalRef, k -> new OutputUsage())
                     .getAlias()
                     .add(aliasName));
         }
     }
 
-    public Map<String, Object> buildStaticContext(List<BaseWorkflowNode> existingNodes, Map<String, Object> existingMetadata) {
-        StaticContext ctx = new StaticContext();
+    public WorkflowMetadata buildStaticContext(List<BaseWorkflowNode> existingNodes, WorkflowMetadata existingMetadata) {
+        WorkflowMetadata ctx = new WorkflowMetadata();
 
         // Preserve existing aliases from metadata
-        if (existingMetadata != null && existingMetadata.containsKey("alias")) {
-            ctx.setAlias(ObjectConversion.safeConvert(existingMetadata.get("alias"), new TypeReference<>() {
+        if (existingMetadata != null && existingMetadata.alias() != null) {
+            ctx.alias().putAll(ObjectConversion.safeConvert(existingMetadata.alias(), new TypeReference<>() {
             }));
         }
 
@@ -57,16 +56,10 @@ public class WorkflowContextService {
         generateTypeForConsumerFields(existingNodes, ctx);
         generateAliasLinkBackToConsumers(ctx);
 
-        // Merge the generated context back into the existing metadata
-        Map<String, Object> newMetadata = new HashMap<>(existingMetadata != null ? existingMetadata : new HashMap<>());
-        newMetadata.put("nodeDependency", ctx.getNodeDependency());
-        newMetadata.put("nodeConsumer", ctx.getNodeConsumer());
-        newMetadata.put("alias", ctx.getAlias()); // Ensure aliases are preserved
-
-        return newMetadata;
+        return new WorkflowMetadata(ctx.alias(), ctx.nodeDependency(), ctx.nodeConsumer());
     }
 
-    private void generateDependenciesAndConsumers(List<BaseWorkflowNode> existingNodes, StaticContext ctx) {
+    private void generateDependenciesAndConsumers(List<BaseWorkflowNode> existingNodes, WorkflowMetadata ctx) {
         for (BaseWorkflowNode node : existingNodes) {
             String nodeKey = node.getKey();
             Map<String, Object> input = node.getConfig().input();
@@ -83,15 +76,15 @@ public class WorkflowContextService {
                 Set<String> referenced = TemplateEngine.extractRefs(inputValue.toString());
 
                 for (String ref : referenced) {
-                    String resolvedRef = resolveAlias(ref, ctx.getAlias());
+                    String resolvedRef = resolveAlias(ref, ctx.alias());
 
                     // Add dependency
-                    ctx.getNodeDependency()
+                    ctx.nodeDependency()
                             .computeIfAbsent(nodeKey, k -> new HashSet<>())
                             .add(resolvedRef);
 
                     // Track consumer
-                    ctx.getNodeConsumer()
+                    ctx.nodeConsumer()
                             .computeIfAbsent(resolvedRef, k -> new OutputUsage())
                             .getConsumers()
                             .add(nodeKey);
@@ -100,7 +93,7 @@ public class WorkflowContextService {
         }
     }
 
-    private void generateTypeForConsumerFields(List<BaseWorkflowNode> existingNodes, StaticContext ctx) {
+    private void generateTypeForConsumerFields(List<BaseWorkflowNode> existingNodes, WorkflowMetadata ctx) {
         List<String> templateStrings = SchemaTemplateStringGenerator.generateTemplateStrings(existingNodes);
         Map<String, JSONObject> schemas = schemaRegistry.getSchemaMapByTemplateStrings(templateStrings);
 
@@ -129,7 +122,7 @@ public class WorkflowContextService {
         return ref;
     }
 
-    private void populateOutputTypesFromSchema(BaseWorkflowNode node, JSONObject schema, StaticContext ctx) {
+    private void populateOutputTypesFromSchema(BaseWorkflowNode node, JSONObject schema, WorkflowMetadata ctx) {
         try {
             // Look for the output schema definition in the schema
             if (schema.has("properties") && schema.getJSONObject("properties").has("output")) {
@@ -143,7 +136,7 @@ public class WorkflowContextService {
                     for (String key : outputProperties.keySet()) {
                         String outputKey = node.getKey() + ".output." + key;
                         // This will create a new OutputUsage object for each potential output defined in the schema.
-                        OutputUsage outputUsage = ctx.getNodeConsumer().computeIfAbsent(outputKey, k -> new OutputUsage());
+                        OutputUsage outputUsage = ctx.nodeConsumer().computeIfAbsent(outputKey, k -> new OutputUsage());
 
                         JSONObject fieldSchema = outputProperties.getJSONObject(key);
                         outputUsage.setType(determineSchemaType(fieldSchema));
@@ -188,19 +181,5 @@ public class WorkflowContextService {
         }
 
         return "unknown";
-    }
-
-    @Data
-    public static class StaticContext {
-        private Map<String, Set<String>> nodeDependency = new HashMap<>();
-        private Map<String, OutputUsage> nodeConsumer = new HashMap<>();
-        private Map<String, String> alias = new HashMap<>();
-    }
-
-    @Data
-    public static class OutputUsage {
-        private String type;
-        private Set<String> consumers = new HashSet<>();
-        private List<String> alias = new ArrayList<>();
     }
 }

@@ -1,11 +1,9 @@
 package org.phong.zenflow.workflow.subdomain.runner.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.log.auditlog.annotations.AuditLog;
 import org.phong.zenflow.log.auditlog.enums.AuditAction;
 import org.phong.zenflow.secret.service.SecretService;
@@ -15,7 +13,7 @@ import org.phong.zenflow.workflow.service.WorkflowService;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.engine.dto.WorkflowExecutionStatus;
 import org.phong.zenflow.workflow.subdomain.engine.service.WorkflowEngineService;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowMetadata;
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.phong.zenflow.workflow.subdomain.workflow_run.infrastructure.persistence.entity.WorkflowRun;
@@ -24,7 +22,6 @@ import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -63,9 +60,13 @@ public class WorkflowRunnerService {
             WorkflowRun workflowRun = workflowRunService.findOrCreateWorkflowRun(workflowRunId, workflowId, triggerType);
 
             // Extract consumer map from the static context in the workflow definition
-            Map<String, Set<String>> consumers = getConsumersFromDefinition(workflow.getDefinition());
-            Map<String, String> aliasMap = ObjectConversion.safeConvert(workflow.getDefinition().metadata().get("alias"), new TypeReference<>() {
-            });
+            WorkflowMetadata metadata = workflow.getDefinition().metadata();
+            Map<String, Set<String>> consumers = metadata.nodeConsumer().entrySet().stream()
+                    .collect(Collectors.toMap(
+                            Map.Entry::getKey,
+                            entry -> Set.of(entry.getValue().toString())
+                    ));
+            Map<String, String> aliasMap = metadata.alias();
 
             if (workflowRun.getContext() == null || workflowRun.getContext().isEmpty()) {
                 // First run: ensure the run is started and create a new context
@@ -106,35 +107,6 @@ public class WorkflowRunnerService {
                 notifyCallbackUrl(callbackUrl, workflowRunId);
             }
         }
-    }
-
-    private Map<String, Set<String>> getConsumersFromDefinition(WorkflowDefinition definition) {
-        if (definition == null || definition.metadata() == null) {
-            return new ConcurrentHashMap<>();
-        }
-        Map<String, Object> metadata = definition.metadata();
-        if (!metadata.containsKey("nodeConsumer")) {
-            return new ConcurrentHashMap<>();
-        }
-
-        Map<String, Map<String, Object>> nodeConsumer = ObjectConversion.safeConvert(metadata.get("nodeConsumer"), new TypeReference<>() {
-        });
-
-        if (nodeConsumer == null) {
-            return new ConcurrentHashMap<>();
-        }
-
-        return nodeConsumer.entrySet().stream()
-                .collect(Collectors.toConcurrentMap(
-                        Map.Entry::getKey,
-                        entry -> {
-                            if (entry.getValue() != null && entry.getValue().containsKey("consumers")) {
-                                return ObjectConversion.safeConvert(entry.getValue().get("consumers"), new TypeReference<>() {
-                                });
-                            }
-                            return new HashSet<>();
-                        }
-                ));
     }
 
     private void notifyCallbackUrl(@NotNull @NotEmpty String callbackUrl, UUID workflowRunId) {

@@ -1,12 +1,10 @@
 package org.phong.zenflow.workflow.subdomain.schema_validator.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.AllArgsConstructor;
-import lombok.Getter;
-import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowMetadata;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
 import org.springframework.stereotype.Service;
 
@@ -27,32 +25,28 @@ public class WorkflowDependencyValidator {
             return errors;
         }
 
-        // 2. Extract metadata once
-        WorkflowMetadataExtractor metadataExtractor = new WorkflowMetadataExtractor(workflow.metadata());
-        errors.addAll(metadataExtractor.getErrors());
-
-        // 3. Validate each node's dependencies against execution order
+        // 2. Validate each node's dependencies against execution order
         List<String> executionOrder = orderResult.executionOrder();
         for (int i = 0; i < executionOrder.size(); i++) {
             String currentNode = executionOrder.get(i);
             Set<String> availableNodes = new HashSet<>(executionOrder.subList(0, i));
 
-            errors.addAll(validateNodeDependencies(currentNode, availableNodes, metadataExtractor));
+            errors.addAll(validateNodeDependencies(currentNode, availableNodes, workflow.metadata()));
         }
 
         return errors;
     }
 
     private List<ValidationError> validateNodeDependencies(String nodeKey, Set<String> availableNodes,
-                                                           WorkflowMetadataExtractor metadataExtractor) {
+                                                           WorkflowMetadata metadata) {
         List<ValidationError> errors = new ArrayList<>();
 
-        List<String> dependencies = metadataExtractor.getNodeDependencies(nodeKey);
+        Set<String> dependencies = metadata.nodeDependency().get(nodeKey);
         if (dependencies == null || dependencies.isEmpty()) {
             return errors;
         }
 
-        Map<String, String> aliases = metadataExtractor.getAliases();
+        Map<String, String> aliases = metadata.alias();
 
         // Validate each dependency
         for (String dependency : dependencies) {
@@ -222,81 +216,5 @@ public class WorkflowDependencyValidator {
          * Result class for topological ordering
          */
         private record TopologicalOrderResult(List<String> executionOrder, List<ValidationError> errors) {
-    }
-
-    /**
-     * Helper class to safely extract and cache workflow metadata
-     */
-    @Getter
-    private static class WorkflowMetadataExtractor {
-        private final Map<String, List<String>> nodeDependencies;
-        private final Map<String, String> aliases;
-        private final List<ValidationError> errors;
-
-        public WorkflowMetadataExtractor(Map<String, Object> metadata) {
-            this.errors = new ArrayList<>();
-            this.nodeDependencies = extractNodeDependencies(metadata);
-            this.aliases = extractAliases(metadata);
-        }
-
-        private Map<String, List<String>> extractNodeDependencies(Map<String, Object> metadata) {
-            try {
-                Map<String, Object> dependenciesMap = ObjectConversion.safeConvert(
-                        metadata.get("nodeDependency"), new TypeReference<>() {
-                        }
-                );
-
-                if (dependenciesMap == null) {
-                    return new HashMap<>();
-                }
-
-                Map<String, List<String>> result = new HashMap<>();
-                for (Map.Entry<String, Object> entry : dependenciesMap.entrySet()) {
-                    List<String> deps = ObjectConversion.safeConvert(
-                            entry.getValue(), new TypeReference<>() {
-                            }
-                    );
-                    if (deps != null) {
-                        result.put(entry.getKey(), deps);
-                    }
-                }
-                return result;
-            } catch (Exception e) {
-                errors.add(ValidationError.builder()
-                        .type("METADATA_EXTRACTION_ERROR")
-                        .path("metadata.nodeDependency")
-                        .message("Failed to extract node dependencies from metadata: " + e.getMessage())
-                        .value(metadata.get("nodeDependency"))
-                        .expectedType("Map<String, List<String>>")
-                        .schemaPath("$.metadata.nodeDependency")
-                        .build());
-                return new HashMap<>();
-            }
-        }
-
-        private Map<String, String> extractAliases(Map<String, Object> metadata) {
-            try {
-                Map<String, String> aliases = ObjectConversion.safeConvert(
-                        metadata.get("alias"), new TypeReference<>() {
-                        }
-                );
-                return aliases != null ? aliases : new HashMap<>();
-            } catch (Exception e) {
-                errors.add(ValidationError.builder()
-                        .type("METADATA_EXTRACTION_ERROR")
-                        .path("metadata.alias")
-                        .message("Failed to extract aliases from metadata: " + e.getMessage())
-                        .value(metadata.get("alias"))
-                        .expectedType("Map<String, String>")
-                        .schemaPath("$.metadata.alias")
-                        .build());
-                return new HashMap<>();
-            }
-        }
-
-        public List<String> getNodeDependencies(String nodeKey) {
-            return nodeDependencies.get(nodeKey);
-        }
-
     }
 }

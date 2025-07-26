@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.workflow.subdomain.context.WorkflowContextService;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowMetadata;
 import org.phong.zenflow.workflow.subdomain.node_definition.exception.WorkflowDefinitionValidationException;
 import org.phong.zenflow.workflow.subdomain.node_definition.exception.WorkflowNodeDefinitionException;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
@@ -12,7 +13,6 @@ import org.phong.zenflow.workflow.subdomain.schema_validator.service.WorkflowVal
 import org.phong.zenflow.workflow.utils.NodeKeyGenerator;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -64,8 +64,8 @@ public class WorkflowDefinitionService {
             keyToNode.put(key, node);
         }
 
-        tempDef.nodes().clear();
-        tempDef.nodes().addAll(keyToNode.values());
+        existingDef.nodes().clear();
+        existingDef.nodes().addAll(keyToNode.values());
     }
 
     /**
@@ -75,28 +75,17 @@ public class WorkflowDefinitionService {
      * @param metadata The metadata map to update
      * @param updates  The new metadata entries to add or update
      */
-    private static void upsertMetadata(Map<String, Object> metadata, Map<String, Object> updates) {
-        if (metadata == null || updates.isEmpty()) {
+    private static void upsertMetadata(WorkflowMetadata metadata, WorkflowMetadata updates) {
+        if (updates == null) {
             log.debug("No metadata provided for upsert");
             return;
         }
 
         log.debug("Upserting metadata: {}", updates);
-        for (Map.Entry<String, Object> entry : updates.entrySet()) {
-            String key = entry.getKey();
-            Object value = entry.getValue();
-
-            if (value == null) {
-                log.warn("Skipping null value for metadata key: {}", key);
-                continue;
-            }
-
-            if (metadata.containsKey(key)) {
-                log.debug("Updating existing metadata key: {}", key);
-            } else {
-                log.debug("Adding new metadata key: {}", key);
-            }
-            metadata.put(key, value);
+        if (metadata != null) {
+            metadata.alias().putAll(updates.alias());
+            metadata.nodeDependency().putAll(updates.nodeDependency());
+            metadata.nodeConsumer().putAll(updates.nodeConsumer());
         }
     }
 
@@ -114,12 +103,11 @@ public class WorkflowDefinitionService {
             throw new WorkflowNodeDefinitionException("Workflow definition cannot be null");
 
         }
-        WorkflowDefinition tempDef = new WorkflowDefinition(newDef);
 
-        upsertNodes(existingDef, tempDef);
-        upsertMetadata(existingDef.metadata(), tempDef.metadata());
+        upsertNodes(existingDef, newDef);
+        upsertMetadata(existingDef.metadata(), newDef.metadata());
 
-        return constructStaticMetadataAndValidate(tempDef);
+        return constructStaticMetadataAndValidate(existingDef);
     }
 
     /**
@@ -154,12 +142,12 @@ public class WorkflowDefinitionService {
             definition = new WorkflowDefinition();
         }
 
-        Map<String, Object> metadata = definition.metadata();
+        WorkflowMetadata metadata = definition.metadata();
         if (metadata == null) {
-            metadata = new HashMap<>();
+            metadata = new WorkflowMetadata();
         }
 
-        Map<String, Object> newMetadata = workflowContextService.buildStaticContext(definition.nodes(), metadata);
+        WorkflowMetadata newMetadata = workflowContextService.buildStaticContext(definition.nodes(), metadata);
 
         return new WorkflowDefinition(definition.nodes(), newMetadata);
     }
