@@ -94,7 +94,7 @@ public class WorkflowContextService {
     }
 
     private void generateTypeForConsumerFields(List<BaseWorkflowNode> existingNodes, WorkflowMetadata ctx) {
-        List<String> templateStrings = SchemaTemplateStringGenerator.generateTemplateStrings(existingNodes);
+        Set<String> templateStrings = SchemaTemplateStringGenerator.generateTemplateStrings(existingNodes);
         Map<String, JSONObject> schemas = schemaRegistry.getSchemaMapByTemplateStrings(templateStrings);
 
         for (BaseWorkflowNode node : existingNodes) {

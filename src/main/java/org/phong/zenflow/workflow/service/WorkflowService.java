@@ -78,9 +78,11 @@ public class WorkflowService {
                 .orElseThrow(() -> new WorkflowException("Workflow not found with id: " + workflowId));
 
         WorkflowDefinition existWorkflowDef = workflow.getDefinition();
+
         if (existWorkflowDef == null) {
-            existWorkflowDef = new WorkflowDefinition();
+            existWorkflowDef = new WorkflowDefinition().init();
         }
+
         WorkflowDefinition newWorkflowDef = new WorkflowDefinition(incomingNodes.nodes(), incomingNodes.metadata());
 
         WorkflowDefinition upserted = definitionService.upsert(newWorkflowDef, existWorkflowDef);

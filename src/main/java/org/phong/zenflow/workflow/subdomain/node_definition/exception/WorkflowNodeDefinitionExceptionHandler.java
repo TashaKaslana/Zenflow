@@ -24,6 +24,52 @@ import java.util.stream.Collectors;
 @Slf4j
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class WorkflowNodeDefinitionExceptionHandler {
+    @ExceptionHandler(WorkflowDefinitionValidationException.class)
+    public ResponseEntity<RestApiResponse<Void>> handleWorkflowDefinitionValidationException(WorkflowDefinitionValidationException ex, WebRequest request) {
+        log.debug("Workflow Definition Validation Exception occurred: {}", ex.getMessage());
+
+        ValidationResult validationResult = ex.getValidationResult();
+        Map<String, Object> fieldErrors = null;
+
+        if (validationResult != null && validationResult.getErrors() != null) {
+            try {
+                fieldErrors = validationResult.getErrors().stream()
+                        .filter(error -> error != null && error.getPath() != null)
+                        .collect(Collectors.toMap(
+                                ValidationError::getPath,
+                                ObjectConversion::convertObjectToMap,
+                                (existing, replacement) -> existing // In case of duplicate keys
+                        ));
+            } catch (Exception e) {
+                log.warn("Error processing validation errors: {}", e.getMessage(), e);
+                // Create a simplified error representation
+                fieldErrors = Map.of("error", "Error processing validation details");
+            }
+        }
+
+        if (fieldErrors == null) {
+            fieldErrors = Map.of("error", "No detailed validation information available");
+        }
+
+        String requestPath = null;
+        try {
+            requestPath = HttpRequestUtils.getRequestPath(request);
+        } catch (Exception e) {
+            log.warn("Could not determine request path: {}", e.getMessage());
+        }
+
+        ApiErrorResponse errorResponse = new ApiErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                "Workflow Definition Validation Error",
+                requestPath,
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                fieldErrors,
+                null
+        );
+
+        return RestApiResponse.badRequest(errorResponse, "An error occurred with the Workflow Definition Validation: " + ex.getMessage());
+    }
+
     @ExceptionHandler(WorkflowNodeDefinitionException.class)
     public ResponseEntity<RestApiResponse<Void>> handleWorkflowNodeDefinitionException(WorkflowNodeDefinitionException ex) {
         log.debug("WorkflowNodeDefinition exception occurred: {}", ex.getMessage());
@@ -35,29 +81,5 @@ public class WorkflowNodeDefinitionExceptionHandler {
         );
 
         return RestApiResponse.badRequest(errorResponse, "An error occurred with the WorkflowNodeDefinition: " + ex.getMessage());
-    }
-
-    @ExceptionHandler(WorkflowDefinitionValidationException.class)
-    public ResponseEntity<RestApiResponse<Void>> handleWorkflowNodeDefinitionException(WorkflowDefinitionValidationException ex, WebRequest request) {
-        log.debug("Workflow Definition Validation Exception occurred: {}", ex.getMessage());
-
-        ValidationResult validationResult = ex.getValidationResult();
-
-        Map<String, Object> fieldErrors = validationResult.getErrors().stream()
-                .collect(Collectors.toMap(
-                        ValidationError::getPath,
-                        ObjectConversion::convertObjectToFilteredMap
-                ));
-
-        ApiErrorResponse errorResponse = new ApiErrorResponse(
-                HttpStatus.BAD_REQUEST.value(),
-                "Workflow Definition Validation Error",
-                HttpRequestUtils.getRequestPath(request),
-                HttpStatus.BAD_REQUEST.getReasonPhrase(),
-                fieldErrors,
-                null
-        );
-
-        return RestApiResponse.badRequest(errorResponse, "An error occurred with the Workflow Definition Validation: " + ex.getMessage());
     }
 }

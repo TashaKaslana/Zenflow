@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -55,14 +56,14 @@ public class SchemaRegistry {
         }
     }
 
-    public Map<String, JSONObject> getSchemaMapByTemplateStrings(List<String> templateStrings) {
+    public Map<String, JSONObject> getSchemaMapByTemplateStrings(Set<String> templateStrings) {
         Map<String, JSONObject> result = new HashMap<>();
 
         List<String> builtinNames = templateStrings.stream()
                 .filter(name -> name.startsWith("builtin:"))
                 .map(name -> name.substring(8))
                 .toList();
-        List<UUID> pluginNodeIds = templateStrings.stream()
+        Set<UUID> pluginNodeIds = templateStrings.stream()
                 .filter(name -> !name.startsWith("builtin:"))
                 .map(name -> {
                     try {
@@ -70,7 +71,7 @@ public class SchemaRegistry {
                     } catch (IllegalArgumentException e) {
                         throw new IllegalArgumentException("Invalid nodeId format: " + name, e);
                     }
-                }).toList();
+                }).collect(Collectors.toSet());
 
         if (!builtinNames.isEmpty()) {
             Map<String, JSONObject> builtinSchemas = getBuiltinSchemas(builtinNames);
@@ -119,7 +120,7 @@ public class SchemaRegistry {
      * @param nodeIds List of node UUIDs
      * @return Map of nodeId -> schema JSONObject
      */
-    private Map<String, JSONObject> getPluginSchemasByNodeIds(List<UUID> nodeIds) {
+    private Map<String, JSONObject> getPluginSchemasByNodeIds(Set<UUID> nodeIds) {
         // Filter out already cached schemas
         List<UUID> uncachedNodeIds = nodeIds.stream()
                 .filter(nodeId -> !pluginCache.containsKey(nodeId.toString()))
@@ -149,7 +150,7 @@ public class SchemaRegistry {
      * @param nodeIds List of node UUIDs
      * @return Map of UUID -> schema JSONObject
      */
-    public Map<UUID, JSONObject> getPluginSchemasByNodeIdsAsUUID(List<UUID> nodeIds) {
+    public Map<UUID, JSONObject> getPluginSchemasByNodeIdsAsUUID(Set<UUID> nodeIds) {
         Map<String, JSONObject> stringKeyMap = getPluginSchemasByNodeIds(nodeIds);
         return stringKeyMap.entrySet().stream()
                 .collect(Collectors.toMap(
