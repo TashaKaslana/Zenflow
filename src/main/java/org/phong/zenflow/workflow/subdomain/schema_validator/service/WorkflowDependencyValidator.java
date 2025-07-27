@@ -1,6 +1,7 @@
 package org.phong.zenflow.workflow.subdomain.schema_validator.service;
 
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
@@ -22,12 +23,13 @@ import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
+@Slf4j
 public class WorkflowDependencyValidator {
 
     public List<ValidationError> validateNodeDependencyLoops(WorkflowDefinition workflow) {
 
         // 1. Build execution order from 'next' relationships
-        TopologicalOrderResult orderResult = buildTopologicalOrder(workflow.nodes());
+        TopologicalOrderResult orderResult = buildTopologicalOrder(workflow);
         List<ValidationError> errors = new ArrayList<>(orderResult.errors());
 
         // If we have cycles, we can't continue with dependency validation
@@ -84,8 +86,10 @@ public class WorkflowDependencyValidator {
         return errors;
     }
 
-    private TopologicalOrderResult buildTopologicalOrder(List<BaseWorkflowNode> nodes) {
+    private TopologicalOrderResult buildTopologicalOrder(WorkflowDefinition workflow) {
         List<ValidationError> errors = new ArrayList<>();
+        List<BaseWorkflowNode> nodes = workflow.nodes();
+        Map<String, String> aliases = workflow.metadata() != null ? workflow.metadata().aliases() : Collections.emptyMap();
 
         if (nodes == null || nodes.isEmpty()) {
             return new TopologicalOrderResult(new ArrayList<>(), errors);
@@ -100,11 +104,11 @@ public class WorkflowDependencyValidator {
             String nodeKey = node.getKey();
             List<String> nextKeys = node.getNext();
             if (nextKeys == null) {
-                nextKeys = Collections.emptyList(); // <== safest and immutable
+                nextKeys = Collections.emptyList();
             }
 
-            adjacencyList.put(nodeKey, new ArrayList<>(nextKeys)); // defensive copy
-            inDegree.put(nodeKey, 0); // initial in-degree
+            adjacencyList.put(nodeKey, new ArrayList<>(nextKeys));
+            inDegree.put(nodeKey, 0);
         }
 
         // Step 2: Validate next references and compute in-degrees
@@ -126,6 +130,23 @@ public class WorkflowDependencyValidator {
                             .expectedType("existing_node_key")
                             .schemaPath("$.nodes[?(@.key=='" + nodeKey + "')].next")
                             .build());
+                }
+            }
+        }
+
+        // Step 2.5: Add edges based on explicit nodeDependencies
+        WorkflowMetadata metadata = workflow.metadata();
+        if (metadata != null && metadata.nodeDependencies() != null) {
+            for (Map.Entry<String, Set<String>> entry : metadata.nodeDependencies().entrySet()) {
+                String nodeKey = entry.getKey();
+                Set<String> dependencies = entry.getValue();
+
+                for (String dependency : dependencies) {
+                    String referencedNode = TemplateEngine.getReferencedNode(dependency, aliases);
+                    if (referencedNode != null && !referencedNode.equals(nodeKey) && inDegree.containsKey(referencedNode)) {
+                        adjacencyList.get(referencedNode).add(nodeKey);
+                        inDegree.put(nodeKey, inDegree.get(nodeKey) + 1);
+                    }
                 }
             }
         }

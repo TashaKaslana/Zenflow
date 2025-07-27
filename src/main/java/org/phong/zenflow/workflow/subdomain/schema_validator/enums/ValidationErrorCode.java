@@ -46,7 +46,14 @@ public enum ValidationErrorCode {
     // === General Errors ===
     VALIDATION_ERROR("An error occurred during validation"),
     UNKNOWN_ERROR("An unknown error occurred"),
-    UNSUPPORTED_OPERATION("This operation is not supported in current mode");
+    UNSUPPORTED_OPERATION("This operation is not supported in current mode"),
+    INVALID_TYPE("Invalid type provided"),
+    INVALID_VALUE("Invalid value provided"),
+    INVALID_FORMAT("Invalid format"),
+    INVALID_REFERENCE("Invalid reference"),
+    INVALID_ALIAS_FORMAT("Invalid alias format in the key"),
+    FUTURE_NODE_REFERENCE("Node reference points to a future node"),
+    FUTURE_NODE_REFERENCE_IN_ALIAS("Alias contains a future node reference");
 
     private final String defaultMessage;
 }

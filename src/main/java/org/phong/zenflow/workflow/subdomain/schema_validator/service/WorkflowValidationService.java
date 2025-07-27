@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -35,6 +36,10 @@ public class WorkflowValidationService {
     private final SchemaValidationService schemaValidationService;
     private final WorkflowDependencyValidator workflowDependencyValidator;
     private final SchemaTemplateValidationService schemaTemplateValidationService;
+
+    // Regex to validate alias keys. Allows alphanumeric characters, underscores, and hyphens.
+    // Must start and end with an alphanumeric character.
+    private final static Pattern aliasPattern = Pattern.compile("^[a-zA-Z0-9]+([a-zA-Z0-9_-]*[a-zA-Z0-9]+)?$");
 
     /**
      * Phase 1: Validates a workflow definition against schema requirements.
@@ -59,7 +64,30 @@ public class WorkflowValidationService {
 
         errors.addAll(workflowDependencyValidator.validateNodeDependencyLoops(workflow));
 
+        errors.addAll(validateAliasKeys(workflow));
+
         return new ValidationResult("definition", errors);
+    }
+
+    private List<ValidationError> validateAliasKeys(WorkflowDefinition workflow) {
+        List<ValidationError> errors = new ArrayList<>();
+        if (workflow.metadata() == null || workflow.metadata().aliases() == null) {
+            return errors;
+        }
+
+        for (String aliasName : workflow.metadata().aliases().keySet()) {
+            if (!aliasPattern.matcher(aliasName).matches()) {
+                errors.add(ValidationError.builder()
+                        .nodeKey("aliases") // Alias is not tied to a specific node
+                        .errorType("definition")
+                        .errorCode(ValidationErrorCode.INVALID_ALIAS_FORMAT)
+                        .path("metadata.aliases." + aliasName)
+                        .message("Invalid alias name: '" + aliasName + "'. Alias names must be alphanumeric and may contain hyphens or underscores, but cannot start or end with them.")
+                        .value(aliasName)
+                        .build());
+            }
+        }
+        return errors;
     }
 
     /**
