@@ -139,38 +139,43 @@ public class WorkflowValidationService {
         List<ValidationError> errors = new ArrayList<>();
 
         for (BaseWorkflowNode node : workflow.nodes()) {
+            log.debug("Processing node: {} (type: {})", node.getKey(), node.getType());
+
             String templateString = null;
 
             // Only handle plugin nodes for now
             if (node.getType() == NodeType.PLUGIN && node instanceof PluginDefinition pluginNode) {
                 validatePluginNode(pluginNode, errors);
                 templateString = pluginNode.getPluginNode().nodeId().toString();
+                log.debug("Plugin node detected - templateString: {}", templateString);
+            } else {
+                log.debug("Skipping non-plugin node: {}", node.getKey());
             }
 
             // Validate template references in the node's configuration
-            if (templateString != null && node.getConfig() != null && node.getConfig().input() != null) {
+            if (templateString != null && node.getConfig().input() != null) {
                 Set<String> templates = TemplateEngine.extractRefs(node.getConfig());
                 Map<String, OutputUsage> nodeConsumers = workflow.metadata() != null ?
                         workflow.metadata().nodeConsumers() : null;
 
                 if (nodeConsumers != null && !templates.isEmpty()) {
-                    log.debug("Validating templates for node {}: {}", node.getKey(), templates);
-
-                    errors.addAll(
-                            schemaTemplateValidationService.validateTemplateType(
-                                    node.getKey(),
-                                    templateString,
-                                    node.getConfig().input(),
-                                    nodeConsumers,
-                                    templates
-                            )
+                    log.debug("Validating template references for node: {}", node.getKey());
+                    List<ValidationError> templateErrors = schemaTemplateValidationService.validateTemplateType(
+                            node.getKey(),
+                            templateString,
+                            node.getConfig().input(),
+                            workflow.metadata(),
+                            templates
                     );
+                    log.debug("Found {} template errors for node: {}", templateErrors.size(), node.getKey());
+                    errors.addAll(templateErrors);
                 }
             }
         }
 
         return errors;
     }
+
 
     /**
      * Validates a plugin node's configuration against its schema.
@@ -239,6 +244,15 @@ public class WorkflowValidationService {
         return errors;
     }
 
+    /**
+     * Validates that the node's configuration does not reference non-existent nodes.
+     * Checks both template references and explicit 'next' references.
+     *
+     * @param node       The workflow node to validate
+     * @param nodeKeys   Set of all existing node keys in the workflow
+     * @param aliases    Map of aliases defined in the workflow metadata
+     * @return List of validation errors for missing node references
+     */
     private List<ValidationError> validateNodeExistence(BaseWorkflowNode node, Set<String> nodeKeys,
                                                         Map<String, String> aliases) {
         List<ValidationError> errors = new ArrayList<>();

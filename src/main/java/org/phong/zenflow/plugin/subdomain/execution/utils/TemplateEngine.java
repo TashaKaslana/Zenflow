@@ -18,7 +18,7 @@ import java.util.regex.*;
 public class TemplateEngine {
 
     // Updated pattern to handle both simple references and function calls
-    private static final Pattern TEMPLATE_PATTERN = Pattern.compile("\\{\\{\\s*([a-zA-Z0-9._-]+(?:\\(.*?\\))?)\\s*}}");
+    private static final Pattern TEMPLATE_PATTERN = Pattern.compile("\\{\\{([a-zA-Z0-9_.\\-]+)}}");
     private static final Map<String, Function<List<String>, Object>> functionRegistry = new HashMap<>();
     static {
         functionRegistry.put("uuid", args -> UUID.randomUUID().toString());
@@ -66,6 +66,16 @@ public class TemplateEngine {
                 refs.addAll(extractRefs(item));
             }
             return refs;
+        } else if (value != null) {
+            // Handles custom objects by attempting to convert them to a Map using ObjectConversion.
+            try {
+                // Convert the object to a Map
+                Map<?, ?> map = ObjectConversion.convertObjectToMap(value);
+                return extractRefs(map);
+            } catch (Exception e) {
+                // Fallback: extract references from the object's string representation.
+                return extractRefs(value.toString());
+            }
         }
         return new LinkedHashSet<>();
     }
@@ -199,34 +209,6 @@ public class TemplateEngine {
     }
 
     /**
-     * Recursively resolves all templates in a map.
-     *
-     * @param input The map containing templates
-     * @param context The context containing values for references
-     * @return A new map with all templates resolved
-     */
-    public static Map<String, Object> resolveAll(Map<String, Object> input, Map<String, Object> context) {
-        Map<String, Object> resolved = new HashMap<>();
-        for (Map.Entry<String, Object> entry : input.entrySet()) {
-            Object value = entry.getValue();
-            if (value instanceof Map) {
-                resolved.put(entry.getKey(), resolveAll(ObjectConversion.convertObjectToMap(value), context));
-            } else if (value instanceof List<?> list) {
-                List<Object> resolvedList = list.stream()
-                        .map(item -> item instanceof Map
-                                ? resolveAll(ObjectConversion.convertObjectToMap(item), context)
-                                : resolveTemplate(item, context))
-                        .toList();
-                resolved.put(entry.getKey(), resolvedList);
-            }
-            else {
-                resolved.put(entry.getKey(), resolveTemplate(value, context));
-            }
-        }
-        return resolved;
-    }
-
-    /**
      * Extracts the referenced node from a template string.<br>
      * For example, "user.name" would return "user"
      * or "node1.output.email" would return "node1".
@@ -243,7 +225,7 @@ public class TemplateEngine {
         if (aliasMap != null && !aliasMap.isEmpty()) {
             String actualTemplate = aliasMap.get(templateExpression);
             if (actualTemplate != null) {
-                templateExpression = actualTemplate;
+                templateExpression = actualTemplate.substring(2, actualTemplate.length() - 2); // Remove {{ and }}
             }
         }
 

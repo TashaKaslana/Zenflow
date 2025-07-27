@@ -7,6 +7,7 @@ import org.json.JSONObject;
 import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
 import org.phong.zenflow.plugin.subdomain.schema.services.SchemaRegistry;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.OutputUsage;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowMetadata;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
 import org.phong.zenflow.workflow.subdomain.schema_validator.enums.ValidationErrorCode;
 import org.springframework.stereotype.Service;
@@ -30,37 +31,39 @@ public class SchemaTemplateValidationService {
             String nodeKey,
             String templateString,
             Object nodeInputConfig,
-            Map<String, OutputUsage> nodeConsumers,
+            WorkflowMetadata metadata,
             Set<String> templates) {
 
         List<ValidationError> errors = new ArrayList<>();
 
         try {
             JSONObject schema = schemaRegistry.getSchemaByTemplateString(templateString);
-            if (schema == null || nodeConsumers == null || nodeInputConfig == null) {
+            if (schema == null || metadata.nodeConsumers() == null || nodeInputConfig == null) {
                 log.debug("Skipping validation for node {} - missing schema or configuration", nodeKey);
                 return errors;
             }
 
-            if (!schema.has("properties") || !schema.getJSONObject("properties").has("input")) {
+            // FIX: Check for input schema directly at root level
+            if (!schema.has("input")) {
                 log.debug("No input schema found for node {}", nodeKey);
                 return errors;
             }
 
-            JSONObject inputSchema = schema.getJSONObject("properties").getJSONObject("input");
+            JSONObject inputSchema = schema.getJSONObject("input");
             if (!inputSchema.has("properties")) {
+                log.debug("Input schema has no properties for node {}", nodeKey);
                 return errors;
             }
 
             JSONObject inputProperties = inputSchema.getJSONObject("properties");
-            JSONObject inputData = new JSONObject(nodeInputConfig.toString());
+            JSONObject inputData = (JSONObject) JSONObject.wrap(nodeInputConfig);
 
             log.debug("Validating {} templates for node {}", templates.size(), nodeKey);
 
             // Validate each template against its schema field
             for (String template : templates) {
                 validateSingleTemplate(nodeKey, template, inputData, inputProperties,
-                        nodeConsumers, errors);
+                        metadata, errors);
             }
 
         } catch (Exception e) {
@@ -77,9 +80,12 @@ public class SchemaTemplateValidationService {
         return errors;
     }
 
+    /**
+     * Validates a single template against its schema field
+     */
     private void validateSingleTemplate(String nodeKey, String template,
                                         JSONObject inputData, JSONObject inputProperties,
-                                        Map<String, OutputUsage> nodeConsumers,
+                                        WorkflowMetadata metadata,
                                         List<ValidationError> errors) {
 
         // Find which input field contains this template
@@ -100,7 +106,7 @@ public class SchemaTemplateValidationService {
         String expectedType = getSchemaType(fieldSchema);
 
         // Get actual type from nodeConsumers
-        OutputUsage consumer = nodeConsumers.get(template);
+        OutputUsage consumer = resolveTemplateToConsumer(template, metadata);
         if (consumer != null) {
             String actualType = consumer.getType();
 
@@ -177,6 +183,43 @@ public class SchemaTemplateValidationService {
     }
 
     /**
+     * Resolves a template (including aliases) to its corresponding OutputUsage
+     * Prioritizes aliases map for better performance
+     */
+    private OutputUsage resolveTemplateToConsumer(String template, WorkflowMetadata metadata) {
+        Map<String, OutputUsage> nodeConsumers = metadata.nodeConsumers();
+        Map<String, String> aliases = metadata.aliases();
+
+        // Method 1: Direct lookup in nodeConsumers (fastest)
+        OutputUsage directConsumer = nodeConsumers.get(template);
+        if (directConsumer != null) {
+            log.debug("Found direct consumer for template: {}", template);
+            return directConsumer;
+        }
+
+        // Method 2: Resolve via aliases map (O(1) lookup, much faster)
+        if (aliases != null && aliases.containsKey(template)) {
+            String aliasValue = aliases.get(template);
+            log.debug("Found alias mapping: {} -> {}", template, aliasValue);
+
+            // Extract the actual template from alias value (e.g., "{{data-generator.output.user_age}}" -> "data-generator.output.user_age")
+            Set<String> aliasRefs = TemplateEngine.extractRefs(aliasValue);
+            if (!aliasRefs.isEmpty()) {
+                String resolvedTemplate = aliasRefs.iterator().next();
+                OutputUsage resolvedConsumer = nodeConsumers.get(resolvedTemplate);
+                if (resolvedConsumer != null) {
+                    log.debug("Resolved alias {} -> {} -> consumer found", template, resolvedTemplate);
+                    return resolvedConsumer;
+                }
+            }
+        }
+
+        log.debug("No consumer found for template: {}", template);
+        return null;
+    }
+
+
+    /**
      * Gets the schema for a specific field path
      */
     private JSONObject getSchemaForPath(JSONObject inputProperties, String path) {
@@ -239,7 +282,8 @@ public class SchemaTemplateValidationService {
         }
 
         // Special case for numbers - integer can be used where number is expected
-        if (expectedType.equals("number") && actualType.equals("integer")) {
+        if (expectedType.equals("number") && actualType.equals("integer")
+                || (expectedType.equals("integer") && actualType.equals("number"))) {
             return true;
         }
 
