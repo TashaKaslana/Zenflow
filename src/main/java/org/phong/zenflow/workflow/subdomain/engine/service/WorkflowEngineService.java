@@ -11,7 +11,6 @@ import org.phong.zenflow.workflow.infrastructure.persistence.repository.Workflow
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.engine.dto.WorkflowExecutionStatus;
 import org.phong.zenflow.workflow.subdomain.engine.exception.WorkflowEngineException;
-import org.phong.zenflow.workflow.subdomain.engine.exception.WorkflowEngineValidationException;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.NodeExecutorRegistry;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
@@ -81,12 +80,15 @@ public class WorkflowEngineService {
                     case WAITING:
                         log.info("Workflow is now in {} state at node {}. Halting execution.", result.getStatus(), workingNode.getKey());
                         executionStatus = WorkflowExecutionStatus.HALTED;
+                        workingNode = null;
                         break;
                     case NEXT:
                         workingNode = navigatorNext(workflowId, result, workflowSchema);
                         break;
                     case VALIDATION_ERROR:
-                        navigatorValidationError(workingNode, result);
+                        executionStatus = navigatorValidationError(workingNode, result);
+                        workingNode = null;
+                        break;
                     default:
                         throw new WorkflowEngineException("Unknown execution status: " + result.getStatus());
                 }
@@ -166,13 +168,9 @@ public class WorkflowEngineService {
         return workingNode;
     }
 
-    private static void navigatorValidationError(BaseWorkflowNode workingNode, ExecutionResult result) {
+    private WorkflowExecutionStatus navigatorValidationError(BaseWorkflowNode workingNode, ExecutionResult result) {
         log.warn("Validation error in node {}: {}", workingNode.getKey(), result.getValidationResult());
-        throw new WorkflowEngineValidationException(
-                String.format("Workflow engine validate node failed in nodeKey: %s!", workingNode.getKey()),
-                workingNode.getKey(),
-                result.getValidationResult()
-        );
+        return WorkflowExecutionStatus.HALTED;
     }
 
     private BaseWorkflowNode findNodeByKey(List<BaseWorkflowNode> schema, String key) {

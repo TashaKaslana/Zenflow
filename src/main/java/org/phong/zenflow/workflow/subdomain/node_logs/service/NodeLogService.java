@@ -1,5 +1,6 @@
 package org.phong.zenflow.workflow.subdomain.node_logs.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.log.auditlog.annotations.AuditLog;
@@ -41,6 +42,7 @@ public class NodeLogService {
     private final WorkflowRunRepository workflowRunRepository;
     private final NodeLogMapper nodeLogMapper;
     private final WorkflowRetrySchedule workflowRetrySchedule;
+    private final ObjectMapper objectMapper;
 
     /**
      * Create a new node log
@@ -130,7 +132,13 @@ public class NodeLogService {
         NodeLog nodeLog = nodeLogRepository.findByWorkflowRunIdAndNodeKey(workflowRunId, nodeKey)
                 .orElseThrow(() -> new NodeLogException("NodeLog not found for workflowRunId: " + workflowRunId + " and nodeKey: " + nodeKey));
 
-        String errorMessage = "Validation failed: " + validationResult.getErrors();
+        String errorMessage;
+        try {
+            errorMessage = objectMapper.writeValueAsString(validationResult.getErrors());
+        } catch (Exception e) {
+            log.warn("Could not serialize validation errors to JSON", e);
+            errorMessage = "Validation failed: " + validationResult.getErrors();
+        }
         nodeLog.setStatus(NodeLogStatus.ERROR);
         nodeLog.setError(errorMessage);
         nodeLog.setEndedAt(OffsetDateTime.now());

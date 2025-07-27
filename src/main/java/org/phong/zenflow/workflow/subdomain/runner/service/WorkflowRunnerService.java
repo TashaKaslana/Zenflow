@@ -68,36 +68,12 @@ public class WorkflowRunnerService {
                     ));
             Map<String, String> aliasMap = metadata.aliases();
 
-            if (workflowRun.getContext() == null || workflowRun.getContext().isEmpty()) {
-                // First run: ensure the run is started and create a new context
-                log.debug("No existing context found for workflow run ID: {}. Starting new run.", workflowRunId);
-                Map<String, String> secretOfWorkflow = secretService.getSecretMapByWorkflowId(workflowId);
-                Map<String, Object> initialContext = new ConcurrentHashMap<>(Map.of("secrets", secretOfWorkflow));
-                if (request != null && request.callbackUrl() != null && !request.callbackUrl().isEmpty()) {
-                    initialContext.put(callbackUrlKeyOnContext, request.callbackUrl());
-                }
-                context.initialize(initialContext, consumers, aliasMap);
-            } else {
-                // Resumed run: load existing context
-                log.debug("Existing context found for workflow run ID: {}. Loading context.", workflowRunId);
-                context.initialize(new ConcurrentHashMap<>(workflowRun.getContext()), consumers, aliasMap);
-            }
+            initializeContext(workflowRunId, workflowId, request, workflowRun, context, consumers, aliasMap);
 
             String startFromNodeKey = (request != null) ? request.startFromNodeKey() : null;
             WorkflowExecutionStatus status = workflowEngineService.runWorkflow(workflowId, workflowRunId, startFromNodeKey, context);
 
-            if (status == WorkflowExecutionStatus.COMPLETED) {
-                workflowRunService.completeWorkflowRun(workflowRunId);
-                log.debug("Workflow with ID: {} completed successfully", workflowId);
-                Object callbackUrlObj = context.get(callbackUrlKeyOnContext);
-                if (callbackUrlObj instanceof String callbackUrl && !callbackUrl.isEmpty()) {
-                    notifyCallbackUrl(callbackUrl, workflowRunId);
-                }
-            } else if (status == WorkflowExecutionStatus.HALTED) {
-                // Workflow is paused (RETRY or WAITING), save the context for resumption.
-                log.debug("Workflow with ID: {} is halted. Saving context.", workflowId);
-                workflowRunService.saveContext(workflowRunId, context.getContext());
-            }
+            handleWorkflowExecutionStatus(workflowRunId, workflowId, status, context);
 
         } catch (Exception e) {
             log.warn("Error running workflow with ID: {}", workflowId, e);
@@ -106,6 +82,38 @@ public class WorkflowRunnerService {
             if (callbackUrlObj instanceof String callbackUrl && !callbackUrl.isEmpty()) {
                 notifyCallbackUrl(callbackUrl, workflowRunId);
             }
+        }
+    }
+
+    private void initializeContext(UUID workflowRunId, UUID workflowId, WorkflowRunnerRequest request, WorkflowRun workflowRun, RuntimeContext context, Map<String, Set<String>> consumers, Map<String, String> aliasMap) {
+        if (workflowRun.getContext() == null || workflowRun.getContext().isEmpty()) {
+            // First run: ensure the run is started and create a new context
+            log.debug("No existing context found for workflow run ID: {}. Starting new run.", workflowRunId);
+            Map<String, String> secretOfWorkflow = secretService.getSecretMapByWorkflowId(workflowId);
+            Map<String, Object> initialContext = new ConcurrentHashMap<>(Map.of("secrets", secretOfWorkflow));
+            if (request != null && request.callbackUrl() != null && !request.callbackUrl().isEmpty()) {
+                initialContext.put(callbackUrlKeyOnContext, request.callbackUrl());
+            }
+            context.initialize(initialContext, consumers, aliasMap);
+        } else {
+            // Resumed run: load existing context
+            log.debug("Existing context found for workflow run ID: {}. Loading context.", workflowRunId);
+            context.initialize(new ConcurrentHashMap<>(workflowRun.getContext()), consumers, aliasMap);
+        }
+    }
+
+    private void handleWorkflowExecutionStatus(UUID workflowRunId, UUID workflowId, WorkflowExecutionStatus status, RuntimeContext context) {
+        if (status == WorkflowExecutionStatus.COMPLETED) {
+            workflowRunService.completeWorkflowRun(workflowRunId);
+            log.debug("Workflow with ID: {} completed successfully", workflowId);
+            Object callbackUrlObj = context.get(callbackUrlKeyOnContext);
+            if (callbackUrlObj instanceof String callbackUrl && !callbackUrl.isEmpty()) {
+                notifyCallbackUrl(callbackUrl, workflowRunId);
+            }
+        } else if (status == WorkflowExecutionStatus.HALTED) {
+            // Workflow is paused (RETRY or WAITING), save the context for resumption.
+            log.debug("Workflow with ID: {} is halted. Saving context.", workflowId);
+            workflowRunService.saveContext(workflowRunId, context.getContext());
         }
     }
 
