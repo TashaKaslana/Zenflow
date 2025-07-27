@@ -73,7 +73,7 @@ public class WorkflowDependencyValidator {
                         .errorType("definition")
                         .errorCode(ValidationErrorCode.INVALID_CONNECTION)
                         .path("nodes." + nodeKey + ".dependencies")
-                        .message(String.format("Node '%s' references future node or not exists node '%s' in dependency: %s",
+                        .message(String.format("Node '%s' references future node or not exists node '%s' in dependency: '%s'.",
                                 nodeKey, sourceNode, dependency))
                         .value(dependency)
                         .template(dependency)
@@ -125,7 +125,7 @@ public class WorkflowDependencyValidator {
                             .errorType("definition")
                             .errorCode(ValidationErrorCode.MISSING_NODE_REFERENCE)
                             .path("nodes." + nodeKey + ".next")
-                            .message(String.format("Node '%s' references non-existent next node: %s", nodeKey, nextNode))
+                            .message(String.format("Node '%s' references non-existent next node: '%s'.", nodeKey, nextNode))
                             .value(nextNode)
                             .expectedType("existing_node_key")
                             .schemaPath("$.nodes[?(@.key=='" + nodeKey + "')].next")
@@ -189,7 +189,7 @@ public class WorkflowDependencyValidator {
                     .errorType("definition")
                     .errorCode(ValidationErrorCode.CIRCULAR_DEPENDENCY)
                     .path("workflow.nodes")
-                    .message("Workflow contains cycles. Cycle detected involving node: " + firstInCycle)
+                    .message("Workflow contains cycles. Cycle detected involving node: '" + firstInCycle + "'.")
                     .value(new ArrayList<>(cycleNodes))
                     .expectedType("acyclic_graph")
                     .schemaPath("$.nodes")

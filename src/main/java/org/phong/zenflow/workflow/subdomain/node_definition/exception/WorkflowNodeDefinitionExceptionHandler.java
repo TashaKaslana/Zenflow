@@ -55,14 +55,14 @@ public class WorkflowNodeDefinitionExceptionHandler {
 
         ApiErrorResponse errorResponse = new ApiErrorResponse(
                 HttpStatus.BAD_REQUEST.value(),
-                "Workflow Definition Validation Error in Phase: " + validationResult.getPhase(),
+                String.format("Workflow Definition Validation Error in Phase: '%s'", validationResult.getPhase()),
                 requestPath,
                 HttpStatus.BAD_REQUEST.getReasonPhrase(),
                 groupedErrors,
                 null
         );
 
-        return RestApiResponse.badRequest(errorResponse, "Workflow definition validation failed: " + ex.getMessage());
+        return RestApiResponse.badRequest(errorResponse, ex.getMessage());
     }
 
     @ExceptionHandler(WorkflowNodeDefinitionException.class)

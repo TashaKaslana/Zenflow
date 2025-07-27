@@ -76,8 +76,10 @@ public class SchemaTemplateValidationService {
                                     .errorType("definition")
                                     .errorCode(ValidationErrorCode.TYPE_MISMATCH)
                                     .path(nodeKey + ".input." + inputField)
-                                    .message("Type mismatch: Field expects '" + expectedType +
-                                            "' but template '" + template + "' provides '" + actualType + "'")
+                                    .message(String.format(
+                                            "Type mismatch: Field expects '%s' but template '%s' provides '%s'",
+                                            expectedType, template, actualType
+                                    ))
                                     .template("{{" + template + "}}")
                                     .value(actualType)
                                     .expectedType(expectedType)
