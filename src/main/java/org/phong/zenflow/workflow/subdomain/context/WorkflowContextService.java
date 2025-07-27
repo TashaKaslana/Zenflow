@@ -18,6 +18,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Static context service for workflow nodes.
@@ -53,8 +54,8 @@ public class WorkflowContextService {
         }
 
         generateDependenciesAndConsumers(existingNodes, ctx);
-        generateTypeForConsumerFields(existingNodes, ctx);
         generateAliasLinkBackToConsumers(ctx);
+        generateTypeForConsumerFields(existingNodes, ctx);
 
         return new WorkflowMetadata(ctx.aliases(), ctx.nodeDependencies(), ctx.nodeConsumers());
     }
@@ -96,22 +97,73 @@ public class WorkflowContextService {
     private void generateTypeForConsumerFields(List<BaseWorkflowNode> existingNodes, WorkflowMetadata ctx) {
         Set<String> templateStrings = SchemaTemplateStringGenerator.generateTemplateStrings(existingNodes);
         Map<String, JSONObject> schemas = schemaRegistry.getSchemaMapByTemplateStrings(templateStrings);
+        Map<String, BaseWorkflowNode> nodeMap = existingNodes.stream()
+                .collect(Collectors.toMap(BaseWorkflowNode::getKey, node -> node));
 
-        for (BaseWorkflowNode node : existingNodes) {
+        ctx.nodeConsumers().forEach((key, usage) -> {
+            String[] parts = key.split("\\.output\\.");
+            if (parts.length != 2) {
+                return; // Not an output field, so we can't determine its type from a schema.
+            }
+
+            String nodeKey = parts[0];
+            String outputFieldName = parts[1];
+
+            BaseWorkflowNode node = nodeMap.get(nodeKey);
+            if (node == null) {
+                log.warn("Node with key {} not found in existing nodes, skipping type generation for consumer field {}", nodeKey, key);
+                return;
+            }
+
+            String schemaKey = (node instanceof PluginDefinition)
+                    ? ((PluginDefinition) node).getPluginNode().nodeId().toString() : node.getKey();
+            JSONObject schema = schemas.get(schemaKey);
+
+            populateTypeNodeConsumer(key, usage, schema, outputFieldName, nodeKey);
+        });
+    }
+
+    private void populateTypeNodeConsumer(String key, OutputUsage usage, JSONObject schema, String outputFieldName, String nodeKey) {
+        if (schema != null) {
             try {
-                if (node instanceof PluginDefinition pluginNode) {
-                    JSONObject schema = schemas.get(pluginNode.getPluginNode().nodeId().toString());
-                    if (schema != null) {
-                        populateOutputTypesFromSchema(node, schema, ctx);
-                    } else {
-                        log.warn("No schema found for plugin node {}", pluginNode.getPluginNode().nodeId());
+                if (schema.has("output") && schema.getJSONObject("output").has("properties")) {
+                    JSONObject outputProperties = schema.getJSONObject("output").getJSONObject("properties");
+                    String[] fieldParts = outputFieldName.split("\\.");
+                    JSONObject currentSchema = outputProperties;
+
+                    for (int i = 0; i < fieldParts.length; i++) {
+                        String part = fieldParts[i];
+                        if (currentSchema.has(part)) {
+                            if (i == fieldParts.length - 1) {
+                                JSONObject fieldSchema = currentSchema.getJSONObject(part);
+                                usage.setType(determineSchemaType(fieldSchema));
+                                return;
+                            } else {
+                                currentSchema = currentSchema.getJSONObject(part);
+                                if (currentSchema.has("properties")) {
+                                    currentSchema = currentSchema.getJSONObject("properties");
+                                } else {
+                                    // Path doesn't fully exist in schema
+                                    break;
+                                }
+                            }
+                        } else {
+                            // Path doesn't exist in schema
+                            break;
+                        }
                     }
-                } else {
-                    log.warn("Node {} is not a plugin node, skipping schema processing", node.getKey());
                 }
             } catch (Exception e) {
-                log.warn("Failed to load schema for node {}: {}", node.getKey(), e.getMessage());
+                log.warn("Failed to parse schema for node key {}: {}", nodeKey, e.getMessage());
             }
+        } else {
+            // This could be a built-in node or a plugin node for which schema is not found.
+            log.warn("No schema found for node key {}, skipping type generation for consumer field {}", nodeKey, key);
+        }
+
+        // If type was not determined, set it to "any"
+        if (usage.getType() == null) {
+            usage.setType("any");
         }
     }
 
@@ -120,32 +172,6 @@ public class WorkflowContextService {
             return TemplateEngine.extractRefs(aliases.get(ref)).stream().findFirst().orElse(ref);
         }
         return ref;
-    }
-
-    private void populateOutputTypesFromSchema(BaseWorkflowNode node, JSONObject schema, WorkflowMetadata ctx) {
-        try {
-            // Look for the output schema definition in the schema
-            if (schema.has("properties") && schema.getJSONObject("properties").has("output")) {
-                JSONObject outputSchema = schema.getJSONObject("properties").getJSONObject("output");
-
-                // Get output schema properties if available
-                if (outputSchema.has("properties")) {
-                    JSONObject outputProperties = outputSchema.getJSONObject("properties");
-
-                    // Process each output field defined in the schema
-                    for (String key : outputProperties.keySet()) {
-                        String outputKey = node.getKey() + ".output." + key;
-                        // This will create a new OutputUsage object for each potential output defined in the schema.
-                        OutputUsage outputUsage = ctx.nodeConsumers().computeIfAbsent(outputKey, k -> new OutputUsage());
-
-                        JSONObject fieldSchema = outputProperties.getJSONObject(key);
-                        outputUsage.setType(determineSchemaType(fieldSchema));
-                    }
-                }
-            }
-        } catch (Exception e) {
-            log.warn("Failed to parse output schema for node {}: {}", node.getKey(), e.getMessage());
-        }
     }
 
     /**

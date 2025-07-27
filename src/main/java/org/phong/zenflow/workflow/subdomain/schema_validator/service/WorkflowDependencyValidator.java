@@ -9,7 +9,15 @@ import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError
 import org.phong.zenflow.workflow.subdomain.schema_validator.enums.ValidationErrorCode;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -26,6 +34,9 @@ public class WorkflowDependencyValidator {
         if (orderResult.executionOrder() == null) {
             return errors;
         }
+
+        // Validate that aliases only reference existing nodes
+        errors.addAll(validateAliasDefinitions(workflow));
 
         // 2. Validate each node's dependencies against execution order
         List<String> executionOrder = orderResult.executionOrder();
@@ -60,7 +71,7 @@ public class WorkflowDependencyValidator {
                         .errorType("definition")
                         .errorCode(ValidationErrorCode.INVALID_CONNECTION)
                         .path("nodes." + nodeKey + ".dependencies")
-                        .message(String.format("Node '%s' references future node '%s' in dependency: %s",
+                        .message(String.format("Node '%s' references future node or not exists node '%s' in dependency: %s",
                                 nodeKey, sourceNode, dependency))
                         .value(dependency)
                         .template(dependency)
@@ -69,9 +80,6 @@ public class WorkflowDependencyValidator {
                         .build());
             }
         }
-
-        // Validate aliases used by this node don't reference future nodes
-        errors.addAll(validateAliasesForNode(nodeKey, availableNodes, aliases));
 
         return errors;
     }
@@ -83,98 +91,107 @@ public class WorkflowDependencyValidator {
             return new TopologicalOrderResult(new ArrayList<>(), errors);
         }
 
-        // Build an adjacency list from 'next' relationships
+        // Build adjacency list and in-degree map
         Map<String, List<String>> adjacencyList = new HashMap<>();
         Map<String, Integer> inDegree = new HashMap<>();
 
-        // Initialize all nodes
+        // Step 1: Initialize nodes
         for (BaseWorkflowNode node : nodes) {
             String nodeKey = node.getKey();
-            adjacencyList.put(nodeKey, new ArrayList<>(node.getNext()));
-            inDegree.put(nodeKey, 0);
+            List<String> nextKeys = node.getNext();
+            if (nextKeys == null) {
+                nextKeys = Collections.emptyList(); // <== safest and immutable
+            }
+
+            adjacencyList.put(nodeKey, new ArrayList<>(nextKeys)); // defensive copy
+            inDegree.put(nodeKey, 0); // initial in-degree
         }
 
-        // Calculate in-degrees and validate next references
-        for (BaseWorkflowNode node : nodes) {
-            for (String nextNode : node.getNext()) {
+        // Step 2: Validate next references and compute in-degrees
+        for (Map.Entry<String, List<String>> entry : adjacencyList.entrySet()) {
+            String nodeKey = entry.getKey();
+            List<String> nextKeys = entry.getValue();
+
+            for (String nextNode : nextKeys) {
                 if (inDegree.containsKey(nextNode)) {
                     inDegree.put(nextNode, inDegree.get(nextNode) + 1);
                 } else {
                     errors.add(ValidationError.builder()
-                            .nodeKey(node.getKey())
+                            .nodeKey(nodeKey)
                             .errorType("definition")
                             .errorCode(ValidationErrorCode.MISSING_NODE_REFERENCE)
-                            .path("nodes." + node.getKey() + ".next")
-                            .message(String.format("Node '%s' references non-existent next node: %s",
-                                    node.getKey(), nextNode))
+                            .path("nodes." + nodeKey + ".next")
+                            .message(String.format("Node '%s' references non-existent next node: %s", nodeKey, nextNode))
                             .value(nextNode)
                             .expectedType("existing_node_key")
-                            .schemaPath("$.nodes[?(@.key=='" + node.getKey() + "')].next")
+                            .schemaPath("$.nodes[?(@.key=='" + nodeKey + "')].next")
                             .build());
                 }
             }
         }
 
-        // If we have invalid references, we might still be able to continue
-        // Kahn's algorithm for topological sort
+        // Step 3: Topological sort using Kahn's algorithm
         Queue<String> queue = new LinkedList<>();
         List<String> executionOrder = new ArrayList<>();
 
-        // Find nodes with no incoming edges (start nodes)
         inDegree.entrySet().stream()
                 .filter(entry -> entry.getValue() == 0)
                 .forEach(entry -> queue.offer(entry.getKey()));
 
         while (!queue.isEmpty()) {
-            String currentNode = queue.poll();
-            executionOrder.add(currentNode);
+            String current = queue.poll();
+            executionOrder.add(current);
 
-            // Remove edges and update in-degrees
-            for (String neighbor : adjacencyList.get(currentNode)) {
+            for (String neighbor : adjacencyList.getOrDefault(current, List.of())) {
                 if (inDegree.containsKey(neighbor)) {
-                    int newInDegree = inDegree.get(neighbor) - 1;
-                    inDegree.put(neighbor, newInDegree);
-
-                    if (newInDegree == 0) {
+                    int updated = inDegree.get(neighbor) - 1;
+                    inDegree.put(neighbor, updated);
+                    if (updated == 0) {
                         queue.offer(neighbor);
                     }
                 }
             }
         }
 
-        // Check for cycles
+        // Step 4: Check for cycle
         if (executionOrder.size() != nodes.size()) {
+            Set<String> visited = new HashSet<>(executionOrder);
             Set<String> cycleNodes = nodes.stream()
                     .map(BaseWorkflowNode::getKey)
+                    .filter(key -> !visited.contains(key))
                     .collect(Collectors.toSet());
-            executionOrder.forEach(cycleNodes::remove);
-            String startOfCycle = cycleNodes.stream().findFirst().orElse(null);
+
+            String firstInCycle = cycleNodes.stream().findFirst().orElse("unknown");
 
             errors.add(ValidationError.builder()
-                    .nodeKey(startOfCycle) // Report one of the nodes in the cycle
+                    .nodeKey(firstInCycle)
                     .errorType("definition")
                     .errorCode(ValidationErrorCode.CIRCULAR_DEPENDENCY)
                     .path("workflow.nodes")
-                    .message("Workflow contains cycles. Cycle detected involving node: " + startOfCycle)
+                    .message("Workflow contains cycles. Cycle detected involving node: " + firstInCycle)
                     .value(new ArrayList<>(cycleNodes))
                     .expectedType("acyclic_graph")
                     .schemaPath("$.nodes")
                     .build());
 
-            // Return null execution order to indicate we can't continue
             return new TopologicalOrderResult(null, errors);
         }
 
         return new TopologicalOrderResult(executionOrder, errors);
     }
 
-    private List<ValidationError> validateAliasesForNode(String nodeKey, Set<String> availableNodes,
-                                                         Map<String, String> aliases) {
+
+    private List<ValidationError> validateAliasDefinitions(WorkflowDefinition workflow) {
         List<ValidationError> errors = new ArrayList<>();
+        Map<String, String> aliases = workflow.metadata().aliases();
 
         if (aliases == null || aliases.isEmpty()) {
             return errors;
         }
+
+        Set<String> allNodeKeys = workflow.nodes().stream()
+                .map(BaseWorkflowNode::getKey)
+                .collect(Collectors.toSet());
 
         for (Map.Entry<String, String> aliasEntry : aliases.entrySet()) {
             String aliasName = aliasEntry.getKey();
@@ -187,18 +204,17 @@ public class WorkflowDependencyValidator {
                 // For aliases validation, we don't pass aliases to avoid circular resolution
                 String sourceNode = extractNodeKeyFromRef(ref);
 
-                if (sourceNode != null && !availableNodes.contains(sourceNode)) {
+                if (sourceNode != null && !allNodeKeys.contains(sourceNode)) {
                     errors.add(ValidationError.builder()
-                            .nodeKey(nodeKey)
+                            .nodeKey("aliases") // Alias is global, but we can specify the group
                             .errorType("definition")
-                            .errorCode(ValidationErrorCode.INVALID_CONNECTION)
+                            .errorCode(ValidationErrorCode.MISSING_NODE_REFERENCE)
                             .path("metadata.aliases." + aliasName)
-                            .message(String.format("Alias '%s' references future node '%s'. " +
-                                            "Aliases can only reference previously executed nodes.",
+                            .message(String.format("Alias '%s' references a non-existent node '%s'.",
                                     aliasName, sourceNode))
                             .value(aliasValue)
                             .template(ref)
-                            .expectedType("previous_node_reference")
+                            .expectedType("existing_node_key")
                             .schemaPath("$.metadata.aliases['" + aliasName + "']")
                             .build());
                 }
@@ -229,8 +245,8 @@ public class WorkflowDependencyValidator {
     }
 
     /**
-         * Result class for topological ordering
-         */
-        private record TopologicalOrderResult(List<String> executionOrder, List<ValidationError> errors) {
+     * Result class for topological ordering
+     */
+    private record TopologicalOrderResult(List<String> executionOrder, List<ValidationError> errors) {
     }
 }
