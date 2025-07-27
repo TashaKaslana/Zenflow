@@ -12,6 +12,7 @@ import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWork
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.OutputUsage;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowMetadata;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginDefinition;
+import org.phong.zenflow.workflow.subdomain.schema_validator.service.SchemaTypeResolver;
 import org.springframework.stereotype.Service;
 
 import java.util.HashSet;
@@ -33,6 +34,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class WorkflowContextService {
     private final SchemaRegistry schemaRegistry;
+    private final SchemaTypeResolver schemaTypeResolver;
 
     private static void generateAliasLinkBackToConsumers(WorkflowMetadata ctx) {
         for (Map.Entry<String, String> aliasEntry : ctx.aliases().entrySet()) {
@@ -136,7 +138,7 @@ public class WorkflowContextService {
                         if (currentSchema.has(part)) {
                             if (i == fieldParts.length - 1) {
                                 JSONObject fieldSchema = currentSchema.getJSONObject(part);
-                                usage.setType(determineSchemaType(fieldSchema));
+                                usage.setType(schemaTypeResolver.determineSchemaType(fieldSchema));
                                 return;
                             } else {
                                 currentSchema = currentSchema.getJSONObject(part);
@@ -172,40 +174,5 @@ public class WorkflowContextService {
             return TemplateEngine.extractRefs(aliases.get(ref)).stream().findFirst().orElse(ref);
         }
         return ref;
-    }
-
-    /**
-     * Determine the type from a JSON schema object
-     *
-     * @param schema The schema object for a field
-     * @return The determined type as a string
-     */
-    private String determineSchemaType(JSONObject schema) {
-        if (schema.has("type")) {
-            String type = schema.getString("type");
-            return switch (type) {
-                case "string" -> "string";
-                case "number", "integer" -> "number";
-                case "boolean" -> "boolean";
-                case "array" -> {
-                    // For arrays, try to determine item type
-                    if (schema.has("items") && schema.getJSONObject("items").has("type")) {
-                        yield "array:" + determineSchemaType(schema.getJSONObject("items"));
-                    }
-                    yield "array";
-                }
-                case "object" ->
-                    // For objects, we might want to provide more specific info in the future
-                        "object";
-                default -> type;
-            };
-        }
-
-        // Handle special cases like oneOf, anyOf, etc.
-        if (schema.has("oneOf") || schema.has("anyOf") || schema.has("allOf")) {
-            return "mixed";
-        }
-
-        return "unknown";
     }
 }

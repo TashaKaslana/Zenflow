@@ -130,7 +130,7 @@ public class WorkflowDefinitionService {
 
         ValidationResult validationResult = workflowValidationService.validateDefinition(workflowDefinition);
         if (!validationResult.isValid()) {
-            log.error("Workflow definition validation failed: {}", validationResult.getErrors());
+            log.debug("Workflow definition validation failed: {}", validationResult.getErrors());
             throw new WorkflowDefinitionValidationException("Workflow definition validation failed!", validationResult);
         }
 

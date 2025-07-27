@@ -22,6 +22,7 @@ import java.util.Set;
 @AllArgsConstructor
 public class SchemaTemplateValidationService {
     private final SchemaRegistry schemaRegistry;
+    private final SchemaTypeResolver schemaTypeResolver;
 
     /**
      * Validates template types against schema at compile time for known types,
@@ -96,14 +97,14 @@ public class SchemaTemplateValidationService {
         }
 
         // Get the schema for this field
-        JSONObject fieldSchema = getSchemaForPath(inputProperties, fieldLocation.path);
+        JSONObject fieldSchema = schemaTypeResolver.getSchemaForPath(inputProperties, fieldLocation.path);
         if (fieldSchema == null) {
             log.debug("No schema found for field path {} in node {}", fieldLocation.path, nodeKey);
             return;
         }
 
         // Get expected type from schema
-        String expectedType = getSchemaType(fieldSchema);
+        String expectedType = schemaTypeResolver.getSchemaType(fieldSchema);
 
         // Get actual type from nodeConsumers
         OutputUsage consumer = resolveTemplateToConsumer(template, metadata);
@@ -112,7 +113,7 @@ public class SchemaTemplateValidationService {
 
             // Only validate if we have a known type (not 'any')
             if (actualType != null && !actualType.equals("any") &&
-                    !isTypeCompatible(expectedType, actualType)) {
+                    !schemaTypeResolver.isTypeCompatible(expectedType, actualType)) {
 
                 errors.add(ValidationError.builder()
                         .nodeKey(nodeKey)
@@ -216,79 +217,6 @@ public class SchemaTemplateValidationService {
 
         log.debug("No consumer found for template: {}", template);
         return null;
-    }
-
-
-    /**
-     * Gets the schema for a specific field path
-     */
-    private JSONObject getSchemaForPath(JSONObject inputProperties, String path) {
-        String[] parts = path.split("\\.");
-        JSONObject current = inputProperties;
-
-        for (String part : parts) {
-            // Skip array indices
-            if (part.matches(".*\\[\\d+]")) {
-                part = part.replaceAll("\\[\\d+]", "");
-            }
-
-            if (current.has(part)) {
-                JSONObject property = current.getJSONObject(part);
-
-                // If this is the last part, return the property
-                if (part.equals(parts[parts.length - 1])) {
-                    return property;
-                }
-
-                // Navigate deeper into object properties
-                if (property.has("properties")) {
-                    current = property.getJSONObject("properties");
-                } else if (property.has("items") && property.getJSONObject("items").has("properties")) {
-                    // Handle array of objects
-                    current = property.getJSONObject("items").getJSONObject("properties");
-                } else {
-                    return property; // Can't navigate further
-                }
-            } else {
-                return null; // Path not found
-            }
-        }
-
-        return current;
-    }
-
-    private String getSchemaType(JSONObject propertySchema) {
-        if (propertySchema.has("type")) {
-            return propertySchema.getString("type");
-        }
-        if (propertySchema.has("enum")) {
-            return "string"; // Enums are typically strings
-        }
-        return "any"; // Default to any if no type specified
-    }
-
-    /**
-     * Checks if types are compatible for compile-time validation
-     */
-    private boolean isTypeCompatible(String expectedType, String actualType) {
-        // 'any' type is always compatible (runtime flexibility)
-        if (expectedType.equals("any") || actualType.equals("any") || actualType.equals("mixed")) {
-            return true;
-        }
-
-        // Handle array types
-        if (actualType.startsWith("array:")) {
-            return expectedType.equals("array");
-        }
-
-        // Special case for numbers - integer can be used where number is expected
-        if (expectedType.equals("number") && actualType.equals("integer")
-                || (expectedType.equals("integer") && actualType.equals("number"))) {
-            return true;
-        }
-
-        // Direct type match
-        return expectedType.equals(actualType);
     }
 
     /**
