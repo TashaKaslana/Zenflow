@@ -11,6 +11,7 @@ import org.json.JSONTokener;
 import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
 import org.phong.zenflow.plugin.subdomain.node.utils.SchemaRegistry;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
+import org.phong.zenflow.workflow.subdomain.schema_validator.enums.ValidationErrorCode;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -37,14 +38,16 @@ public class SchemaValidationService {
      * @param basePath Base path used for error reporting
      * @return List of validation errors, empty if validation is successful
      */
-    public List<ValidationError> validateAgainstSchema(Object data, String templateString, String basePath) {
+    public List<ValidationError> validateAgainstSchema(String nodeKey, Object data, String templateString, String basePath) {
         List<ValidationError> errors = new ArrayList<>();
 
         try {
             JSONObject schemaJson = schemaRegistry.getSchemaByTemplateString(templateString);
             if (schemaJson == null) {
                 errors.add(ValidationError.builder()
-                        .type("definition")
+                        .nodeKey(nodeKey)
+                        .errorType("definition")
+                        .errorCode(ValidationErrorCode.SCHEMA_NOT_FOUND)
                         .path(basePath)
                         .message("Schema not found: " + templateString)
                         .build());
@@ -61,13 +64,15 @@ public class SchemaValidationService {
             schema.validate(jsonObject);
 
             // Additional template-specific validation
-            errors.addAll(validateTemplates(data, basePath));
+            errors.addAll(validateTemplates(nodeKey, data, basePath));
 
         } catch (ValidationException e) {
-            errors.addAll(convertValidationException(e, basePath));
+            errors.addAll(convertValidationException(nodeKey, e, basePath));
         } catch (Exception e) {
             errors.add(ValidationError.builder()
-                    .type("definition")
+                    .nodeKey(nodeKey)
+                    .errorType("definition")
+                    .errorCode(ValidationErrorCode.VALIDATION_ERROR)
                     .path(basePath)
                     .message("Validation error: " + e.getMessage())
                     .build());
@@ -84,7 +89,7 @@ public class SchemaValidationService {
      * @param basePath Base path used for error reporting
      * @return List of validation errors for invalid template expressions
      */
-    public List<ValidationError> validateTemplates(Object data, String basePath) {
+    public List<ValidationError> validateTemplates(String nodeKey, Object data, String basePath) {
         List<ValidationError> errors = new ArrayList<>();
 
         Set<String> templates = TemplateEngine.extractRefs(data);
@@ -92,7 +97,9 @@ public class SchemaValidationService {
             String fullTemplate = "{{" + template + "}}";
             if (!TemplateEngine.isTemplate(fullTemplate)) {
                 errors.add(ValidationError.builder()
-                        .type("definition")
+                        .nodeKey(nodeKey)
+                        .errorType("definition")
+                        .errorCode(ValidationErrorCode.INVALID_TEMPLATE_EXPRESSION)
                         .path(basePath)
                         .message("Invalid template expression: " + fullTemplate)
                         .template(fullTemplate)
@@ -111,12 +118,14 @@ public class SchemaValidationService {
      * @param basePath Base path to use for error reporting
      * @return List of ValidationError objects representing all validation errors
      */
-    private List<ValidationError> convertValidationException(ValidationException e, String basePath) {
+    private List<ValidationError> convertValidationException(String nodeKey, ValidationException e, String basePath) {
         List<ValidationError> errors = new ArrayList<>();
 
         // Handle main violation
         errors.add(ValidationError.builder()
-                .type("definition")
+                .nodeKey(nodeKey)
+                .errorType("definition")
+                .errorCode(ValidationErrorCode.INVALID_SCHEMA)
                 .path(buildPath(basePath, e.getPointerToViolation()))
                 .message(e.getMessage())
                 .schemaPath(e.getSchemaLocation())
@@ -124,7 +133,7 @@ public class SchemaValidationService {
 
         // Handle nested violations
         for (ValidationException cause : e.getCausingExceptions()) {
-            errors.addAll(convertValidationException(cause, basePath));
+            errors.addAll(convertValidationException(nodeKey, cause, basePath));
         }
 
         return errors;

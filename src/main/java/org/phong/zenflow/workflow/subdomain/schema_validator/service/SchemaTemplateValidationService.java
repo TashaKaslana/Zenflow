@@ -7,6 +7,7 @@ import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
 import org.phong.zenflow.plugin.subdomain.node.utils.SchemaRegistry;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.OutputUsage;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
+import org.phong.zenflow.workflow.subdomain.schema_validator.enums.ValidationErrorCode;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -71,7 +72,9 @@ public class SchemaTemplateValidationService {
                         String actualType = consumer.getType();
                         if (actualType != null && !isTypeCompatible(expectedType, actualType)) {
                             errors.add(ValidationError.builder()
-                                    .type("TYPE_MISMATCH")
+                                    .nodeKey(nodeKey)
+                                    .errorType("definition")
+                                    .errorCode(ValidationErrorCode.TYPE_MISMATCH)
                                     .path(nodeKey + ".input." + inputField)
                                     .message("Type mismatch: Field expects '" + expectedType +
                                             "' but template '" + template + "' provides '" + actualType + "'")
@@ -85,7 +88,9 @@ public class SchemaTemplateValidationService {
             }
         } catch (Exception e) {
             errors.add(ValidationError.builder()
-                    .type("TYPE_VALIDATION_ERROR")
+                    .nodeKey(nodeKey)
+                    .errorType("definition")
+                    .errorCode(ValidationErrorCode.TEMPLATE_TYPE_VALIDATION_ERROR)
                     .path(nodeKey)
                     .message("Error validating template types: " + e.getMessage())
                     .build());

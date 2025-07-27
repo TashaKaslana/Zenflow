@@ -12,6 +12,7 @@ import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.P
 import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
+import org.phong.zenflow.workflow.subdomain.schema_validator.enums.ValidationErrorCode;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -48,7 +49,7 @@ public class WorkflowValidationService {
 
         // Validate overall workflow structure
         errors.addAll(schemaValidationService.validateAgainstSchema(
-                workflow, String.format("builtin:%s", WORKFLOW_STRUCTURE_SCHEMA_NAME), ""));
+                null, workflow, String.format("builtin:%s", WORKFLOW_STRUCTURE_SCHEMA_NAME), ""));
 
         // Validate individual node configurations
         errors.addAll(validateNodeConfigurations(workflow));
@@ -80,7 +81,7 @@ public class WorkflowValidationService {
         try {
             if (templateString != null && !templateString.isEmpty() && resolvedConfig != null) {
                 errors.addAll(schemaValidationService.validateAgainstSchema(
-                        resolvedConfig, templateString, nodeKey + ".config"));
+                        nodeKey, resolvedConfig, templateString, nodeKey + ".config"));
             }
 
             // Additional runtime-specific validations
@@ -88,7 +89,9 @@ public class WorkflowValidationService {
 
         } catch (Exception e) {
             errors.add(ValidationError.builder()
-                    .type("runtime")
+                    .nodeKey(nodeKey)
+                    .errorType("runtime")
+                    .errorCode(ValidationErrorCode.RUNTIME_VALIDATION_FAILED)
                     .path(nodeKey)
                     .message("Runtime validation failed: " + e.getMessage())
                     .build());
@@ -140,7 +143,9 @@ public class WorkflowValidationService {
         if (node instanceof PluginDefinition pluginNode) {
             if (pluginNode.getPluginNode() == null) {
                 errors.add(ValidationError.builder()
-                        .type("definition")
+                        .nodeKey(node.getKey())
+                        .errorType("definition")
+                        .errorCode(ValidationErrorCode.PLUGIN_NODE_DEFINITION_MISSING)
                         .path(node.getKey())
                         .message("Plugin node definition is missing! Require pluginId and nodeId!")
                         .build());
@@ -151,18 +156,22 @@ public class WorkflowValidationService {
                 String schemaName = pluginNode.getPluginNode().nodeId().toString();
 
                 errors.addAll(schemaValidationService.validateAgainstSchema(
-                        pluginNode.getConfig(), schemaName, node.getKey() + ".config.input")
+                        node.getKey(), pluginNode.getConfig(), schemaName, node.getKey() + ".config.input")
                 );
             } else {
                 errors.add(ValidationError.builder()
-                        .type("definition")
+                        .nodeKey(node.getKey())
+                        .errorType("definition")
+                        .errorCode(ValidationErrorCode.PLUGIN_NODE_CONFIG_MISSING)
                         .path(node.getKey() + ".config")
                         .message("Plugin node configuration is missing")
                         .build());
             }
         } else {
             errors.add(ValidationError.builder()
-                    .type("definition")
+                    .nodeKey(node.getKey())
+                    .errorType("definition")
+                    .errorCode(ValidationErrorCode.INVALID_PLUGIN_NODE_DEFINITION)
                     .path(node.getKey())
                     .message("Invalid plugin node definition")
                     .build());
@@ -203,7 +212,9 @@ public class WorkflowValidationService {
                 // Only validate existence - dependency direction is handled by WorkflowDependencyValidator
                 if (referencedNode != null && !nodeKeys.contains(referencedNode)) {
                     errors.add(ValidationError.builder()
-                            .type("MISSING_NODE_REFERENCE")
+                            .nodeKey(node.getKey())
+                            .errorType("definition")
+                            .errorCode(ValidationErrorCode.MISSING_NODE_REFERENCE)
                             .path(node.getKey() + ".config")
                             .message("Referenced node '" + referencedNode + "' does not exist in workflow")
                             .template("{{" + template + "}}")
@@ -258,7 +269,9 @@ public class WorkflowValidationService {
             if (cases instanceof List<?> casesList) {
                 if (casesList.isEmpty()) {
                     errors.add(ValidationError.builder()
-                            .type("runtime")
+                            .nodeKey(nodeKey)
+                            .errorType("runtime")
+                            .errorCode(ValidationErrorCode.EMPTY_CASES_IN_CONDITION_NODE)
                             .path(nodeKey + ".input.cases")
                             .message("Cases array cannot be empty after template resolution")
                             .value(cases)

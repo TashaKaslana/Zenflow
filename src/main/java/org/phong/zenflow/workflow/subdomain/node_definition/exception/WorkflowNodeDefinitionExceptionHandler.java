@@ -16,7 +16,9 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestControllerAdvice
@@ -29,11 +31,19 @@ public class WorkflowNodeDefinitionExceptionHandler {
         log.debug("Workflow Definition Validation Exception occurred: {}", ex.getMessage());
 
         ValidationResult validationResult = ex.getValidationResult();
-        Map<String, Object> fieldErrors = new HashMap<>();
+        Map<String, Object> groupedErrors = new HashMap<>();
+
         for (ValidationError error : validationResult.getErrors()) {
-            if (error != null && error.getPath() != null) {
-                fieldErrors.put(error.getPath(), ObjectConversion.convertObjectToMap(error));
-            }
+            if (error == null) continue;
+
+            String nodeKey = error.getNodeKey() != null ? error.getNodeKey() : "workflow";
+            Map<String, Object> errorMap = ObjectConversion.convertObjectToMap(error);
+
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> errorList = (List<Map<String, Object>>) groupedErrors
+                    .computeIfAbsent(nodeKey, k -> new ArrayList<Map<String, Object>>());
+
+            errorList.add(errorMap);
         }
 
         String requestPath = null;
@@ -45,22 +55,23 @@ public class WorkflowNodeDefinitionExceptionHandler {
 
         ApiErrorResponse errorResponse = new ApiErrorResponse(
                 HttpStatus.BAD_REQUEST.value(),
-                "Workflow Definition Validation Error",
+                "Workflow Definition Validation Error in Phase: " + validationResult.getPhase(),
                 requestPath,
                 HttpStatus.BAD_REQUEST.getReasonPhrase(),
-                fieldErrors,
+                groupedErrors,
                 null
         );
 
-        return RestApiResponse.badRequest(errorResponse, "An error occurred with the Workflow Definition Validation: " + ex.getMessage());
+        return RestApiResponse.badRequest(errorResponse, "Workflow definition validation failed: " + ex.getMessage());
     }
 
     @ExceptionHandler(WorkflowNodeDefinitionException.class)
-    public ResponseEntity<RestApiResponse<Void>> handleWorkflowNodeDefinitionException(WorkflowNodeDefinitionException ex) {
+    public ResponseEntity<RestApiResponse<Void>> handleWorkflowNodeDefinitionException(WorkflowNodeDefinitionException ex, WebRequest request) {
         log.debug("WorkflowNodeDefinition exception occurred: {}", ex.getMessage());
 
         ApiErrorResponse errorResponse = new ApiErrorResponse(
                 HttpStatus.BAD_REQUEST.value(),
+                HttpRequestUtils.getRequestPath(request),
                 "WorkflowNodeDefinition Error",
                 ex.getMessage()
         );

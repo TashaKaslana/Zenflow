@@ -6,9 +6,11 @@ import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWork
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowMetadata;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
+import org.phong.zenflow.workflow.subdomain.schema_validator.enums.ValidationErrorCode;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
@@ -54,7 +56,9 @@ public class WorkflowDependencyValidator {
 
             if (sourceNode != null && !availableNodes.contains(sourceNode)) {
                 errors.add(ValidationError.builder()
-                        .type("FUTURE_NODE_REFERENCE")
+                        .nodeKey(nodeKey)
+                        .errorType("definition")
+                        .errorCode(ValidationErrorCode.INVALID_CONNECTION)
                         .path("nodes." + nodeKey + ".dependencies")
                         .message(String.format("Node '%s' references future node '%s' in dependency: %s",
                                 nodeKey, sourceNode, dependency))
@@ -67,7 +71,7 @@ public class WorkflowDependencyValidator {
         }
 
         // Validate aliases used by this node don't reference future nodes
-        errors.addAll(validateAliasesForNode(availableNodes, aliases));
+        errors.addAll(validateAliasesForNode(nodeKey, availableNodes, aliases));
 
         return errors;
     }
@@ -97,7 +101,9 @@ public class WorkflowDependencyValidator {
                     inDegree.put(nextNode, inDegree.get(nextNode) + 1);
                 } else {
                     errors.add(ValidationError.builder()
-                            .type("INVALID_NEXT_REFERENCE")
+                            .nodeKey(node.getKey())
+                            .errorType("definition")
+                            .errorCode(ValidationErrorCode.MISSING_NODE_REFERENCE)
                             .path("nodes." + node.getKey() + ".next")
                             .message(String.format("Node '%s' references non-existent next node: %s",
                                     node.getKey(), nextNode))
@@ -138,11 +144,19 @@ public class WorkflowDependencyValidator {
 
         // Check for cycles
         if (executionOrder.size() != nodes.size()) {
+            Set<String> cycleNodes = nodes.stream()
+                    .map(BaseWorkflowNode::getKey)
+                    .collect(Collectors.toSet());
+            executionOrder.forEach(cycleNodes::remove);
+            String startOfCycle = cycleNodes.stream().findFirst().orElse(null);
+
             errors.add(ValidationError.builder()
-                    .type("CIRCULAR_DEPENDENCY")
+                    .nodeKey(startOfCycle) // Report one of the nodes in the cycle
+                    .errorType("definition")
+                    .errorCode(ValidationErrorCode.CIRCULAR_DEPENDENCY)
                     .path("workflow.nodes")
-                    .message("Workflow contains cycles - cannot determine execution order")
-                    .value(nodes.stream().map(BaseWorkflowNode::getKey).toList())
+                    .message("Workflow contains cycles. Cycle detected involving node: " + startOfCycle)
+                    .value(new ArrayList<>(cycleNodes))
                     .expectedType("acyclic_graph")
                     .schemaPath("$.nodes")
                     .build());
@@ -154,7 +168,7 @@ public class WorkflowDependencyValidator {
         return new TopologicalOrderResult(executionOrder, errors);
     }
 
-    private List<ValidationError> validateAliasesForNode(Set<String> availableNodes,
+    private List<ValidationError> validateAliasesForNode(String nodeKey, Set<String> availableNodes,
                                                          Map<String, String> aliases) {
         List<ValidationError> errors = new ArrayList<>();
 
@@ -175,7 +189,9 @@ public class WorkflowDependencyValidator {
 
                 if (sourceNode != null && !availableNodes.contains(sourceNode)) {
                     errors.add(ValidationError.builder()
-                            .type("FUTURE_NODE_REFERENCE_IN_ALIAS")
+                            .nodeKey(nodeKey)
+                            .errorType("definition")
+                            .errorCode(ValidationErrorCode.INVALID_CONNECTION)
                             .path("metadata.aliases." + aliasName)
                             .message(String.format("Alias '%s' references future node '%s'. " +
                                             "Aliases can only reference previously executed nodes.",
