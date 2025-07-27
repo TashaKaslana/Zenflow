@@ -1,4 +1,4 @@
-package org.phong.zenflow.plugin.subdomain.node.utils;
+package org.phong.zenflow.plugin.subdomain.schema.utils;
 
 import org.everit.json.schema.Schema;
 import org.everit.json.schema.ValidationException;

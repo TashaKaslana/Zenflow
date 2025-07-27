@@ -6,5 +6,5 @@ import java.util.UUID;
 
 public interface PluginNodeSchemaProvider {
     Map<String, Object> getSchemaJson(UUID nodeId);
-    List<Map<String, Object>> getAllSchemasByNodeIds(List<UUID> nodeIds);
+    Map<UUID, Map<String, Object>> getAllSchemasByNodeIds(List<UUID> nodeIds);
 }

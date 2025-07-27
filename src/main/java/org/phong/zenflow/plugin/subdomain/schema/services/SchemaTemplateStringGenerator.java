@@ -1,4 +1,4 @@
-package org.phong.zenflow.plugin.subdomain.node.utils;
+package org.phong.zenflow.plugin.subdomain.schema.services;
 
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;

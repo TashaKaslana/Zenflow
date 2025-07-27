@@ -135,7 +135,7 @@ public class GlobalExceptionHandler {
                 message,
                 HttpRequestUtils.getRequestPath(request),
                 HttpStatus.BAD_REQUEST.getReasonPhrase(),
-                null,
+                (Map<String, Object>) null,
                 null
         );
 

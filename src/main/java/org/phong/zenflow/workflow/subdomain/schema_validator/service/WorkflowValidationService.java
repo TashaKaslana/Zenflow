@@ -140,23 +140,35 @@ public class WorkflowValidationService {
 
         for (BaseWorkflowNode node : workflow.nodes()) {
             String templateString = null;
-            //Only handle plugin nodes for now
+
+            // Only handle plugin nodes for now
             if (node.getType() == NodeType.PLUGIN && node instanceof PluginDefinition pluginNode) {
                 validatePluginNode(pluginNode, errors);
                 templateString = pluginNode.getPluginNode().nodeId().toString();
             }
 
-            //validate template references in the node's configuration
-            if (templateString != null) {
+            // Validate template references in the node's configuration
+            if (templateString != null && node.getConfig() != null && node.getConfig().input() != null) {
                 Set<String> templates = TemplateEngine.extractRefs(node.getConfig());
-                Map<String, OutputUsage> nodeConsumers = workflow.metadata().nodeConsumers();
-                errors.addAll(
-                        schemaTemplateValidationService.validateTemplateType(
-                                node.getKey(), templateString, nodeConsumers, templates
-                        )
-                );
+                Map<String, OutputUsage> nodeConsumers = workflow.metadata() != null ?
+                        workflow.metadata().nodeConsumers() : null;
+
+                if (nodeConsumers != null && !templates.isEmpty()) {
+                    log.debug("Validating templates for node {}: {}", node.getKey(), templates);
+
+                    errors.addAll(
+                            schemaTemplateValidationService.validateTemplateType(
+                                    node.getKey(),
+                                    templateString,
+                                    node.getConfig().input(),
+                                    nodeConsumers,
+                                    templates
+                            )
+                    );
+                }
             }
         }
+
         return errors;
     }
 

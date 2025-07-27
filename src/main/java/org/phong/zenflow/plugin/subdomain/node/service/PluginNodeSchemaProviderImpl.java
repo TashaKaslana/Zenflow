@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class PluginNodeSchemaProviderImpl implements PluginNodeSchemaProvider {
@@ -29,10 +30,13 @@ public class PluginNodeSchemaProviderImpl implements PluginNodeSchemaProvider {
     }
 
     @Override
-    public List<Map<String, Object>> getAllSchemasByNodeIds(List<UUID> nodeIds) {
+    public Map<UUID, Map<String, Object>> getAllSchemasByNodeIds(List<UUID> nodeIds) {
         return pluginNodeRepository.findAllByIds(nodeIds)
                 .stream()
-                .map(PluginNodeSchema::getConfigSchema)
-                .toList();
+                .filter(node -> node.getConfigSchema() != null)
+                .collect(Collectors.toMap(
+                        PluginNodeSchema::getId,          // Assuming `getId()` returns UUID
+                        PluginNodeSchema::getConfigSchema
+                ));
     }
 }

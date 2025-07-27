@@ -1,8 +1,11 @@
-package org.phong.zenflow.plugin.subdomain.node.utils;
+package org.phong.zenflow.plugin.subdomain.schema.services;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
 import org.phong.zenflow.plugin.subdomain.node.interfaces.PluginNodeSchemaProvider;
+import org.phong.zenflow.plugin.subdomain.schema.exception.NodeSchemaException;
+import org.phong.zenflow.plugin.subdomain.schema.exception.NodeSchemaMissingException;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
@@ -19,6 +22,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class SchemaRegistry {
 
     private static final String BUILTIN_PATH = "/builtin_schemas/";
@@ -52,7 +56,7 @@ public class SchemaRegistry {
             UUID nodeId = UUID.fromString(templateString);
             return getPluginSchema(nodeId);
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Invalid schema identifier format. Expected 'builtin:name' or valid UUID for nodeId.", e);
+            throw new NodeSchemaException("Invalid schema identifier format. Expected 'builtin:name' or valid UUID for nodeId.", e);
         }
     }
 
@@ -69,7 +73,7 @@ public class SchemaRegistry {
                     try {
                         return UUID.fromString(name);
                     } catch (IllegalArgumentException e) {
-                        throw new IllegalArgumentException("Invalid nodeId format: " + name, e);
+                        throw new NodeSchemaException("Invalid nodeId format: " + name, e);
                     }
                 }).collect(Collectors.toSet());
 
@@ -109,16 +113,18 @@ public class SchemaRegistry {
         return pluginCache.computeIfAbsent(cacheKey, k -> {
             Map<String, Object> schema = pluginProvider.getSchemaJson(nodeId);
             if (schema.isEmpty()) {
-                throw new RuntimeException("No schema found for node id: " + nodeId);
+                throw new NodeSchemaMissingException("No schema found for node id: " + nodeId, List.of(nodeId));
             }
             return new JSONObject(schema);
         });
     }
 
     /**
-     * Efficiently retrieve multiple plugin schemas by nodeIds in a single batch operation
-     * @param nodeIds List of node UUIDs
-     * @return Map of nodeId -> schema JSONObject
+     * Efficiently retrieve multiple plugin schemas by nodeIds in a single batch operation.
+     * Fails if any nodeId has no corresponding schema.
+     *
+     * @param nodeIds Set of node UUIDs
+     * @return Map of nodeId (as String) -> schema JSONObject
      */
     private Map<String, JSONObject> getPluginSchemasByNodeIds(Set<UUID> nodeIds) {
         // Filter out already cached schemas
@@ -126,23 +132,37 @@ public class SchemaRegistry {
                 .filter(nodeId -> !pluginCache.containsKey(nodeId.toString()))
                 .toList();
 
-        // Fetch uncached schemas in batch
-        if (!uncachedNodeIds.isEmpty()) {
-            List<Map<String, Object>> schemas = pluginProvider.getAllSchemasByNodeIds(uncachedNodeIds);
+        // Fetch and cache missing schemas
+        putNewSchemasForUnCachedNode(uncachedNodeIds);
 
-            // Cache the new schemas
-            for (int i = 0; i < uncachedNodeIds.size(); i++) {
-                String cacheKey = uncachedNodeIds.get(i).toString();
-                pluginCache.put(cacheKey, new JSONObject(schemas.get(i)));
-            }
+        // Fail if any requested nodeId is still missing
+        List<UUID> missingIds = nodeIds.stream()
+                .filter(nodeId -> !pluginCache.containsKey(nodeId.toString()))
+                .toList();
+
+        if (!missingIds.isEmpty()) {
+            throw new NodeSchemaMissingException("Schemas missing for plugin nodeIds", missingIds);
         }
 
-        // Return all requested schemas (from cache)
+        // All schemas are guaranteed to be present
         return nodeIds.stream()
                 .collect(Collectors.toMap(
                         UUID::toString,
                         nodeId -> pluginCache.get(nodeId.toString())
                 ));
+    }
+
+    private void putNewSchemasForUnCachedNode(List<UUID> uncachedNodeIds) {
+        if (!uncachedNodeIds.isEmpty()) {
+            Map<UUID, Map<String, Object>> schemas = pluginProvider.getAllSchemasByNodeIds(uncachedNodeIds);
+
+            schemas.forEach((uuid, schemaMap) -> {
+                if (schemaMap == null) {
+                    throw new NodeSchemaException("Null schema for plugin node ID: " + uuid);
+                }
+                pluginCache.put(uuid.toString(), new JSONObject(schemaMap));
+            });
+        }
     }
 
     /**
@@ -163,14 +183,14 @@ public class SchemaRegistry {
         String path = BUILTIN_PATH + name + ".json";
         try (InputStream is = getClass().getResourceAsStream(path)) {
             if (is == null) {
-                throw new RuntimeException("Schema file not found: " + path);
+                throw new NodeSchemaException("Schema file not found: " + path);
             }
             String content = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))
                     .lines()
                     .collect(Collectors.joining("\n"));
             return new JSONObject(content);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to load schema: " + path, e);
+            throw new NodeSchemaException("Failed to load schema: " + path, e);
         }
     }
 }

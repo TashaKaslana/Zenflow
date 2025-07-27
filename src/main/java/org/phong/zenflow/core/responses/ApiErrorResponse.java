@@ -22,7 +22,7 @@ public class ApiErrorResponse {
     private final String path;
     private LocalDateTime timestamp = LocalDateTime.now();
     private String error;
-    private Map<String, Object> fieldErrors; // For validation errors specifically
+    private Object fieldErrors; // For validation errors specifically
     private List<String> globalErrors; // For global validation errors
 
     public ApiErrorResponse(int status, SystemError message, String path, String error) {
@@ -46,6 +46,12 @@ public class ApiErrorResponse {
     }
 
     public ApiErrorResponse(int status, String message, String path, String error, Map<String, Object> fieldErrors, List<String> globalErrors) {
+        this(status, message, path, error);
+        this.fieldErrors = fieldErrors;
+        this.globalErrors = globalErrors;
+    }
+
+    public ApiErrorResponse(int status, String message, String path, String error, Object fieldErrors, List<String> globalErrors) {
         this(status, message, path, error);
         this.fieldErrors = fieldErrors;
         this.globalErrors = globalErrors;

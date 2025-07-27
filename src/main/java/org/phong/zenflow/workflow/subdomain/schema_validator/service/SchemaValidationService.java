@@ -9,7 +9,7 @@ import org.everit.json.schema.loader.SchemaLoader;
 import org.json.JSONObject;
 import org.json.JSONTokener;
 import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
-import org.phong.zenflow.plugin.subdomain.node.utils.SchemaRegistry;
+import org.phong.zenflow.plugin.subdomain.schema.services.SchemaRegistry;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
 import org.phong.zenflow.workflow.subdomain.schema_validator.enums.ValidationErrorCode;
 import org.springframework.stereotype.Service;
