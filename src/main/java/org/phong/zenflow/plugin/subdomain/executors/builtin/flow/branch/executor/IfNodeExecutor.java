@@ -30,7 +30,7 @@ public class IfNodeExecutor implements PluginNodeExecutor {
     public ExecutionResult execute(WorkflowConfig config) {
         LogCollector logCollector = new LogCollector();
         try {
-            Map<String, Object> input = ObjectConversion.convertObjectToMap(config.input());
+            Map<String, Object> input = config.input();
             String condition = (String) input.get("condition"); // e.g. "true", "1 > 0"
 
             List<String> nextTrue = ObjectConversion.safeConvert(input.get("next_true"), new TypeReference<>() {

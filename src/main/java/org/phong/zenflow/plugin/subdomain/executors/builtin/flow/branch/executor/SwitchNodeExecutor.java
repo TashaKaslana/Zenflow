@@ -27,7 +27,7 @@ public class SwitchNodeExecutor implements PluginNodeExecutor {
     public ExecutionResult execute(WorkflowConfig config) {
         LogCollector logCollector = new LogCollector();
         try {
-            Map<String, Object> input = ObjectConversion.convertObjectToMap(config.input());
+            Map<String, Object> input = config.input();
 
             if (!input.containsKey("expression")) {
                 String errorMsg = "Switch expression is missing in the input.";

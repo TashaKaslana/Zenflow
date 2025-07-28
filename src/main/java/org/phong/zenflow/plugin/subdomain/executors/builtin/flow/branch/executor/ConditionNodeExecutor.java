@@ -31,7 +31,7 @@ public class ConditionNodeExecutor implements PluginNodeExecutor {
     public ExecutionResult execute(WorkflowConfig config) {
         LogCollector logCollector = new LogCollector();
         try {
-            Map<String, Object> input = ObjectConversion.convertObjectToMap(config.input());
+            Map<String, Object> input = config.input();
             List<ConditionalCase> cases = ObjectConversion.safeConvert(input.get("cases"), new TypeReference<>() {});
 
             logCollector.info("Begin condition flow with cases: {}", cases.toString());

@@ -36,7 +36,7 @@ public class DataTransformerExecutor implements PluginNodeExecutor {
         logs.info("Executing DataTransformerExecutor with config: " + config);
 
         try {
-            Map<String, Object> input = ObjectConversion.convertObjectToMap(config.input());
+            Map<String, Object> input = config.input();
             String transformerName = (String) input.get("name");
             String inputValue = (String) input.get("input");
 
