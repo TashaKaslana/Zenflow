@@ -1,6 +1,7 @@
-package org.phong.zenflow.plugin.subdomain.node.utils;
+package org.phong.zenflow.plugin.subdomain.schema.utils;
 
 import org.everit.json.schema.Schema;
+import org.everit.json.schema.ValidationException;
 import org.everit.json.schema.loader.SchemaLoader;
 import org.json.JSONObject;
 import org.phong.zenflow.plugin.subdomain.node.exception.PluginNodeException;
@@ -23,7 +24,7 @@ public class JsonSchemaValidator {
         try {
             Schema jsonSchema = SchemaLoader.load(schema);
             jsonSchema.validate(config);
-        } catch (org.everit.json.schema.ValidationException e) {
+        } catch (ValidationException e) {
             throw new PluginNodeException("JSON schema validation failed: " + e.getMessage());
         }
     }

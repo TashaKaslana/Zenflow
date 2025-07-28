@@ -77,13 +77,13 @@
     ],
     
     "metadata": {
-        "alias": {
+        "aliases": {
             "yahooEmail": "{{node1.output.email}}"
         },
-        "nodeDependency" : {
+        "nodeDependencies" : {
             "node2": ["node1.output.name", "node1.output.email", "node1.output.age"]
         },
-        "nodeConsumer": {
+        "nodeConsumers": {
             "node1.output.name": {
                 "type": "string",
                 "consumers": ["node2"]

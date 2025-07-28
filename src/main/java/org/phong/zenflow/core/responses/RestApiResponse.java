@@ -228,7 +228,7 @@ public class RestApiResponse<T> {
     }
 
     // Special case: Validation errors need fieldErrors/globalErrors
-    public static ResponseEntity<RestApiResponse<Void>> validationError(String path, String message, Map<String, String> fieldErrors, List<String> globalErrors) {
+    public static ResponseEntity<RestApiResponse<Void>> validationError(String path, String message, Map<String, Object> fieldErrors, List<String> globalErrors) {
         ApiErrorResponse details = new ApiErrorResponse(
                 HttpStatus.BAD_REQUEST.value(),
                 message,

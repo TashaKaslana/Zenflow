@@ -46,63 +46,83 @@ VALUES
  ARRAY ['http', 'request', 'network'],
  'ph:globe',
  '{
-   "input": {
-     "type": "object",
-     "properties": {
-       "url": {
-         "type": "string",
-         "format": "uri",
-         "description": "The URL to send the HTTP request to."
-       },
-       "method": {
-         "type": "string",
-         "enum": [
-           "GET",
-           "POST",
-           "PUT",
-           "DELETE",
-           "PATCH",
-           "HEAD",
-           "OPTIONS"
-         ],
-         "description": "HTTP method to use for the request."
-       },
-       "body": {
-         "type": "object",
-         "description": "Optional body content for methods like POST or PUT.",
-         "additionalProperties": true,
-         "default": {}
-       },
-       "headers": {
-         "type": "object",
-         "description": "Key-value pairs of HTTP headers.",
-         "additionalProperties": {
-           "type": "string"
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "type": "object",
+   "properties": {
+     "input": {
+       "type": "object",
+       "properties": {
+         "url": {
+           "type": "string",
+           "format": "uri",
+           "description": "The URL to send the HTTP request to."
          },
-         "default": {}
+         "method": {
+           "type": "string",
+           "enum": [
+             "GET",
+             "POST",
+             "PUT",
+             "DELETE",
+             "PATCH",
+             "HEAD",
+             "OPTIONS"
+           ],
+           "description": "HTTP method to use for the request."
+         },
+         "body": {
+           "type": "object",
+           "description": "Optional body content for methods like POST or PUT.",
+           "additionalProperties": true,
+           "default": {}
+         },
+         "headers": {
+           "type": "object",
+           "description": "Key-value pairs of HTTP headers.",
+           "additionalProperties": {
+             "type": "string"
+           },
+           "default": {}
+         }
+       },
+       "required": [
+         "url",
+         "method"
+       ],
+       "additionalProperties": false
+     },
+     "output": {
+       "type": "object",
+       "properties": {
+         "status_code": {
+           "type": "integer"
+         },
+         "headers": {
+           "type": "object"
+         },
+         "body": {
+           "type": "object"
+         }
        }
      },
-     "required": [
-       "url",
-       "method"
-     ],
-     "additionalProperties": false
-   },
-   "output": {
-     "type": "object",
-     "properties": {
-       "status_code": {
-         "type": "integer"
-       },
-       "headers": {
-         "type": "object"
-       },
-       "body": {
-         "type": "object"
+     "secrets": {
+       "type": "array",
+       "items": {
+         "type": "object",
+         "properties": {
+           "key": {
+             "type": "string"
+           }
+         },
+         "required": [
+           "key"
+         ]
        }
      }
    },
-   "secrets": []
+   "required": [
+     "input"
+   ]
  }'::jsonb),
 
 -- 2. Data Transformer
@@ -115,81 +135,101 @@ VALUES
  ARRAY ['data', 'transformer', 'pipeline'],
  'ph:code',
  '{
-   "input": {
-     "type": "object",
-     "properties": {
-       "name": {
-         "type": "string"
-       },
-       "input": {
-         "type": "string"
-       },
-       "params": {
-         "type": "object",
-         "description": "Parameters for the transformer.",
-         "default": {}
-       },
-       "isPipeline": {
-         "type": "boolean",
-         "description": "Whether to run a sequence of transformations.",
-         "default": false
-       },
-       "steps": {
-         "type": "array",
-         "description": "List of transformation steps if using a pipeline.",
-         "items": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "type": "object",
+   "properties": {
+     "input": {
+       "type": "object",
+       "properties": {
+         "name": {
+           "type": "string"
+         },
+         "input": {
+           "type": "string"
+         },
+         "params": {
            "type": "object",
-           "properties": {
-             "transformer": {
-               "type": "string"
+           "description": "Parameters for the transformer.",
+           "default": {}
+         },
+         "isPipeline": {
+           "type": "boolean",
+           "description": "Whether to run a sequence of transformations.",
+           "default": false
+         },
+         "steps": {
+           "type": "array",
+           "description": "List of transformation steps if using a pipeline.",
+           "items": {
+             "type": "object",
+             "properties": {
+               "transformer": {
+                 "type": "string"
+               },
+               "params": {
+                 "type": "object",
+                 "default": {}
+               }
              },
-             "params": {
-               "type": "object",
-               "default": {}
+             "required": [
+               "transformer"
+             ]
+           },
+           "default": []
+         }
+       },
+       "required": [
+         "input"
+       ],
+       "allOf": [
+         {
+           "if": {
+             "properties": {
+               "isPipeline": {
+                 "const": true
+               }
              }
            },
-           "required": [
-             "transformer"
-           ]
-         },
-         "default": []
-       }
-     },
-     "required": [
-       "input"
-     ],
-     "allOf": [
-       {
-         "if": {
-           "properties": {
-             "isPipeline": {
-               "const": true
-             }
+           "then": {
+             "required": [
+               "steps"
+             ]
+           },
+           "else": {
+             "required": [
+               "name"
+             ]
            }
-         },
-         "then": {
-           "required": [
-             "steps"
-           ]
-         },
-         "else": {
-           "required": [
-             "name"
-           ]
+         }
+       ],
+       "additionalProperties": false
+     },
+     "output": {
+       "type": "object",
+       "properties": {
+         "result": {
+           "type": "string"
          }
        }
-     ],
-     "additionalProperties": false
-   },
-   "output": {
-     "type": "object",
-     "properties": {
-       "result": {
-         "type": "string"
+     },
+     "secrets": {
+       "type": "array",
+       "items": {
+         "type": "object",
+         "properties": {
+           "key": {
+             "type": "string"
+           }
+         },
+         "required": [
+           "key"
+         ]
        }
      }
    },
-   "secrets": []
+   "required": [
+     "input"
+   ]
  }'::jsonb),
 
 -- 3. Trigger Workflow
@@ -202,35 +242,49 @@ VALUES
  ARRAY ['workflow', 'trigger', 'run'],
  'ph:rocket-launch',
  '{
-   "input": {
-     "type": "object",
-     "properties": {
-       "workflow_run_id": {
-         "type": "string",
-         "format": "uuid",
-         "description": "ID of the workflow run to trigger."
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "type": "object",
+   "properties": {
+     "input": {
+       "type": "object",
+       "properties": {
+         "workflow_run_id": {
+           "type": "string",
+           "format": "uuid",
+           "description": "ID of the workflow run to trigger."
+         },
+         "workflow_id": {
+           "type": "string",
+           "format": "uuid",
+           "description": "ID of the workflow to trigger."
+         },
+         "is_async": {
+           "type": "boolean",
+           "description": "Trigger the workflow asynchronously.",
+           "default": false
+         }
        },
-       "workflow_id": {
-         "type": "string",
-         "format": "uuid",
-         "description": "ID of the workflow to trigger."
-       },
-       "is_async": {
-         "type": "boolean",
-         "description": "Trigger the workflow asynchronously.",
-         "default": false
-       }
+       "required": [
+         "workflow_run_id",
+         "workflow_id"
+       ],
+       "additionalProperties": false
      },
-     "required": [
-       "workflow_run_id",
-       "workflow_id"
-     ],
-     "additionalProperties": false
+     "output": {
+       "type": "object"
+     },
+     "secrets": {
+       "type": "array",
+       "items": {
+         "type": "object",
+         "properties": {
+           "key": { "type": "string" }
+         },
+         "required": ["key"]
+       }
+     }
    },
-   "output": {
-     "type": "object"
-   },
-   "secrets": []
+   "required": ["input"]
  }'::jsonb),
 
 -- 4. If Condition
@@ -243,36 +297,40 @@ VALUES
  ARRAY ['condition', 'if', 'branch'],
  'ph:git-fork',
  '{
-   "input": {
-     "type": "object",
-     "properties": {
-       "condition": {
-         "type": "string",
-         "description": "The expression to evaluate. Should resolve to a boolean."
-       },
-       "next_true": {
-         "type": "array",
-         "description": "The next node(s) to execute if the condition is true.",
-         "items": {
-           "type": "string"
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "type": "object",
+   "properties": {
+     "input": {
+       "type": "object",
+       "properties": {
+         "condition": {
+           "type": "string",
+           "description": "The expression to evaluate. Should resolve to a boolean."
+         },
+         "next_true": {
+           "type": "array",
+           "description": "The next node(s) to execute if the condition is true.",
+           "items": {
+             "type": "string"
+           }
+         },
+         "next_false": {
+           "type": "array",
+           "description": "The next node(s) to execute if the condition is false.",
+           "items": {
+             "type": "string"
+           }
          }
        },
-       "next_false": {
-         "type": "array",
-         "description": "The next node(s) to execute if the condition is false.",
-         "items": {
-           "type": "string"
-         }
-       }
+       "required": [
+         "condition"
+       ]
      },
-     "required": [
-       "condition"
-     ]
+     "output": {
+       "type": "object"
+     }
    },
-   "output": {
-     "type": "object"
-   },
-   "secrets": []
+   "required": ["input"]
  }'::jsonb),
 
 -- 5. Switch
@@ -285,52 +343,66 @@ VALUES
  ARRAY ['condition', 'switch', 'branch'],
  'ph:git-branch',
  '{
-   "input": {
-     "type": "object",
-     "properties": {
-       "expression": {
-         "type": "string",
-         "description": "The expression to evaluate against cases."
-       },
-       "cases": {
-         "type": "array",
-         "description": "A list of cases to match against.",
-         "items": {
-           "type": "object",
-           "properties": {
-             "value": {
-               "type": "string"
-             },
-             "next": {
-               "type": "array",
-               "items": {
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "type": "object",
+   "properties": {
+     "input": {
+       "type": "object",
+       "properties": {
+         "expression": {
+           "type": "string",
+           "description": "The expression to evaluate against cases."
+         },
+         "cases": {
+           "type": "array",
+           "description": "A list of cases to match against.",
+           "items": {
+             "type": "object",
+             "properties": {
+               "value": {
                  "type": "string"
+               },
+               "next": {
+                 "type": "array",
+                 "items": {
+                   "type": "string"
+                 }
                }
-             }
-           },
-           "required": [
-             "value",
-             "next"
-           ]
+             },
+             "required": [
+               "value",
+               "next"
+             ]
+           }
+         },
+         "default_next": {
+           "type": "array",
+           "description": "The default node(s) to execute if no case matches.",
+           "items": {
+             "type": "string"
+           }
          }
        },
-       "default_next": {
-         "type": "array",
-         "description": "The default node(s) to execute if no case matches.",
-         "items": {
-           "type": "string"
-         }
-       }
+       "required": [
+         "expression",
+         "cases"
+       ]
      },
-     "required": [
-       "expression",
-       "cases"
-     ]
+     "output": {
+       "type": "object"
+     },
+     "secrets": {
+       "type": "array",
+       "items": {
+         "type": "object",
+         "properties": {
+           "key": { "type": "string" }
+         },
+         "required": ["key"]
+       }
+     }
    },
-   "output": {
-     "type": "object"
-   },
-   "secrets": []
+   "required": ["input"]
  }'::jsonb),
 
 -- 6. For Loop
@@ -343,67 +415,81 @@ VALUES
  ARRAY ['loop', 'for', 'iterator'],
  'ph:repeat',
  '{
-   "input": {
-     "type": "object",
-     "properties": {
-       "iterator": {
-         "type": "string",
-         "description": "The variable name containing a list to iterate over."
-       },
-       "times": {
-         "type": "number",
-         "description": "Number of times to repeat the loop (used when iterator is not provided)."
-       },
-       "itemVar": {
-         "type": "string",
-         "description": "The variable name to assign to each item in the collection.",
-         "default": "item"
-       },
-       "indexVar": {
-         "type": "string",
-         "description": "The variable name to assign to the current iteration index.",
-         "default": "index"
-       },
-       "breakCondition": {
-         "type": "string",
-         "description": "An expression that when true will exit the loop."
-       },
-       "continueCondition": {
-         "type": "string",
-         "description": "An expression that when true will skip to the next iteration."
-       },
-       "loopEnd": {
-         "type": "array",
-         "description": "The node(s) to execute after the loop ends.",
-         "items": {
-           "type": "string"
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "type": "object",
+   "properties": {
+     "input": {
+       "type": "object",
+       "properties": {
+         "iterator": {
+           "type": "string",
+           "description": "The variable name containing a list to iterate over."
+         },
+         "times": {
+           "type": "number",
+           "description": "Number of times to repeat the loop (used when iterator is not provided)."
+         },
+         "itemVar": {
+           "type": "string",
+           "description": "The variable name to assign to each item in the collection.",
+           "default": "item"
+         },
+         "indexVar": {
+           "type": "string",
+           "description": "The variable name to assign to the current iteration index.",
+           "default": "index"
+         },
+         "breakCondition": {
+           "type": "string",
+           "description": "An expression that when true will exit the loop."
+         },
+         "continueCondition": {
+           "type": "string",
+           "description": "An expression that when true will skip to the next iteration."
+         },
+         "loopEnd": {
+           "type": "array",
+           "description": "The node(s) to execute after the loop ends.",
+           "items": {
+             "type": "string"
+           }
+         },
+         "next": {
+           "type": "array",
+           "description": "The next node(s) to execute within the loop body.",
+           "items": {
+             "type": "string"
+           }
          }
        },
-       "next": {
-         "type": "array",
-         "description": "The next node(s) to execute within the loop body.",
-         "items": {
-           "type": "string"
+       "oneOf": [
+         {
+           "required": [
+             "iterator"
+           ]
+         },
+         {
+           "required": [
+             "times"
+           ]
          }
-       }
+       ]
      },
-     "oneOf": [
-       {
-         "required": [
-           "iterator"
-         ]
-       },
-       {
-         "required": [
-           "times"
-         ]
+     "output": {
+       "type": "object"
+     },
+     "secrets": {
+       "type": "array",
+       "items": {
+         "type": "object",
+         "properties": {
+           "key": { "type": "string" }
+         },
+         "required": ["key"]
        }
-     ]
+     }
    },
-   "output": {
-     "type": "object"
-   },
-   "secrets": []
+   "required": ["input"]
  }'::jsonb),
 
 -- 7. While Loop
@@ -416,38 +502,58 @@ VALUES
  ARRAY ['loop', 'while'],
  'ph:infinity',
  '{
-   "input": {
-     "type": "object",
-     "properties": {
-       "condition": {
-         "type": "string",
-         "description": "The expression to evaluate before each iteration. The loop continues as long as this is true."
-       },
-       "next": {
-         "type": "array",
-         "description": "The node(s) to execute in each iteration if the condition is true.",
-         "items": {
-           "type": "string"
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "type": "object",
+   "properties": {
+     "input": {
+       "type": "object",
+       "properties": {
+         "condition": {
+           "type": "string",
+           "description": "The expression to evaluate before each iteration. The loop continues as long as this is true."
+         },
+         "next": {
+           "type": "array",
+           "description": "The node(s) to execute in each iteration if the condition is true.",
+           "items": {
+             "type": "string"
+           }
+         },
+         "loopEnd": {
+           "type": "array",
+           "description": "The node(s) to execute when the loop condition evaluates to false.",
+           "items": {
+             "type": "string"
+           }
          }
        },
-       "loopEnd": {
-         "type": "array",
-         "description": "The node(s) to execute when the loop condition evaluates to false.",
-         "items": {
-           "type": "string"
-         }
-       }
+       "required": [
+         "condition",
+         "next",
+         "loopEnd"
+       ]
      },
-     "required": [
-       "condition",
-       "next",
-       "loopEnd"
-     ]
+     "output": {
+       "type": "object"
+     },
+     "secrets": {
+       "type": "array",
+       "items": {
+         "type": "object",
+         "properties": {
+           "key": {
+             "type": "string"
+           }
+         },
+         "required": [
+           "key"
+         ]
+       }
+     }
    },
-   "output": {
-     "type": "object"
-   },
-   "secrets": []
+   "required": [
+     "input"
+   ]
  }'::jsonb),
 
 -- 8. Timeout
@@ -460,40 +566,54 @@ VALUES
  ARRAY ['timeout', 'delay', 'wait'],
  'ph:clock',
  '{
-   "input": {
-     "type": "object",
-     "properties": {
-       "duration": {
-         "type": "string",
-         "description": "The duration to wait (e.g., \"5\" for 5 units)."
-       },
-       "unit": {
-         "type": "string",
-         "enum": [
-           "milliseconds",
-           "seconds"
-         ],
-         "description": "The unit of time for the duration.",
-         "default": "seconds"
-       },
-       "next": {
-         "type": "array",
-         "description": "The node(s) to execute after the timeout.",
-         "items": {
-           "type": "string"
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "type": "object",
+   "properties": {
+     "input": {
+       "type": "object",
+       "properties": {
+         "duration": {
+           "type": "string",
+           "description": "The duration to wait (e.g., \"5\" for 5 units)."
+         },
+         "unit": {
+           "type": "string",
+           "enum": [
+             "milliseconds",
+             "seconds"
+           ],
+           "description": "The unit of time for the duration.",
+           "default": "seconds"
+         },
+         "next": {
+           "type": "array",
+           "description": "The node(s) to execute after the timeout.",
+           "items": {
+             "type": "string"
+           }
          }
-       }
+       },
+       "required": [
+         "duration",
+         "unit"
+       ],
+       "additionalProperties": false
      },
-     "required": [
-       "duration",
-       "unit"
-     ],
-     "additionalProperties": false
+     "output": {
+       "type": "object"
+     },
+     "secrets": {
+       "type": "array",
+       "items": {
+         "type": "object",
+         "properties": {
+           "key": { "type": "string" }
+         },
+         "required": ["key"]
+       }
+     }
    },
-   "output": {
-     "type": "object"
-   },
-   "secrets": []
+   "required": ["input"]
  }'::jsonb),
 
 -- 9. Condition
@@ -506,42 +626,62 @@ VALUES
  ARRAY ['condition', 'branch', 'multiple-if'],
  'ph:git-branch',
  '{
-   "input": {
-     "type": "object",
-     "properties": {
-       "cases": {
-         "type": "array",
-         "description": "List of condition cases to check in sequence.",
-         "items": {
-           "type": "object",
-           "properties": {
-             "when": {
-               "type": "string",
-               "description": "Boolean expression to evaluate."
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "type": "object",
+   "properties": {
+     "input": {
+       "type": "object",
+       "properties": {
+         "cases": {
+           "type": "array",
+           "description": "List of condition cases to check in sequence.",
+           "items": {
+             "type": "object",
+             "properties": {
+               "when": {
+                 "type": "string",
+                 "description": "Boolean expression to evaluate."
+               },
+               "then": {
+                 "type": "string",
+                 "description": "Node to execute when the condition is true."
+               }
              },
-             "then": {
-               "type": "string",
-               "description": "Node to execute when the condition is true."
-             }
-           },
-           "required": [
-             "when",
-             "then"
-           ]
+             "required": [
+               "when",
+               "then"
+             ]
+           }
+         },
+         "default_case": {
+           "type": "string",
+           "description": "Default node to execute when no condition matches."
          }
        },
-       "default_case": {
-         "type": "string",
-         "description": "Default node to execute when no condition matches."
-       }
+       "required": [
+         "cases",
+         "default_case"
+       ]
      },
-     "required": [
-       "cases",
-       "default_case"
-     ]
+     "output": {
+       "type": "object"
+     },
+     "secrets": {
+       "type": "array",
+       "items": {
+         "type": "object",
+         "properties": {
+           "key": {
+             "type": "string"
+           }
+         },
+         "required": [
+           "key"
+         ]
+       }
+     }
    },
-   "output": {
-     "type": "object"
-   },
-   "secrets": []
+   "required": [
+     "input"
+   ]
  }'::jsonb);
