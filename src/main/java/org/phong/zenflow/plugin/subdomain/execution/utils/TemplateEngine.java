@@ -1,21 +1,24 @@
 package org.phong.zenflow.plugin.subdomain.execution.utils;
 
+import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.regex.*;
 
+@Slf4j
 public class TemplateEngine {
 
     // Updated pattern to handle both simple references and function calls
-    private static final Pattern TEMPLATE_PATTERN = Pattern.compile("\\{\\{\\s*([a-zA-Z0-9._-]+(?:\\(.*?\\))?)\\s*}}");
+    private static final Pattern TEMPLATE_PATTERN = Pattern.compile("\\{\\{([a-zA-Z0-9_.\\-]+)}}");
     private static final Map<String, Function<List<String>, Object>> functionRegistry = new HashMap<>();
     static {
         functionRegistry.put("uuid", args -> UUID.randomUUID().toString());
@@ -31,14 +34,14 @@ public class TemplateEngine {
      * For example, "Hello {{user.name}}, your order {{order.id}} is ready" would return ["user.name", "order.id"]
      *
      * @param template The template string containing references
-     * @return List of references found in the template
+     * @return Set of references found in the template
      */
-    public static List<String> extractRefs(String template) {
+    public static Set<String> extractRefs(String template) {
         if (template == null) {
-            return new ArrayList<>();
+            return new LinkedHashSet<>();
         }
 
-        List<String> refs = new ArrayList<>();
+        Set<String> refs = new LinkedHashSet<>();
         Matcher matcher = TEMPLATE_PATTERN.matcher(template);
 
         while (matcher.find()) {
@@ -47,6 +50,36 @@ public class TemplateEngine {
 
         return refs;
     }
+
+    public static Set<String> extractRefs(Object value) {
+        if (value instanceof String template) {
+            return extractRefs(template);
+        } else if (value instanceof Map<?, ?> map) {
+            Set<String> refs = new LinkedHashSet<>();
+            for (Object v : map.values()) {
+                refs.addAll(extractRefs(v));
+            }
+            return refs;
+        } else if (value instanceof List<?> list) {
+            Set<String> refs = new LinkedHashSet<>();
+            for (Object item : list) {
+                refs.addAll(extractRefs(item));
+            }
+            return refs;
+        } else if (value != null) {
+            // Handles custom objects by attempting to convert them to a Map using ObjectConversion.
+            try {
+                // Convert the object to a Map
+                Map<?, ?> map = ObjectConversion.convertObjectToMap(value);
+                return extractRefs(map);
+            } catch (Exception e) {
+                // Fallback: extract references from the object's string representation.
+                return extractRefs(value.toString());
+            }
+        }
+        return new LinkedHashSet<>();
+    }
+
 
     /**
      * Determines if a string contains any template references.
@@ -87,9 +120,24 @@ public class TemplateEngine {
                 }
             }
 
-            matcher.appendReplacement(result, Matcher.quoteReplacement(
-                    replacement != null ? replacement.toString() : ""
-            ));
+            // Handle null values gracefully
+            String replacementString;
+            if (replacement != null) {
+                replacementString = replacement.toString();
+            } else {
+                // If the entire template is just one reference that resolves to null,
+                // keep the original template syntax for better debugging
+                if (template.trim().equals("{{" + expr + "}}")) {
+                    log.warn("Template reference '{}' resolved to null, keeping original template", expr);
+                } else {
+                    // For complex templates with null references, return the original template
+                    // This prevents malformed expressions like "null > 200" from being created
+                    log.warn("Template reference '{}' in complex template '{}' resolved to null, returning original template", expr, template);
+                }
+                return template; // Return original template for single null references
+            }
+
+            matcher.appendReplacement(result, Matcher.quoteReplacement(replacementString));
         }
 
         matcher.appendTail(result);
@@ -161,30 +209,26 @@ public class TemplateEngine {
     }
 
     /**
-     * Recursively resolves all templates in a map.
+     * Extracts the referenced node from a template string.<br>
+     * For example, "user.name" would return "user"
+     * or "node1.output.email" would return "node1".
      *
-     * @param input The map containing templates
-     * @param context The context containing values for references
-     * @return A new map with all templates resolved
+     * @param templateExpression The template string to analyze
+     * @return The referenced node name, or null if not a valid template
      */
-    public static Map<String, Object> resolveAll(Map<String, Object> input, Map<String, Object> context) {
-        Map<String, Object> resolved = new HashMap<>();
-        for (Map.Entry<String, Object> entry : input.entrySet()) {
-            Object value = entry.getValue();
-            if (value instanceof Map) {
-                resolved.put(entry.getKey(), resolveAll(ObjectConversion.convertObjectToMap(value), context));
-            } else if (value instanceof List<?> list) {
-                List<Object> resolvedList = list.stream()
-                        .map(item -> item instanceof Map
-                                ? resolveAll(ObjectConversion.convertObjectToMap(item), context)
-                                : resolveTemplate(item, context))
-                        .toList();
-                resolved.put(entry.getKey(), resolvedList);
-            }
-            else {
-                resolved.put(entry.getKey(), resolveTemplate(value, context));
+    public static String getReferencedNode(String templateExpression, Map<String, String> aliasMap) {
+        if (templateExpression == null || templateExpression.isEmpty()) {
+            return null;
+        }
+
+        //if the template is an aliases, return the actual template reference node
+        if (aliasMap != null && !aliasMap.isEmpty()) {
+            String actualTemplate = aliasMap.get(templateExpression);
+            if (actualTemplate != null) {
+                templateExpression = actualTemplate.substring(2, actualTemplate.length() - 2); // Remove {{ and }}
             }
         }
-        return resolved;
+
+        return templateExpression.split("\\.")[0];
     }
 }

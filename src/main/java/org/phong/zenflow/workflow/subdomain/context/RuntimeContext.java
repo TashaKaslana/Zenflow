@@ -8,8 +8,10 @@ import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.Work
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -21,14 +23,18 @@ import java.util.concurrent.ConcurrentHashMap;
 public class RuntimeContext {
     @Getter
     private final Map<String, Object> context = new ConcurrentHashMap<>();
-    private final Map<String, List<String>> consumers = new ConcurrentHashMap<>();
+    private final Map<String, Set<String>> consumers = new ConcurrentHashMap<>();
     private final Map<String, String> aliases = new ConcurrentHashMap<>();
 
     public void initialize(Map<String, Object> initialContext,
-                           Map<String, List<String>> initialConsumers,
+                           Map<String, Set<String>> initialConsumers,
                            Map<String, String> initialAliases) {
         if (initialConsumers != null) {
-            consumers.putAll(initialConsumers);
+            initialConsumers.forEach((key, value) -> {
+                if (value != null) {
+                    consumers.put(key, new HashSet<>(value));
+                }
+            });
         }
         if (initialContext != null) {
             context.putAll(initialContext);
@@ -58,64 +64,6 @@ public class RuntimeContext {
 
     public Object get(String key) {
         return context.get(key);
-    }
-
-    /**
-     * Process output based on output declaration mapping.
-     * This is more efficient than storing all outputs as it only stores values
-     * that are explicitly declared in the output mapping.
-     *
-     * @param nodeKey           The key of the node that produced the output
-     * @param outputDeclaration The output declaration mapping from node config
-     * @param output            The raw output values from execution
-     */
-    public void processOutput(String nodeKey, Map<String, Object> outputDeclaration, Map<String, Object> output) {
-        if (outputDeclaration == null || output == null || output.isEmpty()) {
-            log.debug("No output to process for node '{}' with declaration", nodeKey);
-            return;
-        }
-
-        log.debug("Processing selective output for node '{}' with declaration: {}", nodeKey, outputDeclaration);
-
-        for (Map.Entry<String, Object> entry : outputDeclaration.entrySet()) {
-            String outputProperty = entry.getKey();
-            Object templateOrMapping = entry.getValue();
-
-            // Determine the target key where the output should be stored
-            String targetKey;
-            Object value;
-
-            if (templateOrMapping instanceof String template && TemplateEngine.isTemplate(template)) {
-                // If the value is a template reference, extract the target key
-                targetKey = template.substring(2, template.length() - 2).trim();
-                value = output.get(outputProperty);
-
-                // Skip storing if there are no consumers for this key
-                if (!consumers.isEmpty() && !hasConsumers(targetKey)) {
-                    log.debug("Skipping storage of output to '{}' as it has no consumers", targetKey);
-                    continue;
-                }
-            } else {
-                // Direct mapping: key in outputDeclaration -> standard node output key format
-                targetKey = nodeKey + ".output." + outputProperty;
-                value = output.get(outputProperty);
-
-                // Skip storing if there are no consumers for this key
-                if (!consumers.isEmpty() && !hasConsumers(targetKey)) {
-                    log.debug("Skipping storage of output to '{}' as it has no consumers in explicit output", targetKey);
-                    continue;
-                }
-            }
-
-            // Only store if we have a value
-            if (value != null) {
-                context.put(targetKey, value);
-                log.debug("Stored selective output '{}' with value type '{}'",
-                        targetKey, value.getClass().getSimpleName());
-            } else {
-                log.warn("Output value for '{}' is null, not storing", targetKey);
-            }
-        }
     }
 
     /**
@@ -170,14 +118,14 @@ public class RuntimeContext {
         if (TemplateEngine.isTemplate(key)) {
             String refKey = TemplateEngine.extractRefs(key).stream().findFirst().orElse(null);
             if (refKey != null) {
-                // Check if it's an alias that needs resolution
+                // Check if it's an aliases that needs resolution
                 String resolvedKey = resolveAlias(refKey);
                 return getAndMarkConsumed(nodeKey, resolvedKey);
             }
             return null;
         }
 
-        // This path handles cases where a non-template key might be an alias
+        // This path handles cases where a non-template key might be an aliases
         String resolvedKey = resolveAlias(key);
         return getAndMarkConsumed(nodeKey, resolvedKey);
     }
@@ -206,9 +154,9 @@ public class RuntimeContext {
     }
 
     /**
-     * Resolves a possible alias to its actual reference key
+     * Resolves a possible aliases to its actual reference key
      *
-     * @param key The key that might be an alias
+     * @param key The key that might be an aliases
      * @return The resolved key
      */
     private String resolveAlias(String key) {
@@ -247,14 +195,18 @@ public class RuntimeContext {
     }
 
     private Object resolveValue(String nodeKey, Object value) {
+        if (value == null) {
+            return null;
+        }
+
         return switch (value) {
             case String str -> {
                 if (!TemplateEngine.isTemplate(str)) {
                     yield str;
                 }
-                List<String> refs = TemplateEngine.extractRefs(str);
+                Set<String> refs = TemplateEngine.extractRefs(str);
                 if (refs.size() == 1) {
-                    String expr = refs.getFirst();
+                    String expr = refs.iterator().next();
                     if (str.trim().equals("{{" + expr + "}}")) {
                         // Single template, can be any type
                         if (expr.matches("[a-zA-Z0-9._-]+\\(.*\\)")) {
@@ -264,8 +216,21 @@ public class RuntimeContext {
                         }
                     }
                 }
+
                 // For complex templates, resolve all and return as string
-                yield TemplateEngine.resolveTemplate(str, this.context);
+                String result = str;
+                for (String ref : refs) {
+                    String templateRef = "{{" + ref + "}}";
+                    Object resolvedValue = getAndClean(nodeKey, templateRef);
+                    if (resolvedValue != null) {
+                        result = result.replace(templateRef, resolvedValue.toString());
+                    } else {
+                        // Keep the original template if it can't be resolved
+                        // This prevents malformed expressions like "null > 200"
+                        yield str;
+                    }
+                }
+                yield result;
             }
             case Map<?, ?> map ->
                 // To be safe, we assume the map is Map<String, Object>
@@ -281,7 +246,7 @@ public class RuntimeContext {
      * Remove a specific consumer from a key's consumer list
      */
     private void removeConsumer(String key, String nodeKey) {
-        List<String> keyConsumers = consumers.get(key);
+        Set<String> keyConsumers = consumers.get(key);
         if (keyConsumers != null) {
             keyConsumers.remove(nodeKey);
             log.debug("Removed consumer '{}' from key '{}'", nodeKey, key);
@@ -298,7 +263,7 @@ public class RuntimeContext {
      * Perform garbage collection by removing context entries that have no consumers
      */
     private void performGarbageCollection(String key) {
-        List<String> keyConsumers = consumers.get(key);
+        Set<String> keyConsumers = consumers.get(key);
 
         // If there are no consumers left for this key, remove it from context
         if (keyConsumers == null || keyConsumers.isEmpty()) {
@@ -313,7 +278,7 @@ public class RuntimeContext {
      * Check if a key has any remaining consumers
      */
     public boolean hasConsumers(String key) {
-        List<String> keyConsumers = consumers.get(key);
+        Set<String> keyConsumers = consumers.get(key);
         return keyConsumers != null && !keyConsumers.isEmpty();
     }
 
@@ -321,7 +286,7 @@ public class RuntimeContext {
      * Get the list of consumers for a specific key
      */
     public List<String> getConsumers(String key) {
-        List<String> keyConsumers = consumers.get(key);
+        Set<String> keyConsumers = consumers.get(key);
         return keyConsumers != null ? new ArrayList<>(keyConsumers) : new ArrayList<>();
     }
 

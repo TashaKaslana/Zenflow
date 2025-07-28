@@ -1,43 +1,69 @@
 package org.phong.zenflow.workflow.subdomain.context;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import lombok.Data;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.json.JSONObject;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
+import org.phong.zenflow.plugin.subdomain.schema.services.SchemaRegistry;
+import org.phong.zenflow.plugin.subdomain.schema.services.SchemaTemplateStringGenerator;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.OutputUsage;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowMetadata;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginDefinition;
+import org.phong.zenflow.workflow.subdomain.schema_validator.service.SchemaTypeResolver;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
+/**
+ * Static context service for workflow nodes.
+ * <p>
+ * This service builds a static context for workflow nodes, resolving dependencies and consumer relationships
+ * based on the node configurations and existing metadata.
+ * </p>
+ * <p>It also handles aliases resolution and type inference.</p>
+ */
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class WorkflowContextService {
-    public Map<String, Object> buildStaticContext(List<BaseWorkflowNode> nodes, Map<String, Object> existingMetadata) {
-        StaticContext ctx = new StaticContext();
+    private final SchemaRegistry schemaRegistry;
+    private final SchemaTypeResolver schemaTypeResolver;
+
+    private static void generateAliasLinkBackToConsumers(WorkflowMetadata ctx) {
+        for (Map.Entry<String, String> aliasEntry : ctx.aliases().entrySet()) {
+            String aliasName = aliasEntry.getKey();
+            TemplateEngine.extractRefs(aliasEntry.getValue()).stream().findFirst().ifPresent(originalRef -> ctx.nodeConsumers()
+                    .computeIfAbsent(originalRef, k -> new OutputUsage())
+                    .getAliases()
+                    .add(aliasName));
+        }
+    }
+
+    public WorkflowMetadata buildStaticContext(List<BaseWorkflowNode> existingNodes, WorkflowMetadata existingMetadata) {
+        WorkflowMetadata ctx = new WorkflowMetadata();
 
         // Preserve existing aliases from metadata
-        if (existingMetadata != null && existingMetadata.containsKey("alias")) {
-            ctx.setAlias(ObjectConversion.safeConvert(existingMetadata.get("alias"), new TypeReference<>() {
+        if (existingMetadata != null && existingMetadata.aliases() != null) {
+            ctx.aliases().putAll(ObjectConversion.safeConvert(existingMetadata.aliases(), new TypeReference<>() {
             }));
         }
 
-        // First pass: collect all output references and pre-populate consumer map
-//        for (BaseWorkflowNode node : nodes) {
-//            Map<String, Object> output = node.getConfig().output();
-//            for (Map.Entry<String, Object> entry : output.entrySet()) {
-//                String outputKey = node.getKey() + ".output." + entry.getKey();
-//                ctx.getNodeConsumer().put(outputKey, new OutputUsage());
-//            }
-//        }
+        generateDependenciesAndConsumers(existingNodes, ctx);
+        generateAliasLinkBackToConsumers(ctx);
+        generateTypeForConsumerFields(existingNodes, ctx);
 
-        // Second pass: process input dependencies to populate consumers and dependencies
-        for (BaseWorkflowNode node : nodes) {
+        return new WorkflowMetadata(ctx.aliases(), ctx.nodeDependencies(), ctx.nodeConsumers());
+    }
+
+    private void generateDependenciesAndConsumers(List<BaseWorkflowNode> existingNodes, WorkflowMetadata ctx) {
+        for (BaseWorkflowNode node : existingNodes) {
             String nodeKey = node.getKey();
             Map<String, Object> input = node.getConfig().input();
             if (input == null || input.isEmpty()) {
@@ -45,48 +71,105 @@ public class WorkflowContextService {
             }
 
             for (Map.Entry<String, Object> entry : input.entrySet()) {
-                String inputValue = entry.getValue().toString();
-                List<String> referenced = TemplateEngine.extractRefs(inputValue);
+                Object inputValue = entry.getValue();
+                if (inputValue == null) {
+                    continue; // Skip null inputs
+                }
+
+                Set<String> referenced = TemplateEngine.extractRefs(inputValue.toString());
 
                 for (String ref : referenced) {
-                    String resolvedRef = resolveAlias(ref, ctx.getAlias());
+                    String resolvedRef = resolveAlias(ref, ctx.aliases());
 
                     // Add dependency
-                    ctx.getNodeDependency()
+                    ctx.nodeDependencies()
                             .computeIfAbsent(nodeKey, k -> new HashSet<>())
                             .add(resolvedRef);
 
                     // Track consumer
-                    ctx.getNodeConsumer()
+                    ctx.nodeConsumers()
                             .computeIfAbsent(resolvedRef, k -> new OutputUsage())
                             .getConsumers()
                             .add(nodeKey);
-
-                    // Infer type from input (basic type inference)
-                    OutputUsage usage = ctx.getNodeConsumer().get(resolvedRef);
-                    if (usage.getType() == null) {
-                        usage.setType(inferType(entry.getValue()));
-                    }
                 }
             }
         }
+    }
 
-        // Third pass: link aliases back to the consumers map
-        for (Map.Entry<String, String> aliasEntry : ctx.getAlias().entrySet()) {
-            String aliasName = aliasEntry.getKey();
-            TemplateEngine.extractRefs(aliasEntry.getValue()).stream().findFirst().ifPresent(originalRef -> ctx.getNodeConsumer()
-                    .computeIfAbsent(originalRef, k -> new OutputUsage())
-                    .getAlias()
-                    .add(aliasName));
+    private void generateTypeForConsumerFields(List<BaseWorkflowNode> existingNodes, WorkflowMetadata ctx) {
+        Set<String> templateStrings = SchemaTemplateStringGenerator.generateTemplateStrings(existingNodes);
+        Map<String, JSONObject> schemas = schemaRegistry.getSchemaMapByTemplateStrings(templateStrings);
+        Map<String, BaseWorkflowNode> nodeMap = existingNodes.stream()
+                .collect(Collectors.toMap(BaseWorkflowNode::getKey, node -> node));
+
+        ctx.nodeConsumers().forEach((key, usage) -> {
+            String[] parts = key.split("\\.output\\.");
+            if (parts.length != 2) {
+                return; // Not an output field, so we can't determine its type from a schema.
+            }
+
+            String nodeKey = parts[0];
+            String outputFieldName = parts[1];
+
+            BaseWorkflowNode node = nodeMap.get(nodeKey);
+            if (node == null) {
+                log.warn("Node with key {} not found in existing nodes, skipping type generation for consumer field {}", nodeKey, key);
+                return;
+            }
+
+            String schemaKey = (node instanceof PluginDefinition)
+                    ? ((PluginDefinition) node).getPluginNode().nodeId().toString() : node.getKey();
+            JSONObject schema = schemas.get(schemaKey);
+
+            populateTypeNodeConsumer(key, usage, schema, outputFieldName, nodeKey);
+        });
+    }
+
+    private void populateTypeNodeConsumer(String key, OutputUsage usage, JSONObject schema, String outputFieldName, String nodeKey) {
+        if (schema != null) {
+            try {
+                if (schema.has("properties")) {
+                    JSONObject rootProperties = schema.getJSONObject("properties");
+                    if (rootProperties.has("output") && rootProperties.getJSONObject("output").has("properties")) {
+                        JSONObject outputProperties = rootProperties.getJSONObject("output").getJSONObject("properties");
+                        String[] fieldParts = outputFieldName.split("\\.");
+                        JSONObject currentSchema = outputProperties;
+
+                        for (int i = 0; i < fieldParts.length; i++) {
+                            String part = fieldParts[i];
+                            if (currentSchema.has(part)) {
+                                if (i == fieldParts.length - 1) {
+                                    JSONObject fieldSchema = currentSchema.getJSONObject(part);
+                                    usage.setType(schemaTypeResolver.determineSchemaType(fieldSchema));
+                                    return;
+                                } else {
+                                    currentSchema = currentSchema.getJSONObject(part);
+                                    if (currentSchema.has("properties")) {
+                                        currentSchema = currentSchema.getJSONObject("properties");
+                                    } else {
+                                        // Path doesn't fully exist in schema
+                                        break;
+                                    }
+                                }
+                            } else {
+                                // Path doesn't exist in schema
+                                break;
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Failed to parse schema for node key {}: {}", nodeKey, e.getMessage());
+            }
+        } else {
+            // This could be a built-in node or a plugin node for which schema is not found.
+            log.warn("No schema found for node key {}, skipping type generation for consumer field {}", nodeKey, key);
         }
 
-        // Merge the generated context back into the existing metadata
-        Map<String, Object> newMetadata = new HashMap<>(existingMetadata != null ? existingMetadata : new HashMap<>());
-        newMetadata.put("nodeDependency", ctx.getNodeDependency());
-        newMetadata.put("nodeConsumer", ctx.getNodeConsumer());
-        newMetadata.put("alias", ctx.getAlias()); // Ensure aliases are preserved
-
-        return newMetadata;
+        // If type was not determined, set it to "any"
+        if (usage.getType() == null) {
+            usage.setType("any");
+        }
     }
 
     private String resolveAlias(String ref, Map<String, String> aliases) {
@@ -94,29 +177,5 @@ public class WorkflowContextService {
             return TemplateEngine.extractRefs(aliases.get(ref)).stream().findFirst().orElse(ref);
         }
         return ref;
-    }
-
-    private String inferType(Object value) {
-        if (value instanceof Number) {
-            return "number";
-        } else if (value instanceof Boolean) {
-            return "boolean";
-        } else {
-            return "string";
-        }
-    }
-
-    @Data
-    public static class StaticContext {
-        private Map<String, Set<String>> nodeDependency = new HashMap<>();
-        private Map<String, OutputUsage> nodeConsumer = new HashMap<>();
-        private Map<String, String> alias = new HashMap<>();
-    }
-
-    @Data
-    public static class OutputUsage {
-        private String type;
-        private List<String> consumers = new ArrayList<>();
-        private List<String> alias = new ArrayList<>();
     }
 }
