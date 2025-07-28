@@ -5,10 +5,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.plugin.subdomain.execution.services.PluginNodeExecutorDispatcher;
-import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.entity.PluginNode;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.context.SystemWorkflowStateKeyBuilder;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -29,9 +29,9 @@ public class NodeExecutionMediator {
             "core:flow.condition.retry"
     );
 
-    public ExecutionResult executeWithStateManagement(PluginNode pluginNode, WorkflowConfig config,
+    public ExecutionResult executeWithStateManagement(PluginNodeIdentifier pluginNode, WorkflowConfig config,
                                                       String nodeKey, RuntimeContext runtimeContext) {
-        String pluginKey = "core:" + pluginNode.getKey();
+        String pluginKey = "core:" + pluginNode.nodeKey();
 
         // Check if this node requires system state management
         if (SYSTEM_STATE_NODES.contains(pluginKey)) {
@@ -41,7 +41,7 @@ public class NodeExecutionMediator {
         }
     }
 
-    private ExecutionResult executeStatefulNode(PluginNode pluginNode, WorkflowConfig config,
+    private ExecutionResult executeStatefulNode(PluginNodeIdentifier pluginNode, WorkflowConfig config,
                                                 String nodeKey, String pluginKey, RuntimeContext runtimeContext) {
         // Pre-execution: inject system state
         WorkflowConfig enhancedConfig = injectSystemState(config, nodeKey, pluginKey, runtimeContext);

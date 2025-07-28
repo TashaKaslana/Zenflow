@@ -10,7 +10,7 @@ public enum ValidationErrorCode {
     // === Definition Phase Errors ===
     SCHEMA_NOT_FOUND("Schema not found for validation"),
     INVALID_WORKFLOW_STRUCTURE("Workflow structure does not conform to the schema"),
-    PLUGIN_NODE_DEFINITION_MISSING("Plugin node definition is missing required fields (pluginId, nodeId)"),
+    PLUGIN_NODE_DEFINITION_MISSING("Plugin node definition is missing required fields (pluginKey, nodeKey)"),
     PLUGIN_NODE_CONFIG_MISSING("Plugin node configuration is missing"),
     INVALID_PLUGIN_NODE_DEFINITION("Invalid plugin node definition"),
     MISSING_NODE_REFERENCE("Referenced node does not exist in the workflow"),

@@ -16,11 +16,9 @@ public interface PluginNodeRepository extends JpaRepository<PluginNode, UUID> {
 
     Page<PluginNode> findAllByPluginId(UUID pluginId, Pageable pageable);
 
-    @Query("SELECT pns.id AS id, pns.configSchema AS configSchema " +
-            "FROM PluginNode pns WHERE pns.id = :id")
-    Optional<PluginNodeSchema> findByIdCustom(UUID id);
+    @Query("SELECT pns.key AS key, pns.configSchema AS configSchema " +
+            "FROM PluginNode pns WHERE pns.key IN :keyList")
+    List<PluginNodeSchema> findAllByKeyList(List<String> keyList);
 
-    @Query("SELECT pns.id AS id, pns.configSchema AS configSchema " +
-            "FROM PluginNode pns WHERE pns.id IN :nodeIds")
-    List<PluginNodeSchema> findAllByIds(List<UUID> nodeIds);
+    Optional<PluginNode> findByKey(String key);
 }

@@ -117,8 +117,12 @@ public class WorkflowContextService {
                 return;
             }
 
-            String schemaKey = (node instanceof PluginDefinition)
-                    ? ((PluginDefinition) node).getPluginNode().nodeId().toString() : node.getKey();
+            String schemaKey;
+            if (node instanceof PluginDefinition pluginDefinition) {
+                schemaKey = pluginDefinition.getPluginNode().pluginKey() + ":" + pluginDefinition.getPluginNode().nodeKey();
+            } else {
+                schemaKey = node.getKey();
+            }
             JSONObject schema = schemas.get(schemaKey);
 
             populateTypeNodeConsumer(key, usage, schema, outputFieldName, nodeKey);
