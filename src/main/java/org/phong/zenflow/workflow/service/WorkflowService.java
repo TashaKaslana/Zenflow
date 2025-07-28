@@ -117,6 +117,22 @@ public class WorkflowService {
         return updatedDefinition;
     }
 
+    public WorkflowDefinition clearWorkflowDefinition(UUID workflowId) {
+        Workflow workflow = getWorkflow(workflowId);
+        WorkflowDefinition definition = workflow.getDefinition();
+        if (definition == null || definition.nodes() == null) {
+            return new WorkflowDefinition();
+        }
+
+        WorkflowDefinition clearedDefinition = definitionService.clearWorkflowDefinition(definition);
+
+        workflow.setDefinition(clearedDefinition);
+        workflowRepository.save(workflow);
+        log.debug("Workflow with ID: {} has been updated by clearing all nodes", workflowId);
+
+        return clearedDefinition;
+    }
+
     public Workflow getWorkflow(UUID id) {
         return workflowRepository.findById(id)
                 .orElseThrow(() -> new WorkflowException("Workflow not found"));
