@@ -33,13 +33,12 @@ import java.util.stream.Collectors;
 @Slf4j
 public class WorkflowValidationService {
     private final static String WORKFLOW_STRUCTURE_SCHEMA_NAME = "workflow_structure_schema";
-    private final SchemaValidationService schemaValidationService;
-    private final WorkflowDependencyValidator workflowDependencyValidator;
-    private final SchemaTemplateValidationService schemaTemplateValidationService;
-
     // Regex to validate alias keys. Allows alphanumeric characters, underscores, and hyphens.
     // Must start and end with an alphanumeric character.
     private final static Pattern aliasPattern = Pattern.compile("^[a-zA-Z0-9]+([a-zA-Z0-9_-]*[a-zA-Z0-9]+)?$");
+    private final SchemaValidationService schemaValidationService;
+    private final WorkflowDependencyValidator workflowDependencyValidator;
+    private final SchemaTemplateValidationService schemaTemplateValidationService;
 
     /**
      * Phase 1: Validates a workflow definition against schema requirements.
@@ -54,7 +53,7 @@ public class WorkflowValidationService {
 
         // Validate overall workflow structure
         errors.addAll(schemaValidationService.validateAgainstSchema(
-                null, workflow, String.format("builtin:%s", WORKFLOW_STRUCTURE_SCHEMA_NAME), ""));
+                null, workflow, String.format("builtin:%s", WORKFLOW_STRUCTURE_SCHEMA_NAME), "", null));
 
         // Validate individual node configurations
         errors.addAll(validateNodeConfigurations(workflow));
@@ -109,7 +108,7 @@ public class WorkflowValidationService {
         try {
             if (templateString != null && !templateString.isEmpty() && resolvedConfig != null) {
                 errors.addAll(schemaValidationService.validateAgainstSchema(
-                        nodeKey, resolvedConfig, templateString, nodeKey + ".config"));
+                        nodeKey, resolvedConfig, templateString, nodeKey + ".config.input", "input"));
             }
 
             // Additional runtime-specific validations
@@ -196,14 +195,9 @@ public class WorkflowValidationService {
                         .build());
                 return;
             }
-            // Validate plugin-specific configuration
-            if (pluginNode.getConfig() != null) {
-                String schemaName = pluginNode.getPluginNode().nodeId().toString();
 
-                errors.addAll(schemaValidationService.validateAgainstSchema(
-                        node.getKey(), pluginNode.getConfig(), schemaName, node.getKey() + ".config.input")
-                );
-            } else {
+            // Validate plugin-specific configuration
+            if (pluginNode.getConfig() == null) {
                 errors.add(ValidationError.builder()
                         .nodeKey(node.getKey())
                         .errorType("definition")
@@ -212,6 +206,12 @@ public class WorkflowValidationService {
                         .message("Plugin node configuration is missing")
                         .build());
             }
+
+            errors.addAll(
+                    schemaValidationService.validateTemplates(
+                            node.getKey(), pluginNode.getConfig(), node.getKey() + ".config.input"
+                    )
+            );
         } else {
             errors.add(ValidationError.builder()
                     .nodeKey(node.getKey())
@@ -248,9 +248,9 @@ public class WorkflowValidationService {
      * Validates that the node's configuration does not reference non-existent nodes.
      * Checks both template references and explicit 'next' references.
      *
-     * @param node       The workflow node to validate
-     * @param nodeKeys   Set of all existing node keys in the workflow
-     * @param aliases    Map of aliases defined in the workflow metadata
+     * @param node     The workflow node to validate
+     * @param nodeKeys Set of all existing node keys in the workflow
+     * @param aliases  Map of aliases defined in the workflow metadata
      * @return List of validation errors for missing node references
      */
     private List<ValidationError> validateNodeExistence(BaseWorkflowNode node, Set<String> nodeKeys,

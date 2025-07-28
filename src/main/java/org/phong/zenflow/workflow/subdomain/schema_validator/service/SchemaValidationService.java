@@ -7,11 +7,12 @@ import org.everit.json.schema.Schema;
 import org.everit.json.schema.ValidationException;
 import org.everit.json.schema.loader.SchemaLoader;
 import org.json.JSONObject;
-import org.json.JSONTokener;
+import org.json.JSONPointer;
 import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
 import org.phong.zenflow.plugin.subdomain.schema.services.SchemaRegistry;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
 import org.phong.zenflow.workflow.subdomain.schema_validator.enums.ValidationErrorCode;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -31,19 +32,32 @@ public class SchemaValidationService {
     private final ObjectMapper objectMapper;
 
     /**
-     * Validates data against a specified JSON schema identified by a template string.
+     * Validates the supplied data against the JSON-Schema identified by {@code templateString}.
      *
-     * @param data Object to validate against the schema
-     * @param templateString String identifier for retrieving the schema
-     * @param basePath Base path used for error reporting
-     * @return List of validation errors, empty if validation is successful
+     * @param nodeKey        logical key of the node being validated
+     * @param data           Java object to validate (will be serialized with Jackson)
+     * @param templateString identifies the canonical schema (e.g., builtin: …, UUID, …)
+     * @param basePath       prefix that is stored in every ValidationError.path
+     * @param slice          what part of the schema / data to validate.<br>
+     *                       • "" or null → whole document<br>
+     *                       • "input" → schema.properties.input against data.input<br>
+     *                       • JSON-Pointer (starts with '/') → that pointer is applied to both
+     *
+     * @return list of ValidationErrors (empty if the instance is valid)
      */
-    public List<ValidationError> validateAgainstSchema(String nodeKey, Object data, String templateString, String basePath) {
+    public List<ValidationError> validateAgainstSchema(
+            String nodeKey,
+            Object data,
+            String templateString,
+            String basePath,
+            @Nullable String slice) {
+
         List<ValidationError> errors = new ArrayList<>();
 
         try {
-            JSONObject schemaJson = schemaRegistry.getSchemaByTemplateString(templateString);
-            if (schemaJson == null) {
+            /* 1. Load the canonical schema */
+            JSONObject fullSchemaJson = schemaRegistry.getSchemaByTemplateString(templateString);
+            if (fullSchemaJson == null) {
                 errors.add(ValidationError.builder()
                         .nodeKey(nodeKey)
                         .errorType("definition")
@@ -54,20 +68,25 @@ public class SchemaValidationService {
                 return errors;
             }
 
-            // Convert data to JSON
+            /* 2. Pick the slice of schema to use */
+            JSONObject schemaJsonToUse = getFullJsonObject(slice, fullSchemaJson);
+
+            /* 3. Serialise data and pick the matching slice from the instance */
             String dataJson = objectMapper.writeValueAsString(data);
-            JSONObject jsonObject = new JSONObject(new JSONTokener(dataJson));
+            Object instanceToValidate = getInstanceToValidate(slice, dataJson);
 
-            Schema schema = SchemaLoader.load(schemaJson);
+            /* 4. Build the schema and validate */
+            Schema schema = SchemaLoader.builder()
+                    .schemaJson(schemaJsonToUse)
+                    .draftV7Support()
+                    .resolutionScope("classpath:/schemas/")
+                    .build()
+                    .load().build();
 
-            // Perform validation
-            schema.validate(jsonObject);
+            schema.validate(instanceToValidate);
 
-            // Additional template-specific validation
-            errors.addAll(validateTemplates(nodeKey, data, basePath));
-
-        } catch (ValidationException e) {
-            errors.addAll(convertValidationException(nodeKey, e, basePath));
+        } catch (ValidationException ve) {
+            errors.addAll(convertValidationException(nodeKey, ve, basePath));
         } catch (Exception e) {
             errors.add(ValidationError.builder()
                     .nodeKey(nodeKey)
@@ -79,6 +98,34 @@ public class SchemaValidationService {
         }
 
         return errors;
+    }
+
+    private static JSONObject getFullJsonObject(String slice, JSONObject fullSchemaJson) {
+        JSONObject schemaJsonToUse = fullSchemaJson;          // default = whole schema
+        if (slice != null && !slice.isEmpty()) {
+            if (slice.charAt(0) == '/') {
+                JSONPointer ptr = new JSONPointer(slice);
+                schemaJsonToUse = (JSONObject) ptr.queryFrom(fullSchemaJson);
+            } else {
+                schemaJsonToUse = fullSchemaJson.getJSONObject("properties").getJSONObject(slice);
+            }
+        }
+        return schemaJsonToUse;
+    }
+
+    private static Object getInstanceToValidate(String slice, String dataJson) {
+        JSONObject instance = new JSONObject(dataJson);
+        Object instanceToValidate = instance;
+
+        if (slice != null && !slice.isEmpty()) {
+            if (slice.charAt(0) == '/') {
+                JSONPointer pointer = new JSONPointer(slice);
+                instanceToValidate = pointer.queryFrom(instance);
+            } else {
+                instanceToValidate = instance.opt(slice);
+            }
+        }
+        return instanceToValidate;
     }
 
     /**

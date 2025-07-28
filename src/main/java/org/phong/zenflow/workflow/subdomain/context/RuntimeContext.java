@@ -8,6 +8,7 @@ import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.Work
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -29,7 +30,11 @@ public class RuntimeContext {
                            Map<String, Set<String>> initialConsumers,
                            Map<String, String> initialAliases) {
         if (initialConsumers != null) {
-            consumers.putAll(initialConsumers);
+            initialConsumers.forEach((key, value) -> {
+                if (value != null) {
+                    consumers.put(key, new HashSet<>(value));
+                }
+            });
         }
         if (initialContext != null) {
             context.putAll(initialContext);
