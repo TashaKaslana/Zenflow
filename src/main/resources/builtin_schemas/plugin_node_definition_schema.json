@@ -4,11 +4,11 @@
   "title": "Plugin Node Configuration Schema",
   "properties": {
     "input": {
-      "$ref": "http://json-schema.org/draft-07/schema#",
+      "type": "object",
       "title": "Input Schema"
     },
     "output": {
-      "$ref": "http://json-schema.org/draft-07/schema#",
+      "type": "object",
       "title": "Output Schema"
     },
     "secrets": {
@@ -51,5 +51,6 @@
       }
     }
   },
-  "required": ["input", "secrets"]
+  "required": ["input", "output", "secrets"],
+  "additionalProperties": false
 }

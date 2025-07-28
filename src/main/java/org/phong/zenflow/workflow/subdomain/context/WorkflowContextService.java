@@ -128,30 +128,33 @@ public class WorkflowContextService {
     private void populateTypeNodeConsumer(String key, OutputUsage usage, JSONObject schema, String outputFieldName, String nodeKey) {
         if (schema != null) {
             try {
-                if (schema.has("output") && schema.getJSONObject("output").has("properties")) {
-                    JSONObject outputProperties = schema.getJSONObject("output").getJSONObject("properties");
-                    String[] fieldParts = outputFieldName.split("\\.");
-                    JSONObject currentSchema = outputProperties;
+                if (schema.has("properties")) {
+                    JSONObject rootProperties = schema.getJSONObject("properties");
+                    if (rootProperties.has("output") && rootProperties.getJSONObject("output").has("properties")) {
+                        JSONObject outputProperties = rootProperties.getJSONObject("output").getJSONObject("properties");
+                        String[] fieldParts = outputFieldName.split("\\.");
+                        JSONObject currentSchema = outputProperties;
 
-                    for (int i = 0; i < fieldParts.length; i++) {
-                        String part = fieldParts[i];
-                        if (currentSchema.has(part)) {
-                            if (i == fieldParts.length - 1) {
-                                JSONObject fieldSchema = currentSchema.getJSONObject(part);
-                                usage.setType(schemaTypeResolver.determineSchemaType(fieldSchema));
-                                return;
-                            } else {
-                                currentSchema = currentSchema.getJSONObject(part);
-                                if (currentSchema.has("properties")) {
-                                    currentSchema = currentSchema.getJSONObject("properties");
+                        for (int i = 0; i < fieldParts.length; i++) {
+                            String part = fieldParts[i];
+                            if (currentSchema.has(part)) {
+                                if (i == fieldParts.length - 1) {
+                                    JSONObject fieldSchema = currentSchema.getJSONObject(part);
+                                    usage.setType(schemaTypeResolver.determineSchemaType(fieldSchema));
+                                    return;
                                 } else {
-                                    // Path doesn't fully exist in schema
-                                    break;
+                                    currentSchema = currentSchema.getJSONObject(part);
+                                    if (currentSchema.has("properties")) {
+                                        currentSchema = currentSchema.getJSONObject("properties");
+                                    } else {
+                                        // Path doesn't fully exist in schema
+                                        break;
+                                    }
                                 }
+                            } else {
+                                // Path doesn't exist in schema
+                                break;
                             }
-                        } else {
-                            // Path doesn't exist in schema
-                            break;
                         }
                     }
                 }

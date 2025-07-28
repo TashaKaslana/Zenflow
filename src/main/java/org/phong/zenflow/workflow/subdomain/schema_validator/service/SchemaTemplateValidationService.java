@@ -44,13 +44,18 @@ public class SchemaTemplateValidationService {
                 return errors;
             }
 
-            // FIX: Check for input schema directly at root level
-            if (!schema.has("input")) {
+            if (!schema.has("properties")) {
+                log.debug("Schema for node {} has no 'properties' field", nodeKey);
+                return errors;
+            }
+            JSONObject rootProperties = schema.getJSONObject("properties");
+
+            if (!rootProperties.has("input")) {
                 log.debug("No input schema found for node {}", nodeKey);
                 return errors;
             }
 
-            JSONObject inputSchema = schema.getJSONObject("input");
+            JSONObject inputSchema = rootProperties.getJSONObject("input");
             if (!inputSchema.has("properties")) {
                 log.debug("Input schema has no properties for node {}", nodeKey);
                 return errors;
