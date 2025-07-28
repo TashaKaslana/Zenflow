@@ -684,4 +684,109 @@ VALUES
    "required": [
      "input"
    ]
- }'::jsonb);
+ }'::jsonb),
+
+-- 10. For Each
+((SELECT id FROM core_plugin),
+    'flow.loop.foreach',
+    'For Each',
+    'for_each',
+    '1.0.0',
+    'Iterates over each item in a collection and executes the specified nodes for each item.',
+    ARRAY ['loop', 'for_each', 'iterator'],
+    'ph:repeat',
+ '{
+   "type": "object",
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "title": "While Loop Node Schema",
+   "description": "Schema for core:flow.loop.while node that supports condition-based iteration with system state management",
+   "required": ["input"],
+   "properties": {
+     "input": {
+       "type": "object",
+       "required": ["condition", "next", "loopEnd"],
+       "properties": {
+         "condition": {
+           "type": "string",
+           "description": "Expression that determines whether the loop should continue (required)."
+         },
+         "next": {
+           "type": "array",
+           "items": {"type": "string"},
+           "minItems": 1,
+           "description": "The next node(s) to execute within the loop body (required)."
+         },
+         "loopEnd": {
+           "type": "array",
+           "items": {"type": "string"},
+           "minItems": 1,
+           "description": "The node(s) to execute after the loop ends (required)."
+         },
+         "iterationVar": {
+           "type": "string",
+           "default": "iteration",
+           "description": "Variable name to assign to the current iteration count."
+         },
+         "maxIterations": {
+           "type": "number",
+           "default": 1000,
+           "minimum": 1,
+           "description": "Maximum number of iterations to prevent infinite loops."
+         },
+         "breakCondition": {
+           "type": "string",
+           "description": "Expression that when true will exit the loop early."
+         },
+         "continueCondition": {
+           "type": "string",
+           "description": "Expression that when true will skip to the next iteration."
+         },
+         "__system_state__": {
+           "type": "object",
+           "description": "Internal system state managed by NodeExecutionMediator (do not set manually).",
+           "properties": {
+             "iteration": {"type": "number"}
+           }
+         }
+       },
+       "additionalProperties": true
+     },
+     "output": {
+       "type": "object",
+       "description": "Output configuration for the while loop node",
+       "additionalProperties": true
+     },
+     "secrets": {
+       "type": "array",
+       "items": {
+         "type": "object",
+         "required": ["key"],
+         "properties": {
+           "key": {"type": "string"}
+         }
+       },
+       "description": "Secret keys required by this node"
+     },
+     "metadata": {
+       "type": "object",
+       "properties": {
+         "requiresSystemState": {
+           "type": "boolean",
+           "default": true,
+           "description": "Indicates this node requires system state management"
+         },
+         "systemStateType": {
+           "type": "string",
+           "enum": ["loop"],
+           "default": "loop",
+           "description": "Type of system state required"
+         },
+         "description": {
+           "type": "string",
+           "description": "Human-readable description of what this while loop does"
+         }
+       }
+     }
+   }
+ }
+'::jsonb);

@@ -26,6 +26,13 @@ public class RuntimeContext {
     private final Map<String, Set<String>> consumers = new ConcurrentHashMap<>();
     private final Map<String, String> aliases = new ConcurrentHashMap<>();
 
+    @Getter
+    private final SystemStateManager systemStateManager;
+
+    public RuntimeContext(SystemStateManager systemStateManager) {
+        this.systemStateManager = systemStateManager;
+    }
+
     public void initialize(Map<String, Object> initialContext,
                            Map<String, Set<String>> initialConsumers,
                            Map<String, String> initialAliases) {
@@ -312,6 +319,22 @@ public class RuntimeContext {
         }
     }
 
+    public void putSystemState(String key, Object value) {
+        systemStateManager.putSystemState(key, value);
+    }
+
+    public Object getSystemState(String key) {
+        return systemStateManager.getSystemState(key);
+    }
+
+    public void removeSystemState(String key) {
+        systemStateManager.removeSystemState(key);
+    }
+
+    public boolean hasSystemState(String key) {
+        return systemStateManager.hasSystemState(key);
+    }
+
     /**
      * Get current context size for monitoring
      */
@@ -332,6 +355,8 @@ public class RuntimeContext {
     public void clear() {
         context.clear();
         consumers.clear();
-        log.debug("RuntimeContext cleared");
+        aliases.clear();
+        systemStateManager.clear();
+        log.debug("RuntimeContext and SystemState cleared");
     }
 }
