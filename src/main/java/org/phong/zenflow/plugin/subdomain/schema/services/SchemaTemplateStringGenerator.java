@@ -7,7 +7,6 @@ import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.P
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -16,8 +15,7 @@ public class SchemaTemplateStringGenerator {
         return nodes.stream()
                 .map(node -> {
                     if (node instanceof PluginDefinition pluginNode) {
-                        UUID nodeId = pluginNode.getPluginNode().nodeId();
-                        return nodeId.toString();
+                        return pluginNode.getPluginNode().toCacheKey();
                     } else {
                         log.warn("Node does not have a valid identifier: {}", node);
                         return null;

@@ -98,7 +98,7 @@ public class WorkflowValidationService {
      * @param templateString Template string formats:
      *                       <ul>
      *                         <li>Built-in: <code>builtin:&#60;name&#62;</code> (e.g., <code>builtin:http-trigger</code>)</li>
-     *                         <li>Plugin: <code>&#60;nodeId&#62;</code> (e.g., <code>123e4567-e89b-12d3-a456-426614174001</code>)</li>
+     *                         <li>Plugin: <code>&#60;nodeKey&#62;</code> (e.g., <code>123e4567-e89b-12d3-a456-426614174001</code>)</li>
      *                       </ul>
      * @return ValidationResult containing any runtime validation errors found
      */
@@ -145,7 +145,7 @@ public class WorkflowValidationService {
             // Only handle plugin nodes for now
             if (node.getType() == NodeType.PLUGIN && node instanceof PluginDefinition pluginNode) {
                 validatePluginNode(pluginNode, errors);
-                templateString = pluginNode.getPluginNode().nodeId().toString();
+                templateString = pluginNode.getPluginNode().toCacheKey();
                 log.debug("Plugin node detected - templateString: {}", templateString);
             } else {
                 log.debug("Skipping non-plugin node: {}", node.getKey());
@@ -191,7 +191,7 @@ public class WorkflowValidationService {
                         .errorType("definition")
                         .errorCode(ValidationErrorCode.PLUGIN_NODE_DEFINITION_MISSING)
                         .path(node.getKey())
-                        .message("Plugin node definition is missing! Require pluginId and nodeId!")
+                        .message("Plugin node definition is missing! Require pluginKey and nodeKey!")
                         .build());
                 return;
             }

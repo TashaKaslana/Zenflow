@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -21,21 +20,21 @@ public class PluginNodeSchemaProviderImpl implements PluginNodeSchemaProvider {
     }
 
     @Override
-    public Map<String, Object> getSchemaJson(UUID nodeId) {
+    public Map<String, Object> getSchemaJson(String key) {
         return pluginNodeRepository
-                .findByIdCustom(nodeId)
-                .map(PluginNodeSchema::getConfigSchema).orElseThrow(
-                        () -> new ValidateNodeSchemaException("Node schema not found for nodeId: " +  nodeId)
-                );
+                .findByKey(key)
+                .orElseThrow(
+                        () -> new ValidateNodeSchemaException("Node schema not found for nodeKey: " +  key)
+                ).getConfigSchema();
     }
 
     @Override
-    public Map<UUID, Map<String, Object>> getAllSchemasByNodeIds(List<UUID> nodeIds) {
-        return pluginNodeRepository.findAllByIds(nodeIds)
+    public Map<String, Map<String, Object>> getAllSchemasByIdentifiers(List<String> keyList) {
+        return pluginNodeRepository.findAllByKeyList(keyList)
                 .stream()
                 .filter(node -> node.getConfigSchema() != null)
                 .collect(Collectors.toMap(
-                        PluginNodeSchema::getId,          // Assuming `getId()` returns UUID
+                        PluginNodeSchema::getKey,
                         PluginNodeSchema::getConfigSchema
                 ));
     }
