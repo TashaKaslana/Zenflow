@@ -14,3 +14,14 @@ ALTER TABLE node_logs
 
 ALTER TABLE plugin_nodes
     ALTER COLUMN executor_type TYPE TEXT;
+
+ALTER TABLE plugins
+    ADD COLUMN IF NOT EXISTS key TEXT UNIQUE;
+
+
+UPDATE plugins
+SET key = 'core'
+WHERE id = (SELECT id
+            FROM plugins
+            WHERE name = 'Core Plugin'
+            LIMIT 1)
