@@ -24,7 +24,7 @@ public class RemoteNodeExecutor implements PluginNodeExecutor {
 
     @Override
     public String key() {
-        return "core:remote";
+        return "core:remote:1.0.0";
     }
 
     @Override

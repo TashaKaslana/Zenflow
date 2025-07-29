@@ -26,7 +26,7 @@ public class DataTransformerExecutor implements PluginNodeExecutor {
 
     @Override
     public String key() {
-        return "core:data.transformer";
+        return "core:data.transformer:1.0.0";
     }
 
     @Override

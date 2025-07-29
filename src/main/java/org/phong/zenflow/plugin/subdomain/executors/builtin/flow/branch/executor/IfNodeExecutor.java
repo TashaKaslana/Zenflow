@@ -23,7 +23,7 @@ public class IfNodeExecutor implements PluginNodeExecutor {
 
     @Override
     public String key() {
-        return "core:flow.branch.if";
+        return "core:flow.branch.if:1.0.0";
     }
 
     @Override
