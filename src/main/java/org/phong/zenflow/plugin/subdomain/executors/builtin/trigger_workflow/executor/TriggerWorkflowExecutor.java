@@ -22,7 +22,7 @@ public class TriggerWorkflowExecutor implements PluginNodeExecutor {
 
     @Override
     public String key() {
-        return "core:trigger.workflow";
+        return "core:trigger.workflow:1.0.0";
     }
 
     @Override

@@ -24,7 +24,7 @@ public class ConditionNodeExecutor implements PluginNodeExecutor {
 
     @Override
     public String key() {
-        return "core:flow.branch.condition";
+        return "core:flow.branch.condition:1.0.0";
     }
 
     @Override

@@ -29,7 +29,7 @@ public class HttpRequestExecutor implements PluginNodeExecutor {
 
     @Override
     public String key() {
-        return "core:http.request";
+        return "core:http.request:1.0.0";
     }
 
     @Override
