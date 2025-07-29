@@ -75,6 +75,13 @@ public class ExecutionResult {
         return result;
     }
 
+    public static ExecutionResult nextNode(String nextNodeKey, Map<String, Object> output, List<LogEntry> logs) {
+        ExecutionResult result = nextNode(nextNodeKey);
+        result.setOutput(output);
+        result.setLogs(logs);
+        return result;
+    }
+
     public static ExecutionResult validationError(ValidationResult validationResult, String nodeKey) {
         ExecutionResult result = new ExecutionResult();
         result.setStatus(ExecutionStatus.VALIDATION_ERROR);
