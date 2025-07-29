@@ -22,7 +22,7 @@ public class ForLoopExecutor implements PluginNodeExecutor {
 
     @Override
     public ExecutionResult execute(WorkflowConfig config) {
-        Map<String, Object> input = ObjectConversion.convertObjectToMap(config.input());
+        Map<String, Object> input = config.input();
         String stateKey = "__loop_state__:" + input.get("key");
         Map<String, Object> loopState = ObjectConversion.convertObjectToMap(input.get(stateKey));
 

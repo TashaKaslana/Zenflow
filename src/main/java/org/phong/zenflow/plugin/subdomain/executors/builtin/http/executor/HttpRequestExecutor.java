@@ -36,7 +36,7 @@ public class HttpRequestExecutor implements PluginNodeExecutor {
     public ExecutionResult execute(WorkflowConfig config) {
         LogCollector logs = new LogCollector();
         try {
-            Map<String, Object> input = ObjectConversion.convertObjectToMap(config.input());
+            Map<String, Object> input = config.input();
 
             String url = (String) input.get("url");
             HttpMethod method = HttpMethod.valueOf((String) input.get("method"));

@@ -1,7 +1,6 @@
 package org.phong.zenflow.plugin.subdomain.executors.builtin.flow.timeout;
 
 import lombok.RequiredArgsConstructor;
-import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
@@ -27,7 +26,7 @@ public class TimeoutExecutor implements PluginNodeExecutor {
         LogCollector logCollector = new LogCollector();
         logCollector.info("Starting timeout node execution");
 
-        Map<String, Object> input = ObjectConversion.convertObjectToMap(config.input());
+        Map<String, Object> input = config.input();
         String duration = (String) input.get("duration");
         String unit = (String) input.get("unit");
 

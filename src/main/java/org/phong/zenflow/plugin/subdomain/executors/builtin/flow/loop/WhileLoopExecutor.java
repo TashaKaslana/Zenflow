@@ -24,7 +24,7 @@ public class WhileLoopExecutor implements PluginNodeExecutor {
 
     @Override
     public ExecutionResult execute(WorkflowConfig config) {
-        Map<String, Object> input = ObjectConversion.convertObjectToMap(config.input());
+        Map<String, Object> input = config.input();
         String condition = (String) input.get("condition");
         List<String> next = ObjectConversion.safeConvert(input.get("next"), new TypeReference<>() {});
         List<String> loopEnd = ObjectConversion.safeConvert(input.get("loopEnd"), new TypeReference<>() {});
