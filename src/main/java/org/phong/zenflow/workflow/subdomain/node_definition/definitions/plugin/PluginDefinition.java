@@ -14,10 +14,10 @@ import java.util.Map;
 @Setter
 public final class PluginDefinition extends BaseWorkflowNode {
     @NotNull
-    private final PluginNodeDefinition pluginNode;
+    private final PluginNodeIdentifier pluginNode;
 
     public PluginDefinition(String key, NodeType type, List<String> next, WorkflowConfig config,
-                            Map<String, Object> metadata, Map<String, Object> policy, PluginNodeDefinition pluginNode) {
+                            Map<String, Object> metadata, Map<String, Object> policy, PluginNodeIdentifier pluginNode) {
         super(key, type, next, config, metadata, policy);
         this.pluginNode = pluginNode;
     }

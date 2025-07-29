@@ -6,6 +6,7 @@ import org.json.JSONObject;
 import org.phong.zenflow.plugin.subdomain.node.interfaces.PluginNodeSchemaProvider;
 import org.phong.zenflow.plugin.subdomain.schema.exception.NodeSchemaException;
 import org.phong.zenflow.plugin.subdomain.schema.exception.NodeSchemaMissingException;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
@@ -16,7 +17,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -38,11 +38,11 @@ public class SchemaRegistry {
      * Template string formats:
      * <ul>
      *   <li>Built-in: <code>builtin:&#60;name&#62;</code> (e.g., <code>builtin:http-trigger</code>)</li>
-     *   <li>Plugin: <code>&#60;nodeId&#62;</code> (e.g., <code>123e4567-e89b-12d3-a456-426614174001</code>)</li>
+     *   <li>Plugin: <code>&#60;pluginKey&#62;:&#60;nodeKey&#62;</code> (e.g., <code>123e4567-e89b-12d3-a456-426614174001:1</code>)</li>
      * </ul>
      * This unified naming convention allows easy differentiation and retrieval of schemas.
      *
-     * @param templateString the schema identifier, either built-in name or plugin nodeId
+     * @param templateString the schema identifier, either built-in name or plugin identifier
      * @return JSONObject containing the schema
      */
     public JSONObject getSchemaByTemplateString(String templateString) {
@@ -51,12 +51,12 @@ public class SchemaRegistry {
             return getBuiltinSchema(templateString.substring(8));
         }
 
-        // Otherwise, treat it as a plugin schema by nodeId
+        // Otherwise, treat it as a plugin schema
         try {
-            UUID nodeId = UUID.fromString(templateString);
-            return getPluginSchema(nodeId);
+            PluginNodeIdentifier pni = PluginNodeIdentifier.fromString(templateString);
+            return getPluginSchema(pni);
         } catch (IllegalArgumentException e) {
-            throw new NodeSchemaException("Invalid schema identifier format. Expected 'builtin:name' or valid UUID for nodeId.", e);
+            throw new NodeSchemaException("Invalid schema identifier format. Expected 'builtin:name' or 'pluginKey:nodeKey'.", e);
         }
     }
 
@@ -67,23 +67,25 @@ public class SchemaRegistry {
                 .filter(name -> name.startsWith("builtin:"))
                 .map(name -> name.substring(8))
                 .toList();
-        Set<UUID> pluginNodeIds = templateStrings.stream()
+        Set<PluginNodeIdentifier> pluginNodeIdentifiers = templateStrings.stream()
                 .filter(name -> !name.startsWith("builtin:"))
                 .map(name -> {
                     try {
-                        return UUID.fromString(name);
+                        return PluginNodeIdentifier.fromString(name);
                     } catch (IllegalArgumentException e) {
-                        throw new NodeSchemaException("Invalid nodeId format: " + name, e);
+                        throw new NodeSchemaException("Invalid plugin node identifier format: " + name, e);
                     }
                 }).collect(Collectors.toSet());
 
         if (!builtinNames.isEmpty()) {
             Map<String, JSONObject> builtinSchemas = getBuiltinSchemas(builtinNames);
-            result.putAll(builtinSchemas);
+            for (String name : builtinNames) {
+                result.put("builtin:" + name, builtinSchemas.get(name));
+            }
         }
 
-        if (!pluginNodeIds.isEmpty()) {
-            Map<String, JSONObject> pluginSchemas = getPluginSchemasByNodeIds(pluginNodeIds);
+        if (!pluginNodeIdentifiers.isEmpty()) {
+            Map<String, JSONObject> pluginSchemas = getPluginSchemasByIdentifiers(pluginNodeIdentifiers);
             result.putAll(pluginSchemas);
         }
 
@@ -104,77 +106,81 @@ public class SchemaRegistry {
     }
 
     /**
-     * Get plugin node schema using nodeId only
-     * @param nodeId UUID of the node
+     * Get plugin node schema using PluginNodeIdentifier
+     * @param identifier The plugin node identifier
      * @return JSONObject containing the schema
      */
-    private JSONObject getPluginSchema(UUID nodeId) {
-        String cacheKey = nodeId.toString();
+    private JSONObject getPluginSchema(PluginNodeIdentifier identifier) {
+        String cacheKey = identifier.toCacheKey();
         return pluginCache.computeIfAbsent(cacheKey, k -> {
-            Map<String, Object> schema = pluginProvider.getSchemaJson(nodeId);
+            Map<String, Object> schema = pluginProvider.getSchemaJson(k);
             if (schema.isEmpty()) {
-                throw new NodeSchemaMissingException("No schema found for node id: " + nodeId, List.of(nodeId));
+                throw new NodeSchemaMissingException("No schema found for plugin node: " + k, List.of(k));
             }
             return new JSONObject(schema);
         });
     }
 
     /**
-     * Efficiently retrieve multiple plugin schemas by nodeIds in a single batch operation.
-     * Fails if any nodeId has no corresponding schema.
+     * Efficiently retrieve multiple plugin schemas by identifiers in a single batch operation.
+     * Fails if any identifier has no corresponding schema.
      *
-     * @param nodeIds Set of node UUIDs
-     * @return Map of nodeId (as String) -> schema JSONObject
+     * @param identifiers Set of plugin node identifiers
+     * @return Map of identifier (as String) -> schema JSONObject
      */
-    private Map<String, JSONObject> getPluginSchemasByNodeIds(Set<UUID> nodeIds) {
+    private Map<String, JSONObject> getPluginSchemasByIdentifiers(Set<PluginNodeIdentifier> identifiers) {
         // Filter out already cached schemas
-        List<UUID> uncachedNodeIds = nodeIds.stream()
-                .filter(nodeId -> !pluginCache.containsKey(nodeId.toString()))
+        List<PluginNodeIdentifier> uncachedIdentifiers = identifiers.stream()
+                .filter(id -> !pluginCache.containsKey(id.toCacheKey()))
                 .toList();
 
         // Fetch and cache missing schemas
-        putNewSchemasForUnCachedNode(uncachedNodeIds);
+        putNewSchemasForUncachedIdentifiers(uncachedIdentifiers);
 
-        // Fail if any requested nodeId is still missing
-        List<UUID> missingIds = nodeIds.stream()
-                .filter(nodeId -> !pluginCache.containsKey(nodeId.toString()))
+        // Fail if any requested identifier is still missing
+        List<String> missingIds = identifiers.stream()
+                .map(PluginNodeIdentifier::toCacheKey)
+                .filter(key -> !pluginCache.containsKey(key))
                 .toList();
 
         if (!missingIds.isEmpty()) {
-            throw new NodeSchemaMissingException("Schemas missing for plugin nodeIds", missingIds);
+            throw new NodeSchemaMissingException("Schemas missing for plugin node identifiers", missingIds);
         }
 
         // All schemas are guaranteed to be present
-        return nodeIds.stream()
+        return identifiers.stream()
                 .collect(Collectors.toMap(
-                        UUID::toString,
-                        nodeId -> pluginCache.get(nodeId.toString())
+                        PluginNodeIdentifier::toCacheKey,
+                        id -> pluginCache.get(id.toCacheKey())
                 ));
     }
 
-    private void putNewSchemasForUnCachedNode(List<UUID> uncachedNodeIds) {
-        if (!uncachedNodeIds.isEmpty()) {
-            Map<UUID, Map<String, Object>> schemas = pluginProvider.getAllSchemasByNodeIds(uncachedNodeIds);
+    private void putNewSchemasForUncachedIdentifiers(List<PluginNodeIdentifier> uncachedIdentifiers) {
+        if (!uncachedIdentifiers.isEmpty()) {
+            List<String> uncachedKeys = uncachedIdentifiers.stream()
+                    .map(PluginNodeIdentifier::toCacheKey)
+                    .toList();
+            Map<String, Map<String, Object>> schemas = pluginProvider.getAllSchemasByIdentifiers(uncachedKeys);
 
-            schemas.forEach((uuid, schemaMap) -> {
+            schemas.forEach((key, schemaMap) -> {
                 if (schemaMap == null) {
-                    throw new NodeSchemaException("Null schema for plugin node ID: " + uuid);
+                    throw new NodeSchemaException("Null schema for plugin node identifier: " + key);
                 }
-                pluginCache.put(uuid.toString(), new JSONObject(schemaMap));
+                pluginCache.put(key, new JSONObject(schemaMap));
             });
         }
     }
 
     /**
-     * Convenience method to get schemas by UUID nodeIds and return with UUID keys
-     * @param nodeIds List of node UUIDs
-     * @return Map of UUID -> schema JSONObject
+     * Convenience method to get schemas by PluginNodeIdentifier and return with PluginNodeIdentifier keys
+     * @param identifiers Set of plugin node identifiers
+     * @return Map of PluginNodeIdentifier -> schema JSONObject
      */
-    public Map<UUID, JSONObject> getPluginSchemasByNodeIdsAsUUID(Set<UUID> nodeIds) {
-        Map<String, JSONObject> stringKeyMap = getPluginSchemasByNodeIds(nodeIds);
+    public Map<PluginNodeIdentifier, JSONObject> getPluginSchemasByIdentifiersAsIdentifier(Set<PluginNodeIdentifier> identifiers) {
+        Map<String, JSONObject> stringKeyMap = getPluginSchemasByIdentifiers(identifiers);
         return stringKeyMap.entrySet().stream()
                 .collect(Collectors.toMap(
-                        entry -> UUID.fromString(entry.getKey()),
+                        entry -> PluginNodeIdentifier.fromString(entry.getKey()),
                         Map.Entry::getValue
                 ));
     }
