@@ -131,4 +131,11 @@ public class WorkflowController {
         WorkflowDefinition updatedDefinition = workflowService.removeNode(id, nodeKey);
         return RestApiResponse.success(updatedDefinition, "Workflow node removed successfully");
     }
+
+    @DeleteMapping("/{id}/nodes/clear")
+    public ResponseEntity<RestApiResponse<WorkflowDefinition>> clearWorkflowDefinition(
+            @PathVariable UUID id) {
+        WorkflowDefinition clearedDefinition = workflowService.clearWorkflowDefinition(id);
+        return RestApiResponse.success(clearedDefinition, "Workflow definition cleared successfully");
+    }
 }
