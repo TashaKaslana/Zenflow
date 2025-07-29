@@ -29,9 +29,10 @@ public class RemoteNodeExecutor implements PluginNodeExecutor {
 
     @Override
     public ExecutionResult execute(WorkflowConfig config) {
-        Map<String, Object> entrypoint = ObjectConversion.convertObjectToMap(config.entrypoint());
-        Map<String, Object> input = ObjectConversion.convertObjectToMap(config.input());
+        Map<String, Object> entrypoint = config.entrypoint();
+        Map<String, Object> input = config.input();
 
+        assert entrypoint != null;
         String url = (String) entrypoint.get("url");
         String method = (String) entrypoint.getOrDefault("method", "POST");
 
