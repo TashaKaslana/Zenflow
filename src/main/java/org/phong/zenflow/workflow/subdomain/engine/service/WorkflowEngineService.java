@@ -36,7 +36,7 @@ public class WorkflowEngineService {
     private final NodeLogService nodeLogService;
     private final WorkflowValidationService workflowValidationService;
     private final PluginNodeExecutorDispatcher executorDispatcher;
-    private final WorkflowNavigatorServices workflowNavigatorServices;
+    private final WorkflowNavigatorService workflowNavigatorService;
 
     @Transactional
     public WorkflowExecutionStatus runWorkflow(UUID workflowId,
@@ -55,7 +55,7 @@ public class WorkflowEngineService {
             List<BaseWorkflowNode> workflowNodes = definition.nodes();
 
             String currentNodeKey = (startFromNodeKey != null) ? startFromNodeKey : workflow.getStartNode();
-            BaseWorkflowNode workingNode = workflowNavigatorServices.findNodeByKey(workflowNodes, currentNodeKey);
+            BaseWorkflowNode workingNode = workflowNavigatorService.findNodeByKey(workflowNodes, currentNodeKey);
 
             return getWorkflowExecutionStatus(workflowId, workflowRunId, context, workingNode, workflowNodes);
         } catch (Exception e) {
@@ -74,7 +74,7 @@ public class WorkflowEngineService {
 
         while (workingNode != null) {
             result = setupAndExecutionWorkflow(workflowId, workflowRunId, context, workingNode);
-            WorkflowNavigatorServices.ExecutionStepOutcome outcome = workflowNavigatorServices.handleExecutionResult(workflowId, workingNode, result, workflowNodes);
+            WorkflowNavigatorService.ExecutionStepOutcome outcome = workflowNavigatorService.handleExecutionResult(workflowId, workingNode, result, workflowNodes, context);
             workingNode = outcome.nextNode();
             executionStatus = outcome.status();
         }
@@ -96,7 +96,7 @@ public class WorkflowEngineService {
         result = executeWorkingNode(context, workingNode, resolvedConfig);
 
         Map<String, Object> output = result.getOutput();
-        if (output != null && !NodeType.getLoopStatefulTypes().contains(workingNode.getType())) {
+        if (output != null) {
             context.processOutputWithMetadata(String.format("%s.output", workingNode.getKey()), output);
         } else {
             log.warn("Output of node {} is null, skipping putting into context", workingNode.getKey());

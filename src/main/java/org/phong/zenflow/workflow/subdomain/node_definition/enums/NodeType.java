@@ -32,6 +32,6 @@ public enum NodeType {
     }
 
     public static List<NodeType> getLoopStatefulTypes() {
-        return List.of(FOR_EACH, FOR_LOOP);
+        return List.of(FOR_EACH, FOR_LOOP, WHILE_LOOP);
     }
 }
