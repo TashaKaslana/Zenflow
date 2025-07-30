@@ -6,7 +6,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
-import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
 import org.springframework.stereotype.Component;
@@ -18,7 +17,7 @@ import java.util.Map;
 @Component
 @Slf4j
 public class ForEachLoopExecutor implements PluginNodeExecutor {
-    
+
     @Override
     public String key() {
         return "core:flow.loop.foreach:1.0.0";
@@ -29,120 +28,57 @@ public class ForEachLoopExecutor implements PluginNodeExecutor {
         LogCollector logCollector = new LogCollector();
         try {
             Map<String, Object> input = config.input();
-            
-            // Validate required fields
-            if (!input.containsKey("iterator")) {
-                String errorMsg = "ForEachLoop requires 'iterator' in config.";
-                logCollector.error(errorMsg);
-                throw new IllegalArgumentException(errorMsg);
+            List<Object> items = ObjectConversion.safeConvert(input.get("items"), new TypeReference<>() {});
+            int index = (int) input.getOrDefault("index", 0);
+
+            if (index >= items.size()) {
+                List<String> loopEnd = ObjectConversion.safeConvert(input.get("loopEnd"), new TypeReference<>() {});
+                logCollector.info("Loop completed after {} iterations", items.size());
+                return ExecutionResult.loopEnd(loopEnd.getFirst(), logCollector.getLogs());
             }
 
-            if (!input.containsKey("next") || !input.containsKey("loopEnd")) {
-                String errorMsg = "ForEachLoop requires both 'next' and 'loopEnd' arrays in config.";
-                logCollector.error(errorMsg);
-                throw new IllegalArgumentException(errorMsg);
+            Object currentItem = items.get(index);
+            Map<String, Object> context = new HashMap<>();
+            context.put("item", currentItem);
+            context.put("index", index);
+
+            if (evalCondition(input.get("breakCondition"), context, logCollector)) {
+                List<String> loopEnd = ObjectConversion.safeConvert(input.get("loopEnd"), new TypeReference<>() {});
+                logCollector.info("Break condition met at index {}, exiting loop", index);
+                return ExecutionResult.loopBreak(loopEnd.getFirst(), context, logCollector.getLogs());
             }
 
-            // Get system state injected by mediator
-            Map<String, Object> loopState = ObjectConversion.convertObjectToMap(input.get("__system_state__"));
-            
-            Result result = getResult(input, loopState);
-            List<String> loopEnd = ObjectConversion.safeConvert(input.get("loopEnd"), new TypeReference<>() {});
+            if (evalCondition(input.get("continueCondition"), context, logCollector)) {
+                context.put("index", index + 1);
+                logCollector.info("Continue condition met at index {}, skipping to next", index);
+                return ExecutionResult.loopContinue(context, logCollector.getLogs());
+            }
+
             List<String> next = ObjectConversion.safeConvert(input.get("next"), new TypeReference<>() {});
+            context.put("index", index + 1); // Prepare for next iteration
 
-            // Check if loop is complete
-            if (result.index() >= result.total()) {
-                logCollector.info("ForEach loop completed after processing {} items", result.total());
-                return ExecutionResult.nextNode(loopEnd.getFirst(), logCollector.getLogs());
-            }
-
-            // Prepare current iteration context
-            Map<String, Object> output = new HashMap<>();
-            List<?> items = (List<?>) result.loopState().get("items");
-            Object currentItem = items.get(result.index());
-            
-            String itemVar = (String) input.getOrDefault("itemVar", "item");
-            String indexVar = (String) input.getOrDefault("indexVar", "index");
-            String hasNextVar = (String) input.getOrDefault("hasNextVar", "hasNext");
-            String isFirstVar = (String) input.getOrDefault("isFirstVar", "isFirst");
-            String isLastVar = (String) input.getOrDefault("isLastVar", "isLast");
-            
-            output.put(itemVar, currentItem);
-            output.put(indexVar, result.index());
-            output.put(hasNextVar, result.index() < result.total() - 1);
-            output.put(isFirstVar, result.index() == 0);
-            output.put(isLastVar, result.index() == result.total() - 1);
-
-            logCollector.info("ForEach loop processing item {} of {}: {}", 
-                            result.index() + 1, result.total(), currentItem);
-
-            // Evaluate break condition
-            if (evalCondition(input.get("breakCondition"), output)) {
-                logCollector.info("ForEach loop exited due to break condition at item {}", result.index() + 1);
-                return ExecutionResult.nextNode(loopEnd.getFirst(), output, logCollector.getLogs());
-            }
-
-            // Evaluate continue condition (skip current item)
-            if (evalCondition(input.get("continueCondition"), output)) {
-                result.loopState().put("index", result.index() + 1);
-                output.put("__system_state__", result.loopState());
-                logCollector.info("ForEach loop skipped item {} due to continue condition", result.index() + 1);
-                return ExecutionResult.nextNode("__SELF__", output, logCollector.getLogs());
-            }
-
-            // Process current item - update state for next iteration
-            result.loopState().put("index", result.index() + 1);
-            output.put("__system_state__", result.loopState());
-            
-            logCollector.info("Proceeding to forEach loop body for item {}", result.index() + 1);
-            return ExecutionResult.nextNode(next.getFirst(), output, logCollector.getLogs());
+            logCollector.info("Processing item {} of {}: {}", index + 1, items.size(), currentItem);
+            return ExecutionResult.loopNext(next.getFirst(), context, logCollector.getLogs());
 
         } catch (Exception e) {
-            log.error("Failed to process forEach-loop", e);
-            logCollector.error("Failed to process forEach-loop: " + e.getMessage());
-            return ExecutionResult.error("Failed to process forEach-loop: " + e.getMessage(), logCollector.getLogs());
+            log.error("Execution failed in ForEachLoop", e);
+            logCollector.error("Execution failed: " + e.getMessage());
+            return ExecutionResult.error("Execution failed: " + e.getMessage(), logCollector.getLogs());
         }
     }
 
-    private static Result getResult(Map<String, Object> input, Map<String, Object> loopState) {
-        if (loopState == null) {
-            loopState = new HashMap<>();
-            
-            String iterator = (String) input.get("iterator");
-            Object iterableRaw = input.get(iterator);
-            
-            if (!(iterableRaw instanceof List<?> items)) {
-                throw new IllegalArgumentException("Iterator '" + iterator + "' must be a list, got: " + 
-                    (iterableRaw != null ? iterableRaw.getClass().getSimpleName() : "null"));
-            }
-
-            if (items.isEmpty()) {
-                throw new IllegalArgumentException("Iterator '" + iterator + "' cannot be empty for forEach loop");
-            }
-
-            loopState.put("items", items);
-            loopState.put("index", 0);
-            loopState.put("total", items.size());
-        }
-
-        int index = (int) loopState.get("index");
-        int total = (int) loopState.get("total");
-        return new Result(loopState, index, total);
-    }
-
-    private record Result(Map<String, Object> loopState, int index, int total) {}
-
-    private boolean evalCondition(Object rawExpr, Map<String, Object> context) {
+    private boolean evalCondition(Object rawExpr, Map<String, Object> context, LogCollector logCollector) {
         if (rawExpr instanceof String expr && !expr.isBlank()) {
             try {
-                String interpolated = TemplateEngine.resolveTemplate(expr, context).toString();
-                Object result = AviatorEvaluator.execute(interpolated);
+                Object result = AviatorEvaluator.execute(expr, context);
                 return Boolean.TRUE.equals(result);
             } catch (Exception e) {
                 log.warn("Failed to evaluate condition '{}': {}", rawExpr, e.getMessage());
+                logCollector.warning("Failed to evaluate condition '{}': {}", rawExpr, e.getMessage());
                 return false;
             }
         }
         return false;
     }
 }
+

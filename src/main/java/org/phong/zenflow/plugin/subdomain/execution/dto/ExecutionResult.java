@@ -89,4 +89,42 @@ public class ExecutionResult {
         result.setNextNodeKey(nodeKey);
         return result;
     }
+
+    public static ExecutionResult loopNext(String nextNode, Map<String, Object> output, List<LogEntry> logs) {
+        ExecutionResult result = new ExecutionResult();
+        result.setStatus(ExecutionStatus.LOOP_NEXT);
+        result.setNextNodeKey(nextNode);
+        result.setOutput(output);
+        result.setLogs(logs);
+        return result;
+    }
+
+    public static ExecutionResult loopEnd(String loopEndNode, Map<String, Object> output, List<LogEntry> logs) {
+        ExecutionResult result = new ExecutionResult();
+        result.setStatus(ExecutionStatus.LOOP_END);
+        result.setNextNodeKey(loopEndNode);
+        result.setOutput(output);
+        result.setLogs(logs);
+        return result;
+    }
+
+    public static ExecutionResult loopEnd(String loopEndNode, List<LogEntry> logs) {
+        return ExecutionResult.loopEnd(loopEndNode, null, logs);
+    }
+
+    public static ExecutionResult loopContinue(Map<String, Object> output, List<LogEntry> logs) {
+        ExecutionResult result = new ExecutionResult();
+        result.setStatus(ExecutionStatus.LOOP_CONTINUE);
+        result.setOutput(output);
+        result.setLogs(logs);
+        return result;
+    }
+    public static ExecutionResult loopBreak(String nextNode, Map<String, Object> output, List<LogEntry> logs) {
+        ExecutionResult result = new ExecutionResult();
+        result.setStatus(ExecutionStatus.LOOP_BREAK);
+        result.setNextNodeKey(nextNode);
+        result.setOutput(output);
+        result.setLogs(logs);
+        return result;
+    }
 }
