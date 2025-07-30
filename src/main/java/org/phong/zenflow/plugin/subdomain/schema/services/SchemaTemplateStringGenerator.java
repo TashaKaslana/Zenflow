@@ -2,7 +2,7 @@ package org.phong.zenflow.plugin.subdomain.schema.services;
 
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginDefinition;
+
 
 import java.util.List;
 import java.util.Objects;
@@ -14,9 +14,9 @@ public class SchemaTemplateStringGenerator {
     public static Set<String> generateTemplateStrings(List<BaseWorkflowNode> nodes) {
         return nodes.stream()
                 .map(node -> {
-                    if (node instanceof PluginDefinition pluginNode) {
-                        return pluginNode.getPluginNode().toCacheKey();
-                    } else {
+                    if (node.getPluginNode() != null) {
+            return node.getPluginNode().toCacheKey();
+        } else {
                         log.warn("Node does not have a valid identifier: {}", node);
                         return null;
                     }

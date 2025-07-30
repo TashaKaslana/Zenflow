@@ -8,8 +8,6 @@ import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWork
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.OutputUsage;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginDefinition;
-import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
 import org.phong.zenflow.workflow.subdomain.schema_validator.enums.ValidationErrorCode;
@@ -140,19 +138,12 @@ public class WorkflowValidationService {
         for (BaseWorkflowNode node : workflow.nodes()) {
             log.debug("Processing node: {} (type: {})", node.getKey(), node.getType());
 
-            String templateString = null;
-
-            // Only handle plugin nodes for now
-            if (node.getType() == NodeType.PLUGIN && node instanceof PluginDefinition pluginNode) {
-                validatePluginNode(pluginNode, errors);
-                templateString = pluginNode.getPluginNode().toCacheKey();
-                log.debug("Plugin node detected - templateString: {}", templateString);
-            } else {
-                log.debug("Skipping non-plugin node: {}", node.getKey());
-            }
+            validatePluginNode(node, errors);
+            String templateString = node.getPluginNode().toCacheKey();
+            log.debug("Plugin node detected - templateString: {}", templateString);
 
             // Validate template references in the node's configuration
-            if (templateString != null && node.getConfig().input() != null) {
+            if (node.getConfig().input() != null) {
                 Set<String> templates = TemplateEngine.extractRefs(node.getConfig());
                 Map<String, OutputUsage> nodeConsumers = workflow.metadata() != null ?
                         workflow.metadata().nodeConsumers() : null;
@@ -184,43 +175,33 @@ public class WorkflowValidationService {
      * @param errors List to collect validation errors
      */
     private void validatePluginNode(BaseWorkflowNode node, List<ValidationError> errors) {
-        if (node instanceof PluginDefinition pluginNode) {
-            if (pluginNode.getPluginNode() == null) {
-                errors.add(ValidationError.builder()
-                        .nodeKey(node.getKey())
-                        .errorType("definition")
-                        .errorCode(ValidationErrorCode.PLUGIN_NODE_DEFINITION_MISSING)
-                        .path(node.getKey())
-                        .message("Plugin node definition is missing! Require pluginKey and nodeKey!")
-                        .build());
-                return;
-            }
-
-            // Validate plugin-specific configuration
-            if (pluginNode.getConfig() == null) {
-                errors.add(ValidationError.builder()
-                        .nodeKey(node.getKey())
-                        .errorType("definition")
-                        .errorCode(ValidationErrorCode.PLUGIN_NODE_CONFIG_MISSING)
-                        .path(node.getKey() + ".config")
-                        .message("Plugin node configuration is missing")
-                        .build());
-            }
-
-            errors.addAll(
-                    schemaValidationService.validateTemplates(
-                            node.getKey(), pluginNode.getConfig(), node.getKey() + ".config.input"
-                    )
-            );
-        } else {
+        if (node.getPluginNode() == null) {
             errors.add(ValidationError.builder()
                     .nodeKey(node.getKey())
                     .errorType("definition")
-                    .errorCode(ValidationErrorCode.INVALID_PLUGIN_NODE_DEFINITION)
+                    .errorCode(ValidationErrorCode.PLUGIN_NODE_DEFINITION_MISSING)
                     .path(node.getKey())
-                    .message("Invalid plugin node definition")
+                    .message("Plugin node definition is missing! Require pluginKey and nodeKey!")
+                    .build());
+            return;
+        }
+
+        // Validate plugin-specific configuration
+        if (node.getConfig() == null) {
+            errors.add(ValidationError.builder()
+                    .nodeKey(node.getKey())
+                    .errorType("definition")
+                    .errorCode(ValidationErrorCode.PLUGIN_NODE_CONFIG_MISSING)
+                    .path(node.getKey() + ".config")
+                    .message("Plugin node configuration is missing")
                     .build());
         }
+
+        errors.addAll(
+                schemaValidationService.validateTemplates(
+                        node.getKey(), node.getConfig(), node.getKey() + ".config.input"
+                )
+        );
     }
 
     /**
