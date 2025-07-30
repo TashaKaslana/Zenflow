@@ -6,6 +6,7 @@ ALTER TABLE plugins
 
 INSERT INTO plugins (id,
                      publisher_id,
+                     key,
                      name,
                      version,
                      registry_url,
@@ -16,7 +17,8 @@ INSERT INTO plugins (id,
                      tags,
                      icon)
 VALUES (gen_random_uuid(),
-        NULL,
+        '00000000-0000-0000-0000-000000000000',
+        'core',
         'Core Plugin',
         '1.0.0',
         NULL,
@@ -421,23 +423,23 @@ VALUES
      "input": {
        "type": "object",
        "properties": {
-         "iterator": {
-           "type": "string",
-           "description": "The variable name containing a list to iterate over."
-         },
-         "times": {
-           "type": "number",
-           "description": "Number of times to repeat the loop (used when iterator is not provided)."
-         },
-         "itemVar": {
-           "type": "string",
-           "description": "The variable name to assign to each item in the collection.",
-           "default": "item"
-         },
          "indexVar": {
            "type": "string",
            "description": "The variable name to assign to the current iteration index.",
            "default": "index"
+         },
+         "updateExpression": {
+           "type": "string",
+           "description": "An expression to update the index variable after each iteration.",
+           "default": "index + 1"
+         },
+         "total": {
+              "type": "integer",
+              "description": "The total number of iterations to perform."
+         },
+         "endCondition": {
+           "type": "string",
+           "description": "An expression that when true will exit the loop."
          },
          "breakCondition": {
            "type": "string",
@@ -462,17 +464,9 @@ VALUES
            }
          }
        },
-       "oneOf": [
-         {
-           "required": [
-             "iterator"
-           ]
-         },
-         {
-           "required": [
-             "times"
-           ]
-         }
+       "required": [
+         "next",
+         "loopEnd"
        ]
      },
      "output": {
@@ -483,13 +477,19 @@ VALUES
        "items": {
          "type": "object",
          "properties": {
-           "key": { "type": "string" }
+           "key": {
+             "type": "string"
+           }
          },
-         "required": ["key"]
+         "required": [
+           "key"
+         ]
        }
      }
    },
-   "required": ["input"]
+   "required": [
+     "input"
+   ]
  }'::jsonb),
 
 -- 7. While Loop
@@ -511,6 +511,14 @@ VALUES
          "condition": {
            "type": "string",
            "description": "The expression to evaluate before each iteration. The loop continues as long as this is true."
+         },
+         "breakCondition": {
+           "type": "string",
+           "description": "An expression that when true will exit the loop."
+         },
+         "continueCondition": {
+           "type": "string",
+           "description": "An expression that when true will skip to the next iteration."
          },
          "next": {
            "type": "array",
@@ -688,105 +696,214 @@ VALUES
 
 -- 10. For Each
 ((SELECT id FROM core_plugin),
-    'flow.loop.foreach',
-    'For Each',
-    'for_each',
-    '1.0.0',
-    'Iterates over each item in a collection and executes the specified nodes for each item.',
-    ARRAY ['loop', 'for_each', 'iterator'],
-    'ph:repeat',
+ 'flow.loop.foreach',
+ 'For Each',
+ 'for_each',
+ '1.0.0',
+ 'Iterates over each item in a collection and executes the specified nodes for each item.',
+ ARRAY['loop', 'for_each', 'iterator'],
+ 'ph:repeat',
  '{
-   "type": "object",
    "$schema": "http://json-schema.org/draft-07/schema#",
-   "title": "While Loop Node Schema",
-   "description": "Schema for core:flow.loop.while node that supports condition-based iteration with system state management",
-   "required": ["input"],
+   "type": "object",
    "properties": {
      "input": {
        "type": "object",
-       "required": ["condition", "next", "loopEnd"],
        "properties": {
-         "condition": {
-           "type": "string",
-           "description": "Expression that determines whether the loop should continue (required)."
-         },
-         "next": {
+         "items": {
            "type": "array",
-           "items": {"type": "string"},
-           "minItems": 1,
-           "description": "The next node(s) to execute within the loop body (required)."
+           "description": "The collection of items to iterate over."
          },
-         "loopEnd": {
-           "type": "array",
-           "items": {"type": "string"},
-           "minItems": 1,
-           "description": "The node(s) to execute after the loop ends (required)."
-         },
-         "iterationVar": {
+         "itemVar": {
            "type": "string",
-           "default": "iteration",
-           "description": "Variable name to assign to the current iteration count."
+           "description": "Variable name for the current item in the loop.",
+           "default": "item"
          },
-         "maxIterations": {
-           "type": "number",
-           "default": 1000,
-           "minimum": 1,
-           "description": "Maximum number of iterations to prevent infinite loops."
+         "indexVar": {
+           "type": "string",
+           "description": "Variable name for the current index in the loop.",
+           "default": "index"
          },
          "breakCondition": {
            "type": "string",
-           "description": "Expression that when true will exit the loop early."
+           "description": "An expression that when true will exit the loop."
          },
          "continueCondition": {
            "type": "string",
-           "description": "Expression that when true will skip to the next iteration."
+           "description": "An expression that when true will skip to the next iteration."
          },
-         "__system_state__": {
-           "type": "object",
-           "description": "Internal system state managed by NodeExecutionMediator (do not set manually).",
-           "properties": {
-             "iteration": {"type": "number"}
+         "loopEnd": {
+           "type": "array",
+           "description": "The node(s) to execute after the loop ends.",
+           "items": {
+             "type": "string"
+           }
+         },
+         "next": {
+           "type": "array",
+           "description": "The next node(s) to execute within the loop body.",
+           "items": {
+             "type": "string"
            }
          }
        },
-       "additionalProperties": true
+       "required": [
+         "items",
+         "next",
+         "loopEnd"
+       ]
+     },
+     "output": {
+       "type": "object"
+     }
+   },
+   "required": ["input"]
+ }'::jsonb),
+
+-- 11. Schedule Trigger
+((SELECT id FROM core_plugin),
+ 'trigger.schedule',
+ 'Schedule',
+ 'schedule_trigger',
+ '1.0.0',
+ 'Triggers the workflow based on a CRON schedule.',
+ ARRAY['trigger', 'schedule', 'cron'],
+ 'ph:clock',
+ '{
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "type": "object",
+   "properties": {
+     "input": {
+       "type": "object",
+       "properties": {
+         "cron": {
+           "type": "string",
+           "description": "The CRON expression for the schedule."
+         },
+         "timezone": {
+           "type": "string",
+           "description": "The timezone for the schedule.",
+           "default": "UTC"
+         }
+       },
+       "required": [
+         "cron"
+       ]
+     }
+   }
+ }'::jsonb),
+
+-- 12. Manual Trigger
+((SELECT id FROM core_plugin),
+ 'manual.trigger',
+ 'Manual Trigger',
+ 'manual_trigger',
+ '1.0.0',
+ 'Manually triggers the workflow execution.',
+ ARRAY['trigger', 'manual'],
+ 'ph:play',
+ '{
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "type": "object",
+   "properties": {
+     "input": {
+       "type": "object",
+       "properties": {
+         "data": {
+           "type": "object",
+           "description": "Optional data to pass to the workflow.",
+           "additionalProperties": true,
+           "default": {}
+         }
+       },
+       "additionalProperties": false
+     },
+     "output": {
+       "type": "object"
+     }
+   }
+ }'::jsonb),
+
+-- 13. Webhook Trigger
+((SELECT id FROM core_plugin),
+ 'webhook.trigger',
+ 'Webhook Trigger',
+ 'webhook_trigger',
+ '1.0.0',
+ 'Triggers the workflow when a webhook endpoint is called.',
+ ARRAY['trigger', 'webhook', 'http'],
+ 'ph:webhook',
+ '{
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "type": "object",
+   "properties": {
+     "input": {
+       "type": "object",
+       "properties": {
+         "endpoint": {
+           "type": "string",
+           "description": "The webhook endpoint path."
+         },
+         "method": {
+           "type": "string",
+           "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"],
+           "description": "HTTP method for the webhook.",
+           "default": "POST"
+         },
+         "headers": {
+           "type": "object",
+           "description": "Expected headers for validation.",
+           "additionalProperties": {
+             "type": "string"
+           },
+           "default": {}
+         },
+         "auth": {
+           "type": "object",
+           "properties": {
+             "type": {
+               "type": "string",
+               "enum": ["none", "basic", "bearer", "api_key"],
+               "default": "none"
+             },
+             "secret_key": {
+               "type": "string",
+               "description": "Key for accessing the authentication secret."
+             }
+           }
+         }
+       },
+       "required": ["endpoint"]
      },
      "output": {
        "type": "object",
-       "description": "Output configuration for the while loop node",
-       "additionalProperties": true
+       "properties": {
+         "body": {
+           "type": "object",
+           "description": "The webhook request body."
+         },
+         "headers": {
+           "type": "object",
+           "description": "The webhook request headers."
+         },
+         "query": {
+           "type": "object",
+           "description": "The webhook query parameters."
+         }
+       }
      },
      "secrets": {
        "type": "array",
        "items": {
          "type": "object",
-         "required": ["key"],
          "properties": {
-           "key": {"type": "string"}
-         }
-       },
-       "description": "Secret keys required by this node"
-     },
-     "metadata": {
-       "type": "object",
-       "properties": {
-         "requiresSystemState": {
-           "type": "boolean",
-           "default": true,
-           "description": "Indicates this node requires system state management"
+           "key": {
+             "type": "string"
+           }
          },
-         "systemStateType": {
-           "type": "string",
-           "enum": ["loop"],
-           "default": "loop",
-           "description": "Type of system state required"
-         },
-         "description": {
-           "type": "string",
-           "description": "Human-readable description of what this while loop does"
-         }
+         "required": ["key"]
        }
      }
-   }
- }
-'::jsonb);
+   },
+   "required": ["input"]
+ }'::jsonb);

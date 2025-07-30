@@ -101,7 +101,7 @@
           "properties": {
             "pluginKey": {
               "type": "string",
-              "pattern": "^[a-zA-Z0-9_-]+$",
+              "pattern": "^[a-zA-Z0-9_.-]+$",
               "minLength": 1,
               "maxLength": 32,
                 "description": "The key of the plugin that contains the node.",
@@ -109,7 +109,7 @@
             },
             "nodeKey": {
                 "type": "string",
-                "pattern": "^[a-zA-Z0-9_-]+$",
+                "pattern": "^[a-zA-Z0-9_.-]+$",
                 "minLength": 1,
                 "maxLength": 32,
                 "description": "The key of the node within the plugin.",

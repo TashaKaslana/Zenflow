@@ -6,6 +6,7 @@ import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowMetadata;
+import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
 import org.phong.zenflow.workflow.subdomain.schema_validator.enums.ValidationErrorCode;
 import org.springframework.stereotype.Service;
@@ -95,6 +96,10 @@ public class WorkflowDependencyValidator {
             return new TopologicalOrderResult(new ArrayList<>(), errors);
         }
 
+        // Build a map for quick node lookup by key
+        Map<String, BaseWorkflowNode> nodeMap = nodes.stream()
+                .collect(Collectors.toMap(BaseWorkflowNode::getKey, node -> node));
+
         // Build adjacency list and in-degree map
         Map<String, List<String>> adjacencyList = new HashMap<>();
         Map<String, Integer> inDegree = new HashMap<>();
@@ -151,7 +156,32 @@ public class WorkflowDependencyValidator {
             }
         }
 
-        // Step 3: Topological sort using Kahn's algorithm
+        // Step 3: Handle loop nodes - temporarily break their back-edges for topological sorting
+        Map<String, List<String>> loopBackEdges = new HashMap<>();
+
+        for (BaseWorkflowNode node : nodes) {
+            String nodeKey = node.getKey();
+            if (isLoopNode(node)) {
+                List<String> nextNodes = adjacencyList.get(nodeKey);
+                List<String> backEdges = new ArrayList<>();
+
+                // For loop nodes, check if any of their next nodes point back to them
+                for (String nextNode : new ArrayList<>(nextNodes)) {
+                    if (adjacencyList.getOrDefault(nextNode, List.of()).contains(nodeKey)) {
+                        // This is a back edge - temporarily remove it
+                        backEdges.add(nextNode);
+                        adjacencyList.get(nextNode).remove(nodeKey);
+                        inDegree.put(nodeKey, inDegree.get(nodeKey) - 1);
+                    }
+                }
+
+                if (!backEdges.isEmpty()) {
+                    loopBackEdges.put(nodeKey, backEdges);
+                }
+            }
+        }
+
+        // Step 4: Topological sort using Kahn's algorithm
         Queue<String> queue = new LinkedList<>();
         List<String> executionOrder = new ArrayList<>();
 
@@ -174,7 +204,7 @@ public class WorkflowDependencyValidator {
             }
         }
 
-        // Step 4: Check for cycle
+        // Step 5: Check for cycle (excluding loop nodes with intentional back edges)
         if (executionOrder.size() != nodes.size()) {
             Set<String> visited = new HashSet<>(executionOrder);
             Set<String> cycleNodes = nodes.stream()
@@ -182,25 +212,70 @@ public class WorkflowDependencyValidator {
                     .filter(key -> !visited.contains(key))
                     .collect(Collectors.toSet());
 
-            String firstInCycle = cycleNodes.stream().findFirst().orElse("unknown");
+            // Check if all cycle nodes are part of valid loop structures
+            Set<String> invalidCycleNodes = cycleNodes.stream()
+                    .filter(nodeKey -> !isValidLoopCycle(nodeKey, nodeMap, loopBackEdges))
+                    .collect(Collectors.toSet());
 
-            errors.add(ValidationError.builder()
-                    .nodeKey(firstInCycle)
-                    .errorType("definition")
-                    .errorCode(ValidationErrorCode.CIRCULAR_DEPENDENCY)
-                    .path("workflow.nodes")
-                    .message("Workflow contains cycles. Cycle detected involving node: '" + firstInCycle + "'.")
-                    .value(new ArrayList<>(cycleNodes))
-                    .expectedType("acyclic_graph")
-                    .schemaPath("$.nodes")
-                    .build());
+            if (!invalidCycleNodes.isEmpty()) {
+                String firstInCycle = invalidCycleNodes.stream().findFirst().orElse("unknown");
 
-            return new TopologicalOrderResult(null, errors);
+                errors.add(ValidationError.builder()
+                        .nodeKey(firstInCycle)
+                        .errorType("definition")
+                        .errorCode(ValidationErrorCode.CIRCULAR_DEPENDENCY)
+                        .path("workflow.nodes")
+                        .message("Workflow contains cycles. Cycle detected involving node: '" + firstInCycle + "'.")
+                        .value(new ArrayList<>(invalidCycleNodes))
+                        .expectedType("acyclic_graph")
+                        .schemaPath("$.nodes")
+                        .build());
+
+                return new TopologicalOrderResult(null, errors);
+            }
+        }
+
+        // Step 6: Restore loop back edges for execution order
+        for (Map.Entry<String, List<String>> entry : loopBackEdges.entrySet()) {
+            String loopNode = entry.getKey();
+            for (String backEdgeNode : entry.getValue()) {
+                adjacencyList.get(backEdgeNode).add(loopNode);
+            }
         }
 
         return new TopologicalOrderResult(executionOrder, errors);
     }
 
+    private boolean isLoopNode(BaseWorkflowNode node) {
+        // Check if this is a loop node based on its plugin node type or NodeType
+        if (node.getPluginNode() != null && node.getPluginNode().nodeKey() != null) {
+            String nodeKey = node.getPluginNode().nodeKey();
+            // Check if nodeKey contains "loop" pattern
+            if (nodeKey.contains("loop")) {
+                return true;
+            }
+        }
+
+        // Check if the node type is one of the predefined loop types
+        return NodeType.getLoopStatefulTypes().contains(node.getType());
+    }
+
+    private boolean isValidLoopCycle(String nodeKey, Map<String, BaseWorkflowNode> nodeMap, Map<String, List<String>> loopBackEdges) {
+        BaseWorkflowNode node = nodeMap.get(nodeKey);
+        if (node == null) return false;
+
+        // If this node is part of a loop structure with registered back edges, it's valid
+        for (Map.Entry<String, List<String>> entry : loopBackEdges.entrySet()) {
+            String loopNode = entry.getKey();
+            List<String> backEdgeNodes = entry.getValue();
+
+            if (nodeKey.equals(loopNode) || backEdgeNodes.contains(nodeKey)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private List<ValidationError> validateAliasDefinitions(WorkflowDefinition workflow) {
         List<ValidationError> errors = new ArrayList<>();

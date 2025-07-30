@@ -157,10 +157,7 @@ public class SchemaRegistry {
 
     private void putNewSchemasForUncachedIdentifiers(List<PluginNodeIdentifier> uncachedIdentifiers) {
         if (!uncachedIdentifiers.isEmpty()) {
-            List<String> uncachedKeys = uncachedIdentifiers.stream()
-                    .map(PluginNodeIdentifier::toCacheKey)
-                    .toList();
-            Map<String, Map<String, Object>> schemas = pluginProvider.getAllSchemasByIdentifiers(uncachedKeys);
+            Map<String, Map<String, Object>> schemas = pluginProvider.getAllSchemasByIdentifiers(uncachedIdentifiers);
 
             schemas.forEach((key, schemaMap) -> {
                 if (schemaMap == null) {

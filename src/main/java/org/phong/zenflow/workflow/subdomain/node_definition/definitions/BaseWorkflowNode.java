@@ -1,6 +1,5 @@
 package org.phong.zenflow.workflow.subdomain.node_definition.definitions;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -16,13 +15,15 @@ import java.util.Map;
 @Setter
 @Data
 @AllArgsConstructor
-@JsonIgnoreProperties(ignoreUnknown = true)
 public class BaseWorkflowNode {
     @NotNull
     private final String key;
 
     @NotNull
     private final NodeType type;
+
+    @NotNull
+    private final PluginNodeIdentifier pluginNode;
 
     @NotNull
     private final List<String> next;
@@ -34,6 +35,4 @@ public class BaseWorkflowNode {
 
     private final Map<String, Object> policy;
 
-    @NotNull
-    private final PluginNodeIdentifier pluginNode;
 }

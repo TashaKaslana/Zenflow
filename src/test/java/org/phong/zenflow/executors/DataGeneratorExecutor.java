@@ -14,7 +14,7 @@ public class DataGeneratorExecutor implements PluginNodeExecutor {
     
     @Override
     public String key() {
-        return "core:data.generate";
+        return "core:data.generate:1.0.0";
     }
 
     @Override

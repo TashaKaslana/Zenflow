@@ -52,4 +52,10 @@ public class Plugin extends BaseEntity {
     @Column(name = "tags")
     private List<String> tags;
 
+    @Column(name = "icon", length = Integer.MAX_VALUE)
+    private String icon;
+
+    @NotNull
+    @Column(name = "key", nullable = false, length = Integer.MAX_VALUE)
+    private String key;
 }

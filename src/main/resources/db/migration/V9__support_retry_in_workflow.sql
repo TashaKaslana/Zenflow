@@ -16,12 +16,16 @@ ALTER TABLE plugin_nodes
     ALTER COLUMN executor_type TYPE TEXT;
 
 ALTER TABLE plugins
-    ADD COLUMN IF NOT EXISTS key TEXT UNIQUE;
-
+    ADD COLUMN IF NOT EXISTS key TEXT;
 
 UPDATE plugins
-SET key = 'core'
+SET key = 'core', publisher_id = '00000000-0000-0000-0000-000000000000'
 WHERE id = (SELECT id
             FROM plugins
-            WHERE name = 'Core Plugin'
-            LIMIT 1)
+            WHERE name = 'core'
+            LIMIT 1);
+
+ALTER TABLE plugins
+    ALTER COLUMN key SET NOT NULL;
+ALTER TABLE plugins
+    ADD CONSTRAINT unique_plugin_version_key UNIQUE (key, version);
