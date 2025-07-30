@@ -3,6 +3,7 @@ package org.phong.zenflow.workflow.subdomain.engine.service;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
+import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.engine.dto.WorkflowExecutionStatus;
 import org.phong.zenflow.workflow.subdomain.engine.exception.WorkflowEngineException;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
@@ -14,15 +15,17 @@ import java.util.UUID;
 @Service
 @AllArgsConstructor
 @Slf4j
-public class WorkflowNavigatorServices {
+public class WorkflowNavigatorService {
     public ExecutionStepOutcome handleExecutionResult(UUID workflowId,
                                                       BaseWorkflowNode workingNode,
-                                                       ExecutionResult result,
-                                                       List<BaseWorkflowNode> workflowNodes) {
+                                                      ExecutionResult result,
+                                                      List<BaseWorkflowNode> workflowNodes,
+                                                      RuntimeContext context) {
         return switch (result.getStatus()) {
             case SUCCESS -> new ExecutionStepOutcome(navigatorSuccess(workflowId, workingNode, workflowNodes),
                     WorkflowExecutionStatus.COMPLETED);
             case ERROR -> {
+                context.endLoopIfActive();
                 log.error("Workflow in node completed with error: {}", result.getError());
                 throw new WorkflowEngineException("Workflow execution failed at node: " + workingNode.getKey());
             }
@@ -32,16 +35,16 @@ public class WorkflowNavigatorServices {
             }
             case NEXT -> new ExecutionStepOutcome(navigatorNext(workflowId, result, workflowNodes),
                     WorkflowExecutionStatus.COMPLETED);
-            case VALIDATION_ERROR -> new ExecutionStepOutcome(null, navigatorValidationError(workingNode, result));
-            case LOOP_NEXT -> new ExecutionStepOutcome(navigatorLoopNext(workflowId, result, workflowNodes),
+            case VALIDATION_ERROR -> new ExecutionStepOutcome(null, navigatorValidationError(workingNode, result, context));
+            case LOOP_NEXT -> new ExecutionStepOutcome(navigatorLoopNext(workflowId, workingNode, result, workflowNodes, context),
                     WorkflowExecutionStatus.COMPLETED);
-            case LOOP_END -> new ExecutionStepOutcome(navigatorLoopEnd(workflowId, result, workflowNodes),
+            case LOOP_END -> new ExecutionStepOutcome(navigatorLoopEnd(workflowId, workingNode, result, workflowNodes, context),
                     WorkflowExecutionStatus.COMPLETED);
             case LOOP_CONTINUE -> {
                 navigatorLoopContinue(workingNode);
                 yield new ExecutionStepOutcome(workingNode, WorkflowExecutionStatus.COMPLETED);
             }
-            case LOOP_BREAK -> new ExecutionStepOutcome(navigatorLoopBreak(workflowId, result, workflowNodes),
+            case LOOP_BREAK -> new ExecutionStepOutcome(navigatorLoopBreak(workflowId, workingNode, result, workflowNodes, context),
                     WorkflowExecutionStatus.COMPLETED);
         };
     }
@@ -80,14 +83,23 @@ public class WorkflowNavigatorServices {
         return workingNode;
     }
 
-    private WorkflowExecutionStatus navigatorValidationError(BaseWorkflowNode workingNode, ExecutionResult result) {
+    private WorkflowExecutionStatus navigatorValidationError(BaseWorkflowNode workingNode, ExecutionResult result, RuntimeContext context) {
         log.warn("Validation error in node {}: {}", workingNode.getKey(), result.getValidationResult());
+        context.endLoopIfActive();
         return WorkflowExecutionStatus.HALTED;
     }
 
     private BaseWorkflowNode navigatorLoopNext(UUID workflowId,
+                                               BaseWorkflowNode workingNode,
                                                ExecutionResult result,
-                                               List<BaseWorkflowNode> workflowNodes) {
+                                               List<BaseWorkflowNode> workflowNodes,
+                                               RuntimeContext context) {
+        // Start loop if not already started (first iteration)
+        if (!context.isInLoop()) {
+            context.startLoop(workingNode.getKey());
+            log.debug("Started loop for node: {}", workingNode.getKey());
+        }
+
         String nextNodeKey = result.getNextNodeKey();
         if (nextNodeKey != null) {
             log.debug("Loop proceeding to next iteration at node: {}", nextNodeKey);
@@ -99,8 +111,14 @@ public class WorkflowNavigatorServices {
     }
 
     private BaseWorkflowNode navigatorLoopEnd(UUID workflowId,
+                                              BaseWorkflowNode workingNode,
                                               ExecutionResult result,
-                                              List<BaseWorkflowNode> workflowNodes) {
+                                              List<BaseWorkflowNode> workflowNodes,
+                                              RuntimeContext context) {
+        // End the loop
+        context.endLoop(workingNode.getKey());
+        log.debug("Loop ended for node: {}", workingNode.getKey());
+
         String nextNodeKey = result.getNextNodeKey();
         if (nextNodeKey != null) {
             log.debug("Loop ended, proceeding to node: {}", nextNodeKey);
@@ -112,12 +130,19 @@ public class WorkflowNavigatorServices {
     }
 
     private void navigatorLoopContinue(BaseWorkflowNode currentNode) {
+        // For LOOP_CONTINUE, we don't start/end the loop, just stay at current node
         log.debug("Loop continue - staying at current node: {}", currentNode.getKey());
     }
 
     private BaseWorkflowNode navigatorLoopBreak(UUID workflowId,
+                                                BaseWorkflowNode workingNode,
                                                 ExecutionResult result,
-                                                List<BaseWorkflowNode> workflowNodes) {
+                                                List<BaseWorkflowNode> workflowNodes,
+                                                RuntimeContext context) {
+        // End the loop when breaking
+        context.endLoop(workingNode.getKey());
+        log.debug("Loop break - ended loop for node: {}", workingNode.getKey());
+
         String nextNodeKey = result.getNextNodeKey();
         if (nextNodeKey != null) {
             log.debug("Loop break - proceeding to node: {}", nextNodeKey);
@@ -127,7 +152,6 @@ public class WorkflowNavigatorServices {
             return null;
         }
     }
-
 
     public record ExecutionStepOutcome(BaseWorkflowNode nextNode, WorkflowExecutionStatus status) {
     }

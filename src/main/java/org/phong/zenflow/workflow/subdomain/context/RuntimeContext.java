@@ -26,6 +26,10 @@ public class RuntimeContext {
     private final Map<String, Set<String>> consumers = new ConcurrentHashMap<>();
     private final Map<String, String> aliases = new ConcurrentHashMap<>();
 
+    // Loop-aware cleanup management
+    private final Map<String, Map<String, Set<String>>> pendingLoopCleanup = new ConcurrentHashMap<>();
+    private final Set<String> activeLoops = new HashSet<>();
+
     public void initialize(Map<String, Object> initialContext,
                            Map<String, Set<String>> initialConsumers,
                            Map<String, String> initialAliases) {
@@ -212,16 +216,28 @@ public class RuntimeContext {
                         if (expr.matches("[a-zA-Z0-9._-]+\\(.*\\)")) {
                             yield TemplateEngine.evaluateFunction(expr);
                         } else {
-                            yield getAndClean(nodeKey, str);
+                            // Use loop-aware access if in a loop
+                            String activeLoop = getActiveLoop();
+                            if (activeLoop != null) {
+                                yield getAndCleanInLoop(nodeKey, str, activeLoop);
+                            } else {
+                                yield getAndClean(nodeKey, str);
+                            }
                         }
                     }
                 }
 
                 // For complex templates, resolve all and return as string
                 String result = str;
+                String activeLoop = getActiveLoop();
                 for (String ref : refs) {
                     String templateRef = "{{" + ref + "}}";
-                    Object resolvedValue = getAndClean(nodeKey, templateRef);
+                    Object resolvedValue;
+                    if (activeLoop != null) {
+                        resolvedValue = getAndCleanInLoop(nodeKey, templateRef, activeLoop);
+                    } else {
+                        resolvedValue = getAndClean(nodeKey, templateRef);
+                    }
                     if (resolvedValue != null) {
                         result = result.replace(templateRef, resolvedValue.toString());
                     } else {
@@ -332,6 +348,141 @@ public class RuntimeContext {
     public void clear() {
         context.clear();
         consumers.clear();
+        pendingLoopCleanup.clear();
+        activeLoops.clear();
         log.debug("RuntimeContext cleared");
+    }
+
+    // ========== Loop-aware context management methods ==========
+
+    /**
+     * Start a loop context. This tells the RuntimeContext to defer cleanup operations
+     * for context values accessed within this loop until the loop completes.
+     *
+     * @param loopNodeKey The unique identifier for the loop node
+     */
+    public void startLoop(String loopNodeKey) {
+        activeLoops.add(loopNodeKey);
+        pendingLoopCleanup.put(loopNodeKey, new ConcurrentHashMap<>());
+        log.debug("Started loop context for node: {}", loopNodeKey);
+    }
+
+    /**
+     * End a loop context and perform all deferred cleanup operations.
+     * This will clean up all context values that were accessed during the loop
+     * and have no remaining consumers.
+     *
+     * @param loopNodeKey The unique identifier for the loop node
+     */
+    public void endLoop(String loopNodeKey) {
+        if (!activeLoops.contains(loopNodeKey)) {
+            log.warn("Attempted to end loop '{}' that was not started", loopNodeKey);
+            return;
+        }
+
+        activeLoops.remove(loopNodeKey);
+        Map<String, Set<String>> pendingCleanup = pendingLoopCleanup.remove(loopNodeKey);
+
+        if (pendingCleanup != null) {
+            int cleanedCount = 0;
+            for (Map.Entry<String, Set<String>> entry : pendingCleanup.entrySet()) {
+                String key = entry.getKey();
+                Set<String> consumersToRemove = entry.getValue();
+
+                // Remove all pending consumers for this key
+                Set<String> keyConsumers = consumers.get(key);
+                if (keyConsumers != null) {
+                    keyConsumers.removeAll(consumersToRemove);
+                    if (keyConsumers.isEmpty()) {
+                        consumers.remove(key);
+                    }
+                }
+
+                // Perform garbage collection for this key
+                if (!hasConsumers(key)) {
+                    Object removedValue = context.remove(key);
+                    if (removedValue != null) {
+                        cleanedCount++;
+                        log.debug("Loop cleanup removed key '{}' from context", key);
+                    }
+                }
+            }
+
+            if (cleanedCount > 0) {
+                log.debug("Loop '{}' cleanup removed {} context entries", loopNodeKey, cleanedCount);
+            }
+        }
+
+        log.debug("Ended loop context for node: {}", loopNodeKey);
+    }
+
+    /**
+     * Get a value from context within a loop context. This version defers cleanup
+     * until the loop completes, allowing multiple iterations to access the same values.
+     *
+     * @param nodeKey The key of the node consuming this value
+     * @param key The key or template to retrieve from the context
+     * @param loopNodeKey The identifier of the active loop
+     * @return The resolved value from the context, or null if not found
+     */
+    public Object getAndCleanInLoop(String nodeKey, String key, String loopNodeKey) {
+        // If no active loop, fall back to regular getAndClean
+        if (!activeLoops.contains(loopNodeKey)) {
+            return getAndClean(nodeKey, key);
+        }
+
+        // Resolve the key similar to getAndClean
+        String resolvedKey;
+        if (TemplateEngine.isTemplate(key)) {
+            String refKey = TemplateEngine.extractRefs(key).stream().findFirst().orElse(null);
+            if (refKey != null) {
+                resolvedKey = resolveAlias(refKey);
+            } else {
+                return null;
+            }
+        } else {
+            resolvedKey = resolveAlias(key);
+        }
+
+        if (!context.containsKey(resolvedKey)) {
+            return null;
+        }
+
+        Object value = context.get(resolvedKey);
+
+        // Instead of immediate cleanup, remember this for later
+        Map<String, Set<String>> loopPendingCleanup = pendingLoopCleanup.get(loopNodeKey);
+        if (loopPendingCleanup != null) {
+            loopPendingCleanup.computeIfAbsent(resolvedKey, k -> new HashSet<>()).add(nodeKey);
+            log.debug("Deferred cleanup for key '{}' consumer '{}' in loop '{}'", resolvedKey, nodeKey, loopNodeKey);
+        }
+
+        return value;
+    }
+
+    /**
+     * Check if there are any active loops currently running
+     *
+     * @return true if there are active loops
+     */
+    public boolean isInLoop() {
+        return !activeLoops.isEmpty();
+    }
+
+    /**
+     * Get the active loop for a node key (if any)
+     *
+     * @return The loop node key if in a loop, null otherwise
+     */
+    public String getActiveLoop() {
+        return activeLoops.stream().findFirst().orElse(null);
+    }
+
+    public void endLoopIfActive() {
+        String activeLoop = this.getActiveLoop();
+        if (activeLoop != null) {
+            this.endLoop(activeLoop);
+            log.debug("Ended active loop '{}' due to error or validation failure", activeLoop);
+        }
     }
 }

@@ -28,33 +28,35 @@ public class ForLoopExecutor implements PluginNodeExecutor {
         LogCollector logCollector = new LogCollector();
         try {
             Map<String, Object> input = config.input();
-            Map<String, Object> context = new HashMap<>(input);
 
-            if (isLoopComplete(input, context, logCollector)) {
+            // Create output that includes ALL necessary data for next iteration
+            Map<String, Object> output = new HashMap<>(input);
+
+            if (isLoopComplete(input, output, logCollector)) {
                 List<String> loopEnd = ObjectConversion.safeConvert(input.get("loopEnd"), new TypeReference<>() {});
                 logCollector.info("Loop finished. Proceeding to loopEnd.");
-                return ExecutionResult.loopEnd(loopEnd.getFirst(), logCollector.getLogs());
+                return ExecutionResult.loopEnd(loopEnd.getFirst(), output, logCollector.getLogs());
             }
 
-            if (evalCondition(input.get("breakCondition"), context, logCollector)) {
+            if (evalCondition(input.get("breakCondition"), output, logCollector)) {
                 List<String> loopEnd = ObjectConversion.safeConvert(input.get("loopEnd"), new TypeReference<>() {});
-                logCollector.info("Loop exited due to break condition at index {}", context.get("index"));
-                return ExecutionResult.loopBreak(loopEnd.getFirst(), context, logCollector.getLogs());
+                logCollector.info("Loop exited due to break condition at index {}", output.get("index"));
+                return ExecutionResult.loopBreak(loopEnd.getFirst(), output, logCollector.getLogs());
             }
 
-            if (evalCondition(input.get("continueCondition"), context, logCollector)) {
-                int newIndex = getNewIndex(input, context, logCollector);
-                context.put("index", newIndex);
+            if (evalCondition(input.get("continueCondition"), output, logCollector)) {
+                int newIndex = getNewIndex(input, output, logCollector);
+                output.put("index", newIndex);
                 logCollector.info("Loop continued to next iteration due to continue condition.");
-                return ExecutionResult.loopContinue(context, logCollector.getLogs());
+                return ExecutionResult.loopContinue(output, logCollector.getLogs());
             }
 
             List<String> next = ObjectConversion.safeConvert(input.get("next"), new TypeReference<>() {});
-            int newIndex = getNewIndex(input, context, logCollector);
-            context.put("index", newIndex);
+            int newIndex = getNewIndex(input, output, logCollector);
+            output.put("index", newIndex);
 
             logCollector.info("Proceeding to loop body for index {}. New index is {}", input.get("index"), newIndex);
-            return ExecutionResult.loopNext(next.getFirst(), context, logCollector.getLogs());
+            return ExecutionResult.loopNext(next.getFirst(), output, logCollector.getLogs());
 
         } catch (Exception e) {
             log.error("Failed to process for-loop", e);

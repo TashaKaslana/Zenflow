@@ -38,27 +38,36 @@ public class ForEachLoopExecutor implements PluginNodeExecutor {
             }
 
             Object currentItem = items.get(index);
-            Map<String, Object> context = new HashMap<>();
-            context.put("item", currentItem);
-            context.put("index", index);
 
-            if (evalCondition(input.get("breakCondition"), context, logCollector)) {
+            // Create output that includes ALL necessary data for next iteration
+            Map<String, Object> output = new HashMap<>();
+            // Preserve original input data
+            output.put("items", items);
+            output.put("loopEnd", input.get("loopEnd"));
+            output.put("next", input.get("next"));
+            output.put("breakCondition", input.get("breakCondition"));
+            output.put("continueCondition", input.get("continueCondition"));
+            // Add current iteration data
+            output.put("item", currentItem);
+            output.put("index", index);
+
+            if (evalCondition(input.get("breakCondition"), output, logCollector)) {
                 List<String> loopEnd = ObjectConversion.safeConvert(input.get("loopEnd"), new TypeReference<>() {});
                 logCollector.info("Break condition met at index {}, exiting loop", index);
-                return ExecutionResult.loopBreak(loopEnd.getFirst(), context, logCollector.getLogs());
+                return ExecutionResult.loopBreak(loopEnd.getFirst(), output, logCollector.getLogs());
             }
 
-            if (evalCondition(input.get("continueCondition"), context, logCollector)) {
-                context.put("index", index + 1);
+            if (evalCondition(input.get("continueCondition"), output, logCollector)) {
+                output.put("index", index + 1);
                 logCollector.info("Continue condition met at index {}, skipping to next", index);
-                return ExecutionResult.loopContinue(context, logCollector.getLogs());
+                return ExecutionResult.loopContinue(output, logCollector.getLogs());
             }
 
             List<String> next = ObjectConversion.safeConvert(input.get("next"), new TypeReference<>() {});
-            context.put("index", index + 1); // Prepare for next iteration
+            output.put("index", index + 1); // Prepare for next iteration
 
             logCollector.info("Processing item {} of {}: {}", index + 1, items.size(), currentItem);
-            return ExecutionResult.loopNext(next.getFirst(), context, logCollector.getLogs());
+            return ExecutionResult.loopNext(next.getFirst(), output, logCollector.getLogs());
 
         } catch (Exception e) {
             log.error("Execution failed in ForEachLoop", e);
@@ -81,4 +90,3 @@ public class ForEachLoopExecutor implements PluginNodeExecutor {
         return false;
     }
 }
-
