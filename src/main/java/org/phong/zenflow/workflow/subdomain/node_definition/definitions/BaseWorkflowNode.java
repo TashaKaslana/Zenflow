@@ -8,7 +8,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.Setter;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginDefinition;
+
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.trigger.TriggerNodeDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
 
@@ -21,7 +22,7 @@ import java.util.Map;
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.EXISTING_PROPERTY, property = "type", visible = true)
 @JsonSubTypes({
-        @JsonSubTypes.Type(value = PluginDefinition.class, name = "PLUGIN"),
+        @JsonSubTypes.Type(value = BaseWorkflowNode.class, name = "PLUGIN"),
         @JsonSubTypes.Type(value = TriggerNodeDefinition.class, name = "TRIGGER")
 })
 public class BaseWorkflowNode {
@@ -34,9 +35,13 @@ public class BaseWorkflowNode {
     @NotNull
     private final List<String> next;
 
+    @NotNull
     private final WorkflowConfig config;
 
     private final Map<String, Object> metadata;
 
     private final Map<String, Object> policy;
+
+    @NotNull
+    private final PluginNodeIdentifier pluginNode;
 }

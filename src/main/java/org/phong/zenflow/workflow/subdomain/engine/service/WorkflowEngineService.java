@@ -10,12 +10,9 @@ import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.engine.dto.WorkflowExecutionStatus;
 import org.phong.zenflow.workflow.subdomain.engine.exception.WorkflowEngineException;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.NodeExecutorRegistry;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
-import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
 import org.phong.zenflow.workflow.subdomain.node_logs.service.NodeLogService;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
 import org.phong.zenflow.workflow.subdomain.schema_validator.service.WorkflowValidationService;
@@ -32,7 +29,6 @@ import java.util.UUID;
 @Slf4j
 public class WorkflowEngineService {
     private final WorkflowRepository workflowRepository;
-    private final NodeExecutorRegistry nodeExecutorRegistry;
     private final NodeLogService nodeLogService;
     private final WorkflowValidationService workflowValidationService;
     private final PluginNodeExecutorDispatcher executorDispatcher;
@@ -93,7 +89,7 @@ public class WorkflowEngineService {
         WorkflowConfig config = workingNode.getConfig() != null ? workingNode.getConfig() : new WorkflowConfig();
         WorkflowConfig resolvedConfig = context.resolveConfig(workingNode.getKey(), config);
 
-        result = executeWorkingNode(context, workingNode, resolvedConfig);
+        result = executeWorkingNode(workingNode, resolvedConfig);
 
         Map<String, Object> output = result.getOutput();
         if (output != null) {
@@ -105,27 +101,24 @@ public class WorkflowEngineService {
         return result;
     }
 
-    private ExecutionResult executeWorkingNode(RuntimeContext context,
-                                               BaseWorkflowNode workingNode,
+    private ExecutionResult executeWorkingNode(BaseWorkflowNode workingNode,
                                                WorkflowConfig resolvedConfig) {
         ExecutionResult result;
-        if (workingNode.getType() == NodeType.PLUGIN) {
-            PluginNodeIdentifier pluginNode = ((PluginDefinition) workingNode).getPluginNode();
-            String templateKey = pluginNode.toCacheKey();
 
-            ValidationResult validationResult = workflowValidationService.validateRuntime(
-                    workingNode.getKey(),
-                    resolvedConfig,
-                    templateKey
-            );
-            if (!validationResult.isValid()) {
-                return ExecutionResult.validationError(validationResult, workingNode.getKey());
-            }
+        PluginNodeIdentifier pluginNode = workingNode.getPluginNode();
+        String templateKey = pluginNode.toCacheKey();
 
-            result = executorDispatcher.dispatch(pluginNode, resolvedConfig);
-        } else {
-            result = nodeExecutorRegistry.execute(workingNode, context.getContext());
+        ValidationResult validationResult = workflowValidationService.validateRuntime(
+                workingNode.getKey(),
+                resolvedConfig,
+                templateKey
+        );
+        if (!validationResult.isValid()) {
+            return ExecutionResult.validationError(validationResult, workingNode.getKey());
         }
+
+        result = executorDispatcher.dispatch(pluginNode, resolvedConfig);
+
         return result;
     }
 }

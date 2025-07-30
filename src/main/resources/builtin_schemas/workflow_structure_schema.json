@@ -96,11 +96,30 @@
         },
         "type": { "type": "string" },
         "pluginNode": {
-          "type": ["object", "null"],
-          "required": ["pluginId", "nodeId"],
+          "type": ["object"],
+          "required": ["pluginKey", "nodeKey", "version"],
           "properties": {
-            "pluginId": { "type": "string" },
-            "nodeId": { "type": "string" }
+            "pluginKey": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9_-]+$",
+              "minLength": 1,
+              "maxLength": 32,
+                "description": "The key of the plugin that contains the node.",
+                "examples": ["core", "dataProcessing", "analytics"]
+            },
+            "nodeKey": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9_-]+$",
+                "minLength": 1,
+                "maxLength": 32,
+                "description": "The key of the node within the plugin.",
+                "examples": ["http-request", "data-transform", "analytics-report"]
+            },
+            "version": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9._-]+$",
+              "description": "The version of the plugin node, following semantic versioning."
+            }
           }
         },
         "next": {

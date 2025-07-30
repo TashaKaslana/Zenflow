@@ -11,7 +11,7 @@ import org.phong.zenflow.plugin.subdomain.schema.services.SchemaTemplateStringGe
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.OutputUsage;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowMetadata;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginDefinition;
+
 import org.phong.zenflow.workflow.subdomain.schema_validator.service.SchemaTypeResolver;
 import org.springframework.stereotype.Service;
 
@@ -117,12 +117,7 @@ public class WorkflowContextService {
                 return;
             }
 
-            String schemaKey;
-            if (node instanceof PluginDefinition pluginDefinition) {
-                schemaKey = pluginDefinition.getPluginNode().pluginKey() + ":" + pluginDefinition.getPluginNode().nodeKey();
-            } else {
-                schemaKey = node.getKey();
-            }
+            String schemaKey = node.getPluginNode().toCacheKey();
             JSONObject schema = schemas.get(schemaKey);
 
             populateTypeNodeConsumer(key, usage, schema, outputFieldName, nodeKey);
