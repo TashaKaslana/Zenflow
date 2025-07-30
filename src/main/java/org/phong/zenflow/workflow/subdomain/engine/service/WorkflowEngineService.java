@@ -114,7 +114,7 @@ public class WorkflowEngineService {
         result = executeWorkingNode(context, workingNode, resolvedConfig);
 
         Map<String, Object> output = result.getOutput();
-        if (output != null) {
+        if (output != null && !NodeType.getLoopStatefulTypes().contains(workingNode.getType())) {
             context.processOutputWithMetadata(String.format("%s.output", workingNode.getKey()), output);
         } else {
             log.warn("Output of node {} is null, skipping putting into context", workingNode.getKey());
