@@ -36,6 +36,7 @@ public class WorkflowEngineService {
     private final NodeLogService nodeLogService;
     private final WorkflowValidationService workflowValidationService;
     private final PluginNodeExecutorDispatcher executorDispatcher;
+    private final WorkflowNavigatorServices workflowNavigatorServices;
 
     @Transactional
     public WorkflowExecutionStatus runWorkflow(UUID workflowId,
@@ -54,7 +55,7 @@ public class WorkflowEngineService {
             List<BaseWorkflowNode> workflowNodes = definition.nodes();
 
             String currentNodeKey = (startFromNodeKey != null) ? startFromNodeKey : workflow.getStartNode();
-            BaseWorkflowNode workingNode = findNodeByKey(workflowNodes, currentNodeKey);
+            BaseWorkflowNode workingNode = workflowNavigatorServices.findNodeByKey(workflowNodes, currentNodeKey);
 
             return getWorkflowExecutionStatus(workflowId, workflowRunId, context, workingNode, workflowNodes);
         } catch (Exception e) {
@@ -70,36 +71,17 @@ public class WorkflowEngineService {
                                                                List<BaseWorkflowNode> workflowNodes) {
         WorkflowExecutionStatus executionStatus = WorkflowExecutionStatus.COMPLETED;
         ExecutionResult result;
+
         while (workingNode != null) {
-
             result = setupAndExecutionWorkflow(workflowId, workflowRunId, context, workingNode);
-
-            switch (result.getStatus()) {
-                case SUCCESS:
-                    workingNode = navigatorSuccess(workflowId, workingNode, workflowNodes);
-                    break;
-                case ERROR:
-                    log.error("Workflow in node completed with error: {}", result.getError());
-                    throw new WorkflowEngineException("Workflow execution failed at node: " + workingNode.getKey());
-                case RETRY:
-                case WAITING:
-                    log.info("Workflow is now in {} state at node {}. Halting execution.", result.getStatus(), workingNode.getKey());
-                    executionStatus = WorkflowExecutionStatus.HALTED;
-                    workingNode = null;
-                    break;
-                case NEXT:
-                    workingNode = navigatorNext(workflowId, result, workflowNodes);
-                    break;
-                case VALIDATION_ERROR:
-                    executionStatus = navigatorValidationError(workingNode, result);
-                    workingNode = null;
-                    break;
-                default:
-                    throw new WorkflowEngineException("Unknown execution status: " + result.getStatus());
-            }
+            WorkflowNavigatorServices.ExecutionStepOutcome outcome = workflowNavigatorServices.handleExecutionResult(workflowId, workingNode, result, workflowNodes);
+            workingNode = outcome.nextNode();
+            executionStatus = outcome.status();
         }
+
         return executionStatus;
     }
+
 
     private ExecutionResult setupAndExecutionWorkflow(UUID workflowId,
                                                       UUID workflowRunId,
@@ -145,44 +127,5 @@ public class WorkflowEngineService {
             result = nodeExecutorRegistry.execute(workingNode, context.getContext());
         }
         return result;
-    }
-
-    private BaseWorkflowNode navigatorSuccess(UUID workflowId,
-                                              BaseWorkflowNode workingNode,
-                                              List<BaseWorkflowNode> workflowSchema) {
-        String nextNodeKey = workingNode.getNext().isEmpty() ? null : workingNode.getNext().getFirst();
-        if (nextNodeKey == null) {
-            log.info("Workflow completed successfully with ID: {}", workflowId);
-            workingNode = null; // End of workflow
-        } else {
-            workingNode = findNodeByKey(workflowSchema, nextNodeKey);
-        }
-        return workingNode;
-    }
-
-    private BaseWorkflowNode navigatorNext(UUID workflowId,
-                                           ExecutionResult result,
-                                           List<BaseWorkflowNode> workflowSchema) {
-        BaseWorkflowNode workingNode;
-        String nextNode = result.getNextNodeKey();
-        if (nextNode != null) {
-            workingNode = findNodeByKey(workflowSchema, nextNode);
-        } else {
-            log.info("Reach the end of workflow, workflow completed successfully with ID: {}", workflowId);
-            workingNode = null; // End of workflow
-        }
-        return workingNode;
-    }
-
-    private WorkflowExecutionStatus navigatorValidationError(BaseWorkflowNode workingNode, ExecutionResult result) {
-        log.warn("Validation error in node {}: {}", workingNode.getKey(), result.getValidationResult());
-        return WorkflowExecutionStatus.HALTED;
-    }
-
-    private BaseWorkflowNode findNodeByKey(List<BaseWorkflowNode> schema, String key) {
-        return schema.stream()
-                .filter(node -> node.getKey().equals(key))
-                .findFirst()
-                .orElse(null);
     }
 }
