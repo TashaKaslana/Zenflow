@@ -10,7 +10,6 @@ import org.phong.zenflow.workflow.subdomain.node_definition.exception.WorkflowDe
 import org.phong.zenflow.workflow.subdomain.node_definition.exception.WorkflowNodeDefinitionException;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
 import org.phong.zenflow.workflow.subdomain.schema_validator.service.WorkflowValidationService;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
 import org.phong.zenflow.workflow.utils.NodeKeyGenerator;
 import org.springframework.stereotype.Service;
 
@@ -56,11 +55,9 @@ public class WorkflowDefinitionService {
             String key = node.getKey();
             if (key == null || key.isBlank()) {
                 key = NodeKeyGenerator.generateKey(type);
-                // Use existing pluginNode if available, otherwise create a default one
-                PluginNodeIdentifier newPluginNode = node.getPluginNode() != null ? node.getPluginNode() : new PluginNodeIdentifier("", "", "", "");
                 node = new BaseWorkflowNode(
-                        key, node.getType(), node.getNext(),
-                        node.getConfig(), node.getMetadata(), node.getPolicy(), newPluginNode
+                        key, node.getType(), node.getPluginNode(), node.getNext(),
+                        node.getConfig(), node.getMetadata(), node.getPolicy()
                 );
             }
 

@@ -12,5 +12,5 @@ import java.util.UUID;
  */
 public record PluginDto(@NotNull UUID id, @NotNull OffsetDateTime createdAt, @NotNull OffsetDateTime updatedAt,
                         UUID publisherId, @NotNull String name, @NotNull String version, String registryUrl,
-                        @NotNull Boolean verified, String description, List<String> tags) implements Serializable {
+                        @NotNull Boolean verified, String description, List<String> tags, String icon, String key) implements Serializable {
 }

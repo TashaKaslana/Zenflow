@@ -14,7 +14,7 @@ public class TextProcessorExecutor implements PluginNodeExecutor {
 
     @Override
     public String key() {
-        return "core:text.process";
+        return "core:text.process:1.0.0";
     }
 
     @Override

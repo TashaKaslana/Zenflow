@@ -15,7 +15,7 @@ public class NumberValidatorExecutor implements PluginNodeExecutor {
     
     @Override
     public String key() {
-        return "core:number.validate";
+        return "core:number.validate:1.0.0";
     }
 
     @Override
