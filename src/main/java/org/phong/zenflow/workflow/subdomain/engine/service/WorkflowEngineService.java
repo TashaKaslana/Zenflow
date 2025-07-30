@@ -12,7 +12,6 @@ import org.phong.zenflow.workflow.subdomain.engine.exception.WorkflowEngineExcep
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
 import org.phong.zenflow.workflow.subdomain.node_logs.service.NodeLogService;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
 import org.phong.zenflow.workflow.subdomain.schema_validator.service.WorkflowValidationService;
@@ -33,6 +32,7 @@ public class WorkflowEngineService {
     private final WorkflowValidationService workflowValidationService;
     private final PluginNodeExecutorDispatcher executorDispatcher;
     private final WorkflowNavigatorService workflowNavigatorService;
+    
 
     @Transactional
     public WorkflowExecutionStatus runWorkflow(UUID workflowId,
@@ -105,19 +105,16 @@ public class WorkflowEngineService {
                                                WorkflowConfig resolvedConfig) {
         ExecutionResult result;
 
-        PluginNodeIdentifier pluginNode = workingNode.getPluginNode();
-        String templateKey = pluginNode.toCacheKey();
-
         ValidationResult validationResult = workflowValidationService.validateRuntime(
                 workingNode.getKey(),
                 resolvedConfig,
-                templateKey
+                workingNode.getPluginNode().toCacheKey()
         );
         if (!validationResult.isValid()) {
             return ExecutionResult.validationError(validationResult, workingNode.getKey());
         }
 
-        result = executorDispatcher.dispatch(pluginNode, resolvedConfig);
+        result = executorDispatcher.dispatch(workingNode.getPluginNode(), resolvedConfig);
 
         return result;
     }

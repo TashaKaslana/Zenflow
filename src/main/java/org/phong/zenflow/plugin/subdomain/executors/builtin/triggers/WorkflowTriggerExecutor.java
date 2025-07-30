@@ -1,4 +1,4 @@
-package org.phong.zenflow.plugin.subdomain.executors.builtin.trigger_workflow.executor;
+package org.phong.zenflow.plugin.subdomain.executors.builtin.triggers;
 
 import lombok.AllArgsConstructor;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
@@ -17,12 +17,12 @@ import java.util.UUID;
 
 @Component
 @AllArgsConstructor
-public class TriggerWorkflowExecutor implements PluginNodeExecutor {
+public class WorkflowTriggerExecutor implements PluginNodeExecutor {
     private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public String key() {
-        return "core:trigger.workflow:1.0.0";
+        return "core:workflow.trigger:1.0.0";
     }
 
     @Override
