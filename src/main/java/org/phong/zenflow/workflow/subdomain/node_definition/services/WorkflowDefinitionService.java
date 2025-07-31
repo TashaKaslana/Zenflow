@@ -104,10 +104,12 @@ public class WorkflowDefinitionService {
 
         }
 
-        upsertNodes(existingDef, newDef);
-        upsertMetadata(existingDef.metadata(), newDef.metadata());
+        WorkflowDefinition tempDef = new WorkflowDefinition(existingDef);
 
-        return constructStaticMetadataAndValidate(existingDef);
+        upsertNodes(tempDef, newDef);
+        upsertMetadata(tempDef.metadata(), newDef.metadata());
+
+        return constructStaticMetadataAndValidate(tempDef);
     }
 
     private WorkflowDefinition constructStaticMetadataAndValidate(WorkflowDefinition tempDef) {

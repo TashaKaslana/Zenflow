@@ -6,10 +6,12 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
+import lombok.Setter;
 
 import java.time.OffsetDateTime;
 
 @Getter
+@Setter
 @MappedSuperclass
 public abstract class BaseEntity extends BaseIdEntity {
     @NotNull

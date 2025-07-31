@@ -21,12 +21,16 @@ public class PluginNodeSchemaProviderImpl implements PluginNodeSchemaProvider {
     private final PluginNodeRepository pluginNodeRepository;
 
     @Override
-    public Map<String, Object> getSchemaJson(String key) {
+    public Map<String, Object> getSchemaJson(PluginNodeIdentifier identifier) {
+        Specification<PluginNode> spec = PluginNodeSpecifications.withIdentifiers(List.of(identifier));
         return pluginNodeRepository
-                .findByKey(key)
-                .orElseThrow(
-                        () -> new ValidateNodeSchemaException("Node schema not found for nodeKey: " +  key)
-                ).getConfigSchema();
+                .findAll(spec)
+                .stream()
+                .findFirst()
+                .map(PluginNode::getConfigSchema)
+                .orElseThrow(() -> new ValidateNodeSchemaException(
+                        "Node schema not found for identifier: " + identifier
+                ));
     }
 
     @Override

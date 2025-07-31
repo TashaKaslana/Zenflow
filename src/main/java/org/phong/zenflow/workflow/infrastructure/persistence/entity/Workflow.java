@@ -1,7 +1,5 @@
 package org.phong.zenflow.workflow.infrastructure.persistence.entity;
 
-import jakarta.persistence.AttributeOverride;
-import jakarta.persistence.AttributeOverrides;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -29,13 +27,6 @@ import java.util.Map;
 @Entity
 @Table(name = "workflows", indexes = {
         @Index(name = "idx_workflows_project_id", columnList = "project_id")
-})
-@AttributeOverrides({
-        @AttributeOverride(name = "id", column = @Column(name = "id", nullable = false)),
-        @AttributeOverride(name = "createdAt", column = @Column(name = "created_at", nullable = false)),
-        @AttributeOverride(name = "updatedAt", column = @Column(name = "updated_at", nullable = false)),
-        @AttributeOverride(name = "createdBy", column = @Column(name = "created_by")),
-        @AttributeOverride(name = "updatedBy", column = @Column(name = "updated_by"))
 })
 public class Workflow extends BaseFullAuditEntity {
     @NotNull

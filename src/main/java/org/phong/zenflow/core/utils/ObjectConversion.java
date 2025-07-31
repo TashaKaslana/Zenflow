@@ -82,4 +82,13 @@ public final class ObjectConversion {
         }
         return mapper.convertValue(input, typeReference);
     }
+
+    public static <T> T deepCopy(T object, Class<T> targetType) {
+        try {
+            String json = mapper.writeValueAsString(object);
+            return mapper.readValue(json, targetType);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to create deep copy of object", e);
+        }
+    }
 }
