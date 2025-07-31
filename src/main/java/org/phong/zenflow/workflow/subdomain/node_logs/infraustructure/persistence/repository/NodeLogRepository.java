@@ -10,5 +10,5 @@ import java.util.UUID;
 public interface NodeLogRepository extends JpaRepository<NodeLog, UUID> {
   List<NodeLog> findByWorkflowRunId(UUID workflowRunId);
 
-  Optional<NodeLog> findByWorkflowRunIdAndNodeKey(UUID workflowRunId, String nodeKey);
+  Optional<NodeLog> findTopByWorkflowRunIdAndNodeKeyOrderByStartedAtDesc(UUID workflowRunId, String nodeKey);
 }

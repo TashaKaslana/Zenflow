@@ -47,15 +47,16 @@ public class WorkflowDependencyValidator {
             String currentNode = executionOrder.get(i);
             Set<String> availableNodes = new HashSet<>(executionOrder.subList(0, i));
 
-            errors.addAll(validateNodeDependencies(currentNode, availableNodes, workflow.metadata()));
+            errors.addAll(validateNodeDependencies(currentNode, availableNodes, workflow));
         }
 
         return errors;
     }
 
     private List<ValidationError> validateNodeDependencies(String nodeKey, Set<String> availableNodes,
-                                                           WorkflowMetadata metadata) {
+                                                           WorkflowDefinition workflow) {
         List<ValidationError> errors = new ArrayList<>();
+        WorkflowMetadata metadata = workflow.metadata();
 
         Set<String> dependencies = metadata.nodeDependencies().get(nodeKey);
         if (dependencies == null || dependencies.isEmpty()) {
@@ -64,11 +65,25 @@ public class WorkflowDependencyValidator {
 
         Map<String, String> aliases = metadata.aliases();
 
+        // Create a node map for quick lookup
+        Map<String, BaseWorkflowNode> nodeMap = workflow.nodes().stream()
+                .collect(Collectors.toMap(BaseWorkflowNode::getKey, node -> node));
+
         // Validate each dependency
         for (String dependency : dependencies) {
             String sourceNode = TemplateEngine.getReferencedNode(dependency, aliases);
 
             if (sourceNode != null && !availableNodes.contains(sourceNode)) {
+                // Check if this is a loop node and the dependency is a self-reference
+                boolean isSelfReference = sourceNode.equals(nodeKey);
+                boolean isLoopNode = isLoopNode(nodeKey, nodeMap);
+
+                // Allow self-references for loop nodes (they need to reference their own output)
+                if (isSelfReference && isLoopNode) {
+                    log.debug("Allowing self-reference '{}' for loop node '{}'", dependency, nodeKey);
+                    continue;
+                }
+
                 errors.add(ValidationError.builder()
                         .nodeKey(nodeKey)
                         .errorType("definition")
@@ -247,17 +262,17 @@ public class WorkflowDependencyValidator {
     }
 
     private boolean isLoopNode(BaseWorkflowNode node) {
-        // Check if this is a loop node based on its plugin node type or NodeType
-        if (node.getPluginNode() != null && node.getPluginNode().nodeKey() != null) {
-            String nodeKey = node.getPluginNode().nodeKey();
-            // Check if nodeKey contains "loop" pattern
-            if (nodeKey.contains("loop")) {
-                return true;
-            }
-        }
-
         // Check if the node type is one of the predefined loop types
         return NodeType.getLoopStatefulTypes().contains(node.getType());
+    }
+
+    /**
+     * Check if a node is a loop node based on its key and metadata
+     * This overloaded method is used when we only have the nodeKey
+     */
+    private boolean isLoopNode(String nodeKey, Map<String, BaseWorkflowNode> nodeMap) {
+        BaseWorkflowNode node = nodeMap.get(nodeKey);
+        return node != null && isLoopNode(node);
     }
 
     private boolean isValidLoopCycle(String nodeKey, Map<String, BaseWorkflowNode> nodeMap, Map<String, List<String>> loopBackEdges) {

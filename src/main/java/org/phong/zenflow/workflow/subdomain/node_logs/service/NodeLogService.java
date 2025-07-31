@@ -79,8 +79,8 @@ public class NodeLogService {
     //TODO: make realtime log by insert log per step
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void completeNode(UUID workflowRunId, String nodeKey, NodeLogStatus status, String error,
-                                   Map<String, Object> output, List<LogEntry> logs) {
-        NodeLog nodeLog = nodeLogRepository.findByWorkflowRunIdAndNodeKey(workflowRunId, nodeKey)
+                             Map<String, Object> output, List<LogEntry> logs) {
+        NodeLog nodeLog = nodeLogRepository.findTopByWorkflowRunIdAndNodeKeyOrderByStartedAtDesc(workflowRunId, nodeKey)
                 .orElseThrow(() -> new NodeLogException("NodeLog not found for workflowRunId: " + workflowRunId + " and nodeKey: " + nodeKey));
 
         nodeLog.setStatus(status);
@@ -101,7 +101,7 @@ public class NodeLogService {
 
     @Transactional
     public void waitNode(UUID workflowRunId, String nodeKey, NodeLogStatus status, List<LogEntry> logs, String reason) {
-        NodeLog nodeLog = nodeLogRepository.findByWorkflowRunIdAndNodeKey(workflowRunId, nodeKey)
+        NodeLog nodeLog = nodeLogRepository.findTopByWorkflowRunIdAndNodeKeyOrderByStartedAtDesc(workflowRunId, nodeKey)
                 .orElseThrow(() -> new NodeLogException("NodeLog not found for workflowRunId: " + workflowRunId + " and nodeKey: " + nodeKey));
 
         nodeLog.setStatus(status);
@@ -116,7 +116,7 @@ public class NodeLogService {
 
     @Transactional
     public NodeLogDto retryNode(UUID workflowRunId, String nodeKey, List<LogEntry> logs) {
-        NodeLog log = nodeLogRepository.findByWorkflowRunIdAndNodeKey(workflowRunId, nodeKey)
+        NodeLog log = nodeLogRepository.findTopByWorkflowRunIdAndNodeKeyOrderByStartedAtDesc(workflowRunId, nodeKey)
                 .orElseThrow(() -> new NodeLogException("NodeLog not found"));
 
         log.setAttempts(log.getAttempts() + 1);
@@ -129,7 +129,7 @@ public class NodeLogService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void logValidationError(UUID workflowRunId, String nodeKey, ValidationResult validationResult) {
-        NodeLog nodeLog = nodeLogRepository.findByWorkflowRunIdAndNodeKey(workflowRunId, nodeKey)
+        NodeLog nodeLog = nodeLogRepository.findTopByWorkflowRunIdAndNodeKeyOrderByStartedAtDesc(workflowRunId, nodeKey)
                 .orElseThrow(() -> new NodeLogException("NodeLog not found for workflowRunId: " + workflowRunId + " and nodeKey: " + nodeKey));
 
         String errorMessage;
@@ -174,6 +174,23 @@ public class NodeLogService {
             case VALIDATION_ERROR:
                 log.debug("Plugin node execution validation error: {}", workingNode.getKey());
                 logValidationError(workflowRunId, workingNode.getKey(), result.getValidationResult());
+                break;
+            case LOOP_NEXT:
+                log.debug("Plugin node execution loop next: {}", workingNode.getKey());
+                completeNode(workflowRunId, workingNode.getKey(), NodeLogStatus.LOOP_NEXT, result.getError(), result.getOutput(), result.getLogs());
+                break;
+            case LOOP_END:
+                log.debug("Plugin node execution loop end: {}", workingNode.getKey());
+                completeNode(workflowRunId, workingNode.getKey(), NodeLogStatus.LOOP_END
+                        , result.getError(), result.getOutput(), result.getLogs());
+                break;
+            case LOOP_CONTINUE:
+                log.debug("Plugin node execution loop continue: {}", workingNode.getKey());
+                completeNode(workflowRunId, workingNode.getKey(), NodeLogStatus.LOOP_NEXT, result.getError(), result.getOutput(), result.getLogs());
+                break;
+            case LOOP_BREAK:
+                log.debug("Plugin node execution loop break: {}", workingNode.getKey());
+                completeNode(workflowRunId, workingNode.getKey(), NodeLogStatus.LOOP_END, result.getError(), result.getOutput(), result.getLogs());
                 break;
             default:
                 log.warn("Unknown status for plugin node execution: {}", result.getStatus());

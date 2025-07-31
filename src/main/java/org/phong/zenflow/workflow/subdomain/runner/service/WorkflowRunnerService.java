@@ -2,7 +2,6 @@ package org.phong.zenflow.workflow.subdomain.runner.service;
 
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
-import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.log.auditlog.annotations.AuditLog;
 import org.phong.zenflow.log.auditlog.enums.AuditAction;
@@ -18,6 +17,7 @@ import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.phong.zenflow.workflow.subdomain.workflow_run.infrastructure.persistence.entity.WorkflowRun;
 import org.phong.zenflow.workflow.subdomain.workflow_run.service.WorkflowRunService;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -26,18 +26,36 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
-
-@AllArgsConstructor
 @Slf4j
 @Service
 public class WorkflowRunnerService {
+
     private static final String callbackUrlKeyOnContext = "__zenflow_callback_url";
+
     private final WorkflowEngineService workflowEngineService;
     private final WorkflowRunService workflowRunService;
     private final WebClient webClient;
     private final WorkflowService workflowService;
     private final SecretService secretService;
+    private final Executor executor;
+
+    public WorkflowRunnerService(
+            WorkflowEngineService workflowEngineService,
+            WorkflowRunService workflowRunService,
+            WebClient webClient,
+            WorkflowService workflowService,
+            SecretService secretService,
+            @Qualifier("virtualThreadExecutor") Executor executor
+    ) {
+        this.workflowEngineService = workflowEngineService;
+        this.workflowRunService = workflowRunService;
+        this.webClient = webClient;
+        this.workflowService = workflowService;
+        this.secretService = secretService;
+        this.executor = executor;
+    }
 
     @AuditLog(
             action = AuditAction.WORKFLOW_EXECUTE,
@@ -119,13 +137,13 @@ public class WorkflowRunnerService {
 
     private void notifyCallbackUrl(@NotNull @NotEmpty String callbackUrl, UUID workflowRunId) {
         if (callbackUrl != null && !callbackUrl.isEmpty()) {
-            webClient.post()
+            executor.execute(() -> webClient.post()
                     .uri(callbackUrl)
                     .bodyValue(workflowRunId)
                     .retrieve()
                     .bodyToMono(Void.class)
                     .doOnError(error -> log.error("Failed to notify callback URL: {}", callbackUrl, error))
-                    .subscribe();
+                    .subscribe());
         }
     }
 }
