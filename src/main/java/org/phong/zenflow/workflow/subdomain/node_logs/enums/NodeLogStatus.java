@@ -7,4 +7,6 @@ public enum NodeLogStatus {
     WAITING,
     RETRYING,
     NEXT,
+    LOOP_NEXT,
+    LOOP_END,
 }
