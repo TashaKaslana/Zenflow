@@ -77,20 +77,18 @@ public class WorkflowService {
         Workflow workflow = workflowRepository.findById(workflowId)
                 .orElseThrow(() -> new WorkflowException("Workflow not found with id: " + workflowId));
 
-        WorkflowDefinition existWorkflowDef = workflow.getDefinition();
-
-        if (existWorkflowDef == null) {
-            existWorkflowDef = new WorkflowDefinition().init();
-        }
+        // Create a deep copy to avoid modifying the original
+        WorkflowDefinition existWorkflowDef = workflow.getDefinition().deepCopy();
 
         WorkflowDefinition newWorkflowDef = new WorkflowDefinition(incomingNodes.nodes(), incomingNodes.metadata());
 
         WorkflowDefinition upserted = definitionService.upsert(newWorkflowDef, existWorkflowDef);
 
+        // Force Hibernate update, save
         workflow.setDefinition(upserted);
-        workflowRepository.save(workflow);
+        Workflow saved = workflowRepository.save(workflow);
 
-        return upserted;
+        return saved.getDefinition();
     }
 
     /**

@@ -111,9 +111,8 @@ public class SchemaRegistry {
      * @return JSONObject containing the schema
      */
     private JSONObject getPluginSchema(PluginNodeIdentifier identifier) {
-        String cacheKey = identifier.toCacheKey();
-        return pluginCache.computeIfAbsent(cacheKey, k -> {
-            Map<String, Object> schema = pluginProvider.getSchemaJson(k);
+        return pluginCache.computeIfAbsent(identifier.toCacheKey(), k -> {
+            Map<String, Object> schema = pluginProvider.getSchemaJson(identifier);
             if (schema.isEmpty()) {
                 throw new NodeSchemaMissingException("No schema found for plugin node: " + k, List.of(k));
             }
