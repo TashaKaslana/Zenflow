@@ -101,6 +101,16 @@ public class SchemaTemplateValidationService {
             return;
         }
 
+        // Get the actual field value to check if it's a composite string
+        Object fieldValue = getFieldValue(inputData, fieldLocation.path);
+        if (fieldValue == null) {
+            log.debug("Field value not found for path {} in node {}", fieldLocation.path, nodeKey);
+            return;
+        }
+
+        // Check if this template is part of a composite string
+        boolean isCompositeString = isTemplateInCompositeString(fieldValue.toString(), template);
+
         // Get the schema for this field
         JSONObject fieldSchema = schemaTypeResolver.getSchemaForPath(inputProperties, fieldLocation.path);
         if (fieldSchema == null) {
@@ -115,6 +125,14 @@ public class SchemaTemplateValidationService {
         OutputUsage consumer = resolveTemplateToConsumer(template, metadata);
         if (consumer != null) {
             String actualType = consumer.getType();
+
+            // Skip validation for composite strings when field expects string
+            // In composite strings, templates can be of any type as they'll be converted to string
+            if (isCompositeString && "string".equals(expectedType)) {
+                log.debug("Skipping type validation for template {} in composite string for field {}",
+                         template, fieldLocation.topLevelField);
+                return;
+            }
 
             // Only validate if we have a known type (not 'any')
             if (actualType != null && !actualType.equals("any") &&
@@ -144,6 +162,53 @@ public class SchemaTemplateValidationService {
         } else {
             log.debug("No consumer found for template {} in node {}", template, nodeKey);
         }
+    }
+
+    /**
+     * Helper method to get field value from input data using dot notation path
+     */
+    private Object getFieldValue(JSONObject inputData, String path) {
+        String[] pathParts = path.split("\\.");
+        Object current = inputData;
+
+        for (String part : pathParts) {
+            if (current instanceof JSONObject) {
+                current = ((JSONObject) current).opt(part);
+                if (current == null) {
+                    return null;
+                }
+            } else {
+                return null;
+            }
+        }
+
+        return current;
+    }
+
+    /**
+     * Checks if a template is part of a composite string (contains other text or multiple templates)
+     */
+    private boolean isTemplateInCompositeString(String fieldValue, String template) {
+        if (fieldValue == null || template == null) {
+            return false;
+        }
+
+        // Extract all templates from the field value
+        Set<String> allTemplates = TemplateEngine.extractRefs(fieldValue);
+
+        // If there's more than one template, it's definitely composite
+        if (allTemplates.size() > 1) {
+            return true;
+        }
+
+        // If there's only one template, check if the field value is exactly that template
+        if (allTemplates.size() == 1 && allTemplates.contains(template)) {
+            String expectedFullTemplate = "{{" + template + "}}";
+            // If the field value is not exactly the template (has other text), it's composite
+            return !fieldValue.trim().equals(expectedFullTemplate);
+        }
+
+        return false;
     }
 
     /**
