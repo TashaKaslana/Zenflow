@@ -35,12 +35,20 @@ public class WhileLoopExecutor implements PluginNodeExecutor {
             if (!shouldContinue) {
                 List<String> loopEnd = ObjectConversion.safeConvert(input.get("loopEnd"), new TypeReference<>() {});
                 logCollector.info("While loop completed.");
+                if (loopEnd.isEmpty()) {
+                    logCollector.warning("loopEnd is empty, no next node to proceed to after completion.");
+                    return ExecutionResult.loopEnd(null, input, logCollector.getLogs());
+                }
                 return ExecutionResult.loopEnd(loopEnd.getFirst(), input, logCollector.getLogs());
             }
 
             if (evalCondition(input.get("breakCondition"), input, logCollector)) {
                 List<String> loopEnd = ObjectConversion.safeConvert(input.get("loopEnd"), new TypeReference<>() {});
                 logCollector.info("Break condition met, exiting while loop.");
+                if (loopEnd.isEmpty()) {
+                    logCollector.warning("loopEnd is empty, no next node to proceed to after break condition.");
+                    return ExecutionResult.loopBreak(null, input, logCollector.getLogs());
+                }
                 return ExecutionResult.loopBreak(loopEnd.getFirst(), input, logCollector.getLogs());
             }
 
@@ -51,6 +59,10 @@ public class WhileLoopExecutor implements PluginNodeExecutor {
 
             List<String> next = ObjectConversion.safeConvert(input.get("next"), new TypeReference<>() {});
             logCollector.info("Proceeding to while loop body.");
+            if (next.isEmpty()) {
+                logCollector.warning("next is empty, no next node to proceed to for loop body.");
+                return ExecutionResult.loopNext(null, input, logCollector.getLogs());
+            }
             return ExecutionResult.loopNext(next.getFirst(), input, logCollector.getLogs());
 
         } catch (Exception e) {
