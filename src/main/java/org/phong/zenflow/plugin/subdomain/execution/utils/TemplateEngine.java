@@ -17,8 +17,10 @@ import java.util.regex.*;
 @Slf4j
 public class TemplateEngine {
 
-    // Updated pattern to handle both simple references and function calls
-    private static final Pattern TEMPLATE_PATTERN = Pattern.compile("\\{\\{([a-zA-Z0-9_.\\-]+)}}");
+    // Updated pattern to handle both simple references, function calls, and default values
+    private static final Pattern TEMPLATE_PATTERN = Pattern.compile("\\{\\{([a-zA-Z0-9_.\\-]+(?:\\([^)]*\\))?(?::[^}]*)?)}}");
+    // Pattern to extract reference and default value
+    private static final Pattern REF_WITH_DEFAULT_PATTERN = Pattern.compile("^([a-zA-Z0-9_.\\-]+)(?::(.*))?$");
     private static final Map<String, Function<List<String>, Object>> functionRegistry = new HashMap<>();
     static {
         functionRegistry.put("uuid", args -> UUID.randomUUID().toString());
@@ -31,7 +33,8 @@ public class TemplateEngine {
 
     /**
      * Extracts all references from a template string.
-     * For example, "Hello {{user.name}}, your order {{order.id}} is ready" would return ["user.name", "order.id"]
+     * For templates with default values like {{user.name:John}}, extracts just the reference part (user.name)
+     * For example, "Hello {{user.name:Guest}}, your order {{order.id}} is ready" would return ["user.name", "order.id"]
      *
      * @param template The template string containing references
      * @return Set of references found in the template
@@ -45,7 +48,17 @@ public class TemplateEngine {
         Matcher matcher = TEMPLATE_PATTERN.matcher(template);
 
         while (matcher.find()) {
-            refs.add(matcher.group(1).trim());
+            String fullExpression = matcher.group(1).trim();
+
+            // Extract just the reference part (before the colon if present)
+            Matcher refMatcher = REF_WITH_DEFAULT_PATTERN.matcher(fullExpression);
+            if (refMatcher.matches()) {
+                String reference = refMatcher.group(1);
+                // Only add if it's not a function call
+                if (!reference.matches("[a-zA-Z0-9._-]+\\(.*\\)")) {
+                    refs.add(reference);
+                }
+            }
         }
 
         return refs;
@@ -80,6 +93,17 @@ public class TemplateEngine {
         return new LinkedHashSet<>();
     }
 
+    public static Set<String> extractFullRefs(String template) {
+        Set<String> refs = new LinkedHashSet<>();
+        if (template == null) return refs;
+
+        Matcher matcher = TEMPLATE_PATTERN.matcher(template);
+        while (matcher.find()) {
+            refs.add(matcher.group(1).trim()); // includes ":0"
+        }
+
+        return refs;
+    }
 
     /**
      * Determines if a string contains any template references.
@@ -93,6 +117,7 @@ public class TemplateEngine {
 
     /**
      * Resolves a template string by replacing references with their values from the context.
+     * Supports default values using syntax like {{ref:defaultValue}}
      *
      * @param value The template string to resolve
      * @param context The context containing values for references
@@ -105,18 +130,36 @@ public class TemplateEngine {
         StringBuilder result = new StringBuilder();
 
         while (matcher.find()) {
-            String expr = matcher.group(1); // e.g., uuid(), user.name, secrets.API_KEY
+            String fullExpression = matcher.group(1); // e.g., uuid(), user.name:Guest, node.output.index:0
 
             Object replacement;
-            if (expr.matches("[a-zA-Z0-9._-]+\\(.*\\)")) {
-                replacement = evaluateFunction(expr);
+
+            // Check if this is a function call
+            if (fullExpression.matches("[a-zA-Z0-9._-]+\\(.*\\)")) {
+                replacement = evaluateFunction(fullExpression);
             } else {
-                // Check if this is a secret reference
-                if (expr.startsWith("secrets.")) {
-                    String secretName = expr.substring("secrets.".length());
-                    replacement = resolveSecret(context, secretName);
+                // Parse reference and default value
+                Matcher refMatcher = REF_WITH_DEFAULT_PATTERN.matcher(fullExpression);
+                if (refMatcher.matches()) {
+                    String reference = refMatcher.group(1);
+                    String defaultValue = refMatcher.group(2); // null if no default provided
+
+                    // Resolve the reference
+                    if (reference.startsWith("secrets.")) {
+                        String secretName = reference.substring("secrets.".length());
+                        replacement = resolveSecret(context, secretName);
+                    } else {
+                        replacement = deepGet(context, reference);
+                    }
+
+                    // Use default value if reference resolved to null
+                    if (replacement == null && defaultValue != null) {
+                        replacement = parseDefaultValue(defaultValue);
+                        log.debug("Using default value '{}' for reference '{}'", defaultValue, reference);
+                    }
                 } else {
-                    replacement = deepGet(context, expr);
+                    // Fallback for malformed expressions
+                    replacement = null;
                 }
             }
 
@@ -127,12 +170,12 @@ public class TemplateEngine {
             } else {
                 // If the entire template is just one reference that resolves to null,
                 // keep the original template syntax for better debugging
-                if (template.trim().equals("{{" + expr + "}}")) {
-                    log.warn("Template reference '{}' resolved to null, keeping original template", expr);
+                if (template.trim().matches("\\{\\{[^}]+}}")) {
+                    log.warn("Template reference '{}' resolved to null, keeping original template", fullExpression);
                 } else {
                     // For complex templates with null references, return the original template
                     // This prevents malformed expressions like "null > 200" from being created
-                    log.warn("Template reference '{}' in complex template '{}' resolved to null, returning original template", expr, template);
+                    log.warn("Template reference '{}' in complex template '{}' resolved to null, returning original template", fullExpression, template);
                 }
                 return template; // Return original template for single null references
             }
@@ -144,6 +187,70 @@ public class TemplateEngine {
         return result.toString();
     }
 
+    /**
+     * Extract default value from a template string like {{ref:defaultValue}}
+     *
+     * @param template The template string
+     * @return The parsed default value, or null if no default is present
+     */
+    public static Object extractDefaultValue(String template) {
+        if (!isTemplate(template)) {
+            return null;
+        }
+
+        // Extract the full expression from the template
+        String content = template.trim();
+        if (content.startsWith("{{") && content.endsWith("}}")) {
+            String expression = content.substring(2, content.length() - 2).trim();
+
+            // Check if it has a default value (contains colon)
+            int colonIndex = expression.indexOf(':');
+            if (colonIndex > 0) {
+                String defaultValueStr = expression.substring(colonIndex + 1).trim();
+                return parseDefaultValue(defaultValueStr);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Parse a default value string and convert it to the appropriate type
+     *
+     * @param defaultValue The default value as a string
+     * @return The parsed default value with appropriate type
+     */
+    private static Object parseDefaultValue(String defaultValue) {
+        if (defaultValue == null || defaultValue.trim().isEmpty()) {
+            return null;
+        }
+
+        String trimmed = defaultValue.trim();
+
+        // Try to parse as integer
+        try {
+            return Integer.parseInt(trimmed);
+        } catch (NumberFormatException ignored) {
+        }
+
+        // Try to parse as double
+        try {
+            return Double.parseDouble(trimmed);
+        } catch (NumberFormatException ignored) {
+        }
+
+        // Try to parse as boolean
+        if ("true".equalsIgnoreCase(trimmed) || "false".equalsIgnoreCase(trimmed)) {
+            return Boolean.parseBoolean(trimmed);
+        }
+
+        // Return as string (remove quotes if present)
+        if (trimmed.startsWith("\"") && trimmed.endsWith("\"") && trimmed.length() >= 2) {
+            return trimmed.substring(1, trimmed.length() - 1);
+        }
+
+        return trimmed;
+    }
     /**
      * Resolves a secret reference from the context.
      *
