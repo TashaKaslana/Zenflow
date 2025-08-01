@@ -35,12 +35,20 @@ public class ForLoopExecutor implements PluginNodeExecutor {
             if (isLoopComplete(input, output, logCollector)) {
                 List<String> loopEnd = ObjectConversion.safeConvert(input.get("loopEnd"), new TypeReference<>() {});
                 logCollector.info("Loop finished. Proceeding to loopEnd.");
+                if (loopEnd.isEmpty()) {
+                    logCollector.warning("loopEnd is empty, no next node to proceed to.");
+                    return ExecutionResult.loopEnd(null, output, logCollector.getLogs());
+                }
                 return ExecutionResult.loopEnd(loopEnd.getFirst(), output, logCollector.getLogs());
             }
 
             if (evalCondition(input.get("breakCondition"), output, logCollector)) {
                 List<String> loopEnd = ObjectConversion.safeConvert(input.get("loopEnd"), new TypeReference<>() {});
                 logCollector.info("Loop exited due to break condition at index {}", output.get("index"));
+                if (loopEnd.isEmpty()) {
+                    logCollector.warning("loopEnd is empty, no next node to proceed to after break condition.");
+                    return ExecutionResult.loopBreak(null, output, logCollector.getLogs());
+                }
                 return ExecutionResult.loopBreak(loopEnd.getFirst(), output, logCollector.getLogs());
             }
 
@@ -56,6 +64,10 @@ public class ForLoopExecutor implements PluginNodeExecutor {
             output.put("index", newIndex);
 
             logCollector.info("Proceeding to loop body for index {}. New index is {}", input.get("index"), newIndex);
+            if (next.isEmpty()) {
+                logCollector.warning("next is empty, no next node to proceed to for loop body.");
+                return ExecutionResult.loopNext(null, output, logCollector.getLogs());
+            }
             return ExecutionResult.loopNext(next.getFirst(), output, logCollector.getLogs());
 
         } catch (Exception e) {

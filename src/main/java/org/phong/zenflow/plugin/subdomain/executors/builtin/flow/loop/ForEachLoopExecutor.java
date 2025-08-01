@@ -34,6 +34,10 @@ public class ForEachLoopExecutor implements PluginNodeExecutor {
             if (index >= items.size()) {
                 List<String> loopEnd = ObjectConversion.safeConvert(input.get("loopEnd"), new TypeReference<>() {});
                 logCollector.info("Loop completed after {} iterations", items.size());
+                if (loopEnd.isEmpty()) {
+                    logCollector.warning("loopEnd is empty, no next node to proceed to after completion.");
+                    return ExecutionResult.loopEnd(null, logCollector.getLogs());
+                }
                 return ExecutionResult.loopEnd(loopEnd.getFirst(), logCollector.getLogs());
             }
 
@@ -54,6 +58,10 @@ public class ForEachLoopExecutor implements PluginNodeExecutor {
             if (evalCondition(input.get("breakCondition"), output, logCollector)) {
                 List<String> loopEnd = ObjectConversion.safeConvert(input.get("loopEnd"), new TypeReference<>() {});
                 logCollector.info("Break condition met at index {}, exiting loop", index);
+                if (loopEnd.isEmpty()) {
+                    logCollector.warning("loopEnd is empty, no next node to proceed to after break condition.");
+                    return ExecutionResult.loopBreak(null, output, logCollector.getLogs());
+                }
                 return ExecutionResult.loopBreak(loopEnd.getFirst(), output, logCollector.getLogs());
             }
 
@@ -67,6 +75,10 @@ public class ForEachLoopExecutor implements PluginNodeExecutor {
             output.put("index", index + 1); // Prepare for next iteration
 
             logCollector.info("Processing item {} of {}: {}", index + 1, items.size(), currentItem);
+            if (next.isEmpty()) {
+                logCollector.warning("next is empty, no next node to proceed to for loop body.");
+                return ExecutionResult.loopNext(null, output, logCollector.getLogs());
+            }
             return ExecutionResult.loopNext(next.getFirst(), output, logCollector.getLogs());
 
         } catch (Exception e) {
