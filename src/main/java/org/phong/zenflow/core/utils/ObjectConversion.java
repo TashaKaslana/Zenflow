@@ -2,12 +2,14 @@ package org.phong.zenflow.core.utils;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.phong.zenflow.core.annotations.ExcludeFromPayload;
 
 import java.lang.reflect.Field;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,6 +30,11 @@ public final class ObjectConversion {
 
     public static Map<String, Object> convertObjectToMap(Object obj) {
         return mapper.convertValue(obj, new TypeReference<>() {});
+    }
+
+    public static <T> List<T> convertObjectToList(Object obj, Class<T> elementType) {
+        JavaType type = mapper.getTypeFactory().constructCollectionType(List.class, elementType);
+        return mapper.convertValue(obj, type);
     }
 
     public static Map<String, Object> convertObjectToFilteredMap(Object obj) {
