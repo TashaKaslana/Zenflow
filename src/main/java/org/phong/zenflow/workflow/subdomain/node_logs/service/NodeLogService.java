@@ -37,7 +37,6 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 @Slf4j
 public class NodeLogService {
-
     private final NodeLogRepository nodeLogRepository;
     private final WorkflowRunRepository workflowRunRepository;
     private final NodeLogMapper nodeLogMapper;
@@ -155,8 +154,17 @@ public class NodeLogService {
                 completeNode(workflowRunId, workingNode.getKey(), NodeLogStatus.SUCCESS, result.getError(), result.getOutput(), result.getLogs());
                 break;
             case ERROR:
-                log.error("Plugin node execution failed: {}", workingNode.getKey());
-                completeNode(workflowRunId, workingNode.getKey(), NodeLogStatus.ERROR, result.getError(), result.getOutput(), result.getLogs());
+                // Implement intelligent retry logic for errors
+                if (shouldRetryOnError(workflowRunId, workingNode.getKey())) {
+                    log.warn("Plugin node execution failed, attempting retry: {} (attempt: {})",
+                            workingNode.getKey(), getCurrentAttempt(workflowRunId, workingNode.getKey()) + 1);
+                    NodeLogDto retryNode = retryNode(workflowRunId, workingNode.getKey(), result.getLogs());
+                    workflowRetrySchedule.scheduleRetry(workflowId, workflowRunId, workingNode.getKey(), retryNode.attempts());
+                } else {
+                    log.error("Plugin node execution failed after {} attempts, marking as error: {}",
+                            WorkflowRetrySchedule.MAX_RETRY_ATTEMPTS, workingNode.getKey());
+                    completeNode(workflowRunId, workingNode.getKey(), NodeLogStatus.ERROR, result.getError(), result.getOutput(), result.getLogs());
+                }
                 break;
             case WAITING:
                 log.debug("Plugin node execution skipped: {}", workingNode.getKey());
@@ -252,5 +260,23 @@ public class NodeLogService {
             throw new NodeLogException("NodeLog not found with id: " + id);
         }
         nodeLogRepository.deleteById(id);
+    }
+
+    /**
+     * Check if a node should be retried based on current attempts and max retry policy
+     */
+    private boolean shouldRetryOnError(UUID workflowRunId, String nodeKey) {
+        return nodeLogRepository.findTopByWorkflowRunIdAndNodeKeyOrderByStartedAtDesc(workflowRunId, nodeKey)
+                .map(nodeLog -> nodeLog.getAttempts() < WorkflowRetrySchedule.MAX_RETRY_ATTEMPTS)
+                .orElse(true); // If no log found, allow first attempt
+    }
+
+    /**
+     * Get the current attempt number for a node
+     */
+    private int getCurrentAttempt(UUID workflowRunId, String nodeKey) {
+        return nodeLogRepository.findTopByWorkflowRunIdAndNodeKeyOrderByStartedAtDesc(workflowRunId, nodeKey)
+                .map(NodeLog::getAttempts)
+                .orElse(0);
     }
 }

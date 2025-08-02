@@ -17,6 +17,7 @@ import java.util.UUID;
 @Service
 @AllArgsConstructor
 public class WorkflowRetrySchedule {
+    public static final int MAX_RETRY_ATTEMPTS = 3;
     private static final long RETRY_DELAY_MILLIS = 5000; // Default retry delay in milliseconds
     private final Scheduler scheduler;
 
