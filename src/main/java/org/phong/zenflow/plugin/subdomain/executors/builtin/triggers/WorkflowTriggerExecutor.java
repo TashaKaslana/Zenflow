@@ -1,6 +1,7 @@
 package org.phong.zenflow.plugin.subdomain.executors.builtin.triggers;
 
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
@@ -12,11 +13,12 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Map;
-import java.util.UUID;
+import java.time.OffsetDateTime;
+import java.util.*;
 
 @Component
 @AllArgsConstructor
+@Slf4j
 public class WorkflowTriggerExecutor implements PluginNodeExecutor {
     private final ApplicationEventPublisher eventPublisher;
 
@@ -29,41 +31,98 @@ public class WorkflowTriggerExecutor implements PluginNodeExecutor {
     @Transactional
     public ExecutionResult execute(WorkflowConfig config) {
         LogCollector logs = new LogCollector();
-        logs.info("Executing TriggerWorkflowExecutor with config: " + config);
+        try {
+            logs.info("Workflow trigger started at {}", OffsetDateTime.now());
 
-        // Extract the 'input' map from the config
-        Map<String, Object> input = config.input();
+            // Extract the 'input' map from the config
+            Map<String, Object> input = config.input();
 
-        //TODO: ensure trigger workflow is enabled, exists and is own by the user
-        UUID workflowRunId = UUID.fromString(input.get("workflow_run_id").toString());
-        UUID workflowId = UUID.fromString(input.get("workflow_id").toString());
-        boolean isAsync = (boolean) input.getOrDefault("is_async", false);
+            //TODO: ensure trigger workflow is enabled, exists and is owned by the user
+            UUID workflowRunId = UUID.fromString(input.get("workflow_run_id").toString());
+            UUID workflowId = UUID.fromString(input.get("workflow_id").toString());
+            boolean isAsync = (boolean) input.getOrDefault("is_async", false);
+            String startFromNodeKey = (String) input.get("start_from_node_key");
+            String callbackUrl = (String) input.get("callback_url");
+            Object payload = input.get("payload");
 
-        logs.info("Triggering workflow with ID: " + workflowId + " and run ID: " + workflowRunId);
+            logs.info("Triggering workflow with ID: {} and run ID: {}", workflowId, workflowRunId);
 
-        eventPublisher.publishEvent(new WorkflowRunnerPublishableEvent() {
-            @Override
-            public UUID getWorkflowRunId() {
-                return workflowRunId;
+            // Create workflow runner request with available parameters
+            WorkflowRunnerRequest runnerRequest = null;
+            if (startFromNodeKey != null || callbackUrl != null) {
+                runnerRequest = new WorkflowRunnerRequest(
+                    callbackUrl,
+                    startFromNodeKey
+                );
+
+                if (payload != null) {
+                    logs.info("Payload will be available in workflow context: {}", payload);
+                }
             }
 
-            @Override
-            public TriggerType getTriggerType() {
-                return isAsync ? TriggerType.EVENT : TriggerType.MANUAL;
+            final WorkflowRunnerRequest finalRequest = runnerRequest;
+            eventPublisher.publishEvent(new WorkflowRunnerPublishableEvent() {
+                @Override
+                public UUID getWorkflowRunId() {
+                    return workflowRunId;
+                }
+
+                @Override
+                public TriggerType getTriggerType() {
+                    return isAsync ? TriggerType.EVENT : TriggerType.MANUAL;
+                }
+
+                @Override
+                public UUID getWorkflowId() {
+                    return workflowId;
+                }
+
+                @Override
+                public WorkflowRunnerRequest request() {
+                    return finalRequest;
+                }
+            });
+
+            // Create output with trigger metadata and payload information
+            Map<String, Object> output = new HashMap<>();
+            output.put("trigger_type", "workflow");
+            output.put("triggered_at", OffsetDateTime.now().toString());
+            output.put("trigger_source", "workflow_execution");
+            output.put("target_workflow_id", workflowId.toString());
+            output.put("target_workflow_run_id", workflowRunId.toString());
+            output.put("is_async", isAsync);
+
+            if (startFromNodeKey != null) {
+                output.put("start_from_node_key", startFromNodeKey);
             }
 
-            @Override
-            public UUID getWorkflowId() {
-                return workflowId;
+            if (callbackUrl != null) {
+                output.put("callback_url", callbackUrl);
             }
 
-            @Override
-            public WorkflowRunnerRequest request() {
-                return null;
+            if (payload != null) {
+                output.put("forwarded_payload", payload);
             }
-        });
 
-        logs.success("Create workflow trigger request successfully with ID: " + workflowId + " and run ID: " + workflowRunId);
-        return ExecutionResult.success(null, logs.getLogs());
+            // Add any additional input parameters to output for flexibility
+            Set<String> excludedKeys = Set.of("workflow_run_id", "workflow_id", "is_async", "start_from_node_key", "callback_url", "payload");
+            input.forEach((key, value) -> {
+                if (!excludedKeys.contains(key)) {
+                    output.put("input_" + key, value);
+                }
+            });
+
+            logs.success("Workflow trigger request created successfully for workflow ID: {} and run ID: {}", workflowId, workflowRunId);
+
+            return ExecutionResult.success(output, logs.getLogs());
+        } catch (IllegalArgumentException e) {
+            logs.error("Invalid input parameter: {}", e.getMessage());
+            log.error("Invalid input parameter for workflow trigger", e);
+            return ExecutionResult.error("Invalid input: " + e.getMessage(), logs.getLogs());
+        } catch (Exception e) {
+            logs.error("Unexpected error occurred during workflow trigger execution: {}", e.getMessage());
+            log.error("Unexpected error during workflow trigger execution", e);
+            return ExecutionResult.error(e.getMessage(), logs.getLogs());
+        }
     }
 }
