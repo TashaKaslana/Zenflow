@@ -1,4 +1,4 @@
-package org.phong.zenflow.plugin.subdomain.executors.builtin.data_transformer.dto;
+package org.phong.zenflow.plugin.subdomain.executors.builtin.data.data_transformer.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
