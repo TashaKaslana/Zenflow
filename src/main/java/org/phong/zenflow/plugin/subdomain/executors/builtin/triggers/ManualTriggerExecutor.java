@@ -3,6 +3,7 @@ package org.phong.zenflow.plugin.subdomain.executors.builtin.triggers;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
+import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
 import org.springframework.stereotype.Component;
@@ -19,7 +20,7 @@ public class ManualTriggerExecutor implements PluginNodeExecutor {
     }
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config) {
+    public ExecutionResult execute(WorkflowConfig config, RuntimeContext context) {
         LogCollector logs = new LogCollector();
         try {
             log.info("Executing ManualTriggerExecutor with config: {}", config);

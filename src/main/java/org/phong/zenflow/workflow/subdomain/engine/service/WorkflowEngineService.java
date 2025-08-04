@@ -89,7 +89,7 @@ public class WorkflowEngineService {
         WorkflowConfig config = workingNode.getConfig() != null ? workingNode.getConfig() : new WorkflowConfig();
         WorkflowConfig resolvedConfig = context.resolveConfig(workingNode.getKey(), config);
 
-        result = executeWorkingNode(workingNode, resolvedConfig);
+        result = executeWorkingNode(workingNode, resolvedConfig, context);
 
         Map<String, Object> output = result.getOutput();
         if (output != null) {
@@ -102,7 +102,8 @@ public class WorkflowEngineService {
     }
 
     private ExecutionResult executeWorkingNode(BaseWorkflowNode workingNode,
-                                               WorkflowConfig resolvedConfig) {
+                                               WorkflowConfig resolvedConfig,
+                                               RuntimeContext context) {
         ExecutionResult result;
 
         ValidationResult validationResult = workflowValidationService.validateRuntime(
@@ -114,7 +115,7 @@ public class WorkflowEngineService {
             return ExecutionResult.validationError(validationResult, workingNode.getKey());
         }
 
-        result = executorDispatcher.dispatch(workingNode.getPluginNode(), resolvedConfig);
+        result = executorDispatcher.dispatch(workingNode.getPluginNode(), resolvedConfig, context);
 
         return result;
     }
