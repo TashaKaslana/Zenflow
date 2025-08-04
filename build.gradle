@@ -43,6 +43,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-quartz'
 	implementation 'com.googlecode.aviator:aviator:5.4.3'
 	implementation 'org.springframework.boot:spring-boot-starter-mail'
+	implementation("com.github.ben-manes.caffeine:caffeine:3.2.2")
 	compileOnly 'org.projectlombok:lombok'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
 	runtimeOnly 'org.postgresql:postgresql'
