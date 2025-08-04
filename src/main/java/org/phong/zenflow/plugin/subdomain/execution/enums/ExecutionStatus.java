@@ -10,7 +10,10 @@ public enum ExecutionStatus {
     LOOP_NEXT,
     LOOP_END,
     LOOP_CONTINUE,
-    LOOP_BREAK;
+    LOOP_BREAK,
+    COMMIT,
+    UNCOMMIT,
+    ;
 
     public static ExecutionStatus fromString(String status) {
         for (ExecutionStatus executionStatus : ExecutionStatus.values()) {

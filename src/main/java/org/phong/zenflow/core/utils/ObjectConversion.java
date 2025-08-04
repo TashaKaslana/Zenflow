@@ -37,6 +37,11 @@ public final class ObjectConversion {
         return mapper.convertValue(obj, type);
     }
 
+    public static <T> Map<String, T> convertObjectToMap(Object obj, Class<T> valueType) {
+        JavaType mapType = mapper.getTypeFactory().constructMapType(Map.class, String.class, valueType);
+        return mapper.convertValue(obj, mapType);
+    }
+
     public static Map<String, Object> convertObjectToFilteredMap(Object obj) {
         return convertObjectToFilteredMap(obj, null);
     }

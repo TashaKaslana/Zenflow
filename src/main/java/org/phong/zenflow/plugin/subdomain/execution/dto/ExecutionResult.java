@@ -127,4 +127,20 @@ public class ExecutionResult {
         result.setLogs(logs);
         return result;
     }
+
+    public static ExecutionResult commit(Map<String, Object> output, List<LogEntry> logs) {
+        ExecutionResult result = new ExecutionResult();
+        result.setStatus(ExecutionStatus.COMMIT);
+        result.setOutput(output);
+        result.setLogs(logs);
+        return result;
+    }
+
+    public static ExecutionResult uncommit(Map<String, Object> output, List<LogEntry> logs) {
+        ExecutionResult result = new ExecutionResult();
+        result.setStatus(ExecutionStatus.UNCOMMIT);
+        result.setOutput(output);
+        result.setLogs(logs);
+        return result;
+    }
 }

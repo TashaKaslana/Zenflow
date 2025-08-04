@@ -7,7 +7,7 @@ INTO plugin_nodes (plugin_id, key, name, type, plugin_node_version, description,
 VALUES
 -- Email Node
 ((SELECT id FROM core_plugin),
- 'email_node',
+ 'email',
  'Email Node',
  'email',
  '1.0.0',
@@ -153,7 +153,7 @@ VALUES
 
 -- Merge Data Node
 ((SELECT id FROM core_plugin),
- 'merge_data_node',
+ 'merge_data',
  'Merge Data Node',
  'data_processing',
  '1.0.0',
@@ -349,5 +349,76 @@ VALUES
    ],
    "additionalProperties": false
  }
- ')
+ '),
+
+-- Wait Node
+((SELECT id FROM core_plugin),
+ 'wait',
+ 'Wait Node',
+ 'flow_control',
+ '1.0.0',
+ 'A node that waits for other nodes to complete based on a defined condition.',
+ ARRAY['wait', 'flow', 'control', 'synchronization'],
+ 'wait_node_icon',
+ '{
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "type": "object",
+   "title": "Wait Node Configuration Schema",
+   "properties": {
+     "input": {
+       "type": "object",
+       "title": "Input Schema",
+       "properties": {
+         "mode": {
+           "type": "string",
+           "enum": ["all", "any", "threshold"],
+           "default": "any",
+           "description": "The condition to wait for. ''all'' waits for all nodes, ''any'' waits for at least one, ''threshold'' waits for a specific number of nodes."
+         },
+         "threshold": {
+           "type": "integer",
+           "description": "The number of nodes that must be complete when mode is ''threshold''.",
+           "default": 1
+         },
+         "waitingNodes": {
+           "type": "object",
+           "description": "A map where keys are node IDs and values are their completion status (boolean).",
+           "additionalProperties": {
+             "type": "boolean"
+           }
+         }
+       },
+       "required": ["waitingNodes"],
+       "if": {
+         "properties": { "mode": { "const": "threshold" } }
+       },
+       "then": {
+         "required": ["threshold"]
+       }
+     },
+     "output": {
+       "type": "object",
+       "title": "Output Schema",
+       "properties": {
+         "waitingNodes": {
+           "type": "object",
+           "additionalProperties": { "type": "boolean" }
+         },
+         "mode": {
+           "type": "string"
+         },
+         "threshold": {
+           "type": "integer"
+         },
+         "isReady": {
+           "type": "boolean"
+         }
+       },
+       "required": ["waitingNodes", "mode", "threshold", "isReady"]
+     }
+   },
+   "required": ["input", "output"],
+   "additionalProperties": false
+ }'
+)
 ON CONFLICT DO NOTHING;
