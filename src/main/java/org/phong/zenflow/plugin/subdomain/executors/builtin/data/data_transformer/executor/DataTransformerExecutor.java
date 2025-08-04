@@ -10,6 +10,7 @@ import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecuto
 import org.phong.zenflow.plugin.subdomain.executors.builtin.data.data_transformer.dto.TransformStep;
 import org.phong.zenflow.plugin.subdomain.executors.builtin.data.data_transformer.exception.DataTransformerExecutorException;
 import org.phong.zenflow.plugin.subdomain.executors.builtin.data.data_transformer.registry.TransformerRegistry;
+import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
 import org.springframework.stereotype.Component;
@@ -30,7 +31,7 @@ public class DataTransformerExecutor implements PluginNodeExecutor {
     }
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config) {
+    public ExecutionResult execute(WorkflowConfig config, RuntimeContext context) {
         LogCollector logs = new LogCollector();
         log.debug("Executing DataTransformerExecutor with config: {}", config);
         logs.info("Executing DataTransformerExecutor with config: " + config);

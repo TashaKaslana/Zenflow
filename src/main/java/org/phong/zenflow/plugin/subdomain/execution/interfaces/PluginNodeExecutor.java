@@ -1,6 +1,7 @@
 package org.phong.zenflow.plugin.subdomain.execution.interfaces;
 
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
+import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 
 
@@ -9,5 +10,5 @@ public interface PluginNodeExecutor {
     String key();
 
     // execute the plugin node with the given configuration and context
-    ExecutionResult execute(WorkflowConfig config);
+    ExecutionResult execute(WorkflowConfig config, RuntimeContext context);
 }
