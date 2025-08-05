@@ -8,8 +8,13 @@ import org.springframework.stereotype.Component;
 import java.sql.Array;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Comparator;
+import java.sql.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -44,31 +49,68 @@ public class PostgresParameterHandler {
      */
     private void bindIndexedParameters(PreparedStatement stmt, Map<String, Object> params, LogCollector logCollector) throws SQLException {
         @SuppressWarnings("unchecked")
-        java.util.List<Map<String, Object>> parameters = (java.util.List<Map<String, Object>>) params.get("parameters");
+        List<Map<String, Object>> parameters = (List<Map<String, Object>>) params.get("parameters");
 
-        // Sort by index to ensure correct binding order
+        // Sort by index to ensure correct binding order - CRITICAL for SQL injection prevention
         parameters.sort(Comparator.comparingInt(a -> (Integer) a.get("index")));
+
+        // Validate that indices are sequential and start from 1
+        validateParameterIndices(parameters, logCollector);
 
         for (Map<String, Object> param : parameters) {
             int index = (Integer) param.get("index");
             String type = (String) param.get("type");
             Object value = param.get("value");
 
+            logCollector.info("Binding parameter at index " + index + " with type '" + type + "'");
+
             switch (type.toLowerCase()) {
                 case "jsonb" -> bindJsonbParameter(stmt, index, value, logCollector);
-                case "array" -> bindArrayParameter(stmt, index, (Object[]) value, logCollector);
+                case "array" -> bindArrayParameter(stmt, index, value, logCollector);
                 case "uuid" -> bindUuidParameter(stmt, index, (String) value, logCollector);
                 case "string" -> {
-                    stmt.setString(index, (String) value);
+                    stmt.setString(index, value != null ? value.toString() : null);
                     logCollector.info("Applied string parameter at index " + index);
                 }
                 case "int", "integer" -> {
-                    stmt.setInt(index, (Integer) value);
+                    stmt.setInt(index, value instanceof Number ? ((Number) value).intValue() : Integer.parseInt(value.toString()));
                     logCollector.info("Applied integer parameter at index " + index);
                 }
                 case "long" -> {
-                    stmt.setLong(index, (Long) value);
+                    stmt.setLong(index, value instanceof Number ? ((Number) value).longValue() : Long.parseLong(value.toString()));
                     logCollector.info("Applied long parameter at index " + index);
+                }
+                case "boolean" -> {
+                    stmt.setBoolean(index, value instanceof Boolean ? (Boolean) value : Boolean.parseBoolean(value.toString()));
+                    logCollector.info("Applied boolean parameter at index " + index);
+                }
+                case "numeric", "double" -> {
+                    stmt.setDouble(index, value instanceof Number ? ((Number) value).doubleValue() : Double.parseDouble(value.toString()));
+                    logCollector.info("Applied numeric parameter at index " + index);
+                }
+                case "timestamp" -> {
+                    if (value instanceof LocalDateTime) {
+                        stmt.setTimestamp(index, Timestamp.valueOf((LocalDateTime) value));
+                    } else if (value instanceof Date) {
+                        stmt.setTimestamp(index, new Timestamp(((Date) value).getTime()));
+                    } else {
+                        stmt.setTimestamp(index, Timestamp.valueOf(value.toString()));
+                    }
+                    logCollector.info("Applied timestamp parameter at index " + index);
+                }
+                case "date" -> {
+                    if (value instanceof LocalDate) {
+                        stmt.setDate(index, Date.valueOf((LocalDate) value));
+                    } else if (value instanceof Date) {
+                        stmt.setDate(index, new Date(((Date) value).getTime()));
+                    } else {
+                        stmt.setDate(index, Date.valueOf(value.toString()));
+                    }
+                    logCollector.info("Applied date parameter at index " + index);
+                }
+                case "bytea" -> {
+                    stmt.setBytes(index, (byte[]) value);
+                    logCollector.info("Applied bytea parameter at index " + index);
                 }
                 default -> {
                     stmt.setObject(index, value);
@@ -76,6 +118,28 @@ public class PostgresParameterHandler {
                 }
             }
         }
+    }
+
+    /**
+     * Validates that parameter indices are sequential and start from 1
+     * This prevents SQL injection through parameter index manipulation
+     */
+    private void validateParameterIndices(List<Map<String, Object>> parameters, LogCollector logCollector) throws SQLException {
+        if (parameters.isEmpty()) return;
+
+        for (int i = 0; i < parameters.size(); i++) {
+            int expectedIndex = i + 1;
+            int actualIndex = (Integer) parameters.get(i).get("index");
+
+            if (actualIndex != expectedIndex) {
+                String error = String.format("Parameter index validation failed. Expected index %d but found %d. " +
+                    "Indices must be sequential starting from 1 to prevent SQL injection.", expectedIndex, actualIndex);
+                logCollector.error(error);
+                throw new SQLException(error);
+            }
+        }
+
+        logCollector.info("Parameter index validation passed for " + parameters.size() + " parameters");
     }
 
     private void bindJsonbParameter(PreparedStatement stmt, int index, Object value, LogCollector logCollector) throws SQLException {
@@ -91,9 +155,9 @@ public class PostgresParameterHandler {
         }
     }
 
-    private void bindArrayParameter(PreparedStatement stmt, int index, Object[] value, LogCollector logCollector) throws SQLException {
+    private void bindArrayParameter(PreparedStatement stmt, int index, Object value, LogCollector logCollector) throws SQLException {
         try {
-            Array sqlArray = stmt.getConnection().createArrayOf("text", value);
+            Array sqlArray = stmt.getConnection().createArrayOf("text", (Object[]) value);
             stmt.setArray(index, sqlArray);
             logCollector.info("Applied array parameter at index " + index);
         } catch (Exception e) {

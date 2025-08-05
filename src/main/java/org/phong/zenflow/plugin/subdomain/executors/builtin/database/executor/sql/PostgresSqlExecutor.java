@@ -1,5 +1,6 @@
 package org.phong.zenflow.plugin.subdomain.executors.builtin.database.executor.sql;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Component
 @Slf4j
@@ -24,6 +26,7 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
     private final BaseDbConnection baseDbConnection;
     private final BaseSqlExecutor baseSqlExecutor;
     private final PostgresParameterHandler postgresHandler;
+    private final ObjectMapper objectMapper;
 
     @Override
     public String key() {
@@ -45,7 +48,7 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
 
             // Create PostgreSQL-specific parameter binder and result processor
             BaseSqlExecutor.ParameterBinder parameterBinder = hasParameters(dbConfig) ?
-                postgresHandler.createParameterBinder() : null;
+                    postgresHandler.createParameterBinder() : null;
 
             BaseSqlExecutor.ResultProcessor resultProcessor = postgresHandler.createResultProcessor();
 
@@ -61,10 +64,10 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
     private boolean hasParameters(ResolvedDbConfig dbConfig) {
         Map<String, Object> params = dbConfig.getParams();
         return params != null && (
-            params.containsKey("parameters") ||
-            params.containsKey("jsonbParams") ||
-            params.containsKey("arrayParams") ||
-            params.containsKey("uuidParams")
+                params.containsKey("parameters") ||
+                        params.containsKey("jsonbParams") ||
+                        params.containsKey("arrayParams") ||
+                        params.containsKey("uuidParams")
         );
     }
 
@@ -113,15 +116,18 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
             int index = i + 1; // SQL parameters are 1-based
             String inferredType = inferPostgresType(value, logCollector);
 
+            // Convert arrays to proper format for PostgreSQL binding
+            Object processedValue = preprocessValue(value, inferredType, logCollector);
+
             Map<String, Object> param = Map.of(
-                "index", index,
-                "type", inferredType,
-                "value", value
+                    "index", index,
+                    "type", inferredType,
+                    "value", processedValue
             );
 
             inferredParameters.add(param);
             logCollector.info("Parameter " + index + ": inferred type '" + inferredType + "' for value: " +
-                    value.getClass().getSimpleName());
+                    (value != null ? value.getClass().getSimpleName() : "null"));
         }
 
         // Replace the simple values with our inferred parameter structure
@@ -133,67 +139,107 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
     }
 
     /**
-     * PostgreSQL type inference engine - like a database compiler
-     * Maps Java types to PostgreSQL types intelligently
+     * Preprocesses values to ensure they're in the correct format for PostgreSQL binding
+     */
+    private Object preprocessValue(Object value, String inferredType, LogCollector logCollector) {
+        if (value == null) return null;
+
+        switch (inferredType.toLowerCase()) {
+            case "array" -> {
+                if (value instanceof List) {
+                    @SuppressWarnings("unchecked")
+                    List<Object> list = (List<Object>) value;
+                    return list.toArray();
+                }
+                return value; // Already an array
+            }
+            case "jsonb" -> {
+                if (value instanceof Map || isComplexObject(value)) {
+                    // Convert object to JSON string for JSONB binding
+                    try {
+                        return objectMapper.writeValueAsString(value);
+                    } catch (Exception e) {
+                        logCollector.warning("Failed to convert object to JSON: " + e.getMessage());
+                        return value.toString();
+                    }
+                }
+                return value;
+            }
+            default -> {
+                return value;
+            }
+        }
+    }
+
+    /**
+     * Database compiler-style type inference
+     * Analyzes Java objects and maps them to PostgreSQL types
      */
     private String inferPostgresType(Object value, LogCollector logCollector) {
         if (value == null) return "string"; // Default to string for nulls
 
         Class<?> clazz = value.getClass();
 
-        // Basic types
-        if (clazz == String.class) {
-            String str = (String) value;
-            // UUID detection
-            if (isValidUUID(str)) {
-                return "uuid";
+        switch (clazz.getSimpleName()) {
+            case "String" -> {
+                String str = (String) value;
+                if (isValidUUID(str)) {
+                    return "uuid";
+                }
+                if (isJsonString(str)) {
+                    return "jsonb";
+                }
+                return "string";
             }
-            return "string";
+            case "Integer" -> {
+                return "int";
+            }
+            case "Long", "BigInteger" -> {
+                return "long";
+            }
+            case "Boolean" -> {
+                return "boolean";
+            }
+            case "Double", "Float", "BigDecimal" -> {
+                return "numeric";
+            }
+            case "LocalDate" -> {
+                return "date";
+            }
+            case "LocalDateTime", "ZonedDateTime", "Date" -> {
+                return "timestamp";
+            }
+            case "byte[]" -> {
+                return "bytea";
+            }
+            default -> {
+                if (value instanceof List || value instanceof Object[]) {
+                    return "array";
+                }
+                if (value instanceof Map || isComplexObject(value)) {
+                    return "jsonb";
+                }
+                logCollector.info("Unknown type " + clazz.getSimpleName() + ", defaulting to 'string'");
+                return "string";
+            }
         }
-
-        if (clazz == Integer.class) return "int";
-        if (clazz == Long.class) return "long";
-        if (clazz == Boolean.class) return "boolean";
-        if (clazz == Double.class || clazz == Float.class) return "numeric";
-
-        // Collection types
-        if (value instanceof List || value instanceof Object[]) {
-            return "array";
-        }
-
-        // Complex types - likely JSON
-        if (value instanceof Map || isComplexObject(value)) {
-            return "jsonb";
-        }
-
-        // Time types
-        if (value instanceof java.time.LocalDateTime ||
-            value instanceof java.time.ZonedDateTime ||
-            value instanceof java.util.Date) {
-            return "timestamp";
-        }
-
-        if (value instanceof java.time.LocalDate) {
-            return "date";
-        }
-
-        // Binary data
-        if (value instanceof byte[]) {
-            return "bytea";
-        }
-
-        // Default fallback
-        logCollector.info("Unknown type " + clazz.getSimpleName() + ", defaulting to 'string'");
-        return "string";
     }
 
     private boolean isValidUUID(String str) {
+        if (str.length() != 36) return false;
         try {
-            java.util.UUID.fromString(str);
+            UUID.fromString(str);
             return true;
         } catch (IllegalArgumentException e) {
             return false;
         }
+    }
+
+    private boolean isJsonString(String str) {
+        if (str == null || str.trim().isEmpty()) return false;
+        String trimmed = str.trim();
+        return (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+                (trimmed.startsWith("[") && trimmed.endsWith("]"));
     }
 
     private boolean isComplexObject(Object value) {
@@ -222,7 +268,7 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
             String updateAction = (String) params.get("updateAction");
             if (conflictColumns != null && updateAction != null) {
                 String newQuery = originalQuery.replace("upsert_placeholder",
-                    "ON CONFLICT (" + conflictColumns + ") DO " + updateAction);
+                        "ON CONFLICT (" + conflictColumns + ") DO " + updateAction);
                 dbConfig.setQuery(newQuery);
                 logCollector.info("Converted UPSERT syntax: " + newQuery);
             }
