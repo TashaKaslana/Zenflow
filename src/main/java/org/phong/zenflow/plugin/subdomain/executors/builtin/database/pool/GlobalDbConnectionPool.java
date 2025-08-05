@@ -25,7 +25,20 @@ public class GlobalDbConnectionPool {
         config.setJdbcUrl("jdbc:" + key.getDatabaseSource());
         config.setUsername(key.getUsername());
         config.setPassword(password);
+
+        // Set appropriate driver class name for better performance
+        config.setDriverClassName(getDriverClassName(key.getDriver()));
+
         return new HikariDataSource(config);
     }
-}
 
+    private String getDriverClassName(String driver) {
+        return switch (driver.toLowerCase()) {
+            case "postgresql" -> "org.postgresql.Driver";
+            case "mysql" -> "com.mysql.cj.jdbc.Driver";
+            case "oracle" -> "oracle.jdbc.OracleDriver";
+            case "sqlserver" -> "com.microsoft.sqlserver.jdbc.SQLServerDriver";
+            default -> null; // Let HikariCP auto-detect
+        };
+    }
+}
