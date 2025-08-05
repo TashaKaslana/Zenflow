@@ -6,10 +6,7 @@ import org.phong.zenflow.plugin.subdomain.executors.builtin.database.dto.Resolve
 import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
 import org.springframework.stereotype.Component;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -18,12 +15,37 @@ import java.util.List;
 import java.util.Map;
 
 @Component
-public class BaseSqlExecutor{
+public class BaseSqlExecutor {
+
+    @FunctionalInterface
+    public interface ParameterBinder {
+        void bind(PreparedStatement stmt, ResolvedDbConfig config, LogCollector logCollector) throws SQLException;
+    }
+
+    @FunctionalInterface
+    public interface ResultProcessor {
+        Map<String, Object> process(Map<String, Object> result, ResolvedDbConfig config, LogCollector logCollector);
+    }
+
     public ExecutionResult execute(ResolvedDbConfig config) {
         LogCollector logCollector = new LogCollector();
+        return execute(config, logCollector);
+    }
+
+    public ExecutionResult execute(ResolvedDbConfig config, LogCollector logCollector) {
+        return execute(config, logCollector, null, null);
+    }
+
+    public ExecutionResult execute(ResolvedDbConfig config, LogCollector logCollector,
+                                 ParameterBinder parameterBinder, ResultProcessor resultProcessor) {
         try {
             logCollector.info("Executing " + config.getDriver() + " query with config: " + config);
-            Map<String, Object> result = executeGeneric(config, logCollector);
+            Map<String, Object> result = executeGeneric(config, logCollector, parameterBinder);
+
+            // Apply result processing if provided
+            if (resultProcessor != null) {
+                result = resultProcessor.process(result, config, logCollector);
+            }
 
             return ExecutionResult.success(result, logCollector.getLogs());
         } catch (Exception e) {
@@ -32,22 +54,28 @@ public class BaseSqlExecutor{
         }
     }
 
-    private Map<String, Object> executeGeneric(ResolvedDbConfig config, LogCollector logCollector) {
+    private Map<String, Object> executeGeneric(ResolvedDbConfig config, LogCollector logCollector, ParameterBinder parameterBinder) {
         String query = config.getQuery();
         boolean enableTransaction = (boolean) config.getParams().getOrDefault("enableTransaction", false);
 
         try (Connection conn = config.getDataSource().getConnection()) {
-            return prepareAndExecute(config, logCollector, conn, query, enableTransaction);
+            return prepareAndExecute(config, logCollector, conn, query, enableTransaction, parameterBinder);
         } catch (SQLException e) {
             logCollector.error("SQL error: " + e.getMessage(), e);
             throw new ExecutorException("SQL error: " + e.getMessage(), e);
         }
     }
 
-    private Map<String, Object> prepareAndExecute(ResolvedDbConfig config, LogCollector logCollector, Connection conn, String query, boolean enableTransaction) {
+    private Map<String, Object> prepareAndExecute(ResolvedDbConfig config, LogCollector logCollector, Connection conn,
+                                                  String query, boolean enableTransaction, ParameterBinder parameterBinder) {
         try (PreparedStatement stmt = conn.prepareStatement(query)) {
             logCollector.info("Preparing statement: " + query);
             Instant start = Instant.now();
+
+            // Apply custom parameter binding if provided
+            if (parameterBinder != null) {
+                parameterBinder.bind(stmt, config, logCollector);
+            }
 
             if (enableTransaction) {
                 conn.setAutoCommit(false);
