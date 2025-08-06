@@ -37,7 +37,7 @@ public class BaseSqlExecutor {
     }
 
     public ExecutionResult execute(ResolvedDbConfig config, LogCollector logCollector,
-                                 ParameterBinder parameterBinder, ResultProcessor resultProcessor) {
+                                   ParameterBinder parameterBinder, ResultProcessor resultProcessor) {
         try {
             logCollector.info("Executing " + config.getDriver() + " query with config: " + config);
             Map<String, Object> result = executeGeneric(config, logCollector, parameterBinder);
@@ -56,7 +56,7 @@ public class BaseSqlExecutor {
 
     private Map<String, Object> executeGeneric(ResolvedDbConfig config, LogCollector logCollector, ParameterBinder parameterBinder) {
         String query = config.getQuery();
-        boolean enableTransaction = (boolean) config.getParams().getOrDefault("enableTransaction", false);
+        boolean enableTransaction = config.getParams() != null && (boolean) config.getParams().getOrDefault("enableTransaction", false);
 
         try (Connection conn = config.getDataSource().getConnection()) {
             return prepareAndExecute(config, logCollector, conn, query, enableTransaction, parameterBinder);
