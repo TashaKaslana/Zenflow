@@ -38,6 +38,8 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
         LogCollector logCollector = new LogCollector();
         try {
             log.info("Executing Postgres SQL node with config: {}", config);
+
+            config.input().put("driver", "postgresql");
             ResolvedDbConfig dbConfig = baseDbConnection.establishConnection(config, context, logCollector);
 
             // Pre-process PostgreSQL-specific syntax

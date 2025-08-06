@@ -4,6 +4,7 @@ import lombok.Data;
 import org.phong.zenflow.core.utils.ObjectConversion;
 
 import javax.sql.DataSource;
+import java.util.HashMap;
 import java.util.Map;
 
 @Data
@@ -31,7 +32,52 @@ public class ResolvedDbConfig {
         cfg.password = (String) input.get("password");
         cfg.query = (String) input.get("query");
         cfg.returnType = (String) input.get("returnType");
-        cfg.params = ObjectConversion.convertObjectToMap(input.get("params"));
+
+        // Handle params extraction - support both nested and direct structure
+        Object paramsObj = input.get("params");
+        if (paramsObj != null) {
+            // Legacy: nested params structure
+            cfg.params = ObjectConversion.convertObjectToMap(paramsObj);
+        } else {
+            // New: direct structure - extract parameter-related fields from input
+            Map<String, Object> extractedParams = new HashMap<>();
+
+            // Extract parameter arrays
+            if (input.containsKey("parameters")) {
+                extractedParams.put("parameters", input.get("parameters"));
+            }
+            if (input.containsKey("values")) {
+                extractedParams.put("values", input.get("values"));
+            }
+            if (input.containsKey("jsonbParams")) {
+                extractedParams.put("jsonbParams", input.get("jsonbParams"));
+            }
+            if (input.containsKey("arrayParams")) {
+                extractedParams.put("arrayParams", input.get("arrayParams"));
+            }
+            if (input.containsKey("uuidParams")) {
+                extractedParams.put("uuidParams", input.get("uuidParams"));
+            }
+
+            // Extract PostgreSQL-specific fields
+            if (input.containsKey("schema")) {
+                extractedParams.put("schema", input.get("schema"));
+            }
+            if (input.containsKey("conflictColumns")) {
+                extractedParams.put("conflictColumns", input.get("conflictColumns"));
+            }
+            if (input.containsKey("updateAction")) {
+                extractedParams.put("updateAction", input.get("updateAction"));
+            }
+            if (input.containsKey("timeout")) {
+                extractedParams.put("timeout", input.get("timeout"));
+            }
+            if (input.containsKey("maxRows")) {
+                extractedParams.put("maxRows", input.get("maxRows"));
+            }
+
+            cfg.params = extractedParams.isEmpty() ? null : extractedParams;
+        }
 
         cfg.connectionId = (String) input.get("connectionId");
         return cfg;
