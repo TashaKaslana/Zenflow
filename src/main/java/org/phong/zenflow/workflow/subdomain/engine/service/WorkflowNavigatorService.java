@@ -22,7 +22,7 @@ public class WorkflowNavigatorService {
                                                       List<BaseWorkflowNode> workflowNodes,
                                                       RuntimeContext context) {
         return switch (result.getStatus()) {
-            case SUCCESS -> new ExecutionStepOutcome(navigatorSuccess(workflowId, workingNode, workflowNodes),
+            case SUCCESS, COMMIT -> new ExecutionStepOutcome(navigatorSuccess(workflowId, workingNode, workflowNodes),
                     WorkflowExecutionStatus.COMPLETED);
             case ERROR -> {
                 context.endLoopIfActive();
@@ -46,6 +46,10 @@ public class WorkflowNavigatorService {
             }
             case LOOP_BREAK -> new ExecutionStepOutcome(navigatorLoopBreak(workflowId, workingNode, result, workflowNodes, context),
                     WorkflowExecutionStatus.COMPLETED);
+            case UNCOMMIT -> {
+                log.info("Node {} is in uncommit state, halting workflow execution until conditions are met", workingNode.getKey());
+                yield new ExecutionStepOutcome(null, WorkflowExecutionStatus.HALTED);
+            }
         };
     }
 

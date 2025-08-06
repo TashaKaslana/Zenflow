@@ -776,19 +776,44 @@ VALUES
      "input": {
        "type": "object",
        "properties": {
-         "cron": {
+         "payload": {
+           "type": "object",
+           "description": "Optional payload data to pass to the workflow.",
+           "additionalProperties": true
+         },
+         "cron_expression": {
            "type": "string",
            "description": "The CRON expression for the schedule."
          },
-         "timezone": {
+         "schedule_description": {
            "type": "string",
-           "description": "The timezone for the schedule.",
-           "default": "UTC"
+           "description": "Optional description of the schedule."
          }
        },
-       "required": [
-         "cron"
-       ]
+       "additionalProperties": true
+     },
+     "output": {
+       "type": "object",
+       "properties": {
+         "trigger_type": {
+           "type": "string"
+         },
+         "triggered_at": {
+           "type": "string"
+         },
+         "trigger_source": {
+           "type": "string"
+         },
+         "cron_expression": {
+           "type": "string"
+         },
+         "schedule_description": {
+           "type": "string"
+         },
+         "payload": {
+           "type": "object"
+         }
+       }
      }
    }
  }'::jsonb),
@@ -809,17 +834,30 @@ VALUES
      "input": {
        "type": "object",
        "properties": {
-         "data": {
+         "payload": {
            "type": "object",
-           "description": "Optional data to pass to the workflow.",
-           "additionalProperties": true,
-           "default": {}
+           "description": "Optional payload data to pass to the workflow.",
+           "additionalProperties": true
          }
        },
-       "additionalProperties": false
+       "additionalProperties": true
      },
      "output": {
-       "type": "object"
+       "type": "object",
+       "properties": {
+         "trigger_type": {
+           "type": "string"
+         },
+         "triggered_at": {
+           "type": "string"
+         },
+         "trigger_source": {
+           "type": "string"
+         },
+         "payload": {
+           "type": "object"
+         }
+       }
      }
    }
  }'::jsonb),
@@ -840,70 +878,68 @@ VALUES
      "input": {
        "type": "object",
        "properties": {
-         "endpoint": {
-           "type": "string",
-           "description": "The webhook endpoint path."
-         },
-         "method": {
-           "type": "string",
-           "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"],
-           "description": "HTTP method for the webhook.",
-           "default": "POST"
+         "payload": {
+           "type": "object",
+           "description": "The webhook request body/payload.",
+           "additionalProperties": true
          },
          "headers": {
            "type": "object",
-           "description": "Expected headers for validation.",
+           "description": "The webhook request headers.",
            "additionalProperties": {
              "type": "string"
-           },
-           "default": {}
-         },
-         "auth": {
-           "type": "object",
-           "properties": {
-             "type": {
-               "type": "string",
-               "enum": ["none", "basic", "bearer", "api_key"],
-               "default": "none"
-             },
-             "secret_key": {
-               "type": "string",
-               "description": "Key for accessing the authentication secret."
-             }
            }
+         },
+         "http_method": {
+           "type": "string",
+           "description": "HTTP method used for the webhook request."
+         },
+         "source_ip": {
+           "type": "string",
+           "description": "IP address of the webhook request source."
+         },
+         "user_agent": {
+           "type": "string",
+           "description": "User agent of the webhook request."
+         },
+         "webhook_id": {
+           "type": "string",
+           "description": "Unique identifier for the webhook."
          }
        },
-       "required": ["endpoint"]
+       "additionalProperties": true
      },
      "output": {
        "type": "object",
        "properties": {
-         "body": {
-           "type": "object",
-           "description": "The webhook request body."
+         "trigger_type": {
+           "type": "string"
+         },
+         "triggered_at": {
+           "type": "string"
+         },
+         "trigger_source": {
+           "type": "string"
+         },
+         "http_method": {
+           "type": "string"
+         },
+         "source_ip": {
+           "type": "string"
+         },
+         "user_agent": {
+           "type": "string"
+         },
+         "webhook_id": {
+           "type": "string"
          },
          "headers": {
-           "type": "object",
-           "description": "The webhook request headers."
+           "type": "object"
          },
-         "query": {
-           "type": "object",
-           "description": "The webhook query parameters."
+         "payload": {
+           "type": "object"
          }
        }
-     },
-     "secrets": {
-       "type": "array",
-       "items": {
-         "type": "object",
-         "properties": {
-           "key": {
-             "type": "string"
-           }
-         },
-         "required": ["key"]
-       }
      }
-   },
-   "required": ["input"]
+   }
  }'::jsonb);
