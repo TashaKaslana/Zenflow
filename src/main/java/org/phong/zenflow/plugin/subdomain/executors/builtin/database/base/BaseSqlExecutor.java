@@ -13,13 +13,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Component
 public class BaseSqlExecutor {
 
     @FunctionalInterface
     public interface ParameterBinder {
-        void bind(PreparedStatement stmt, ResolvedDbConfig config, LogCollector logCollector) throws SQLException;
+        void bind(PreparedStatement stmt, ResolvedDbConfig config, LogCollector logCollector, AtomicBoolean isBatch) throws SQLException;
     }
 
     @FunctionalInterface
@@ -71,16 +72,24 @@ public class BaseSqlExecutor {
         try (PreparedStatement stmt = conn.prepareStatement(query)) {
             logCollector.info("Preparing statement: " + query);
             Instant start = Instant.now();
+            AtomicBoolean isBatch = new AtomicBoolean(false);
 
             // Apply custom parameter binding if provided
             if (parameterBinder != null) {
-                parameterBinder.bind(stmt, config, logCollector);
+                parameterBinder.bind(stmt, config, logCollector, isBatch);
             }
 
             if (enableTransaction) {
                 conn.setAutoCommit(false);
             }
-            boolean isResult = stmt.execute();
+
+            boolean isResult;
+            if (isBatch.get()) {
+                stmt.executeBatch();
+                isResult = false; // Batch execution does not return a result set
+            } else {
+                isResult = stmt.execute();
+            }
             if (enableTransaction) {
                 conn.commit();
             }

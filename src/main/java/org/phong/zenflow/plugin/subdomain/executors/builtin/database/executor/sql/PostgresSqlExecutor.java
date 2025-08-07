@@ -15,9 +15,11 @@ import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Component
 @Slf4j
@@ -67,6 +69,8 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
         Map<String, Object> params = dbConfig.getParams();
         return params != null && (
                 params.containsKey("parameters") ||
+                        params.containsKey("batchValues") ||
+                        params.containsKey("values") ||
                         params.containsKey("jsonbParams") ||
                         params.containsKey("arrayParams") ||
                         params.containsKey("uuidParams")
@@ -87,9 +91,14 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
             return dbConfig;
         }
 
+        AtomicInteger startIndex = new AtomicInteger(0);
         // Check if we have a simple parameter array for inference
         if (params.containsKey("values")) {
-            dbConfig = inferParameterTypes(dbConfig, logCollector);
+            dbConfig = inferParameterTypes(dbConfig, logCollector, false, startIndex);
+        }
+
+        if (params.containsKey("batchValues") && params.get("batchValues") instanceof List) {
+            dbConfig = inferParameterTypes(dbConfig, logCollector, true, startIndex);
         }
 
         return dbConfig;
@@ -99,9 +108,9 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
      * Database compiler-style type inference
      * Analyzes Java objects and maps them to PostgreSQL types
      */
-    private ResolvedDbConfig inferParameterTypes(ResolvedDbConfig dbConfig, LogCollector logCollector) {
+    private ResolvedDbConfig inferParameterTypes(ResolvedDbConfig dbConfig, LogCollector logCollector, boolean isBatch, AtomicInteger startIndex) {
         Map<String, Object> params = dbConfig.getParams();
-        Object valuesObj = params.get("values");
+        Object valuesObj = params.get(isBatch ? "batchValues" : "values");
 
         if (!(valuesObj instanceof List)) {
             logCollector.warning("'values' parameter should be a List for type inference");
@@ -111,33 +120,64 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
         @SuppressWarnings("unchecked")
         List<Object> values = (List<Object>) valuesObj;
 
-        List<Map<String, Object>> inferredParameters = new ArrayList<>();
+        if (isBatch) {
+            if (values.stream().anyMatch(v -> !(v instanceof List))) {
+                logCollector.error("'batchValues' must be a list of lists.");
+                return dbConfig;
+            }
 
-        for (int i = 0; i < values.size(); i++) {
-            Object value = values.get(i);
-            int index = i + 1; // SQL parameters are 1-based
-            String inferredType = inferPostgresType(value, logCollector);
+            // For batch processing, create a list of parameter sets, each starting from index 1
+            List<Map<String, Object>> batchParameterSets = new ArrayList<>();
+            for (Object rowObj : values) {
+                @SuppressWarnings("unchecked")
+                List<Object> rowValues = (List<Object>) rowObj;
 
-            // Convert arrays to proper format for PostgreSQL binding
-            Object processedValue = preprocessValue(value, inferredType, logCollector);
+                // Each batch row gets its own parameter set starting from index 1
+                List<Map<String, Object>> rowParameters = new ArrayList<>();
+                for (int i = 0; i < rowValues.size(); i++) {
+                    Object value = rowValues.get(i);
+                    int index = i + 1; // Start each batch row from index 1
+                    extractParamsTypes(logCollector, rowParameters, value, index, true);
+                }
 
-            Map<String, Object> param = Map.of(
-                    "index", index,
-                    "type", inferredType,
-                    "value", processedValue
-            );
+                // Create a parameter set for this batch row
+                Map<String, Object> batchParameterSet = Map.of("parameters", rowParameters);
+                batchParameterSets.add(batchParameterSet);
+            }
 
-            inferredParameters.add(param);
-            logCollector.info("Parameter " + index + ": inferred type '" + inferredType + "' for value: " +
-                    (value != null ? value.getClass().getSimpleName() : "null"));
+            params.put("parameters", batchParameterSets);
+            params.put("isBatch", true);
+            params.remove("batchValues");
+        } else { // not batch
+            List<Map<String, Object>> inferredParameters = new ArrayList<>();
+            if (params.containsKey("parameters") && params.get("parameters") instanceof List) {
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> parameters = (List<Map<String, Object>>) params.get("parameters");
+                inferredParameters.addAll(parameters);
+
+            }
+            for (Object value : values) {
+                int index = startIndex.incrementAndGet();
+                extractParamsTypes(logCollector, inferredParameters, value, index, false);
+            }
+            params.put("parameters", inferredParameters);
+            params.remove("values");
         }
 
-        // Replace the simple values with our inferred parameter structure
-        params.put("parameters", inferredParameters);
-        params.remove("values"); // Clean up the original values
-
-        logCollector.info("Successfully inferred types for " + inferredParameters.size() + " parameters");
+        logCollector.info("Successfully processed parameter type inference for " + (isBatch ? "batch" : "single") + " operation");
         return dbConfig;
+    }
+
+    private void extractParamsTypes(LogCollector logCollector, List<Map<String, Object>> inferredParameters, Object value, int index, boolean isBatch) {
+        String inferredType = inferPostgresType(value, logCollector);
+        Object processedValue = preprocessValue(value, inferredType, logCollector);
+        Map<String, Object> param = new HashMap<>();
+        param.put("index", index);
+        param.put("type", inferredType);
+        param.put("value", processedValue);
+        inferredParameters.add(param);
+        logCollector.info(isBatch ? "Batch parameters" : "Parameter " + index + ": inferred type '" + inferredType + "' for value: " +
+                (value != null ? value.getClass().getSimpleName() : "null"));
     }
 
     /**
@@ -191,6 +231,9 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
                 if (isJsonString(str)) {
                     return "jsonb";
                 }
+                if (isTimestampString(str)) {
+                    return "timestamp";
+                }
                 return "string";
             }
             case "Integer" -> {
@@ -242,6 +285,26 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
         String trimmed = str.trim();
         return (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
                 (trimmed.startsWith("[") && trimmed.endsWith("]"));
+    }
+
+    private boolean isTimestampString(String str) {
+        if (str == null || str.trim().isEmpty()) return false;
+
+        // Common PostgreSQL timestamp formats
+        String trimmed = str.trim();
+
+        // ISO 8601 with timezone: 2025-07-10 10:52:38.384986 +00:00
+        if (trimmed.matches("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}(\\.\\d+)? [+-]\\d{2}:\\d{2}")) {
+            return true;
+        }
+
+        // ISO 8601 basic: 2025-07-10T10:52:38.384986Z
+        if (trimmed.matches("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z?")) {
+            return true;
+        }
+
+        // Basic timestamp: 2025-07-10 10:52:38
+        return trimmed.matches("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}");
     }
 
     private boolean isComplexObject(Object value) {

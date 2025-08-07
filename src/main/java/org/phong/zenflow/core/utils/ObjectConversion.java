@@ -32,14 +32,20 @@ public final class ObjectConversion {
         return mapper.convertValue(obj, new TypeReference<>() {});
     }
 
-    public static <T> List<T> convertObjectToList(Object obj, Class<T> elementType) {
-        JavaType type = mapper.getTypeFactory().constructCollectionType(List.class, elementType);
-        return mapper.convertValue(obj, type);
-    }
+
 
     public static <T> Map<String, T> convertObjectToMap(Object obj, Class<T> valueType) {
         JavaType mapType = mapper.getTypeFactory().constructMapType(Map.class, String.class, valueType);
         return mapper.convertValue(obj, mapType);
+    }
+
+    public static List<Object> convertObjectToList(Object obj) {
+        return mapper.convertValue(obj, new TypeReference<>() {});
+    }
+
+    public static <T> List<T> convertObjectToList(Object obj, Class<T> elementType) {
+        JavaType type = mapper.getTypeFactory().constructCollectionType(List.class, elementType);
+        return mapper.convertValue(obj, type);
     }
 
     public static Map<String, Object> convertObjectToFilteredMap(Object obj) {

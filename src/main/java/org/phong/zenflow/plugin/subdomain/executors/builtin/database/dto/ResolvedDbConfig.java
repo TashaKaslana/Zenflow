@@ -75,17 +75,33 @@ public class ResolvedDbConfig {
             if (input.containsKey("maxRows")) {
                 extractedParams.put("maxRows", input.get("maxRows"));
             }
+            if (input.containsKey("enableTransaction")) {
+                extractedParams.put("enableTransaction", input.get("enableTransaction"));
+            }
+
+            // Handle batch query parameters
+            if (input.containsKey("batchValues")) {
+                extractedParams.put("batchValues", input.get("batchValues"));
+            }
+            if (input.containsKey("batchSize")) {
+                extractedParams.put("batchSize", input.get("batchSize"));
+            }
 
             cfg.params = extractedParams.isEmpty() ? null : extractedParams;
         }
 
+        // Set connection ID if provided
         cfg.connectionId = (String) input.get("connectionId");
+
         return cfg;
     }
 
     public String getConnectionIdOrGenerate() {
-        return connectionId != null ? connectionId : String.format("%s-%s-%d-%s-%s",
-            driver, host, port, database, username);
+        return connectionId != null ? connectionId : generateConnectionId();
+    }
+
+    private String generateConnectionId() {
+        return String.format("%s_%s_%d_%s", driver, host, port, database);
     }
 
     public DbConnectionKey toConnectionKey() {
