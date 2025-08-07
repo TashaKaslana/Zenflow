@@ -505,13 +505,26 @@ VALUES
                  "description": "Parameter value (type depends on the type field)"
                }
              },
-             "required": ["index", "type", "value"]
+             "required": [
+               "index",
+               "type",
+               "value"
+             ]
            }
          },
          "values": {
            "type": "array",
            "description": "Simple parameter values array (types will be auto-inferred)",
            "items": {}
+         },
+         "batchValues": {
+              "type": "array",
+              "description": "Batch parameter values for multi-row inserts/updates",
+              "items": {
+                 "type": "array",
+                 "description": "Array of values for each row",
+                 "items": {}
+              }
          },
          "schema": {
            "type": "string",
@@ -569,9 +582,15 @@ VALUES
            "items": {
              "type": "object",
              "properties": {
-               "name": {"type": "string"},
-               "type": {"type": "string"},
-               "nullable": {"type": "boolean"}
+               "name": {
+                 "type": "string"
+               },
+               "type": {
+                 "type": "string"
+               },
+               "nullable": {
+                 "type": "boolean"
+               }
              }
            }
          },
@@ -584,7 +603,12 @@ VALUES
            "description": "Type of query executed (SELECT, INSERT, UPDATE, DELETE, etc.)"
          }
        },
-       "required": ["rows", "rowCount", "executionTime", "queryType"]
+       "required": [
+         "rows",
+         "rowCount",
+         "executionTime",
+         "queryType"
+       ]
      },
      "secrets": {
        "type": "array",
@@ -615,7 +639,9 @@ VALUES
              "description": "Explanation of what this secret is used for"
            }
          },
-         "required": ["key"]
+         "required": [
+           "key"
+         ]
        },
        "uniqueItems": true
      }
@@ -637,7 +663,9 @@ VALUES
                  "const": "DB_USERNAME"
                }
              },
-             "required": ["key"]
+             "required": [
+               "key"
+             ]
            }
          }
        }
@@ -652,7 +680,9 @@ VALUES
                  "const": "DB_PASSWORD"
                }
              },
-             "required": ["key"]
+             "required": [
+               "key"
+             ]
            }
          }
        }

@@ -6,13 +6,13 @@ import org.postgresql.util.PGobject;
 import org.springframework.stereotype.Component;
 
 import java.sql.Array;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Comparator;
-import java.sql.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,30 +27,56 @@ public class PostgresParameterHandler {
      * Parameters are bound based on their position index
      */
     public BaseSqlExecutor.ParameterBinder createParameterBinder() {
-        return (stmt, config, logCollector) -> {
+        return (stmt, config, logCollector, isBatch) -> {
             Map<String, Object> params = config.getParams();
             if (params == null) return;
 
             // Handle indexed parameters - respects the order of ? placeholders in SQL
             if (params.containsKey("parameters")) {
-                bindIndexedParameters(stmt, params, logCollector);
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> parameters = (List<Map<String, Object>>) params.get("parameters");
+
+                if (params.containsKey("isBatch") && (Boolean) params.get("isBatch") && !parameters.isEmpty()) {
+                    isBatch.set(true);
+                    // For batch processing, we need to handle each batch iteration separately
+                    // Each parameter in the list represents a complete parameter set for one batch
+                    bindBatchParameters(stmt, parameters, logCollector);
+                } else {
+                    bindIndexedParameters(stmt, parameters, logCollector, false);
+                }
             }
         };
+    }
+
+    /**
+     * Handle batch processing where each element in parameters represents one complete batch iteration
+     */
+    private void bindBatchParameters(PreparedStatement stmt, List<Map<String, Object>> batchParameters, LogCollector logCollector) throws SQLException {
+        for (Map<String, Object> batchParam : batchParameters) {
+            // For batch processing, we expect each batch parameter to contain a "parameters" key
+            // with the actual parameter list for that batch iteration
+            if (batchParam.containsKey("parameters")) {
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> parameterSet = (List<Map<String, Object>>) batchParam.get("parameters");
+                bindIndexedParameters(stmt, parameterSet, logCollector, true);
+            } else {
+                // If no nested parameters, treat the batch parameter itself as a single parameter
+                // This assumes each batchParam is a parameter with index, type, value
+                bindIndexedParameters(stmt, List.of(batchParam), logCollector, true);
+            }
+        }
     }
 
     /**
      * Bind parameters by their explicit index positions
      * Expected format:
      * "parameters": [
-     *   {"index": 1, "type": "jsonb", "value": {...}},
-     *   {"index": 2, "type": "array", "value": [...]},
-     *   {"index": 3, "type": "string", "value": "text"}
+     * {"index": 1, "type": "jsonb", "value": {...}},
+     * {"index": 2, "type": "array", "value": [...]},
+     * {"index": 3, "type": "string", "value": "text"}
      * ]
      */
-    private void bindIndexedParameters(PreparedStatement stmt, Map<String, Object> params, LogCollector logCollector) throws SQLException {
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> parameters = (List<Map<String, Object>>) params.get("parameters");
-
+    private void bindIndexedParameters(PreparedStatement stmt, List<Map<String, Object>> parameters, LogCollector logCollector, boolean isBatch) throws SQLException {
         // Sort by index to ensure correct binding order - CRITICAL for SQL injection prevention
         parameters.sort(Comparator.comparingInt(a -> (Integer) a.get("index")));
 
@@ -89,12 +115,11 @@ public class PostgresParameterHandler {
                     logCollector.info("Applied numeric parameter at index " + index);
                 }
                 case "timestamp" -> {
-                    if (value instanceof LocalDateTime) {
-                        stmt.setTimestamp(index, Timestamp.valueOf((LocalDateTime) value));
-                    } else if (value instanceof Date) {
-                        stmt.setTimestamp(index, new Timestamp(((Date) value).getTime()));
-                    } else {
-                        stmt.setTimestamp(index, Timestamp.valueOf(value.toString()));
+                    switch (value) {
+                        case LocalDateTime localDateTime -> stmt.setTimestamp(index, Timestamp.valueOf(localDateTime));
+                        case Date date -> stmt.setTimestamp(index, new Timestamp(date.getTime()));
+                        case String s -> stmt.setTimestamp(index, parsePostgresTimestamp(s, logCollector));
+                        default -> stmt.setTimestamp(index, Timestamp.valueOf(value.toString()));
                     }
                     logCollector.info("Applied timestamp parameter at index " + index);
                 }
@@ -118,6 +143,10 @@ public class PostgresParameterHandler {
                 }
             }
         }
+
+        if (isBatch) {
+            stmt.addBatch();
+        }
     }
 
     /**
@@ -133,7 +162,7 @@ public class PostgresParameterHandler {
 
             if (actualIndex != expectedIndex) {
                 String error = String.format("Parameter index validation failed. Expected index %d but found %d. " +
-                    "Indices must be sequential starting from 1 to prevent SQL injection.", expectedIndex, actualIndex);
+                        "Indices must be sequential starting from 1 to prevent SQL injection.", expectedIndex, actualIndex);
                 logCollector.error(error);
                 throw new SQLException(error);
             }
@@ -210,5 +239,51 @@ public class PostgresParameterHandler {
         features.put("usedWindow", query.contains("over("));
         features.put("usedLateral", query.contains("lateral"));
         return features;
+    }
+
+    /**
+     * Parse PostgreSQL timestamp strings with various formats including timezone information
+     * Handles formats like: 2025-07-10 10:52:38.384986 +00:00, 2025-07-10T10:52:38.384986Z, etc.
+     */
+    private Timestamp parsePostgresTimestamp(String timestampStr, LogCollector logCollector) throws SQLException {
+        if (timestampStr == null || timestampStr.trim().isEmpty()) {
+            throw new SQLException("Timestamp string cannot be null or empty");
+        }
+
+        String trimmed = timestampStr.trim();
+
+        try {
+            // Remove timezone information for Timestamp.valueOf() compatibility
+            // PostgreSQL format: 2025-07-10 10:52:38.384986 +00:00
+            if (trimmed.matches("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}(\\.\\d+)? [+-]\\d{2}:\\d{2}")) {
+                // Extract the timestamp part before timezone
+                String timestampPart = trimmed.substring(0, trimmed.lastIndexOf(' '));
+                return Timestamp.valueOf(timestampPart);
+            }
+
+            // ISO 8601 with Z: 2025-07-10T10:52:38.384986Z
+            if (trimmed.matches("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z?")) {
+                // Convert ISO format to SQL timestamp format
+                String sqlFormat = trimmed.replace('T', ' ');
+                if (sqlFormat.endsWith("Z")) {
+                    sqlFormat = sqlFormat.substring(0, sqlFormat.length() - 1);
+                }
+                return Timestamp.valueOf(sqlFormat);
+            }
+
+            // Basic timestamp format: 2025-07-10 10:52:38[.nnnnnnnnn]
+            if (trimmed.matches("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}(\\.\\d+)?")) {
+                return Timestamp.valueOf(trimmed);
+            }
+
+            // If none of the patterns match, try direct parsing
+            logCollector.warning("Unrecognized timestamp format, attempting direct parsing: " + trimmed);
+            return Timestamp.valueOf(trimmed);
+
+        } catch (Exception e) {
+            String error = "Failed to parse timestamp string: " + timestampStr + ". Expected format: yyyy-mm-dd hh:mm:ss[.fffffffff]";
+            logCollector.error(error + " - " + e.getMessage());
+            throw new SQLException(error, e);
+        }
     }
 }
