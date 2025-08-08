@@ -1,9 +1,13 @@
 package org.phong.zenflow.plugin.subdomain.executors.builtin.database.handlers;
 
+import lombok.AllArgsConstructor;
 import org.phong.zenflow.plugin.subdomain.executors.builtin.database.base.BaseSqlExecutor;
 import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
 import org.postgresql.util.PGobject;
 import org.springframework.stereotype.Component;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.sql.Array;
 import java.sql.Date;
@@ -20,7 +24,9 @@ import java.util.UUID;
 
 
 @Component
+@AllArgsConstructor
 public class PostgresParameterHandler {
+    private final ObjectMapper objectMapper;
 
     /**
      * PostgreSQL-specific parameter binder that handles JSONB and Array types
@@ -172,12 +178,35 @@ public class PostgresParameterHandler {
     }
 
     private void bindJsonbParameter(PreparedStatement stmt, int index, Object value, LogCollector logCollector) throws SQLException {
+        if (value == null) {
+            stmt.setObject(index, null);
+            logCollector.info("Applied JSONB parameter at index " + index + " with null value");
+            return;
+        }
+
         try {
             PGobject jsonObject = new PGobject();
             jsonObject.setType("jsonb");
-            jsonObject.setValue(value.toString());
+
+            String jsonValue;
+            if (value instanceof String) {
+                jsonValue = (String) value;
+            } else {
+                try {
+                    jsonValue = objectMapper.writeValueAsString(value);
+                } catch (JsonProcessingException e) {
+                    logCollector.warning("Failed to serialize JSONB parameter at index " + index + ": " + e.getMessage());
+                    throw new SQLException("JSONB parameter serialization failed at index " + index, e);
+                }
+            }
+
+            jsonObject.setValue(jsonValue);
             stmt.setObject(index, jsonObject);
             logCollector.info("Applied JSONB parameter at index " + index);
+        } catch (SQLException e) {
+            // Already a SQLException, just propagate after logging
+            logCollector.warning("Failed to apply JSONB parameter at index " + index + ": " + e.getMessage());
+            throw e;
         } catch (Exception e) {
             logCollector.warning("Failed to apply JSONB parameter at index " + index + ": " + e.getMessage());
             throw new SQLException("JSONB parameter binding failed at index " + index, e);
@@ -212,13 +241,31 @@ public class PostgresParameterHandler {
         }
 
         Object first = array[0];
-        if (first instanceof Integer) return "int";
-        if (first instanceof Long) return "bigint";
-        if (first instanceof Short) return "smallint";
-        if (first instanceof Boolean) return "boolean";
-        if (first instanceof Double) return "float8";
-        if (first instanceof Float) return "float4";
-        if (first instanceof UUID) return "uuid";
+        switch (first) {
+            case Integer ignored -> {
+                return "int";
+            }
+            case Long ignored -> {
+                return "bigint";
+            }
+            case Short ignored -> {
+                return "smallint";
+            }
+            case Boolean ignored -> {
+                return "boolean";
+            }
+            case Double ignored -> {
+                return "float8";
+            }
+            case Float ignored -> {
+                return "float4";
+            }
+            case UUID ignored -> {
+                return "uuid";
+            }
+            default -> {
+            }
+        }
         if (first instanceof LocalDate || first instanceof Date) return "date";
         if (first instanceof LocalDateTime || first instanceof Timestamp) return "timestamp";
         return "text";
@@ -249,6 +296,7 @@ public class PostgresParameterHandler {
             String query = config.getQuery().toLowerCase();
             Map<String, Boolean> features = detectPostgresFeatures(query);
             enhancedResult.put("postgresFeatures", features);
+            enhancedResult.putAll(features);
 
             if (features.values().stream().anyMatch(Boolean::booleanValue)) {
                 logCollector.info("Query used PostgreSQL-specific features: " + features);
@@ -267,6 +315,13 @@ public class PostgresParameterHandler {
         features.put("usedCTE", query.contains("with "));
         features.put("usedWindow", query.contains("over("));
         features.put("usedLateral", query.contains("lateral"));
+        // Additional PostgreSQL features
+        features.put("usedCopy", query.contains("copy"));
+        features.put("usedListen", query.contains("listen"));
+        features.put("usedNotify", query.contains("notify"));
+        features.put("usedHstore", query.contains("hstore"));
+        features.put("usedEnum", query.contains("enum"));
+        features.put("usedGeneratedAlways", query.contains("generated always"));
         return features;
     }
 
