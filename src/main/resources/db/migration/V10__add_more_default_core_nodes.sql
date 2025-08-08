@@ -1,7 +1,6 @@
-WITH core_plugin AS (SELECT id
-                     FROM plugins
-                     WHERE name = 'core'
-                     LIMIT 1)
+WITH core_plugin AS (
+    SELECT id FROM plugins WHERE key = 'core' LIMIT 1
+)
 INSERT
 INTO plugin_nodes (plugin_id, key, name, type, plugin_node_version, description, tags, icon, config_schema)
 VALUES

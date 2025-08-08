@@ -1,8 +1,11 @@
 ALTER TABLE plugin_nodes
     ADD COLUMN IF NOT EXISTS icon TEXT,
     ADD COLUMN IF NOT EXISTS key TEXT UNIQUE;
+
 ALTER TABLE plugins
     ADD COLUMN IF NOT EXISTS icon TEXT;
+ALTER TABLE plugins
+    ADD COLUMN IF NOT EXISTS key TEXT UNIQUE DEFAULT gen_random_uuid()::text;
 
 INSERT INTO plugins (id,
                      publisher_id,
@@ -31,10 +34,9 @@ VALUES (gen_random_uuid(),
 ON CONFLICT (name) DO NOTHING;
 
 -- Insert plugin nodes for core plugin
-WITH core_plugin AS (SELECT id
-                     FROM plugins
-                     WHERE name = 'core'
-                     LIMIT 1)
+WITH core_plugin AS (
+    SELECT id FROM plugins WHERE key = 'core'
+)
 INSERT
 INTO plugin_nodes (plugin_id, key, name, type, plugin_node_version, description, tags, icon, config_schema)
 VALUES
