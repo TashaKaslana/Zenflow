@@ -11,6 +11,7 @@ import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.Work
 import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
 import org.springframework.stereotype.Component;
 
+import java.lang.reflect.Array;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -137,11 +138,11 @@ public class MergeDataExecutor implements PluginNodeExecutor {
                     throw e;
                 }
             }
-            default -> {
-            }
+            default -> log.debug("Unsupported strategy type: {}", strategyObj.getClass());
         }
 
-        throw new IllegalArgumentException("Strategy must be a string or MergeStrategy enum");
+        throw new IllegalArgumentException("Strategy must be a string or MergeStrategy enum but was: "
+                + strategyObj.getClass().getName());
     }
 
     private MergeOptions extractMergeOptions(Map<String, Object> input) {
@@ -157,14 +158,34 @@ public class MergeDataExecutor implements PluginNodeExecutor {
         }
 
         if (input.containsKey("conflict_resolution")) {
-            String resolution = (String) input.get("conflict_resolution");
-            options.conflictResolution = ConflictResolution.fromString(resolution);
+            Object conflictObj = input.get("conflict_resolution");
+            try {
+                if (conflictObj instanceof ConflictResolution cr) {
+                    options.conflictResolution = cr;
+                } else {
+                    String resolution = ObjectConversion.safeConvert(conflictObj, String.class);
+                    if (resolution == null) {
+                        resolution = conflictObj.toString();
+                    }
+                    options.conflictResolution = ConflictResolution.fromString(resolution);
+                }
+            } catch (Exception e) {
+                log.error("Invalid conflict_resolution value: {}", conflictObj, e);
+                throw new IllegalArgumentException("Unable to parse conflict_resolution: " + conflictObj);
+            }
         }
 
         if (input.containsKey("max_depth")) {
             Object maxDepthObj = input.get("max_depth");
-            if (maxDepthObj instanceof Number) {
-                options.maxDepth = ((Number) maxDepthObj).intValue();
+            try {
+                Integer maxDepth = ObjectConversion.safeConvert(maxDepthObj, Integer.class);
+                if (maxDepth == null) {
+                    maxDepth = Integer.parseInt(maxDepthObj.toString());
+                }
+                options.maxDepth = maxDepth;
+            } catch (Exception e) {
+                log.error("Invalid max_depth value: {}", maxDepthObj, e);
+                throw new IllegalArgumentException("Unable to parse max_depth: " + maxDepthObj);
             }
         }
 
@@ -178,7 +199,12 @@ public class MergeDataExecutor implements PluginNodeExecutor {
 
         List<Object> dataList = sources.stream()
                 .map(source -> source.get("data"))
-                .filter(data -> data != null || !options.ignoreNulls)
+                .filter(data -> {
+                    if (strategy == MergeStrategy.DEEP_MERGE) {
+                        return data != null; // deep merge cannot handle null sources
+                    }
+                    return data != null || !options.ignoreNulls;
+                })
                 .collect(Collectors.toList());
 
         Object mergedData = switch (strategy) {
@@ -217,8 +243,11 @@ public class MergeDataExecutor implements PluginNodeExecutor {
         for (Object data : dataList) {
             if (data instanceof List<?> list) {
                 result.addAll(list);
-            } else if (data instanceof Object[] array) {
-                result.addAll(Arrays.asList(array));
+            } else if (data != null && data.getClass().isArray()) {
+                int length = Array.getLength(data);
+                for (int i = 0; i < length; i++) {
+                    result.add(Array.get(data, i));
+                }
             } else {
                 result.add(data);
             }
@@ -235,6 +264,8 @@ public class MergeDataExecutor implements PluginNodeExecutor {
         for (Object data : dataList) {
             if (data instanceof Map<?, ?> map) {
                 mergedFields += mergeMapIntoResult(result, map, options, 0);
+            } else if (data == null) {
+                logs.warning("Cannot deep merge null data source");
             } else {
                 logs.warning("Cannot deep merge non-map data: {}", data.getClass().getSimpleName());
             }
@@ -348,8 +379,8 @@ public class MergeDataExecutor implements PluginNodeExecutor {
             return collection.size();
         } else if (data instanceof Map<?, ?> map) {
             return map.size();
-        } else if (data instanceof Object[] array) {
-            return array.length;
+        } else if (data != null && data.getClass().isArray()) {
+            return Array.getLength(data);
         }
         return data != null ? 1 : 0;
     }

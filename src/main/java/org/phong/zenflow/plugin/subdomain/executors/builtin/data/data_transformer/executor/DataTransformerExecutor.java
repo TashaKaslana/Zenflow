@@ -1,7 +1,6 @@
 package org.phong.zenflow.plugin.subdomain.executors.builtin.data.data_transformer.executor;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
@@ -23,7 +22,6 @@ import java.util.Map;
 @Slf4j
 public class DataTransformerExecutor implements PluginNodeExecutor {
     private final TransformerRegistry registry;
-    private final ObjectMapper objectMapper;
 
     @Override
     public String key() {
@@ -37,18 +35,32 @@ public class DataTransformerExecutor implements PluginNodeExecutor {
         logs.info("Executing DataTransformerExecutor with config: " + config);
 
         try {
-            Map<String, Object> input = ObjectConversion.convertObjectToMap(config.input());
-            String transformerName = (String) input.get("name");
-            String inputValue = (String) input.get("input");
+            Object rawInput = config.input();
+            if (rawInput == null) {
+                log.debug("Configuration input is missing.");
+                logs.error("Configuration input is missing.");
+                throw new DataTransformerExecutorException("Configuration input is missing.");
+            }
+            Map<String, Object> input = ObjectConversion.convertObjectToMap(rawInput);
 
-            if (inputValue == null || inputValue.trim().isEmpty()) {
+            Object nameObj = input.get("name");
+            if (nameObj != null && !(nameObj instanceof String)) {
+                log.debug("Transformer name must be a string.");
+                logs.error("Transformer name must be a string.");
+                throw new DataTransformerExecutorException("Transformer name must be a string.");
+            }
+            String transformerName = (String) nameObj;
+
+            Object inputObj = input.get("input");
+            if (!(inputObj instanceof String inputValue) || inputValue.trim().isEmpty()) {
                 log.debug("Input data is missing in the configuration.");
                 logs.error("Input data is missing in the configuration.");
                 throw new DataTransformerExecutorException("Input data is missing in the configuration.");
             }
 
             Map<String, Object> params = ObjectConversion.convertObjectToMap(input.get("params"));
-            boolean isPipeline = Boolean.parseBoolean(input.getOrDefault("isPipeline", false).toString());
+            // Defaults to single-transform mode when "isPipeline" flag is absent
+            boolean isPipeline = Boolean.TRUE.equals(input.get("isPipeline"));
             String result;
 
             result = getResultTransform(input, isPipeline, inputValue, transformerName, params, logs);
@@ -77,7 +89,22 @@ public class DataTransformerExecutor implements PluginNodeExecutor {
                 throw new DataTransformerExecutorException("Pipeline steps are missing in the configuration.");
             }
 
-            List<TransformStep> steps = objectMapper.convertValue(stepsRaw, new TypeReference<>() {});
+            List<TransformStep> steps = ObjectConversion.safeConvert(stepsRaw, new TypeReference<>() {
+            });
+
+            for (TransformStep step : steps) {
+                if (step.getTransformer() == null || step.getTransformer().trim().isEmpty()) {
+                    logs.error("Transformer name is missing in a pipeline step.");
+                    log.debug("Transformer name is missing in a pipeline step.");
+                    throw new DataTransformerExecutorException("Transformer name is missing in a pipeline step.");
+                }
+                if (step.getParams() == null) {
+                    logs.error(String.format("Params are missing for transformer '%s'", step.getTransformer()));
+                    log.debug("Params are missing for transformer '{}'", step.getTransformer());
+                    throw new DataTransformerExecutorException(
+                            "Params are missing for transformer: " + step.getTransformer());
+                }
+            }
 
             for (TransformStep step : steps) {
                 result = registry.getTransformer(step.getTransformer()).transform(result, step.getParams());
