@@ -15,9 +15,6 @@ ALTER TABLE node_logs
 ALTER TABLE plugin_nodes
     ALTER COLUMN executor_type TYPE TEXT;
 
-ALTER TABLE plugins
-    ADD COLUMN IF NOT EXISTS key TEXT;
-
 UPDATE plugins
 SET key = 'core', publisher_id = '00000000-0000-0000-0000-000000000000'
 WHERE id = (SELECT id

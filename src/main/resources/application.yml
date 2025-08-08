@@ -1,0 +1,79 @@
+# spring.application.name=Zenflow
+spring:
+  application:
+    name: Zenflow
+  datasource:
+    url: ${SPRING_DATASOURCE}
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASSWORD:123456}
+    driver-class-name: org.postgresql.Driver
+  data:
+    web:
+      pageable:
+        max-page-size: 10
+  mvc:
+    servlet:
+      path: /api
+  jpa:
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 100
+          order_inserts: true
+          generate_statistics: false
+    open-in-view: false
+  mail:
+    host: ${MAIL_HOST}
+    port: ${MAIL_PORT}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_SMTP_AUTH}
+          starttls:
+            enable: ${MAIL_SMTP_STARTTLS}
+
+server:
+  servlet:
+    encoding:
+      enabled: true
+      force: true
+      charset: UTF-8
+
+app:
+  secret:
+    key: ${APP_SECRET_KEY:default-secret-key}
+
+# Logging configuration (commented out in the original)
+#logging:
+#  level:
+#    org:
+#      springframework:
+#        transaction: TRACE
+#      hibernate:
+#        SQL: DEBUG
+#        type:
+#          descriptor:
+#            sql:
+#              BasicBinder: TRACE
+#        orm:
+#          jdbc:
+#            bind: TRACE
+#        event:
+#          internal:
+#            DefaultFlushEntityEventListener: DEBUG
+#        engine:
+#          internal:
+#            EntityEntry: TRACE
+#    com:
+#      fasterxml:
+#        jackson:
+#          databind: DEBUG
+#    root: INFO
+#    org:
+#      phong:
+#        horizon: DEBUG
+#    com:
+#      fasterxml:
+#        jackson: DEBUG
