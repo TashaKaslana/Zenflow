@@ -84,11 +84,17 @@ public class BaseSqlExecutor {
             }
 
             boolean isResult;
+            int[] batchCounts = null;
+            int affectedRows = 0;
             if (isBatch.get()) {
-                stmt.executeBatch();
+                batchCounts = stmt.executeBatch();
+                for (int count : batchCounts) {
+                    affectedRows += count;
+                }
                 isResult = false; // Batch execution does not return a result set
             } else {
                 isResult = stmt.execute();
+                affectedRows = stmt.getUpdateCount();
             }
             if (enableTransaction) {
                 conn.commit();
@@ -96,13 +102,13 @@ public class BaseSqlExecutor {
             Instant end = Instant.now();
             logCollector.info("Execution time: " + Duration.between(start, end).toMillis() + " ms");
 
-            return getOutputResult(logCollector, query, isResult, stmt, start, end);
+            return getOutputResult(logCollector, query, isResult, stmt, start, end, affectedRows, batchCounts);
         } catch (Exception e) {
             if (enableTransaction && conn != null) {
                 try {
                     logCollector.info("Rolling back transaction due to error: " + e.getMessage());
-                    config.getDataSource().getConnection().rollback();
-                } catch (Exception rollbackEx) {
+                    conn.rollback();
+                } catch (SQLException rollbackEx) {
                     logCollector.error("Rollback failed: " + rollbackEx.getMessage(), rollbackEx);
                 }
             }
@@ -111,7 +117,9 @@ public class BaseSqlExecutor {
         }
     }
 
-    private Map<String, Object> getOutputResult(LogCollector logCollector, String query, boolean isResult, PreparedStatement stmt, Instant start, Instant end) throws Exception {
+    private Map<String, Object> getOutputResult(LogCollector logCollector, String query, boolean isResult,
+                                               PreparedStatement stmt, Instant start, Instant end,
+                                               int affectedRows, int[] batchCounts) throws Exception {
         if (isResult) {
             ResultSet resultSet = stmt.getResultSet();
             List<Object> results = extractRows(resultSet);
@@ -123,14 +131,16 @@ public class BaseSqlExecutor {
                     "results", results
             );
         } else {
-            int affectedRows = stmt.getUpdateCount();
             logCollector.info("Query executed successfully, affected rows: " + affectedRows);
 
-            return Map.of(
-                    "query", query,
-                    "executionTime", getExecutionTime(start, end),
-                    "affectedRows", affectedRows
-            );
+            Map<String, Object> result = new HashMap<>();
+            result.put("query", query);
+            result.put("executionTime", getExecutionTime(start, end));
+            result.put("affectedRows", affectedRows);
+            if (batchCounts != null) {
+                result.put("batchCounts", batchCounts);
+            }
+            return result;
         }
     }
 
