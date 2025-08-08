@@ -186,13 +186,42 @@ public class PostgresParameterHandler {
 
     private void bindArrayParameter(PreparedStatement stmt, int index, Object value, LogCollector logCollector) throws SQLException {
         try {
-            Array sqlArray = stmt.getConnection().createArrayOf("text", (Object[]) value);
+            Object[] array;
+            if (value instanceof List<?> list) {
+                array = list.toArray();
+            } else if (value instanceof Object[] objArray) {
+                array = objArray;
+            } else {
+                throw new SQLException("Array parameter must be a List or Object[]");
+            }
+
+            String pgType = determineArrayType(array);
+
+            Array sqlArray = stmt.getConnection().createArrayOf(pgType, array);
             stmt.setArray(index, sqlArray);
-            logCollector.info("Applied array parameter at index " + index);
+            logCollector.info("Applied array parameter at index " + index + " with element type '" + pgType + "'");
         } catch (Exception e) {
             logCollector.warning("Failed to apply array parameter at index " + index + ": " + e.getMessage());
             throw new SQLException("Array parameter binding failed at index " + index, e);
         }
+    }
+
+    private String determineArrayType(Object[] array) {
+        if (array == null || array.length == 0 || array[0] == null) {
+            return "text";
+        }
+
+        Object first = array[0];
+        if (first instanceof Integer) return "int";
+        if (first instanceof Long) return "bigint";
+        if (first instanceof Short) return "smallint";
+        if (first instanceof Boolean) return "boolean";
+        if (first instanceof Double) return "float8";
+        if (first instanceof Float) return "float4";
+        if (first instanceof UUID) return "uuid";
+        if (first instanceof LocalDate || first instanceof Date) return "date";
+        if (first instanceof LocalDateTime || first instanceof Timestamp) return "timestamp";
+        return "text";
     }
 
     private void bindUuidParameter(PreparedStatement stmt, int index, String value, LogCollector logCollector) throws SQLException {
