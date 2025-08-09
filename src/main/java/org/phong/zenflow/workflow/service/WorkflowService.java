@@ -17,6 +17,7 @@ import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.infrastructure.persistence.repository.WorkflowRepository;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.services.WorkflowDefinitionService;
+import org.phong.zenflow.workflow.subdomain.workflow_version.service.WorkflowVersionService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -35,6 +36,7 @@ public class WorkflowService {
     private final ProjectRepository projectRepository;
     private final WorkflowMapper workflowMapper;
     private final WorkflowDefinitionService definitionService;
+    private final WorkflowVersionService workflowVersionService;
 
     /**
      * Create a new workflow
@@ -89,6 +91,9 @@ public class WorkflowService {
 
         workflow.setDefinition(upserted);
         workflowRepository.save(workflow);
+
+        // Auto save workflow definition as a version
+        workflowVersionService.autoSave(workflowId, upserted);
 
         return upserted;
     }
