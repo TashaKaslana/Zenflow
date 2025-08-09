@@ -109,7 +109,8 @@ public class WorkflowEngineService {
         ValidationResult validationResult = workflowValidationService.validateRuntime(
                 workingNode.getKey(),
                 resolvedConfig,
-                workingNode.getPluginNode().toCacheKey()
+                workingNode.getPluginNode().toCacheKey(),
+                context
         );
         if (!validationResult.isValid()) {
             return ExecutionResult.validationError(validationResult, workingNode.getKey());
