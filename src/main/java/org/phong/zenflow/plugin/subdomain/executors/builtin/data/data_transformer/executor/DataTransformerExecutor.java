@@ -14,6 +14,7 @@ import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.Work
 import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -51,8 +52,8 @@ public class DataTransformerExecutor implements PluginNodeExecutor {
             }
             String transformerName = (String) nameObj;
 
-            Object inputObj = input.get("input");
-            if (!(inputObj instanceof String inputValue) || inputValue.trim().isEmpty()) {
+            Object inputValue = input.get("input");
+            if (inputValue == null) {
                 log.debug("Input data is missing in the configuration.");
                 logs.error("Input data is missing in the configuration.");
                 throw new DataTransformerExecutorException("Input data is missing in the configuration.");
@@ -61,9 +62,25 @@ public class DataTransformerExecutor implements PluginNodeExecutor {
             Map<String, Object> params = ObjectConversion.convertObjectToMap(input.get("params"));
             // Defaults to single-transform mode when "isPipeline" flag is absent
             boolean isPipeline = Boolean.TRUE.equals(input.get("isPipeline"));
-            String result;
+            boolean forEach = Boolean.TRUE.equals(input.get("forEach"));
+            Object result;
 
-            result = getResultTransform(input, isPipeline, inputValue, transformerName, params, logs);
+            if (forEach) {
+                if (!(inputValue instanceof List)) {
+                    logs.error("Input must be a List when 'forEach' is true.");
+                    throw new DataTransformerExecutorException("Input must be a List when 'forEach' is true.");
+                }
+                logs.info(String.format("Executing pipeline for each of %d items.", ((List<?>) inputValue).size()));
+                List<Object> resultList = new ArrayList<>();
+                for (Object item : (List<?>) inputValue) {
+                    Object transformedItem = getResultTransform(input, isPipeline, item, transformerName, params, logs);
+                    resultList.add(transformedItem);
+                }
+                result = resultList;
+
+            } else {
+                result = getResultTransform(input, isPipeline, inputValue, transformerName, params, logs);
+            }
             logs.success("Data transformation completed successfully.");
 
             return ExecutionResult.success(Map.of("result", result), logs.getLogs());
@@ -74,13 +91,13 @@ public class DataTransformerExecutor implements PluginNodeExecutor {
         }
     }
 
-    private String getResultTransform(Map<String, Object> input,
+    private Object getResultTransform(Map<String, Object> input,
                                       boolean isPipeline,
-                                      String inputValue,
+                                      Object inputValue,
                                       String transformerName,
                                       Map<String, Object> params,
                                       LogCollector logs) {
-        String result = inputValue;
+        Object result = inputValue;
         if (isPipeline) {
             Object stepsRaw = input.get("steps");
             if (stepsRaw == null) {

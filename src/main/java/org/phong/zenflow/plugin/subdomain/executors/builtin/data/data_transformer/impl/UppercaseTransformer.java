@@ -14,7 +14,11 @@ public class UppercaseTransformer implements DataTransformer {
     }
 
     @Override
-    public String transform(String input, Map<String, Object> params) {
-        return input.toUpperCase();
+    public String transform(Object input, Map<String, Object> params) {
+        if (input == null) {
+            return null;
+        }
+
+        return input.toString().toUpperCase();
     }
 }

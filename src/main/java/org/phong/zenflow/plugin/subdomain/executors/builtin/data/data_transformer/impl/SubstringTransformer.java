@@ -11,9 +11,13 @@ public class SubstringTransformer implements DataTransformer {
     public String getName() { return "substring"; }
 
     @Override
-    public String transform(String input, Map<String, Object> params) {
+    public Object transform(Object input, Map<String, Object> params) {
+        if (input == null) {
+            return null;
+        }
+        String strInput = input.toString();
         int start = (int) params.getOrDefault("start", 0);
-        int end = (int) params.getOrDefault("end", input.length());
-        return input.substring(start, end);
+        int end = (int) params.getOrDefault("end", strInput.length());
+        return strInput.substring(start, end);
     }
 }
