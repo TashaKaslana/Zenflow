@@ -7,18 +7,23 @@ import org.springframework.stereotype.Component;
 import java.util.Map;
 
 @Component
-public class ConcatTransformer implements DataTransformer {
+public class GetFieldTransformer implements DataTransformer {
     @Override
     public String getName() {
-        return "concat";
+        return "get_field";
     }
 
     @Override
     public Object transform(Object input, Map<String, Object> params) {
-        if (params == null || !params.containsKey("suffix")) {
-            throw new DataTransformerExecutorException("Suffix parameter is required for concat transformer.");
+        if (!(input instanceof Map<?, ?> map)) {
+            throw new DataTransformerExecutorException("Input must be a Map for get_field transformer.");
         }
-        String suffix = String.valueOf(params.get("suffix"));
-        return input + suffix;
+        if (params == null || !params.containsKey("field")) {
+            throw new DataTransformerExecutorException("Field parameter is required for get_field transformer.");
+        }
+
+        String field = (String) params.get("field");
+        return map.get(field);
     }
 }
+

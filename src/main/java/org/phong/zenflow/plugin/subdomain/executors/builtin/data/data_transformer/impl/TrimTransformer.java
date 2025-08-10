@@ -6,17 +6,14 @@ import org.springframework.stereotype.Component;
 import java.util.Map;
 
 @Component
-public class LowercaseTransformer implements DataTransformer {
+public class TrimTransformer implements DataTransformer {
     @Override
     public String getName() {
-        return "to_lowercase";
+        return "trim";
     }
 
     @Override
     public Object transform(Object input, Map<String, Object> params) {
-        if (input == null) {
-            return null;
-        }
-        return input.toString().toLowerCase();
+        return input == null ? null : input.toString().trim();
     }
 }

@@ -141,6 +141,153 @@ VALUES
  '{
    "$schema": "http://json-schema.org/draft-07/schema#",
    "type": "object",
+   "definitions": {
+     "concat_params": {
+       "type": "object",
+       "properties": {
+         "suffix": {
+           "type": "string"
+         }
+       },
+       "required": [
+         "suffix"
+       ]
+     },
+     "get_field_params": {
+       "type": "object",
+       "properties": {
+         "field": {
+           "type": "string"
+         }
+       },
+       "required": [
+         "field"
+       ]
+     },
+     "set_field_params": {
+       "type": "object",
+       "properties": {
+         "field": {
+           "type": "string"
+         },
+         "value": {}
+       },
+       "required": [
+         "field",
+         "value"
+       ]
+     },
+     "regex_split_params": {
+       "type": "object",
+       "properties": {
+         "pattern": {
+           "type": "string"
+         }
+       },
+       "required": [
+         "pattern"
+       ]
+     },
+     "substring_params": {
+       "type": "object",
+       "properties": {
+         "start": {
+           "type": "integer"
+         },
+         "end": {
+           "type": "integer"
+         }
+       }
+     },
+     "transform_step": {
+       "type": "object",
+       "properties": {
+         "transformer": {
+           "type": "string"
+         },
+         "params": {
+           "type": "object",
+           "default": {}
+         }
+       },
+       "required": [
+         "transformer"
+       ],
+       "oneOf": [
+         {
+           "properties": {
+             "transformer": {
+               "const": "concat"
+             },
+             "params": {
+               "$ref": "#/definitions/concat_params"
+             }
+           }
+         },
+         {
+           "properties": {
+             "transformer": {
+               "const": "get_field"
+             },
+             "params": {
+               "$ref": "#/definitions/get_field_params"
+             }
+           }
+         },
+         {
+           "properties": {
+             "transformer": {
+               "const": "set_field"
+             },
+             "params": {
+               "$ref": "#/definitions/set_field_params"
+             }
+           }
+         },
+         {
+           "properties": {
+             "transformer": {
+               "const": "regex_split"
+             },
+             "params": {
+               "$ref": "#/definitions/regex_split_params"
+             }
+           }
+         },
+         {
+           "properties": {
+             "transformer": {
+               "const": "substring"
+             },
+             "params": {
+               "$ref": "#/definitions/substring_params"
+             }
+           }
+         },
+         {
+           "properties": {
+             "transformer": {
+               "const": "lowercase"
+             }
+           }
+         },
+         {
+           "properties": {
+             "transformer": {
+               "const": "uppercase"
+             }
+           }
+         },
+         {
+           "properties": {
+             "transformer": {
+               "const": "trim"
+             }
+           }
+         }
+       ]
+     }
+   },
    "properties": {
      "input": {
        "type": "object",
@@ -148,36 +295,23 @@ VALUES
          "name": {
            "type": "string"
          },
-         "input": {
-           "type": "string"
-         },
+         "input": {},
          "params": {
            "type": "object",
-           "description": "Parameters for the transformer.",
            "default": {}
          },
          "isPipeline": {
            "type": "boolean",
-           "description": "Whether to run a sequence of transformations.",
+           "default": false
+         },
+         "forEach": {
+           "type": "boolean",
            "default": false
          },
          "steps": {
            "type": "array",
-           "description": "List of transformation steps if using a pipeline.",
            "items": {
-             "type": "object",
-             "properties": {
-               "transformer": {
-                 "type": "string"
-               },
-               "params": {
-                 "type": "object",
-                 "default": {}
-               }
-             },
-             "required": [
-               "transformer"
-             ]
+             "$ref": "#/definitions/transform_step"
            },
            "default": []
          }
@@ -185,49 +319,28 @@ VALUES
        "required": [
          "input"
        ],
-       "allOf": [
-         {
-           "if": {
-             "properties": {
-               "isPipeline": {
-                 "const": true
-               }
-             }
-           },
-           "then": {
-             "required": [
-               "steps"
-             ]
-           },
-           "else": {
-             "required": [
-               "name"
-             ]
+       "if": {
+         "properties": {
+           "isPipeline": {
+             "const": false
            }
          }
-       ],
-       "additionalProperties": false
+       },
+       "then": {
+         "required": [
+           "name"
+         ]
+       },
+       "else": {
+         "required": [
+           "steps"
+         ]
+       }
      },
      "output": {
        "type": "object",
        "properties": {
-         "result": {
-           "type": "string"
-         }
-       }
-     },
-     "secrets": {
-       "type": "array",
-       "items": {
-         "type": "object",
-         "properties": {
-           "key": {
-             "type": "string"
-           }
-         },
-         "required": [
-           "key"
-         ]
+         "result": {}
        }
      }
    },
