@@ -5,5 +5,5 @@ import java.util.Map;
 public interface DataTransformer {
     String getName();
 
-    Object transform(Object input, Map<String, Object> params);
+    Object transform(Object data, Map<String, Object> params);
 }

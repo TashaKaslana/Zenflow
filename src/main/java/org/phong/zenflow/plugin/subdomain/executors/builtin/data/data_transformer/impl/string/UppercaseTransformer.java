@@ -1,4 +1,4 @@
-package org.phong.zenflow.plugin.subdomain.executors.builtin.data.data_transformer.impl;
+package org.phong.zenflow.plugin.subdomain.executors.builtin.data.data_transformer.impl.string;
 
 import org.phong.zenflow.plugin.subdomain.executors.builtin.data.data_transformer.interfaces.DataTransformer;
 import org.springframework.stereotype.Component;
@@ -14,11 +14,11 @@ public class UppercaseTransformer implements DataTransformer {
     }
 
     @Override
-    public String transform(Object input, Map<String, Object> params) {
-        if (input == null) {
+    public String transform(Object data, Map<String, Object> params) {
+        if (data == null) {
             return null;
         }
 
-        return input.toString().toUpperCase();
+        return data.toString().toUpperCase();
     }
 }

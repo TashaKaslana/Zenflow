@@ -1,4 +1,4 @@
-package org.phong.zenflow.plugin.subdomain.executors.builtin.data.data_transformer.impl;
+package org.phong.zenflow.plugin.subdomain.executors.builtin.data.data_transformer.impl.field;
 
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.executors.builtin.data.data_transformer.exception.DataTransformerExecutorException;
@@ -16,8 +16,8 @@ public class SetFieldTransformer implements DataTransformer {
     }
 
     @Override
-    public Object transform(Object input, Map<String, Object> params) {
-        if (!(input instanceof Map)) {
+    public Object transform(Object data, Map<String, Object> params) {
+        if (!(data instanceof Map)) {
             throw new DataTransformerExecutorException("Input must be a Map for set_field transformer.");
         }
         if (params == null || !params.containsKey("field")) {
@@ -27,11 +27,10 @@ public class SetFieldTransformer implements DataTransformer {
             throw new DataTransformerExecutorException("Value parameter is required for set_field transformer.");
         }
 
-        Map<String, Object> newMap = new HashMap<>(ObjectConversion.convertObjectToMap(input));
+        Map<String, Object> newMap = new HashMap<>(ObjectConversion.convertObjectToMap(data));
         String field = (String) params.get("field");
         Object value = params.get("value");
         newMap.put(field, value);
         return newMap;
     }
 }
-

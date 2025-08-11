@@ -1,4 +1,4 @@
-package org.phong.zenflow.plugin.subdomain.executors.builtin.data.data_transformer.impl;
+package org.phong.zenflow.plugin.subdomain.executors.builtin.data.data_transformer.impl.string;
 
 import org.phong.zenflow.plugin.subdomain.executors.builtin.data.data_transformer.interfaces.DataTransformer;
 import org.springframework.stereotype.Component;
@@ -13,7 +13,7 @@ public class TrimTransformer implements DataTransformer {
     }
 
     @Override
-    public Object transform(Object input, Map<String, Object> params) {
-        return input == null ? null : input.toString().trim();
+    public Object transform(Object data, Map<String, Object> params) {
+        return data == null ? null : data.toString().trim();
     }
 }
