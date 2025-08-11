@@ -295,7 +295,7 @@ VALUES
          "name": {
            "type": "string"
          },
-         "input": {},
+         "data": {},
          "params": {
            "type": "object",
            "default": {}
@@ -317,7 +317,7 @@ VALUES
          }
        },
        "required": [
-         "input"
+         "data"
        ],
        "if": {
          "properties": {

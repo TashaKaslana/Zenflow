@@ -52,11 +52,11 @@ public class DataTransformerExecutor implements PluginNodeExecutor {
             }
             String transformerName = (String) nameObj;
 
-            Object inputValue = input.get("input");
+            Object inputValue = input.get("data");
             if (inputValue == null) {
-                log.debug("Input data is missing in the configuration.");
-                logs.error("Input data is missing in the configuration.");
-                throw new DataTransformerExecutorException("Input data is missing in the configuration.");
+                log.debug("Data is missing in the configuration.");
+                logs.error("Data is missing in the configuration.");
+                throw new DataTransformerExecutorException("Data is missing in the configuration.");
             }
 
             Map<String, Object> params = ObjectConversion.convertObjectToMap(input.get("params"));

@@ -1,4 +1,4 @@
-package org.phong.zenflow.plugin.subdomain.executors.builtin.data.data_transformer.impl;
+package org.phong.zenflow.plugin.subdomain.executors.builtin.data.data_transformer.impl.field;
 
 import org.phong.zenflow.plugin.subdomain.executors.builtin.data.data_transformer.exception.DataTransformerExecutorException;
 import org.phong.zenflow.plugin.subdomain.executors.builtin.data.data_transformer.interfaces.DataTransformer;
@@ -14,8 +14,8 @@ public class GetFieldTransformer implements DataTransformer {
     }
 
     @Override
-    public Object transform(Object input, Map<String, Object> params) {
-        if (!(input instanceof Map<?, ?> map)) {
+    public Object transform(Object data, Map<String, Object> params) {
+        if (!(data instanceof Map<?, ?> map)) {
             throw new DataTransformerExecutorException("Input must be a Map for get_field transformer.");
         }
         if (params == null || !params.containsKey("field")) {
@@ -26,4 +26,3 @@ public class GetFieldTransformer implements DataTransformer {
         return map.get(field);
     }
 }
-
