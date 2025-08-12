@@ -48,17 +48,21 @@ public class WorkflowNavigatorService {
             }
             case NEXT -> new ExecutionStepOutcome(navigatorNext(workflowId, result, workflowNodes),
                     WorkflowExecutionStatus.COMPLETED);
-            case VALIDATION_ERROR -> new ExecutionStepOutcome(null, navigatorValidationError(workingNode, result, context));
-            case LOOP_NEXT -> new ExecutionStepOutcome(navigatorLoopNext(workflowId, workingNode, result, workflowNodes, context),
-                    WorkflowExecutionStatus.COMPLETED);
-            case LOOP_END -> new ExecutionStepOutcome(navigatorLoopEnd(workflowId, workingNode, result, workflowNodes, context),
-                    WorkflowExecutionStatus.COMPLETED);
+            case VALIDATION_ERROR ->
+                    new ExecutionStepOutcome(null, navigatorValidationError(workingNode, result, context));
+            case LOOP_NEXT ->
+                    new ExecutionStepOutcome(navigatorLoopNext(workflowId, workingNode, result, workflowNodes, context),
+                            WorkflowExecutionStatus.COMPLETED);
+            case LOOP_END ->
+                    new ExecutionStepOutcome(navigatorLoopEnd(workflowId, workingNode, result, workflowNodes, context),
+                            WorkflowExecutionStatus.COMPLETED);
             case LOOP_CONTINUE -> {
                 navigatorLoopContinue(workingNode);
                 yield new ExecutionStepOutcome(workingNode, WorkflowExecutionStatus.COMPLETED);
             }
-            case LOOP_BREAK -> new ExecutionStepOutcome(navigatorLoopBreak(workflowId, workingNode, result, workflowNodes, context),
-                    WorkflowExecutionStatus.COMPLETED);
+            case LOOP_BREAK ->
+                    new ExecutionStepOutcome(navigatorLoopBreak(workflowId, workingNode, result, workflowNodes, context),
+                            WorkflowExecutionStatus.COMPLETED);
             case UNCOMMIT -> {
                 log.info("Node {} is in uncommit state, halting workflow execution until conditions are met", workingNode.getKey());
                 registerHaltedWaitNode(workflowId, workflowRunId, workingNode.getKey(), result);
@@ -87,16 +91,24 @@ public class WorkflowNavigatorService {
                     nodes.remove(halted.nodeKey);
                     publisher.publishEvent(new WorkflowRunnerPublishableEvent() {
                         @Override
-                        public UUID getWorkflowRunId() { return halted.workflowRunId; }
+                        public UUID getWorkflowRunId() {
+                            return halted.workflowRunId;
+                        }
 
                         @Override
-                        public TriggerType getTriggerType() { return TriggerType.SCHEDULE; }
+                        public TriggerType getTriggerType() {
+                            return TriggerType.SCHEDULE;
+                        }
 
                         @Override
-                        public UUID getWorkflowId() { return halted.workflowId; }
+                        public UUID getWorkflowId() {
+                            return halted.workflowId;
+                        }
 
                         @Override
-                        public WorkflowRunnerRequest request() { return new WorkflowRunnerRequest(null, halted.nodeKey); }
+                        public WorkflowRunnerRequest request() {
+                            return new WorkflowRunnerRequest(null, halted.nodeKey);
+                        }
                     });
                 }
             }
@@ -104,7 +116,11 @@ public class WorkflowNavigatorService {
     }
 
     private boolean isReady(Map<String, Boolean> waitingNodes, String mode, int threshold) {
-        long committed = waitingNodes.values().stream().filter(Boolean::booleanValue).count();
+        long committed = waitingNodes.values()
+                .stream()
+                .filter(Boolean::booleanValue)
+                .count();
+
         return switch (mode) {
             case "all" -> committed == waitingNodes.size();
             case "any" -> committed >= 1;
@@ -112,9 +128,6 @@ public class WorkflowNavigatorService {
             default -> false;
         };
     }
-
-    private record HaltedWaitNode(UUID workflowId, UUID workflowRunId, String nodeKey,
-                                   Map<String, Boolean> waitingNodes, String mode, int threshold) {}
 
     public BaseWorkflowNode findNodeByKey(List<BaseWorkflowNode> schema, String key) {
         return schema.stream()
@@ -218,6 +231,10 @@ public class WorkflowNavigatorService {
             log.info("Loop break with no next node, workflow completed with ID: {}", workflowId);
             return null;
         }
+    }
+
+    private record HaltedWaitNode(UUID workflowId, UUID workflowRunId, String nodeKey,
+                                  Map<String, Boolean> waitingNodes, String mode, int threshold) {
     }
 
     public record ExecutionStepOutcome(BaseWorkflowNode nextNode, WorkflowExecutionStatus status) {
