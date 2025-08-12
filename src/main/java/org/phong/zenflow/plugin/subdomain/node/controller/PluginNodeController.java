@@ -2,10 +2,14 @@ package org.phong.zenflow.plugin.subdomain.node.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.phong.zenflow.core.responses.RestApiResponse;
+import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
+import org.phong.zenflow.plugin.subdomain.execution.services.SingleNodeExecutionService;
 import org.phong.zenflow.plugin.subdomain.node.dto.CreatePluginNode;
 import org.phong.zenflow.plugin.subdomain.node.dto.PluginNodeDto;
 import org.phong.zenflow.plugin.subdomain.node.dto.UpdatePluginNodeRequest;
 import org.phong.zenflow.plugin.subdomain.node.service.PluginNodeService;
+import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.entity.PluginNode;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -22,6 +26,7 @@ import java.util.UUID;
 public class PluginNodeController {
 
     private final PluginNodeService pluginNodeService;
+    private final SingleNodeExecutionService singleNodeExecutionService;
 
     @PostMapping("for/{pluginId}")
     public ResponseEntity<RestApiResponse<PluginNodeDto>> createPluginNode(
@@ -67,5 +72,14 @@ public class PluginNodeController {
     public ResponseEntity<RestApiResponse<Void>> deletePluginNodes(@RequestBody List<UUID> nodeIds) {
         pluginNodeService.deletePluginNodes(nodeIds);
         return RestApiResponse.success("Plugin nodes deleted successfully");
+    }
+
+    @PostMapping("/{nodeId}/execute")
+    public ResponseEntity<RestApiResponse<ExecutionResult>> executePluginNode(
+            @PathVariable UUID nodeId,
+            @RequestBody(required = false) WorkflowConfig config) {
+        PluginNode node = pluginNodeService.findById(nodeId);
+        ExecutionResult result = singleNodeExecutionService.executeNode(node, config);
+        return RestApiResponse.success(result, "Plugin node executed successfully");
     }
 }
