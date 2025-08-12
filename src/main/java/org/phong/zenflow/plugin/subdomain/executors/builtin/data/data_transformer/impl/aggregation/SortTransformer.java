@@ -55,6 +55,7 @@ public class SortTransformer implements DataTransformer {
             singleField.put("field", params.get("field"));
             singleField.put("order", params.getOrDefault("order", "asc"));
             singleField.put("type", params.getOrDefault("type", "string"));
+            singleField.put("caseSensitive", params.getOrDefault("caseSensitive", true));
             sortFields.add(singleField);
         } else {
             throw new DataTransformerExecutorException("Either 'field' or 'fields' parameter is required for sort transformer.");

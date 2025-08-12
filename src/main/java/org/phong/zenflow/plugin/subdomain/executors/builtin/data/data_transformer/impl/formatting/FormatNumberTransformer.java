@@ -1,5 +1,7 @@
 package org.phong.zenflow.plugin.subdomain.executors.builtin.data.data_transformer.impl.formatting;
 
+import lombok.extern.slf4j.Slf4j;
+import org.phong.zenflow.core.utils.LocaleUtils;
 import org.phong.zenflow.plugin.subdomain.executors.builtin.data.data_transformer.exception.DataTransformerExecutorException;
 import org.phong.zenflow.plugin.subdomain.executors.builtin.data.data_transformer.interfaces.DataTransformer;
 import org.springframework.stereotype.Component;
@@ -11,6 +13,7 @@ import java.util.Locale;
 import java.util.Map;
 
 @Component
+@Slf4j
 public class FormatNumberTransformer implements DataTransformer {
 
     @Override
@@ -50,7 +53,7 @@ public class FormatNumberTransformer implements DataTransformer {
     private String formatNumber(Object numberValue, String pattern, String localeStr, String type, Integer precision) {
         try {
             double value = convertToDouble(numberValue);
-            Locale loc = getLocale(localeStr);
+            Locale loc = LocaleUtils.getLocale(localeStr);
 
             NumberFormat formatter;
 
@@ -91,21 +94,6 @@ public class FormatNumberTransformer implements DataTransformer {
             }
         } else {
             throw new DataTransformerExecutorException("Value must be a number or numeric string");
-        }
-    }
-
-    public Locale getLocale(String localeStr) {
-        try {
-            String[] parts = localeStr.split("[_-]");
-            if (parts.length == 1) {
-                return Locale.of(parts[0]);
-            } else if (parts.length == 2) {
-                return Locale.of(parts[0], parts[1]);
-            } else {
-                return Locale.getDefault();
-            }
-        } catch (Exception e) {
-            return Locale.getDefault();
         }
     }
 }
