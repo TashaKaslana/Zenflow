@@ -71,6 +71,31 @@ class DataTransformerExecutorTest {
         assertEquals("core:data.transformer:1.0.0", executor.key());
     }
 
+    @Test
+    void testSingleTransformExecution() {
+        List<Map<String, Object>> data = List.of(
+                Map.of("value", 1),
+                Map.of("value", 2)
+        );
+        Map<String, Object> params = Map.of(
+                "expression", "value > 1",
+                "mode", "include"
+        );
+        Map<String, Object> input = Map.of(
+                "name", "filter",
+                "data", data,
+                "params", params
+        );
+        WorkflowConfig config = new WorkflowConfig(input);
+
+        when(registry.getTransformer("filter")).thenReturn(filterTransformer);
+        when(filterTransformer.transform(data, params)).thenReturn(List.of(Map.of("value", 2)));
+
+        ExecutionResult result = executor.execute(config, runtimeContext);
+        assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
+        assertEquals(List.of(Map.of("value", 2)), result.getOutput().get("result"));
+    }
+
     // ===========================================
     // BASIC PIPELINE TESTS
     // ===========================================
