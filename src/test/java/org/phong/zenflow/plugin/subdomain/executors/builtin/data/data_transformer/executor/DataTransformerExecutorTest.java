@@ -51,6 +51,9 @@ class DataTransformerExecutorTest {
     private DataTransformer groupByTransformer;
 
     @Mock
+    private DataTransformer aggregateTransformer;
+
+    @Mock
     private DataTransformer formatNumberTransformer;
 
     @Mock
@@ -161,7 +164,7 @@ class DataTransformerExecutorTest {
 
     @Test
     void testDataAnalyticsPipeline() {
-        // Pipeline: filter (active users) -> sort (by salary desc) -> group_by (department with aggregations)
+        // Pipeline: filter (active users) -> sort (by salary desc) -> group_by (department) -> aggregate (avg salary, count)
         List<Map<String, Object>> employees = Arrays.asList(
             Map.of("name", "John", "department", "IT", "salary", 70000, "active", true),
             Map.of("name", "Jane", "department", "HR", "salary", 60000, "active", false),
@@ -174,6 +177,7 @@ class DataTransformerExecutorTest {
         when(registry.getTransformer("filter")).thenReturn(filterTransformer);
         when(registry.getTransformer("sort")).thenReturn(sortTransformer);
         when(registry.getTransformer("group_by")).thenReturn(groupByTransformer);
+        when(registry.getTransformer("aggregate")).thenReturn(aggregateTransformer);
 
         // Mock pipeline transformations
         List<Map<String, Object>> afterFilter = Arrays.asList(
@@ -188,6 +192,16 @@ class DataTransformerExecutorTest {
             Map.of("name", "Alice", "department", "HR", "salary", 65000, "active", true)
         );
 
+        List<Map<String, Object>> grouped = Arrays.asList(
+            Map.of("department", "IT", "items", Arrays.asList(
+                Map.of("name", "Bob", "department", "IT", "salary", 80000, "active", true),
+                Map.of("name", "John", "department", "IT", "salary", 70000, "active", true)
+            )),
+            Map.of("department", "HR", "items", List.of(
+                Map.of("name", "Alice", "department", "HR", "salary", 65000, "active", true)
+            ))
+        );
+
         List<Map<String, Object>> finalResult = Arrays.asList(
             Map.of("department", "IT", "avg_salary", 75000.0, "employee_count", 2),
             Map.of("department", "HR", "avg_salary", 65000.0, "employee_count", 1)
@@ -195,7 +209,8 @@ class DataTransformerExecutorTest {
 
         when(filterTransformer.transform(eq(employees), any())).thenReturn(afterFilter);
         when(sortTransformer.transform(eq(afterFilter), any())).thenReturn(afterSort);
-        when(groupByTransformer.transform(eq(afterSort), any())).thenReturn(finalResult);
+        when(groupByTransformer.transform(eq(afterSort), any())).thenReturn(grouped);
+        when(aggregateTransformer.transform(eq(grouped), any())).thenReturn(finalResult);
 
         ExecutionResult result = executor.execute(config, runtimeContext);
 
@@ -208,7 +223,9 @@ class DataTransformerExecutorTest {
             Map.of("transformer", "filter", "params", Map.of("expression", "active == true", "mode", "include")),
             Map.of("transformer", "sort", "params", Map.of("field", "salary", "direction", "desc")),
             Map.of("transformer", "group_by", "params", Map.of(
-                "groupBy", "department",
+                "groupBy", "department"
+            )),
+            Map.of("transformer", "aggregate", "params", Map.of(
                 "aggregations", Arrays.asList(
                     Map.of("field", "salary", "function", "avg", "alias", "avg_salary"),
                     Map.of("field", "name", "function", "count", "alias", "employee_count")
