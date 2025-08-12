@@ -9,6 +9,8 @@ import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
+import java.util.Random;
+import java.util.UUID;
 
 @Component
 public class DataGeneratorExecutor implements PluginNodeExecutor {
@@ -25,21 +27,27 @@ public class DataGeneratorExecutor implements PluginNodeExecutor {
         try {
             Map<String, Object> input = ObjectConversion.convertObjectToMap(config.input());
             
-            Integer seed = (Integer) input.get("seed");
+            Number seedNumber = (Number) input.get("seed");
             String format = (String) input.get("format");
-            
-            logCollector.info("Data Generator started with seed: {} and format: {}", seed, format);
-            
-            // Mock data generation based on seed
+
+            logCollector.info("Data Generator started with seed: {} and format: {}", seedNumber, format);
+
+            Random random = seedNumber != null ? new Random(seedNumber.longValue()) : new Random();
+
+            String email = "user" + random.nextInt(100_000) + "@example.com";
+            int age = random.nextInt(82) + 18; // age between 18 and 99
+            boolean active = random.nextBoolean();
+
             Map<String, Object> output = Map.of(
-                    "user_email", "test+tag@very-long-domain-name.example.org",
-                    "user_age", 123,
-                    "user_active", true,
-                    "status", "completed"
+                    "user_email", email,
+                    "user_age", age,
+                    "user_active", active,
+                    "status", "completed",
+                    "generated_id", UUID.randomUUID().toString()
             );
-            
-            logCollector.info("Generated mock user data: email={}, age={}, active={}", 
-                            output.get("user_email"), output.get("user_age"), output.get("user_active"));
+
+            logCollector.info("Generated mock user data: email={}, age={}, active={}",
+                            email, age, active);
             
             return ExecutionResult.success(output, logCollector.getLogs());
             
