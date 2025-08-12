@@ -1,6 +1,7 @@
 package org.phong.zenflow.plugin.subdomain.executors.builtin.data.data_transformer.impl.formatting;
 
 import lombok.AllArgsConstructor;
+import org.phong.zenflow.core.utils.LocaleUtils;
 import org.phong.zenflow.plugin.subdomain.executors.builtin.data.data_transformer.exception.DataTransformerExecutorException;
 import org.phong.zenflow.plugin.subdomain.executors.builtin.data.data_transformer.interfaces.DataTransformer;
 import org.springframework.stereotype.Component;
@@ -18,7 +19,6 @@ import java.util.Map;
 @Component
 @AllArgsConstructor
 public class FormatDateTransformer implements DataTransformer {
-    private final FormatNumberTransformer formatNumberTransformer;
 
     @Override
     public String getName() {
@@ -55,7 +55,7 @@ public class FormatDateTransformer implements DataTransformer {
 
     private String formatDate(Object dateValue, String pattern, String localeStr, String inputPattern) {
         try {
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern, formatNumberTransformer.getLocale(localeStr));
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern, LocaleUtils.getLocale(localeStr));
 
             switch (dateValue) {
                 case Date date -> {
