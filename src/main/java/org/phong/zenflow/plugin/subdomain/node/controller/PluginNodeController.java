@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -46,6 +47,12 @@ public class PluginNodeController {
     public ResponseEntity<RestApiResponse<PluginNodeDto>> getPluginNodeById(@PathVariable UUID nodeId) {
         PluginNodeDto node = pluginNodeService.findPluginNodeById(nodeId);
         return RestApiResponse.success(node, "Plugin node retrieved successfully");
+    }
+
+    @GetMapping("/{nodeId}/sample")
+    public ResponseEntity<RestApiResponse<Map<String, Object>>> getSampleData(@PathVariable UUID nodeId) {
+        Map<String, Object> sample = pluginNodeService.getSampleData(nodeId);
+        return RestApiResponse.success(sample, "Sample data generated successfully");
     }
 
     @GetMapping("/name/{name}")
