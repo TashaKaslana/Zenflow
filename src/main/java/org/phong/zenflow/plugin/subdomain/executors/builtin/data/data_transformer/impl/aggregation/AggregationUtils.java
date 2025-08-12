@@ -1,5 +1,6 @@
 package org.phong.zenflow.plugin.subdomain.executors.builtin.data.data_transformer.impl.aggregation;
 
+import lombok.NoArgsConstructor;
 import org.phong.zenflow.plugin.subdomain.executors.builtin.data.data_transformer.exception.DataTransformerExecutorException;
 
 import java.util.*;
@@ -8,9 +9,8 @@ import java.util.stream.Collectors;
 /**
  * Utility methods shared across aggregation based transformers.
  */
+@NoArgsConstructor
 public final class AggregationUtils {
-    private AggregationUtils() {
-    }
 
     public static Object applyAggregation(List<Map<String, Object>> items, String field, String function) {
         return switch (function.toLowerCase()) {
