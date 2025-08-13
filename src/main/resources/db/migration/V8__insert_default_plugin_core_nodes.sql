@@ -229,7 +229,7 @@ VALUES
        },
        "required": ["expression"]
      },
-     "group_by_params": {
+    "group_by_params": {
        "type": "object",
        "properties": {
          "groupBy": {
@@ -237,7 +237,13 @@ VALUES
              {"type": "string"},
              {"type": "array", "items": {"type": "string"}}
            ]
-         },
+         }
+       },
+       "required": ["groupBy"]
+     },
+     "aggregate_params": {
+       "type": "object",
+       "properties": {
          "aggregations": {
            "type": "array",
            "items": {
@@ -251,7 +257,7 @@ VALUES
            }
          }
        },
-       "required": ["groupBy"]
+       "required": ["aggregations"]
      },
      "distinct_params": {
        "type": "object",
@@ -487,6 +493,12 @@ VALUES
            "properties": {
              "transformer": {"const": "group_by"},
              "params": {"$ref": "#/definitions/group_by_params"}
+           }
+         },
+         {
+           "properties": {
+             "transformer": {"const": "aggregate"},
+             "params": {"$ref": "#/definitions/aggregate_params"}
            }
          },
          {
