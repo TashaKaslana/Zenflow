@@ -15,6 +15,7 @@ import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.entity
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.repository.PluginNodeRepository;
 import org.phong.zenflow.plugin.subdomain.schema.utils.JsonSchemaValidator;
 import org.phong.zenflow.plugin.subdomain.schema.services.SchemaRegistry;
+import org.phong.zenflow.plugin.subdomain.schema.services.NodeSampleDataService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -37,6 +38,7 @@ public class PluginNodeService {
     private final PluginNodeRepository pluginNodeRepository;
     private final PluginNodeMapper pluginNodeMapper;
     private final SchemaRegistry schemaRegistry;
+    private final NodeSampleDataService nodeSampleDataService;
 
     public PluginNode findById(UUID id) {
         return pluginNodeRepository.findById(id)
@@ -116,5 +118,9 @@ public class PluginNodeService {
     public PluginNodeDto findPluginNodeByName(String name) {
         return pluginNodeMapper.toDto(pluginNodeRepository.findByName(name)
                 .orElseThrow(() -> new PluginNodeException("PluginNode not found with name: " + name)));
+    }
+
+    public Map<String, Object> getSampleData(UUID nodeId) {
+        return nodeSampleDataService.getSampleData(nodeId);
     }
 }
