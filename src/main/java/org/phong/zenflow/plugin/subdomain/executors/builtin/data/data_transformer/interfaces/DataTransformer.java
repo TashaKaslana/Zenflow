@@ -4,5 +4,6 @@ import java.util.Map;
 
 public interface DataTransformer {
     String getName();
-    String transform(String input, Map<String, Object> params);
+
+    Object transform(Object data, Map<String, Object> params);
 }
