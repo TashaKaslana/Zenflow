@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
 
 @Component
 @Slf4j
@@ -29,6 +30,8 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
     private final BaseSqlExecutor baseSqlExecutor;
     private final PostgresParameterHandler postgresHandler;
     private final ObjectMapper objectMapper;
+    private final PostgresSqlRuntimeValidator runtimeValidator;
+    private final PostgresSqlDefinitionValidator definitionValidator;
 
     @Override
     public String key() {
@@ -63,6 +66,16 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
             log.error("Postgres SQL execution failed", e);
             return ExecutionResult.error("Postgres SQL execution failed: " + e.getMessage(), logCollector.getLogs());
         }
+    }
+
+    @Override
+    public List<ValidationError> validateDefinition(WorkflowConfig config) {
+        return definitionValidator.validate(config);
+    }
+
+    @Override
+    public List<ValidationError> validateRuntime(WorkflowConfig config, RuntimeContext ctx) {
+        return runtimeValidator.validate(config, ctx);
     }
 
     private boolean hasParameters(ResolvedDbConfig dbConfig) {
