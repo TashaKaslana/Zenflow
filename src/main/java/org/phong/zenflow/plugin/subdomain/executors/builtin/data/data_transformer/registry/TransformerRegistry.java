@@ -18,6 +18,10 @@ public class TransformerRegistry {
     }
 
     public DataTransformer getTransformer(String name) {
+        if (name == null || name.trim().isEmpty()) {
+            throw new ExecutorException("Unknown executor type: " + name);
+        }
+
         return Optional.ofNullable(registry.get(name))
                 .orElseThrow(() -> new ExecutorException("Unknown executor type: " + name));
     }
