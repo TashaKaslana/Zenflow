@@ -8,6 +8,7 @@ import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.infrastructure.persistence.repository.WorkflowRepository;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.engine.dto.WorkflowExecutionStatus;
+import org.phong.zenflow.workflow.subdomain.engine.event.NodeCommitEvent;
 import org.phong.zenflow.workflow.subdomain.engine.exception.WorkflowEngineException;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
@@ -15,6 +16,7 @@ import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.Work
 import org.phong.zenflow.workflow.subdomain.node_logs.service.NodeLogService;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
 import org.phong.zenflow.workflow.subdomain.schema_validator.service.WorkflowValidationService;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +34,7 @@ public class WorkflowEngineService {
     private final WorkflowValidationService workflowValidationService;
     private final PluginNodeExecutorDispatcher executorDispatcher;
     private final WorkflowNavigatorService workflowNavigatorService;
+    private final ApplicationEventPublisher publisher;
     
 
     @Transactional
@@ -70,7 +73,7 @@ public class WorkflowEngineService {
 
         while (workingNode != null) {
             result = setupAndExecutionWorkflow(workflowId, workflowRunId, context, workingNode);
-            WorkflowNavigatorService.ExecutionStepOutcome outcome = workflowNavigatorService.handleExecutionResult(workflowId, workingNode, result, workflowNodes, context);
+            WorkflowNavigatorService.ExecutionStepOutcome outcome = workflowNavigatorService.handleExecutionResult(workflowId, workflowRunId, workingNode, result, workflowNodes, context);
             workingNode = outcome.nextNode();
             executionStatus = outcome.status();
         }
@@ -98,6 +101,11 @@ public class WorkflowEngineService {
             log.warn("Output of node {} is null, skipping putting into context", workingNode.getKey());
         }
         nodeLogService.resolveNodeLog(workflowId, workflowRunId, workingNode, result);
+
+        if (result.getStatus() == org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus.COMMIT) {
+            publisher.publishEvent(new NodeCommitEvent(workflowId, workflowRunId, workingNode.getKey()));
+        }
+
         return result;
     }
 

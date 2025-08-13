@@ -141,6 +141,408 @@ VALUES
  '{
    "$schema": "http://json-schema.org/draft-07/schema#",
    "type": "object",
+   "definitions": {
+     "concat_params": {
+       "type": "object",
+       "properties": {
+         "suffix": {
+           "type": "string"
+         }
+       },
+       "required": [
+         "suffix"
+       ]
+     },
+     "get_field_params": {
+       "type": "object",
+       "properties": {
+         "field": {
+           "type": "string"
+         }
+       },
+       "required": [
+         "field"
+       ]
+     },
+     "set_field_params": {
+       "type": "object",
+       "properties": {
+         "field": {
+           "type": "string"
+         },
+         "value": {}
+       },
+       "required": [
+         "field",
+         "value"
+       ]
+     },
+     "regex_split_params": {
+       "type": "object",
+       "properties": {
+         "pattern": {
+           "type": "string"
+         }
+       },
+       "required": [
+         "pattern"
+       ]
+     },
+     "substring_params": {
+       "type": "object",
+       "properties": {
+         "start": {
+           "type": "integer"
+         },
+         "end": {
+           "type": "integer"
+         }
+       }
+     },
+     "sort_params": {
+       "type": "object",
+       "properties": {
+         "fields": {
+           "type": "array",
+           "items": {
+             "type": "object",
+             "properties": {
+               "field": {"type": "string"},
+               "order": {"type": "string", "enum": ["asc", "desc"], "default": "asc"},
+               "type": {"type": "string", "enum": ["string", "number", "date", "boolean"], "default": "string"},
+               "caseSensitive": {"type": "boolean", "default": true}
+             },
+             "required": ["field"]
+           }
+         },
+         "field": {"type": "string"},
+         "order": {"type": "string", "enum": ["asc", "desc"], "default": "asc"},
+         "type": {"type": "string", "enum": ["string", "number", "date", "boolean"], "default": "string"},
+         "nullsFirst": {"type": "boolean", "default": false}
+       }
+     },
+     "filter_params": {
+       "type": "object",
+       "properties": {
+         "expression": {"type": "string"},
+         "mode": {"type": "string", "enum": ["include", "exclude"], "default": "include"}
+       },
+       "required": ["expression"]
+     },
+     "group_by_params": {
+       "type": "object",
+       "properties": {
+         "groupBy": {
+           "oneOf": [
+             {"type": "string"},
+             {"type": "array", "items": {"type": "string"}}
+           ]
+         },
+         "aggregations": {
+           "type": "array",
+           "items": {
+             "type": "object",
+             "properties": {
+               "field": {"type": "string"},
+               "function": {"type": "string", "enum": ["count", "sum", "avg", "min", "max", "first", "last", "concat", "distinct_count", "std_dev"]},
+               "alias": {"type": "string"}
+             },
+             "required": ["field", "function"]
+           }
+         }
+       },
+       "required": ["groupBy"]
+     },
+     "distinct_params": {
+       "type": "object",
+       "properties": {
+         "fields": {
+           "oneOf": [
+             {"type": "string"},
+             {"type": "array", "items": {"type": "string"}}
+           ]
+         }
+       }
+     },
+     "to_csv_params": {
+       "type": "object",
+       "properties": {
+         "headers": {"type": "boolean", "default": true},
+         "delimiter": {"type": "string", "default": ","},
+         "quote": {"type": "string", "default": "\""},
+         "includeIndex": {"type": "boolean", "default": false},
+         "columns": {"type": "array", "items": {"type": "string"}}
+       }
+     },
+     "to_json_params": {
+       "type": "object",
+       "properties": {
+         "pretty": {"type": "boolean", "default": false},
+         "includeNulls": {"type": "boolean", "default": true}
+       }
+     },
+     "to_xml_params": {
+       "type": "object",
+       "properties": {
+         "root_name": {"type": "string", "default": "root"},
+         "row_name": {"type": "string", "default": "row"},
+         "namespace": {"type": "string"},
+         "schema_location": {"type": "string"},
+         "attributes": {
+           "type": "array",
+           "items": {
+             "type": "object",
+             "properties": {
+               "field": {"type": "string"},
+               "attribute": {"type": "string"}
+             },
+             "required": ["field", "attribute"]
+           }
+         }
+       }
+     },
+     "format_date_params": {
+       "type": "object",
+       "properties": {
+         "pattern": {"type": "string", "default": "yyyy-MM-dd"},
+         "field": {"type": "string"},
+         "locale": {"type": "string", "default": "en-US"}
+       },
+       "required": ["field"]
+     },
+     "format_number_params": {
+       "type": "object",
+       "properties": {
+         "pattern": {"type": "string", "default": "#,##0.###"},
+         "field": {"type": "string"},
+         "locale": {"type": "string", "default": "en-US"}
+       },
+       "required": ["field"]
+     },
+     "math_operations_params": {
+       "type": "object",
+       "properties": {
+         "operation": {
+           "type": "string",
+           "enum": ["add", "subtract", "multiply", "divide", "power", "sqrt", "log", "exp"],
+           "description": "The mathematical operation to perform."
+         },
+         "operand": {
+           "type": "number",
+           "description": "The operand for the mathematical operation."
+         },
+         "field": {
+           "type": "string",
+           "description": "The field on which to perform the operation."
+         }
+       },
+       "required": ["operation", "field"]
+     },
+     "string_operations_params": {
+       "type": "object",
+       "properties": {
+         "operation": {
+           "type": "string",
+           "enum": ["concat", "substring", "replace", "trim", "lowercase", "uppercase"],
+           "description": "The string operation to perform."
+         },
+         "delimiter": {
+           "type": "string",
+           "description": "The delimiter for split/join operations."
+         },
+         "length": {
+           "type": "integer",
+           "description": "The length for substring operation."
+         },
+         "start": {
+           "type": "integer",
+           "description": "The start position for substring operation."
+         },
+         "end": {
+           "type": "integer",
+           "description": "The end position for substring operation."
+         },
+         "pattern": {
+           "type": "string",
+           "description": "The pattern for regex operations."
+         },
+         "replacement": {
+           "type": "string",
+           "description": "The replacement string for replace operation."
+         }
+       },
+       "required": ["operation"]
+     },
+     "array_operations_params": {
+       "type": "object",
+       "properties": {
+         "operation": {
+           "type": "string",
+           "enum": ["map", "filter", "reduce", "find", "sort"],
+           "description": "The array operation to perform."
+         },
+         "callback": {
+           "type": "object",
+           "description": "The callback function for map/filter operations.",
+           "properties": {
+             "function": {
+               "type": "string",
+               "description": "The function to call."
+             },
+             "params": {
+               "type": "object",
+               "description": "The parameters to pass to the function."
+             }
+           },
+           "required": ["function"]
+         },
+         "initialValue": {
+           "type": "string",
+           "description": "The initial value for reduce operation."
+         },
+         "condition": {
+           "type": "string",
+           "description": "The condition for find/filter operations."
+         },
+         "order": {
+           "type": "string",
+           "enum": ["asc", "desc"],
+           "description": "The sort order for sort operation."
+         }
+       },
+       "required": ["operation"]
+     },
+     "jsonata_params": {
+       "type": "object",
+       "properties": {
+         "expression": {
+           "type": "string",
+           "description": "The JSONata expression to evaluate."
+         },
+         "context": {
+           "type": "object",
+           "description": "The context object for the JSONata expression."
+         }
+       },
+       "required": ["expression"]
+     },
+     "transform_step": {
+       "type": "object",
+       "properties": {
+         "transformer": {
+           "type": "string"
+         },
+         "params": {
+           "type": "object",
+           "default": {}
+         }
+       },
+       "required": [
+         "transformer"
+       ],
+       "oneOf": [
+         {
+           "properties": {
+             "transformer": {"const": "concat"},
+             "params": {"$ref": "#/definitions/concat_params"}
+           }
+         },
+         {
+           "properties": {
+             "transformer": {"const": "get_field"},
+             "params": {"$ref": "#/definitions/get_field_params"}
+           }
+         },
+         {
+           "properties": {
+             "transformer": {"const": "set_field"},
+             "params": {"$ref": "#/definitions/set_field_params"}
+           }
+         },
+         {
+           "properties": {
+             "transformer": {"const": "regex_split"},
+             "params": {"$ref": "#/definitions/regex_split_params"}
+           }
+         },
+         {
+           "properties": {
+             "transformer": {"const": "substring"},
+             "params": {"$ref": "#/definitions/substring_params"}
+           }
+         },
+         {
+           "properties": {
+             "transformer": {"const": "sort"},
+             "params": {"$ref": "#/definitions/sort_params"}
+           }
+         },
+         {
+           "properties": {
+             "transformer": {"const": "filter"},
+             "params": {"$ref": "#/definitions/filter_params"}
+           }
+         },
+         {
+           "properties": {
+             "transformer": {"const": "group_by"},
+             "params": {"$ref": "#/definitions/group_by_params"}
+           }
+         },
+         {
+           "properties": {
+             "transformer": {"const": "distinct"},
+             "params": {"$ref": "#/definitions/distinct_params"}
+           }
+         },
+         {
+           "properties": {
+             "transformer": {"const": "to_csv"},
+             "params": {"$ref": "#/definitions/to_csv_params"}
+           }
+         },
+         {
+           "properties": {
+             "transformer": {"const": "to_json"},
+             "params": {"$ref": "#/definitions/to_json_params"}
+           }
+         },
+         {
+           "properties": {
+             "transformer": {"const": "to_xml"},
+             "params": {"$ref": "#/definitions/to_xml_params"}
+           }
+         },
+         {
+           "properties": {
+             "transformer": {"const": "format_date"},
+             "params": {"$ref": "#/definitions/format_date_params"}
+           }
+         },
+         {
+           "properties": {
+             "transformer": {"const": "format_number"},
+             "params": {"$ref": "#/definitions/format_number_params"}
+           }
+         },
+         {
+           "properties": {
+             "transformer": {"const": "to_lowercase"}
+           }
+         },
+         {
+           "properties": {
+             "transformer": {"const": "uppercase"}
+           }
+         },
+         {
+           "properties": {
+             "transformer": {"const": "trim"}
+           }
+         }
+       ]
+     }
+   },
    "properties": {
      "input": {
        "type": "object",
@@ -148,86 +550,52 @@ VALUES
          "name": {
            "type": "string"
          },
-         "input": {
-           "type": "string"
-         },
+         "data": {},
          "params": {
            "type": "object",
-           "description": "Parameters for the transformer.",
            "default": {}
          },
          "isPipeline": {
            "type": "boolean",
-           "description": "Whether to run a sequence of transformations.",
+           "default": false
+         },
+         "forEach": {
+           "type": "boolean",
            "default": false
          },
          "steps": {
            "type": "array",
-           "description": "List of transformation steps if using a pipeline.",
            "items": {
-             "type": "object",
-             "properties": {
-               "transformer": {
-                 "type": "string"
-               },
-               "params": {
-                 "type": "object",
-                 "default": {}
-               }
-             },
-             "required": [
-               "transformer"
-             ]
+             "$ref": "#/definitions/transform_step"
            },
            "default": []
          }
        },
        "required": [
-         "input"
+         "data"
        ],
-       "allOf": [
-         {
-           "if": {
-             "properties": {
-               "isPipeline": {
-                 "const": true
-               }
-             }
-           },
-           "then": {
-             "required": [
-               "steps"
-             ]
-           },
-           "else": {
-             "required": [
-               "name"
-             ]
+       "if": {
+         "properties": {
+           "isPipeline": {
+             "const": false
            }
          }
-       ],
-       "additionalProperties": false
+       },
+       "then": {
+         "required": [
+           "name"
+         ]
+       },
+       "else": {
+         "required": [
+           "steps"
+         ]
+       }
      },
      "output": {
        "type": "object",
        "properties": {
-         "result": {
-           "type": "string"
-         }
-       }
-     },
-     "secrets": {
-       "type": "array",
-       "items": {
-         "type": "object",
-         "properties": {
-           "key": {
-             "type": "string"
-           }
-         },
-         "required": [
-           "key"
-         ]
+         "result": {}
        }
      }
    },
