@@ -42,10 +42,8 @@ class GroupByTransformerTest {
                 .findFirst()
                 .orElseThrow();
 
-        assertTrue(itGroup.containsKey("items"));
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> itItems = (List<Map<String, Object>>) itGroup.get("items");
-        assertEquals(2, itItems.size());
+        assertEquals(1, itGroup.size());
+        assertEquals("IT", itGroup.get("department"));
     }
 
     @Test
@@ -68,7 +66,7 @@ class GroupByTransformerTest {
                 .findFirst()
                 .orElseThrow();
 
-        assertTrue(itJunior.containsKey("items"));
+        assertEquals(Map.of("department", "IT", "level", "Junior"), itJunior);
     }
 
     @Test

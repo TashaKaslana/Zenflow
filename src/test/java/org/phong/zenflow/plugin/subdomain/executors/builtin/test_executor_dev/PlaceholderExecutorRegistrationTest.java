@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.phong.zenflow.plugin.subdomain.execution.register.ExecutorInitializer;
 import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -20,6 +21,6 @@ class PlaceholderExecutorRegistrationTest {
 
     @Test
     void placeholderExecutorIsRegistered() {
-        assertTrue(registry.getExecutor("core:placeholder:1.0.0").isPresent());
+        assertTrue(registry.getExecutor(PluginNodeIdentifier.fromString("core:placeholder:1.0.0")).isPresent());
     }
 }

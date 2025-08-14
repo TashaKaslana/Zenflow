@@ -18,13 +18,13 @@ public class PluginNodeExecutorDispatcher {
     public ExecutionResult dispatch(PluginNodeIdentifier identifier, WorkflowConfig config, RuntimeContext context) {
         switch (identifier.executorType().toLowerCase()) {
             case "builtin" -> {
-                String key = identifier.toString();
-                return registry.getExecutor(key)
-                        .orElseThrow(() -> new ExecutorException("Executor not found: " + key))
+                return registry.getExecutor(identifier)
+                        .orElseThrow(() -> new ExecutorException("Executor not found: " + identifier))
                         .execute(config, context);
             }
             case "remote" -> {
-                return registry.getExecutor("core:remote:1.0.0")
+                PluginNodeIdentifier remoteId = new PluginNodeIdentifier("core", "remote", "1.0.0", null);
+                return registry.getExecutor(remoteId)
                         .orElseThrow(() -> new ExecutorException("Remote http executor not found"))
                         .execute(config, context);
             }
