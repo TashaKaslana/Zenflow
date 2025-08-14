@@ -8,4 +8,6 @@ import java.util.UUID;
 
 public interface PluginRepository extends JpaRepository<Plugin, UUID> {
     Optional<Plugin> findByName(String name);
+
+    Optional<Plugin> findByKey(String key);
 }
