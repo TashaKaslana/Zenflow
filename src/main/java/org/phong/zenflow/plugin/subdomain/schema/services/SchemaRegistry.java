@@ -1,27 +1,29 @@
 package org.phong.zenflow.plugin.subdomain.schema.services;
 
-import lombok.RequiredArgsConstructor;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
 import org.phong.zenflow.plugin.subdomain.node.interfaces.PluginNodeSchemaProvider;
 import org.phong.zenflow.plugin.subdomain.schema.exception.NodeSchemaException;
 import org.phong.zenflow.plugin.subdomain.schema.exception.NodeSchemaMissingException;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class SchemaRegistry {
 
@@ -29,8 +31,23 @@ public class SchemaRegistry {
 
     private final PluginNodeSchemaProvider pluginProvider;
 
-    private final Map<String, JSONObject> builtinCache = new ConcurrentHashMap<>();
-    private final Map<String, JSONObject> pluginCache = new ConcurrentHashMap<>();
+    private final Cache<String, JSONObject> builtinCache;
+    private final Cache<String, JSONObject> pluginCache;
+
+    public SchemaRegistry(
+            PluginNodeSchemaProvider pluginProvider,
+            @Value("${zenflow.schema.cache-ttl-seconds:3600}") long cacheTtlSeconds) {
+        this.pluginProvider = pluginProvider;
+        Duration ttl = Duration.ofSeconds(cacheTtlSeconds);
+        this.builtinCache = Caffeine.newBuilder()
+                .expireAfterWrite(ttl)
+                .recordStats()
+                .build();
+        this.pluginCache = Caffeine.newBuilder()
+                .expireAfterWrite(ttl)
+                .recordStats()
+                .build();
+    }
 
     /**
      * Retrieves a schema by template string, supporting both built-in and plugin schemas.
@@ -94,7 +111,15 @@ public class SchemaRegistry {
 
     // Built-in node schema: key = "http-trigger"
     public JSONObject getBuiltinSchema(String name) {
-        return builtinCache.computeIfAbsent(name, this::loadBuiltinSchemaFromFile);
+        JSONObject cached = builtinCache.getIfPresent(name);
+        if (cached != null) {
+            log.debug("Builtin schema cache hit for {}", name);
+            return cached;
+        }
+        log.debug("Builtin schema cache miss for {}", name);
+        JSONObject schema = loadBuiltinSchemaFromFile(name);
+        builtinCache.put(name, schema);
+        return schema;
     }
 
     private Map<String, JSONObject> getBuiltinSchemas(List<String> names) {
@@ -111,13 +136,20 @@ public class SchemaRegistry {
      * @return JSONObject containing the schema
      */
     private JSONObject getPluginSchema(PluginNodeIdentifier identifier) {
-        return pluginCache.computeIfAbsent(identifier.toCacheKey(), k -> {
-            Map<String, Object> schema = pluginProvider.getSchemaJson(identifier);
-            if (schema.isEmpty()) {
-                throw new NodeSchemaMissingException("No schema found for plugin node: " + k, List.of(k));
-            }
-            return new JSONObject(schema);
-        });
+        String key = identifier.toCacheKey();
+        JSONObject cached = pluginCache.getIfPresent(key);
+        if (cached != null) {
+            log.debug("Plugin schema cache hit for {}", key);
+            return cached;
+        }
+        log.debug("Plugin schema cache miss for {}", key);
+        Map<String, Object> schema = pluginProvider.getSchemaJson(identifier);
+        if (schema.isEmpty()) {
+            throw new NodeSchemaMissingException("No schema found for plugin node: " + key, List.of(key));
+        }
+        JSONObject json = new JSONObject(schema);
+        pluginCache.put(key, json);
+        return json;
     }
 
     /**
@@ -128,9 +160,10 @@ public class SchemaRegistry {
      * @return Map of identifier (as String) -> schema JSONObject
      */
     private Map<String, JSONObject> getPluginSchemasByIdentifiers(Set<PluginNodeIdentifier> identifiers) {
+
         // Filter out already cached schemas
         List<PluginNodeIdentifier> uncachedIdentifiers = identifiers.stream()
-                .filter(id -> !pluginCache.containsKey(id.toCacheKey()))
+                .filter(id -> pluginCache.getIfPresent(id.toCacheKey()) == null)
                 .toList();
 
         // Fetch and cache missing schemas
@@ -139,19 +172,25 @@ public class SchemaRegistry {
         // Fail if any requested identifier is still missing
         List<String> missingIds = identifiers.stream()
                 .map(PluginNodeIdentifier::toCacheKey)
-                .filter(key -> !pluginCache.containsKey(key))
+                .filter(key -> pluginCache.getIfPresent(key) == null)
                 .toList();
 
         if (!missingIds.isEmpty()) {
             throw new NodeSchemaMissingException("Schemas missing for plugin node identifiers", missingIds);
         }
 
-        // All schemas are guaranteed to be present
         return identifiers.stream()
-                .collect(Collectors.toMap(
-                        PluginNodeIdentifier::toCacheKey,
-                        id -> pluginCache.get(id.toCacheKey())
-                ));
+                .collect(
+                        HashMap::new,
+                        (m, id) -> {
+                            String key = id.toCacheKey();
+                            JSONObject val = pluginCache.getIfPresent(key);
+                            if (val != null) {
+                                m.put(key, val);
+                            }
+                        },
+                        Map::putAll
+                );
     }
 
     private void putNewSchemasForUncachedIdentifiers(List<PluginNodeIdentifier> uncachedIdentifiers) {
@@ -179,6 +218,53 @@ public class SchemaRegistry {
                         entry -> PluginNodeIdentifier.fromString(entry.getKey()),
                         Map.Entry::getValue
                 ));
+    }
+
+    /**
+     * Invalidate a built-in schema entry from cache.
+     *
+     * @param name the built-in schema name
+     */
+    public void invalidateBuiltinSchema(String name) {
+        builtinCache.invalidate(name);
+    }
+
+    /**
+     * Invalidate a plugin schema entry from cache.
+     *
+     * @param identifier the plugin node identifier
+     */
+    public void invalidatePluginSchema(PluginNodeIdentifier identifier) {
+        pluginCache.invalidate(identifier.toCacheKey());
+    }
+
+    /**
+     * Invalidate a schema entry using the template string format used in {@link #getSchemaByTemplateString}.
+     *
+     * @param templateString schema identifier, either built-in or plugin format
+     */
+    public void invalidateByTemplateString(String templateString) {
+        if (templateString.startsWith("builtin:")) {
+            invalidateBuiltinSchema(templateString.substring(8));
+            return;
+        }
+        try {
+            PluginNodeIdentifier pni = PluginNodeIdentifier.fromString(templateString);
+            invalidatePluginSchema(pni);
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid schema identifier format for invalidate: {}", templateString, e);
+        }
+    }
+
+    /**
+     * Expose cache statistics for debugging and metrics.
+     */
+    public CacheStats builtinCacheStats() {
+        return builtinCache.stats();
+    }
+
+    public CacheStats pluginCacheStats() {
+        return pluginCache.stats();
     }
 
     private JSONObject loadBuiltinSchemaFromFile(String name) {
