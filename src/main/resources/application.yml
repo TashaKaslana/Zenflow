@@ -45,6 +45,11 @@ app:
   secret:
     key: ${APP_SECRET_KEY:default-secret-key}
 
+zenflow:
+  schema:
+    # Time-to-live for schema cache entries in seconds
+    cache-ttl-seconds: 3600
+
 # Logging configuration (commented out in the original)
 #logging:
 #  level:

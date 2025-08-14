@@ -21,20 +21,8 @@ class AggregateTransformerTest {
     @Test
     void testTransformAggregations() {
         List<Map<String, Object>> groups = Arrays.asList(
-                Map.of(
-                        "department", "IT",
-                        "items", Arrays.asList(
-                                Map.of("name", "John", "department", "IT", "age", 30, "salary", 50000),
-                                Map.of("name", "Bob", "department", "IT", "age", 35, "salary", 60000)
-                        )
-                ),
-        Map.of(
-                        "department", "HR",
-                        "items", Arrays.asList(
-                                Map.of("name", "Jane", "department", "HR", "age", 25, "salary", 45000),
-                                Map.of("name", "Alice", "department", "HR", "age", 28, "salary", 48000)
-                        )
-                )
+                Map.of("name", "John", "department", "IT", "age", 30, "salary", 50000),
+                Map.of("name", "Bob", "department", "IT", "age", 35, "salary", 60000)
         );
 
         Map<String, Object> params = Map.of(
@@ -46,31 +34,21 @@ class AggregateTransformerTest {
         );
 
         @SuppressWarnings("unchecked")
-        List<Map<String, Object>> result = (List<Map<String, Object>>) aggregateTransformer.transform(groups, params);
+        Map<String, Object> result = (Map<String, Object>) aggregateTransformer.transform(groups, params);
 
-        assertEquals(2, result.size());
+        assertEquals(3, result.size());
 
-        Map<String, Object> itResult = result.stream()
-                .filter(r -> "IT".equals(r.get("department")))
-                .findFirst()
-                .orElseThrow();
-
-        assertEquals(110000.0, itResult.get("total_salary"));
-        assertEquals(32.5, itResult.get("avg_age"));
-        assertEquals(2, itResult.get("employee_count"));
+        assertEquals(110000.0, result.get("total_salary"));
+        assertEquals(32.5, result.get("avg_age"));
+        assertEquals(2, result.get("employee_count"));
     }
 
     @Test
     void testTransformWithDifferentFunctions() {
         List<Map<String, Object>> groups = List.of(
-                Map.of(
-                        "department", "IT",
-                        "items", Arrays.asList(
-                                Map.of("department", "IT", "salary", 50000, "bonus", 5000),
-                                Map.of("department", "IT", "salary", 60000, "bonus", 6000),
-                                Map.of("department", "IT", "salary", 55000, "bonus", 5500)
-                        )
-                )
+                Map.of("department", "IT", "salary", 50000, "bonus", 5000),
+                Map.of("department", "IT", "salary", 60000, "bonus", 6000),
+                Map.of("department", "IT", "salary", 55000, "bonus", 5500)
         );
 
         Map<String, Object> params = Map.of(
@@ -82,12 +60,11 @@ class AggregateTransformerTest {
         );
 
         @SuppressWarnings("unchecked")
-        List<Map<String, Object>> result = (List<Map<String, Object>>) aggregateTransformer.transform(groups, params);
+        Map<String, Object> result = (Map<String, Object>) aggregateTransformer.transform(groups, params);
 
-        Map<String, Object> itResult = result.getFirst();
-        assertEquals(50000, itResult.get("min_salary"));
-        assertEquals(60000, itResult.get("max_salary"));
-        assertEquals(16500.0, itResult.get("total_bonus"));
+        assertEquals(50000, result.get("min_salary"));
+        assertEquals(60000, result.get("max_salary"));
+        assertEquals(16500.0, result.get("total_bonus"));
     }
 }
 
