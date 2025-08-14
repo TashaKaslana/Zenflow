@@ -52,7 +52,8 @@ public class SingleNodeExecutionService {
         ValidationResult validationResult = workflowValidationService.validateRuntime(
                 plugin.getKey(),
                 resolvedConfig,
-                identifier.toCacheKey()
+                identifier.toCacheKey(),
+                context
         );
 
         if (!validationResult.isValid()) {
