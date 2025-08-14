@@ -3,7 +3,6 @@ package org.phong.zenflow.workflow.subdomain.schema_validator.service;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
-import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
 import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
@@ -11,6 +10,7 @@ import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWork
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.OutputUsage;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
 import org.phong.zenflow.workflow.subdomain.schema_validator.enums.ValidationErrorCode;
@@ -113,8 +113,14 @@ public class WorkflowValidationService {
                         nodeKey, resolvedConfig, templateString, nodeKey + ".config.input", "input"));
             }
 
+            PluginNodeIdentifier identifier = null;
+            try {
+                identifier = PluginNodeIdentifier.fromString(templateString);
+            } catch (Exception ignored) {
+            }
+
             // Additional runtime-specific validations
-            errors.addAll(validateRuntimeConstraints(nodeKey, resolvedConfig, templateString, context));
+            errors.addAll(validateRuntimeConstraints(nodeKey, resolvedConfig, identifier, context));
 
         } catch (Exception e) {
             errors.add(ValidationError.builder()
@@ -143,10 +149,11 @@ public class WorkflowValidationService {
             log.debug("Processing node: {} (type: {})", node.getKey(), node.getType());
 
             validatePluginNode(node, errors);
-            String templateString = node.getPluginNode().toCacheKey();
+            PluginNodeIdentifier identifier = node.getPluginNode();
+            String templateString = identifier.toCacheKey();
             log.debug("Plugin node detected - templateString: {}", templateString);
 
-            executorRegistry.getExecutor(templateString).ifPresent(executor -> {
+            executorRegistry.getExecutor(identifier).ifPresent(executor -> {
                 List<ValidationError> defErrors = executor.validateDefinition(node.getConfig());
                 if (defErrors != null) {
                     defErrors.forEach(error -> {
@@ -289,34 +296,37 @@ public class WorkflowValidationService {
      *
      * @param nodeKey        The key of the node being validated
      * @param resolvedConfig The resolved configuration with all templates expanded
-     * @param nodeType       The type of node being validated
+     * @param executorIdentifier The identifier for the plugin node executor
+     * @param context        The runtime context for validation
      * @return List of validation errors found during runtime constraint validation
      */
     private List<ValidationError> validateRuntimeConstraints(String nodeKey,
                                                              WorkflowConfig resolvedConfig,
-                                                             String executorKey,
+                                                             PluginNodeIdentifier executorIdentifier,
                                                              RuntimeContext context) {
         List<ValidationError> errors = new ArrayList<>();
 
         // Add specific runtime validations based on a node type
-        if ("core:flow.branch.condition:1.0.0".equals(executorKey)) {
+        if (executorIdentifier != null && "core:flow.branch.condition:1.0.0".equals(executorIdentifier.toCacheKey())) {
             errors.addAll(validateConditionNodeRuntime(nodeKey, resolvedConfig));
         }
 
-        executorRegistry.getExecutor(executorKey).ifPresent(executor -> {
-            List<ValidationError> runtimeErrors = executor.validateRuntime(resolvedConfig, context);
-            if (runtimeErrors != null) {
-                runtimeErrors.forEach(error -> {
-                    if (error.getNodeKey() == null) {
-                        error.setNodeKey(nodeKey);
-                    }
-                    if (error.getErrorType() == null) {
-                        error.setErrorType("runtime");
-                    }
-                    errors.add(error);
-                });
-            }
-        });
+        if (executorIdentifier != null) {
+            executorRegistry.getExecutor(executorIdentifier).ifPresent(executor -> {
+                List<ValidationError> runtimeErrors = executor.validateRuntime(resolvedConfig, context);
+                if (runtimeErrors != null) {
+                    runtimeErrors.forEach(error -> {
+                        if (error.getNodeKey() == null) {
+                            error.setNodeKey(nodeKey);
+                        }
+                        if (error.getErrorType() == null) {
+                            error.setErrorType("runtime");
+                        }
+                        errors.add(error);
+                    });
+                }
+            });
+        }
 
         return errors;
     }
