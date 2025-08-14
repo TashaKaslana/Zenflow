@@ -1,5 +1,7 @@
 package org.phong.zenflow.plugin.subdomain.executors.builtin.http.executor;
 
+import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionInput;
+import org.phong.zenflow.workflow.subdomain.context.RuntimeContextPool;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
@@ -34,7 +36,9 @@ public class HttpRequestExecutor implements PluginNodeExecutor {
     }
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config, RuntimeContext context) {
+    public ExecutionResult execute(ExecutionInput executionInput) {
+        WorkflowConfig config = executionInput.config();
+        RuntimeContext context = RuntimeContextPool.getContext(executionInput.metadata().workflowRunId());
         LogCollector logs = new LogCollector();
         try {
             Map<String, Object> input = config.input();

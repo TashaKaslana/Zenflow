@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.RuntimeContextPool;
 import org.phong.zenflow.workflow.subdomain.engine.dto.WorkflowExecutionStatus;
 import org.phong.zenflow.workflow.subdomain.engine.event.NodeCommitEvent;
 import org.phong.zenflow.workflow.subdomain.engine.exception.WorkflowEngineException;
@@ -32,8 +33,8 @@ public class WorkflowNavigatorService {
                                                       UUID workflowRunId,
                                                       BaseWorkflowNode workingNode,
                                                       ExecutionResult result,
-                                                      List<BaseWorkflowNode> workflowNodes,
-                                                      RuntimeContext context) {
+                                                      List<BaseWorkflowNode> workflowNodes) {
+        RuntimeContext context = RuntimeContextPool.getContext(workflowRunId);
         return switch (result.getStatus()) {
             case SUCCESS, COMMIT -> new ExecutionStepOutcome(navigatorSuccess(workflowId, workingNode, workflowNodes),
                     WorkflowExecutionStatus.COMPLETED);
@@ -51,17 +52,17 @@ public class WorkflowNavigatorService {
             case VALIDATION_ERROR ->
                     new ExecutionStepOutcome(null, navigatorValidationError(workingNode, result, context));
             case LOOP_NEXT ->
-                    new ExecutionStepOutcome(navigatorLoopNext(workflowId, workingNode, result, workflowNodes, context),
+                    new ExecutionStepOutcome(navigatorLoopNext(workflowId, workflowRunId, workingNode, result, workflowNodes),
                             WorkflowExecutionStatus.COMPLETED);
             case LOOP_END ->
-                    new ExecutionStepOutcome(navigatorLoopEnd(workflowId, workingNode, result, workflowNodes, context),
+                    new ExecutionStepOutcome(navigatorLoopEnd(workflowId, workflowRunId, workingNode, result, workflowNodes),
                             WorkflowExecutionStatus.COMPLETED);
             case LOOP_CONTINUE -> {
                 navigatorLoopContinue(workingNode);
                 yield new ExecutionStepOutcome(workingNode, WorkflowExecutionStatus.COMPLETED);
             }
             case LOOP_BREAK ->
-                    new ExecutionStepOutcome(navigatorLoopBreak(workflowId, workingNode, result, workflowNodes, context),
+                    new ExecutionStepOutcome(navigatorLoopBreak(workflowId, workflowRunId, workingNode, result, workflowNodes),
                             WorkflowExecutionStatus.COMPLETED);
             case UNCOMMIT -> {
                 log.info("Node {} is in uncommit state, halting workflow execution until conditions are met", workingNode.getKey());
@@ -170,10 +171,11 @@ public class WorkflowNavigatorService {
     }
 
     private BaseWorkflowNode navigatorLoopNext(UUID workflowId,
+                                               UUID workflowRunId,
                                                BaseWorkflowNode workingNode,
                                                ExecutionResult result,
-                                               List<BaseWorkflowNode> workflowNodes,
-                                               RuntimeContext context) {
+                                               List<BaseWorkflowNode> workflowNodes) {
+        RuntimeContext context = RuntimeContextPool.getContext(workflowRunId);
         // Start loop if not already started (first iteration)
         if (!context.isInLoop()) {
             context.startLoop(workingNode.getKey());
@@ -191,10 +193,11 @@ public class WorkflowNavigatorService {
     }
 
     private BaseWorkflowNode navigatorLoopEnd(UUID workflowId,
+                                              UUID workflowRunId,
                                               BaseWorkflowNode workingNode,
                                               ExecutionResult result,
-                                              List<BaseWorkflowNode> workflowNodes,
-                                              RuntimeContext context) {
+                                              List<BaseWorkflowNode> workflowNodes) {
+        RuntimeContext context = RuntimeContextPool.getContext(workflowRunId);
         // End the loop
         context.endLoop(workingNode.getKey());
         log.debug("Loop ended for node: {}", workingNode.getKey());
@@ -215,10 +218,11 @@ public class WorkflowNavigatorService {
     }
 
     private BaseWorkflowNode navigatorLoopBreak(UUID workflowId,
+                                                UUID workflowRunId,
                                                 BaseWorkflowNode workingNode,
                                                 ExecutionResult result,
-                                                List<BaseWorkflowNode> workflowNodes,
-                                                RuntimeContext context) {
+                                                List<BaseWorkflowNode> workflowNodes) {
+        RuntimeContext context = RuntimeContextPool.getContext(workflowRunId);
         // End the loop when breaking
         context.endLoop(workingNode.getKey());
         log.debug("Loop break - ended loop for node: {}", workingNode.getKey());

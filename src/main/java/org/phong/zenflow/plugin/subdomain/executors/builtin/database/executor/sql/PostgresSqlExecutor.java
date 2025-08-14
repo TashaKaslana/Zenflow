@@ -1,5 +1,7 @@
 package org.phong.zenflow.plugin.subdomain.executors.builtin.database.executor.sql;
 
+import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionInput;
+import org.phong.zenflow.workflow.subdomain.context.RuntimeContextPool;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -9,7 +11,6 @@ import org.phong.zenflow.plugin.subdomain.executors.builtin.database.base.BaseDb
 import org.phong.zenflow.plugin.subdomain.executors.builtin.database.base.BaseSqlExecutor;
 import org.phong.zenflow.plugin.subdomain.executors.builtin.database.dto.ResolvedDbConfig;
 import org.phong.zenflow.plugin.subdomain.executors.builtin.database.handlers.PostgresParameterHandler;
-import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
 import org.springframework.stereotype.Component;
@@ -39,13 +40,14 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
     }
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config, RuntimeContext context) {
+    public ExecutionResult execute(ExecutionInput executionInput) {
+        WorkflowConfig config = executionInput.config();
         LogCollector logCollector = new LogCollector();
         try {
             log.info("Executing Postgres SQL node with config: {}", config);
 
             config.input().put("driver", "postgresql");
-            ResolvedDbConfig dbConfig = baseDbConnection.establishConnection(config, context, logCollector);
+            ResolvedDbConfig dbConfig = baseDbConnection.establishConnection(config, executionInput.metadata().workflowRunId(), logCollector);
 
             // Pre-process PostgreSQL-specific syntax
             dbConfig = preprocessPostgresSyntax(dbConfig, logCollector);
@@ -74,8 +76,8 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
     }
 
     @Override
-    public List<ValidationError> validateRuntime(WorkflowConfig config, RuntimeContext ctx) {
-        return runtimeValidator.validate(config, ctx);
+    public List<ValidationError> validateRuntime(ExecutionInput executionInput) {
+        return runtimeValidator.validate(executionInput.config());
     }
 
     private boolean hasParameters(ResolvedDbConfig dbConfig) {

@@ -1,5 +1,7 @@
 package org.phong.zenflow.plugin.subdomain.executors.builtin.triggers;
 
+import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionInput;
+import org.phong.zenflow.workflow.subdomain.context.RuntimeContextPool;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
@@ -30,7 +32,9 @@ public class WorkflowTriggerExecutor implements PluginNodeExecutor {
 
     @Override
     @Transactional
-    public ExecutionResult execute(WorkflowConfig config, RuntimeContext context) {
+    public ExecutionResult execute(ExecutionInput executionInput) {
+        WorkflowConfig config = executionInput.config();
+        RuntimeContext context = RuntimeContextPool.getContext(executionInput.metadata().workflowRunId());
         LogCollector logs = new LogCollector();
         try {
             logs.info("Workflow trigger started at {}", OffsetDateTime.now());

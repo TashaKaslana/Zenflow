@@ -6,6 +6,7 @@ import org.springframework.context.ApplicationEventPublisher;
 
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.RuntimeContextPool;
 import org.phong.zenflow.workflow.subdomain.engine.event.NodeCommitEvent;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
@@ -43,7 +44,9 @@ public class WorkflowNavigatorServiceTest {
 
         UUID workflowId = UUID.randomUUID();
         UUID runId = UUID.randomUUID();
-        service.handleExecutionResult(workflowId, runId, waitNode, result, List.of(), new RuntimeContext());
+        RuntimeContext context = new RuntimeContext();
+        RuntimeContextPool.registerContext(runId, context);
+        service.handleExecutionResult(workflowId, runId, waitNode, result, List.of());
 
         service.onNodeCommit(new NodeCommitEvent(workflowId, runId, "A"));
         verify(publisher, never()).publishEvent(any());

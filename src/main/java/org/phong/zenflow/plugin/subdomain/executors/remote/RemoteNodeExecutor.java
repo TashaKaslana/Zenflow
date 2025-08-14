@@ -1,5 +1,7 @@
 package org.phong.zenflow.plugin.subdomain.executors.remote;
 
+import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionInput;
+import org.phong.zenflow.workflow.subdomain.context.RuntimeContextPool;
 import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.AllArgsConstructor;
 import org.phong.zenflow.core.utils.ObjectConversion;
@@ -8,7 +10,6 @@ import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.plugin.subdomain.execution.exceptions.ExecutorException;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.plugin.subdomain.executors.builtin.http.executor.HttpRequestExecutor;
-import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.springframework.stereotype.Component;
 
@@ -29,7 +30,8 @@ public class RemoteNodeExecutor implements PluginNodeExecutor {
     }
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config, RuntimeContext context) {
+    public ExecutionResult execute(ExecutionInput executionInput) {
+        WorkflowConfig config = executionInput.config();
         Map<String, Object> entrypoint = config.entrypoint();
         Map<String, Object> input = config.input();
 
@@ -82,7 +84,7 @@ public class RemoteNodeExecutor implements PluginNodeExecutor {
                 null
         );
 
-        ExecutionResult httpResult = httpRequestExecutor.execute(httpRequestConfig, context);
+        ExecutionResult httpResult = httpRequestExecutor.execute(new ExecutionInput(httpRequestConfig, executionInput.metadata()));
 
         if (httpResult.getStatus() != ExecutionStatus.SUCCESS) {
             return httpResult;

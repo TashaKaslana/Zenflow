@@ -3,10 +3,12 @@ package org.phong.zenflow.workflow.subdomain.schema_validator.service;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
+import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionInput;
+import org.phong.zenflow.plugin.subdomain.execution.dto.RuntimeMetadata;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
 import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
-import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.RuntimeContextPool;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.OutputUsage;
@@ -20,6 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -104,7 +107,7 @@ public class WorkflowValidationService {
      *                       </ul>
      * @return ValidationResult containing any runtime validation errors found
      */
-    public ValidationResult validateRuntime(String nodeKey, WorkflowConfig resolvedConfig, String templateString, RuntimeContext context) {
+    public ValidationResult validateRuntime(String nodeKey, WorkflowConfig resolvedConfig, String templateString, UUID workflowRunId) {
         List<ValidationError> errors = new ArrayList<>();
 
         try {
@@ -114,7 +117,7 @@ public class WorkflowValidationService {
             }
 
             // Additional runtime-specific validations
-            errors.addAll(validateRuntimeConstraints(nodeKey, resolvedConfig, templateString, context));
+            errors.addAll(validateRuntimeConstraints(nodeKey, resolvedConfig, templateString, workflowRunId));
 
         } catch (Exception e) {
             errors.add(ValidationError.builder()
@@ -295,7 +298,7 @@ public class WorkflowValidationService {
     private List<ValidationError> validateRuntimeConstraints(String nodeKey,
                                                              WorkflowConfig resolvedConfig,
                                                              String executorKey,
-                                                             RuntimeContext context) {
+                                                             UUID workflowRunId) {
         List<ValidationError> errors = new ArrayList<>();
 
         // Add specific runtime validations based on a node type
@@ -304,7 +307,8 @@ public class WorkflowValidationService {
         }
 
         executorRegistry.getExecutor(executorKey).ifPresent(executor -> {
-            List<ValidationError> runtimeErrors = executor.validateRuntime(resolvedConfig, context);
+            ExecutionInput input = new ExecutionInput(resolvedConfig, new RuntimeMetadata(workflowRunId));
+            List<ValidationError> runtimeErrors = executor.validateRuntime(input);
             if (runtimeErrors != null) {
                 runtimeErrors.forEach(error -> {
                     if (error.getNodeKey() == null) {

@@ -1,5 +1,7 @@
 package org.phong.zenflow.plugin.subdomain.executors.builtin.test_executor_dev;
 
+import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionInput;
+import org.phong.zenflow.workflow.subdomain.context.RuntimeContextPool;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
@@ -20,7 +22,9 @@ public class NumberValidatorExecutor implements PluginNodeExecutor {
     }
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config, RuntimeContext context) {
+    public ExecutionResult execute(ExecutionInput executionInput) {
+        WorkflowConfig config = executionInput.config();
+        RuntimeContext context = RuntimeContextPool.getContext(executionInput.metadata().workflowRunId());
         LogCollector logCollector = new LogCollector();
         
         try {

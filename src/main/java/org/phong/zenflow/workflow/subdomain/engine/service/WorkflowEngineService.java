@@ -2,11 +2,14 @@ package org.phong.zenflow.workflow.subdomain.engine.service;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionInput;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
+import org.phong.zenflow.plugin.subdomain.execution.dto.RuntimeMetadata;
 import org.phong.zenflow.plugin.subdomain.execution.services.PluginNodeExecutorDispatcher;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.infrastructure.persistence.repository.WorkflowRepository;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.RuntimeContextPool;
 import org.phong.zenflow.workflow.subdomain.engine.dto.WorkflowExecutionStatus;
 import org.phong.zenflow.workflow.subdomain.engine.event.NodeCommitEvent;
 import org.phong.zenflow.workflow.subdomain.engine.exception.WorkflowEngineException;
@@ -40,8 +43,7 @@ public class WorkflowEngineService {
     @Transactional
     public WorkflowExecutionStatus runWorkflow(UUID workflowId,
                                                UUID workflowRunId,
-                                               @Nullable String startFromNodeKey,
-                                               RuntimeContext context) {
+                                               @Nullable String startFromNodeKey) {
         try {
             Workflow workflow = workflowRepository.findById(workflowId).orElseThrow(
                     () -> new WorkflowEngineException("Workflow not found with ID: " + workflowId)
@@ -56,7 +58,7 @@ public class WorkflowEngineService {
             String currentNodeKey = (startFromNodeKey != null) ? startFromNodeKey : workflow.getStartNode();
             BaseWorkflowNode workingNode = workflowNavigatorService.findNodeByKey(workflowNodes, currentNodeKey);
 
-            return getWorkflowExecutionStatus(workflowId, workflowRunId, context, workingNode, workflowNodes);
+            return getWorkflowExecutionStatus(workflowId, workflowRunId, workingNode, workflowNodes);
         } catch (Exception e) {
             log.warn("Error running workflow with ID: {}", workflowId, e);
             throw new WorkflowEngineException("Workflow failed", e);
@@ -65,15 +67,14 @@ public class WorkflowEngineService {
 
     private WorkflowExecutionStatus getWorkflowExecutionStatus(UUID workflowId,
                                                                UUID workflowRunId,
-                                                               RuntimeContext context,
                                                                BaseWorkflowNode workingNode,
                                                                List<BaseWorkflowNode> workflowNodes) {
         WorkflowExecutionStatus executionStatus = WorkflowExecutionStatus.COMPLETED;
         ExecutionResult result;
 
         while (workingNode != null) {
-            result = setupAndExecutionWorkflow(workflowId, workflowRunId, context, workingNode);
-            WorkflowNavigatorService.ExecutionStepOutcome outcome = workflowNavigatorService.handleExecutionResult(workflowId, workflowRunId, workingNode, result, workflowNodes, context);
+            result = setupAndExecutionWorkflow(workflowId, workflowRunId, workingNode);
+            WorkflowNavigatorService.ExecutionStepOutcome outcome = workflowNavigatorService.handleExecutionResult(workflowId, workflowRunId, workingNode, result, workflowNodes);
             workingNode = outcome.nextNode();
             executionStatus = outcome.status();
         }
@@ -84,15 +85,16 @@ public class WorkflowEngineService {
 
     private ExecutionResult setupAndExecutionWorkflow(UUID workflowId,
                                                       UUID workflowRunId,
-                                                      RuntimeContext context,
                                                       BaseWorkflowNode workingNode) {
         ExecutionResult result;
         nodeLogService.startNode(workflowRunId, workingNode.getKey());
 
+        RuntimeContext context = RuntimeContextPool.getContext(workflowRunId);
+
         WorkflowConfig config = workingNode.getConfig() != null ? workingNode.getConfig() : new WorkflowConfig();
         WorkflowConfig resolvedConfig = context.resolveConfig(workingNode.getKey(), config);
 
-        result = executeWorkingNode(workingNode, resolvedConfig, context);
+        result = executeWorkingNode(workingNode, resolvedConfig, workflowRunId);
 
         Map<String, Object> output = result.getOutput();
         if (output != null) {
@@ -111,20 +113,21 @@ public class WorkflowEngineService {
 
     private ExecutionResult executeWorkingNode(BaseWorkflowNode workingNode,
                                                WorkflowConfig resolvedConfig,
-                                               RuntimeContext context) {
+                                               UUID workflowRunId) {
         ExecutionResult result;
 
         ValidationResult validationResult = workflowValidationService.validateRuntime(
                 workingNode.getKey(),
                 resolvedConfig,
                 workingNode.getPluginNode().toCacheKey(),
-                context
+                workflowRunId
         );
         if (!validationResult.isValid()) {
             return ExecutionResult.validationError(validationResult, workingNode.getKey());
         }
 
-        result = executorDispatcher.dispatch(workingNode.getPluginNode(), resolvedConfig, context);
+        ExecutionInput input = new ExecutionInput(resolvedConfig, new RuntimeMetadata(workflowRunId));
+        result = executorDispatcher.dispatch(workingNode.getPluginNode(), input);
 
         return result;
     }

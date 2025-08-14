@@ -6,11 +6,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionInput;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
+import org.phong.zenflow.plugin.subdomain.execution.dto.RuntimeMetadata;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.plugin.subdomain.executors.builtin.data.data_transformer.interfaces.DataTransformer;
 import org.phong.zenflow.plugin.subdomain.executors.builtin.data.data_transformer.registry.TransformerRegistry;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.RuntimeContextPool;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 
 import java.util.*;
@@ -59,14 +62,19 @@ class DataTransformerExecutorTest {
     @Mock
     private DataTransformer toJsonTransformer;
 
-    @Mock
-    private RuntimeContext runtimeContext;
 
     private DataTransformerExecutor executor;
 
     @BeforeEach
     void setUp() {
         executor = new DataTransformerExecutor(registry);
+    }
+
+    private ExecutionInput inputFor(WorkflowConfig config) {
+        UUID runId = UUID.randomUUID();
+        RuntimeContext context = new RuntimeContext();
+        RuntimeContextPool.registerContext(runId, context);
+        return new ExecutionInput(config, new RuntimeMetadata(runId));
     }
 
     @Test
@@ -104,7 +112,7 @@ class DataTransformerExecutorTest {
         when(uppercaseTransformer.transform("hello world", Map.of())).thenReturn("HELLO WORLD");
         when(concatTransformer.transform("HELLO WORLD", Map.of("suffix", "!"))).thenReturn("HELLO WORLD!");
 
-        ExecutionResult result = executor.execute(config, runtimeContext);
+        ExecutionResult result = executor.execute(inputFor(config));
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
         assertEquals("HELLO WORLD!", result.getOutput().get("result"));
@@ -136,7 +144,7 @@ class DataTransformerExecutorTest {
         when(setFieldTransformer.transform(eq(afterFirstSet), any())).thenReturn(afterSecondSet);
         when(getFieldTransformer.transform(eq(afterSecondSet), any())).thenReturn("John");
 
-        ExecutionResult result = executor.execute(config, runtimeContext);
+        ExecutionResult result = executor.execute(inputFor(config));
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
         assertEquals("John", result.getOutput().get("result"));
@@ -212,7 +220,7 @@ class DataTransformerExecutorTest {
         when(groupByTransformer.transform(eq(afterSort), any())).thenReturn(grouped);
         when(aggregateTransformer.transform(eq(grouped), any())).thenReturn(finalResult);
 
-        ExecutionResult result = executor.execute(config, runtimeContext);
+        ExecutionResult result = executor.execute(inputFor(config));
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
         assertEquals(finalResult, result.getOutput().get("result"));
@@ -297,7 +305,7 @@ class DataTransformerExecutorTest {
         when(setFieldTransformer.transform(eq(afterFormatNumber), any())).thenReturn(afterSetField);
         when(toJsonTransformer.transform(eq(afterSetField), any())).thenReturn(jsonResult);
 
-        ExecutionResult result = executor.execute(config, runtimeContext);
+        ExecutionResult result = executor.execute(inputFor(config));
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
         assertEquals(jsonResult, result.getOutput().get("result"));
@@ -354,7 +362,7 @@ class DataTransformerExecutorTest {
         when(uppercaseTransformer.transform("bob", Map.of())).thenReturn("BOB");
         when(concatTransformer.transform("BOB", Map.of("suffix", " - Employee"))).thenReturn("BOB - Employee");
 
-        ExecutionResult result = executor.execute(config, runtimeContext);
+        ExecutionResult result = executor.execute(inputFor(config));
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
         @SuppressWarnings("unchecked")
@@ -426,7 +434,7 @@ class DataTransformerExecutorTest {
         });
         when(toJsonTransformer.transform(any(), any())).thenReturn(finalJson);
 
-        ExecutionResult result = executor.execute(config, runtimeContext);
+        ExecutionResult result = executor.execute(inputFor(config));
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
         assertEquals(finalJson, result.getOutput().get("result"));
@@ -452,7 +460,7 @@ class DataTransformerExecutorTest {
         );
         WorkflowConfig config = new WorkflowConfig(input);
 
-        ExecutionResult result = executor.execute(config, runtimeContext);
+        ExecutionResult result = executor.execute(inputFor(config));
 
         assertEquals(ExecutionStatus.ERROR, result.getStatus());
         assertTrue(result.getError().contains("Pipeline steps are missing"));
@@ -471,7 +479,7 @@ class DataTransformerExecutorTest {
         );
         WorkflowConfig config = new WorkflowConfig(input);
 
-        ExecutionResult result = executor.execute(config, runtimeContext);
+        ExecutionResult result = executor.execute(inputFor(config));
 
         assertEquals(ExecutionStatus.ERROR, result.getStatus());
         assertTrue(result.getError().contains("Transformer name is missing"));
@@ -490,7 +498,7 @@ class DataTransformerExecutorTest {
         );
         WorkflowConfig config = new WorkflowConfig(input);
 
-        ExecutionResult result = executor.execute(config, runtimeContext);
+        ExecutionResult result = executor.execute(inputFor(config));
 
         assertEquals(ExecutionStatus.ERROR, result.getStatus());
         assertTrue(result.getError().contains("Params are missing"));
@@ -512,7 +520,7 @@ class DataTransformerExecutorTest {
         when(registry.getTransformer("uppercase")).thenReturn(uppercaseTransformer);
         when(uppercaseTransformer.transform("hello world", Map.of())).thenReturn("HELLO WORLD");
 
-        ExecutionResult result = executor.execute(config, runtimeContext);
+        ExecutionResult result = executor.execute(inputFor(config));
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
         assertEquals("HELLO WORLD", result.getOutput().get("result"));
@@ -535,7 +543,7 @@ class DataTransformerExecutorTest {
         when(uppercaseTransformer.transform("world", Map.of())).thenReturn("WORLD");
         when(uppercaseTransformer.transform("test", Map.of())).thenReturn("TEST");
 
-        ExecutionResult result = executor.execute(config, runtimeContext);
+        ExecutionResult result = executor.execute(inputFor(config));
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
         @SuppressWarnings("unchecked")
