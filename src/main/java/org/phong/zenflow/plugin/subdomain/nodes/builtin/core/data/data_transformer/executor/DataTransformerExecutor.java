@@ -13,12 +13,24 @@ import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
 import org.springframework.stereotype.Component;
+import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 @Component
+@PluginNode(
+        key = "core:data.transformer",
+        name = "Data Transformer",
+        version = "1.0.0",
+        description = "Executes data transformation using registered transformers. Supports both single-transform and pipeline modes.",
+        type = "data_transformation",
+        tags = {"data", "transformation", "pipeline"},
+        icon = "ph:code",
+        schemaPath = "./schema.json",
+        docPath = "./doc.md"
+)
 @AllArgsConstructor
 @Slf4j
 public class DataTransformerExecutor implements PluginNodeExecutor {

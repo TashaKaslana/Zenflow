@@ -10,9 +10,9 @@ import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.loop.ForLoopExecutor;
-import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.branch.executor.IfNodeExecutor;
-import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.branch.executor.SwitchNodeExecutor;
-import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.branch.dto.SwitchCase;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.branch.if_node.IfNodeExecutor;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.branch.switch_node.SwitchNodeExecutor;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.branch.switch_node.SwitchCase;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 

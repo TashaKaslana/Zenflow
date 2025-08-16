@@ -1,4 +1,4 @@
-package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.branch.executor;
+package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.branch.if_node;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.googlecode.aviator.AviatorEvaluator;
@@ -11,12 +11,22 @@ import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
 import org.springframework.stereotype.Component;
+import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
 @Component
+@PluginNode(
+        key = "core:flow.branch.if",
+        name = "If Branch",
+        version = "1.0.0",
+        type = "branch",
+        description = "Executes a branch based on a boolean condition. If the condition is true, it proceeds to the 'next_true' node; otherwise, it goes to 'next_false'.",
+        tags = {"core", "flow", "branch", "if", "condition"},
+        icon = "ph:git-fork"
+)
 @Slf4j
 @AllArgsConstructor
 public class IfNodeExecutor implements PluginNodeExecutor {
