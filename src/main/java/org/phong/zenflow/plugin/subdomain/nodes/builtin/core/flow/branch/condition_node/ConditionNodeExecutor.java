@@ -1,4 +1,4 @@
-package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.branch.executor;
+package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.branch.condition_node;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.googlecode.aviator.AviatorEvaluator;
@@ -7,17 +7,28 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
-import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.branch.dto.ConditionalCase;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
 import org.springframework.stereotype.Component;
+import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
 @Component
+@PluginNode(
+        key = "core:flow.branch.condition",
+        name = "Condition Branch",
+        version = "1.0.0",
+        description = "Executes a branch based on conditions defined in the input. " +
+                "Each case is evaluated in order, and the first matching case will be executed. " +
+                "If no cases match, the default case will be executed if provided.",
+        type = "flow",
+        tags = {"core", "flow", "branch", "condition"},
+        icon = "ph:git-branch"
+)
 @Slf4j
 @AllArgsConstructor
 public class ConditionNodeExecutor implements PluginNodeExecutor {

@@ -1,4 +1,4 @@
-package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.branch.dto;
+package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.branch.condition_node;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

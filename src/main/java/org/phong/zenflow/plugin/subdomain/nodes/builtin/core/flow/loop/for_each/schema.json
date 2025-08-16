@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "input": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "description": "The collection of items to iterate over."
+        },
+        "itemVar": {
+          "type": "string",
+          "description": "Variable name for the current item in the loop.",
+          "default": "item"
+        },
+        "indexVar": {
+          "type": "string",
+          "description": "Variable name for the current index in the loop.",
+          "default": "index"
+        },
+        "breakCondition": {
+          "type": "string",
+          "description": "An expression that when true will exit the loop."
+        },
+        "continueCondition": {
+          "type": "string",
+          "description": "An expression that when true will skip to the next iteration."
+        },
+        "loopEnd": {
+          "type": "array",
+          "description": "The node(s) to execute after the loop ends.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "next": {
+          "type": "array",
+          "description": "The next node(s) to execute within the loop body.",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "items",
+        "next",
+        "loopEnd"
+      ]
+    },
+    "output": {
+      "type": "object"
+    }
+  },
+  "required": ["input"]
+}

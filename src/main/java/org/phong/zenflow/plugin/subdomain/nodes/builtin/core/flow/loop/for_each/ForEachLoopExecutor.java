@@ -1,4 +1,4 @@
-package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.loop;
+package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.loop.for_each;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.googlecode.aviator.AviatorEvaluator;
@@ -10,12 +10,22 @@ import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
 import org.springframework.stereotype.Component;
+import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 @Component
+@PluginNode(
+        key = "core:flow.loop.foreach",
+        name = "For Each Loop",
+        version = "1.0.0",
+        description = "Executes a loop for each item in a list, allowing for break and continue conditions.",
+        type = "flow.loop",
+        tags = {"core", "flow", "loop", "foreach"},
+        icon = "ph:repeat"
+)
 @Slf4j
 public class ForEachLoopExecutor implements PluginNodeExecutor {
 

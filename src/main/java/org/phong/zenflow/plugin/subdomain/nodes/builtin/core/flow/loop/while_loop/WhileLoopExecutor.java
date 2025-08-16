@@ -1,4 +1,4 @@
-package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.loop;
+package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.loop.while_loop;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.googlecode.aviator.AviatorEvaluator;
@@ -11,11 +11,21 @@ import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
 import org.springframework.stereotype.Component;
+import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
 import java.util.List;
 import java.util.Map;
 
 @Component
+@PluginNode(
+        key = "core:flow.loop.while",
+        name = "While Loop",
+        version = "1.0.0",
+        description = "Executes a loop while a specified condition is true. Supports break and continue conditions.",
+        icon = "loop",
+        type = "flow.loop",
+        tags = {"flow", "loop", "while", "conditional"}
+)
 @AllArgsConstructor
 @Slf4j
 public class WhileLoopExecutor implements PluginNodeExecutor {
