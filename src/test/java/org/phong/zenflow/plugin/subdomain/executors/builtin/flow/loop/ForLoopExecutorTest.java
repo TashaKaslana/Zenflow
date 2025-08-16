@@ -2,6 +2,7 @@ package org.phong.zenflow.plugin.subdomain.executors.builtin.flow.loop;
 
 import org.junit.jupiter.api.Test;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.flow.loop.ForLoopExecutor;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 
@@ -10,7 +11,6 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 class ForLoopExecutorTest {
