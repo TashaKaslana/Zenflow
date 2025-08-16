@@ -1,0 +1,183 @@
+{
+   "$schema": "http://json-schema.org/draft-07/schema#",
+   "type": "object",
+   "title": "Merge Data Node Configuration Schema",
+   "properties": {
+     "input": {
+       "type": "object",
+       "title": "Input Schema",
+       "properties": {
+         "sources": {
+           "type": "array",
+           "title": "Data Sources",
+           "description": "Array of data sources to merge",
+           "items": {
+             "type": "object",
+             "properties": {
+               "data": {
+                 "title": "Source Data",
+                 "description": "The actual data to merge (any type: object, array, primitive)"
+               },
+               "name": {
+                 "type": "string",
+                 "description": "Optional name for this data source"
+               },
+               "priority": {
+                 "type": "integer",
+                 "description": "Priority for conflict resolution (higher = priority)",
+                 "default": 0
+               }
+             },
+             "required": ["data"]
+           },
+           "minItems": 1
+         },
+         "strategy": {
+           "type": "string",
+           "title": "Merge Strategy",
+           "description": "Strategy for merging the data sources",
+           "enum": [
+             "concat",
+             "concatenate",
+             "join",
+             "deep_merge",
+             "deepmerge",
+             "deep",
+             "recursive",
+             "shallow_merge",
+             "shallowmerge",
+             "shallow",
+             "collect",
+             "gather",
+             "list",
+             "overwrite",
+             "last",
+             "override",
+             "replace"
+           ],
+           "default": "deep_merge"
+         },
+         "preserve_order": {
+           "type": "boolean",
+           "title": "Preserve Order",
+           "description": "Whether to preserve insertion order in merged objects",
+           "default": true
+         },
+         "ignore_nulls": {
+           "type": "boolean",
+           "title": "Ignore Nulls",
+           "description": "Whether to ignore null values during merge",
+           "default": false
+         },
+         "conflict_resolution": {
+           "type": "string",
+           "title": "Conflict Resolution",
+           "description": "How to handle key conflicts during merge",
+           "enum": [
+             "keep_first",
+             "first",
+             "original",
+             "keep_last",
+             "last",
+             "override",
+             "merge_recursive",
+             "recursive",
+             "merge",
+             "combine_arrays",
+             "combine",
+             "concat_arrays"
+           ],
+           "default": "keep_last"
+         },
+         "max_depth": {
+           "type": "integer",
+           "title": "Maximum Depth",
+           "description": "Maximum recursion depth for deep merge operations",
+           "minimum": 1,
+           "maximum": 50,
+           "default": 10
+         },
+         "data": {
+           "title": "Direct Data",
+           "description": "Alternative: provide data directly (when not using sources array)"
+         },
+         "items": {
+           "title": "Items Data",
+           "description": "Alternative data field name"
+         },
+         "values": {
+           "title": "Values Data",
+           "description": "Alternative data field name"
+         },
+         "content": {
+           "title": "Content Data",
+           "description": "Alternative data field name"
+         },
+         "payload": {
+           "title": "Payload Data",
+           "description": "Alternative data field name"
+         }
+       },
+       "anyOf": [
+         {
+           "required": ["sources"]
+         },
+         {
+           "anyOf": [
+             {"required": ["data"]},
+             {"required": ["items"]},
+             {"required": ["values"]},
+             {"required": ["content"]},
+             {"required": ["payload"]}
+           ]
+         }
+       ],
+       "additionalProperties": true
+     },
+     "output": {
+       "type": "object",
+       "title": "Output Schema",
+       "properties": {
+         "data": {
+           "title": "Merged Data",
+           "description": "The result of the merge operation"
+         },
+         "strategy_used": {
+           "type": "string",
+           "description": "The merge strategy that was applied"
+         },
+         "sources_processed": {
+           "type": "integer",
+           "description": "Number of data sources that were processed"
+         },
+         "merge_timestamp": {
+           "type": "integer",
+           "description": "Unix timestamp when merge was completed"
+         },
+         "metadata": {
+           "type": "object",
+           "properties": {
+             "source_count": {
+               "type": "integer",
+               "description": "Total number of sources"
+             },
+             "data_size": {
+               "type": "integer",
+               "description": "Size of the merged data (count of items/fields)"
+             },
+             "options": {
+               "type": "object",
+               "description": "Merge options that were used"
+             }
+           }
+         }
+       },
+       "required": ["data", "strategy_used", "sources_processed"]
+     }
+   },
+   "required": [
+     "input",
+     "output"
+   ],
+   "additionalProperties": false
+ }
