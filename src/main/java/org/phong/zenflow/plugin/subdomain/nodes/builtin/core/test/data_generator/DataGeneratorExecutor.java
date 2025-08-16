@@ -1,4 +1,4 @@
-package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.test;
+package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.test.data_generator;
 
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;

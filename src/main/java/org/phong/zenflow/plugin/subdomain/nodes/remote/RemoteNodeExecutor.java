@@ -11,6 +11,7 @@ import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.http.executor.HttpR
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.springframework.stereotype.Component;
+import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -18,6 +19,11 @@ import java.util.List;
 import java.util.Map;
 
 @Component
+@PluginNode(
+        key = "core:remote",
+        name = "Remote Node",
+        version = "1.0.0"
+)
 @AllArgsConstructor
 public class RemoteNodeExecutor implements PluginNodeExecutor {
 

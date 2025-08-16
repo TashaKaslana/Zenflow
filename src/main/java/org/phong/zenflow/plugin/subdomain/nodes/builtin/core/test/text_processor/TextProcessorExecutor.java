@@ -1,4 +1,4 @@
-package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.test;
+package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.test.text_processor;
 
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
@@ -7,10 +7,16 @@ import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
 import org.springframework.stereotype.Component;
+import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
 import java.util.Map;
 
 @Component
+@PluginNode(
+        key = "core:text.process",
+        name = "Text Processor",
+        version = "1.0.0"
+)
 public class TextProcessorExecutor implements PluginNodeExecutor {
 
     @Override
