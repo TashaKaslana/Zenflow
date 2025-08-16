@@ -3,7 +3,7 @@ package org.phong.zenflow.plugin.subdomain.executors.builtin.data.data_transform
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.phong.zenflow.plugin.subdomain.nodes.builtin.data.data_transformer.impl.formatting.ToJsonTransformer;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.data.data_transformer.impl.formatting.ToJsonTransformer;
 
 import java.util.*;
 
