@@ -2,9 +2,10 @@ package org.phong.zenflow.plugin.subdomain.executors.builtin.flow.branch.executo
 
 import org.junit.jupiter.api.Test;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.flow.branch.executor.SwitchNodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
-import org.phong.zenflow.plugin.subdomain.executors.builtin.flow.branch.dto.SwitchCase;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.flow.branch.dto.SwitchCase;
 
 import java.util.List;
 import java.util.Map;

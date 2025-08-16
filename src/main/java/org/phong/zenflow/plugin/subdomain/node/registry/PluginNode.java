@@ -28,7 +28,7 @@ public @interface PluginNode {
     String[] tags() default {};
 
     /**
-     * Type of the node (e.g. action, trigger, data).
+     * Type of the node (e.g., action, trigger, data).
      */
     String type() default "action";
 
@@ -36,4 +36,16 @@ public @interface PluginNode {
      * Type of executor (e.g. builtin or remote).
      */
     String executor() default "builtin";
+
+    /**
+     * Custom path to the schema file for this node definition.
+     * This is used to validate the node configuration against a JSON schema.
+     */
+    String schemaPath() default "";
+
+    /**
+     * Custom path to the documentation for this node definition.
+     * This can be used to provide additional information or examples.
+     */
+    String docPath() default "";
 }
