@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "input": {
+      "type": "object",
+      "properties": {
+        "indexVar": {
+          "type": "string",
+          "description": "The variable name to assign to the current iteration index.",
+          "default": "index"
+        },
+        "updateExpression": {
+          "type": "string",
+          "description": "An expression to update the index variable after each iteration.",
+          "default": "index + 1"
+        },
+        "total": {
+          "type": "integer",
+          "description": "The total number of iterations to perform."
+        },
+        "endCondition": {
+          "type": "string",
+          "description": "An expression that when true will exit the loop."
+        },
+        "breakCondition": {
+          "type": "string",
+          "description": "An expression that when true will exit the loop."
+        },
+        "continueCondition": {
+          "type": "string",
+          "description": "An expression that when true will skip to the next iteration."
+        },
+        "loopEnd": {
+          "type": "array",
+          "description": "The node(s) to execute after the loop ends.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "next": {
+          "type": "array",
+          "description": "The next node(s) to execute within the loop body.",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "next",
+        "loopEnd"
+      ]
+    },
+    "output": {
+      "type": "object"
+    },
+    "secrets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key"
+        ]
+      }
+    }
+  },
+  "required": [
+    "input"
+  ]
+}
