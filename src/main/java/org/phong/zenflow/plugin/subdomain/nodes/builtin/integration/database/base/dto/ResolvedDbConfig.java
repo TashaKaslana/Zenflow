@@ -1,4 +1,4 @@
-package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.database.dto;
+package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.dto;
 
 import lombok.Data;
 import org.phong.zenflow.core.utils.ObjectConversion;

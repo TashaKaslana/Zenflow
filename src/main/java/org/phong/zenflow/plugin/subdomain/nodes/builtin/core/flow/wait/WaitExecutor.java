@@ -11,11 +11,21 @@ import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.Work
 import org.phong.zenflow.workflow.subdomain.node_logs.dto.LogEntry;
 import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
 import org.springframework.stereotype.Component;
+import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
 import java.util.List;
 import java.util.Map;
 
 @Component
+@PluginNode(
+        key = "core:wait",
+        name = "Wait",
+        version = "1.0.0",
+        description = "Waits for specified nodes to reach a certain state before proceeding.",
+        type = "flow.wait",
+        tags = {"core", "flow", "wait"},
+        icon = "wait"
+)
 @Slf4j
 @AllArgsConstructor
 public class WaitExecutor implements PluginNodeExecutor {
