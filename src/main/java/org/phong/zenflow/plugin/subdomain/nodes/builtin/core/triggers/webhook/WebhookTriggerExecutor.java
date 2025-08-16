@@ -1,4 +1,4 @@
-package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.triggers;
+package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.triggers.webhook;
 
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
@@ -8,11 +8,21 @@ import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
 import org.springframework.stereotype.Component;
+import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
 import java.time.OffsetDateTime;
 import java.util.*;
 
 @Component
+@PluginNode(
+        key = "core:webhook.trigger",
+        name = "Webhook Trigger",
+        version = "1.0.0",
+        description = "Executes when a webhook is triggered, processing the request data and metadata.",
+        type = "trigger",
+        tags = {"webhook", "trigger", "http", "api", "event" },
+        icon = "ph:webhook"
+)
 @Slf4j
 public class WebhookTriggerExecutor implements PluginNodeExecutor {
     @Override

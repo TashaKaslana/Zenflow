@@ -11,6 +11,7 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.stereotype.Component;
+import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -18,6 +19,15 @@ import java.util.Properties;
 
 @Slf4j
 @Component
+@PluginNode(
+        key = "core:email",
+        name = "Email",
+        version = "1.0.0",
+        description = "Sends an email using SMTP configuration provided in the input.",
+        icon = "email",
+        type = "integration.message",
+        tags = {"email", "smtp", "notification"}
+)
 @AllArgsConstructor
 public class EmailExecutor implements PluginNodeExecutor {
     private final static int DEFAULT_PORT = 587;
