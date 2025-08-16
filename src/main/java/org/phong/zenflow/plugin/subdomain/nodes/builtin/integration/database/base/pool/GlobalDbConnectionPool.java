@@ -1,10 +1,10 @@
-package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.database.pool;
+package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.pool;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.database.dto.DbConnectionKey;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.dto.DbConnectionKey;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;

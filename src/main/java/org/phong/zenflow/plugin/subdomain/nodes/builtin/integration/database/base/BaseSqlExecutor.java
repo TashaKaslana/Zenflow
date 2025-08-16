@@ -1,8 +1,8 @@
-package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.database.base;
+package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base;
 
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.exceptions.ExecutorException;
-import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.database.dto.ResolvedDbConfig;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.dto.ResolvedDbConfig;
 import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
 import org.springframework.stereotype.Component;
 

@@ -1,18 +1,18 @@
-package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.database.executor.sql;
+package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.postgres;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
-import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.database.base.BaseDbConnection;
-import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.database.base.BaseSqlExecutor;
-import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.database.dto.ResolvedDbConfig;
-import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.database.handlers.PostgresParameterHandler;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.BaseDbConnection;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.BaseSqlExecutor;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.dto.ResolvedDbConfig;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
 import org.springframework.stereotype.Component;
+import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -23,6 +23,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
 
 @Component
+@PluginNode(
+        key = "core:postgresql",
+        name = "PostgreSQL",
+        version = "1.0.0",
+        description = "Executes SQL queries against a PostgreSQL database with advanced parameter handling and type inference.",
+        type = "integration.database",
+        icon = "postgresql",
+        tags = { "database", "postgresql", "sql", "integration" }
+)
 @Slf4j
 @AllArgsConstructor
 public class PostgresSqlExecutor implements PluginNodeExecutor {

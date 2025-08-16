@@ -1,7 +1,7 @@
-package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.database.handlers;
+package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.postgres;
 
 import lombok.AllArgsConstructor;
-import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.database.base.BaseSqlExecutor;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.BaseSqlExecutor;
 import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
 import org.postgresql.util.PGobject;
 import org.springframework.stereotype.Component;

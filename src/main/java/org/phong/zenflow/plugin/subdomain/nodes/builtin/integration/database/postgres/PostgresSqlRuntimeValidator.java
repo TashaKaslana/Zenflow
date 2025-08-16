@@ -1,7 +1,8 @@
-package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.database.executor.sql;
+package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.postgres;
 
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
+import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
 import org.phong.zenflow.workflow.subdomain.schema_validator.enums.ValidationErrorCode;
@@ -12,14 +13,14 @@ import java.util.List;
 import java.util.Map;
 
 @Component
-public class PostgresSqlDefinitionValidator {
+public class PostgresSqlRuntimeValidator {
 
-    public List<ValidationError> validate(WorkflowConfig config) {
+    public List<ValidationError> validate(WorkflowConfig config, RuntimeContext ctx) {
         List<ValidationError> errors = new ArrayList<>();
         Map<String, Object> input = config != null ? config.input() : null;
         if (input == null) {
             errors.add(ValidationError.builder()
-                    .errorType("definition")
+                    .errorType("runtime")
                     .errorCode(ValidationErrorCode.MISSING_REQUIRED_FIELD)
                     .path("config.input")
                     .message("Input configuration is required")
@@ -30,18 +31,17 @@ public class PostgresSqlDefinitionValidator {
         Object query = input.get("query");
         if (!(query instanceof String) || ((String) query).isBlank()) {
             errors.add(ValidationError.builder()
-                    .errorType("definition")
+                    .errorType("runtime")
                     .errorCode(ValidationErrorCode.MISSING_REQUIRED_FIELD)
                     .path("config.input.query")
                     .message("Query is required")
                     .build());
         } else {
-            String sanitized = ((String) query).replaceAll("\\{\\{[^}]+}}", "1");
             try {
-                CCJSqlParserUtil.parse(sanitized);
+                CCJSqlParserUtil.parse((String) query);
             } catch (JSQLParserException e) {
                 errors.add(ValidationError.builder()
-                        .errorType("definition")
+                        .errorType("runtime")
                         .errorCode(ValidationErrorCode.INVALID_VALUE)
                         .path("config.input.query")
                         .message("Invalid SQL syntax: " + e.getMessage())
@@ -51,3 +51,4 @@ public class PostgresSqlDefinitionValidator {
         return errors;
     }
 }
+
