@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "input": {
+      "type": "object",
+      "properties": {
+        "condition": {
+          "type": "string",
+          "description": "The expression to evaluate. Should resolve to a boolean."
+        },
+        "next_true": {
+          "type": "array",
+          "description": "The next node(s) to execute if the condition is true.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "next_false": {
+          "type": "array",
+          "description": "The next node(s) to execute if the condition is false.",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "condition"
+      ]
+    },
+    "output": {
+      "type": "object"
+    }
+  },
+  "required": ["input"]
+}

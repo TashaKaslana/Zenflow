@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "input": {
+      "type": "object",
+      "properties": {
+        "workflow_run_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID of the workflow run to trigger."
+        },
+        "workflow_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID of the workflow to trigger."
+        },
+        "is_async": {
+          "type": "boolean",
+          "description": "Trigger the workflow asynchronously.",
+          "default": false
+        }
+      },
+      "required": [
+        "workflow_run_id",
+        "workflow_id"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "type": "object"
+    },
+    "secrets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": { "type": "string" }
+        },
+        "required": ["key"]
+      }
+    }
+  },
+  "required": ["input"]
+}

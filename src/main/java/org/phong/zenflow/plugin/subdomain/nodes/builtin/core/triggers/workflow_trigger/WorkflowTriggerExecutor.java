@@ -1,4 +1,4 @@
-package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.triggers;
+package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.triggers.workflow_trigger;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,11 +13,21 @@ import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
 import java.time.OffsetDateTime;
 import java.util.*;
 
 @Component
+@PluginNode(
+        key = "core:workflow.trigger",
+        name = "Workflow Trigger",
+        version = "1.0.0",
+        type = "trigger",
+        description = "Triggers a workflow execution based on provided parameters.",
+        tags = {"workflow", "trigger", "execution"},
+        icon = "ph:rocket-launch"
+)
 @AllArgsConstructor
 @Slf4j
 public class WorkflowTriggerExecutor implements PluginNodeExecutor {

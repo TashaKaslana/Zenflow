@@ -20,8 +20,20 @@ import reactor.core.publisher.Mono;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
+import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
 @Component
+@PluginNode(
+        key = "core:http.request",
+        name = "HTTP Request",
+        version = "1.0.0",
+        description = "Executes an HTTP request using the specified method and URL, with optional headers and body.",
+        tags = {"http", "request", "network"},
+        type = "util",
+        icon = "ph:globe",
+        schemaPath = "./schema.json",
+        docPath = "./doc.md"
+)
 @AllArgsConstructor
 @Slf4j
 public class HttpRequestExecutor implements PluginNodeExecutor {
