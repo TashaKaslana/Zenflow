@@ -28,8 +28,8 @@ import java.util.Map;
         type = "data_transformation",
         tags = {"data", "transformation", "pipeline"},
         icon = "ph:code",
-        schemaPath = "./schema.json",
-        docPath = "./doc.md"
+        schemaPath = "../schema.json",
+        docPath = "../doc.md"
 )
 @AllArgsConstructor
 @Slf4j

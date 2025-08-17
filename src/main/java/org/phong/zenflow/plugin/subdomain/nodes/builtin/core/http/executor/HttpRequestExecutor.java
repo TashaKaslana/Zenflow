@@ -31,8 +31,8 @@ import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
         tags = {"http", "request", "network"},
         type = "util",
         icon = "ph:globe",
-        schemaPath = "./schema.json",
-        docPath = "./doc.md"
+        schemaPath = "../schema.json",
+        docPath = "../doc.md"
 )
 @AllArgsConstructor
 @Slf4j
