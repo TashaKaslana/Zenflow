@@ -32,7 +32,7 @@ public class PluginNodeSynchronizer implements ApplicationRunner {
 
     private final PluginNodeRepository pluginNodeRepository;
     private final PluginRepository pluginRepository;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
     @Override
     public void run(ApplicationArguments args) {
@@ -88,7 +88,7 @@ public class PluginNodeSynchronizer implements ApplicationRunner {
         }
     }
 
-    private Map<String, Object> loadSchema(Class<?> clazz, String customPath) {
+    public Map<String, Object> loadSchema(Class<?> clazz, String customPath) {
         String resourcePath = extractPath(clazz, customPath);
         String classpathResource = "/" + resourcePath;
 
@@ -116,7 +116,7 @@ public class PluginNodeSynchronizer implements ApplicationRunner {
         return Map.of();
     }
 
-    private String extractPath(Class<?> clazz, String customPath) {
+    public String extractPath(Class<?> clazz, String customPath) {
         Path basePath = Paths.get(clazz.getPackageName().replace('.', '/'));
 
         Path resultPath;
