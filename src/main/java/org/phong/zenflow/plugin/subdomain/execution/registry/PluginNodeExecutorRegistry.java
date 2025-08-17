@@ -14,19 +14,21 @@ import java.util.function.Supplier;
 @Component
 public class PluginNodeExecutorRegistry {
 
-    private final Cache<PluginNodeIdentifier, PluginNodeExecutor> executorCache =
+    private final Cache<String, PluginNodeExecutor> executorCache =
             Caffeine.newBuilder().build();
 
-    private final Map<PluginNodeIdentifier, Supplier<PluginNodeExecutor>> executorSuppliers =
+    private final Map<String, Supplier<PluginNodeExecutor>> executorSuppliers =
             new ConcurrentHashMap<>();
 
     public void register(PluginNodeIdentifier identifier, Supplier<PluginNodeExecutor> supplier) {
-        executorSuppliers.put(identifier, supplier);
+        String key = identifier.toCacheKey();
+        executorSuppliers.put(key, supplier);
     }
 
     public Optional<PluginNodeExecutor> getExecutor(PluginNodeIdentifier identifier) {
-        return Optional.ofNullable(executorCache.get(identifier, id -> {
-            Supplier<PluginNodeExecutor> supplier = executorSuppliers.get(id);
+        String key = identifier.toCacheKey();
+        return Optional.ofNullable(executorCache.get(key, cacheKey -> {
+            Supplier<PluginNodeExecutor> supplier = executorSuppliers.get(cacheKey);
             return supplier != null ? supplier.get() : null;
         }));
     }
