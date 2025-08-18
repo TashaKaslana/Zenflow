@@ -13,7 +13,7 @@ import java.util.Map;
 
 @Component
 @PluginNode(
-        key = "core:text.process",
+        key = "test:text.process",
         name = "Text Processor",
         version = "1.0.0"
 )
@@ -21,7 +21,7 @@ public class TextProcessorExecutor implements PluginNodeExecutor {
 
     @Override
     public String key() {
-        return "core:text.process:1.0.0";
+        return "test:text.process:1.0.0";
     }
 
     @Override

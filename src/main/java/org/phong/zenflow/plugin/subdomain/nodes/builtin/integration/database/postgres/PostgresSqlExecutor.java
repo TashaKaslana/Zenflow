@@ -24,7 +24,7 @@ import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError
 
 @Component
 @PluginNode(
-        key = "core:postgresql",
+        key = "integration:postgresql",
         name = "PostgreSQL",
         version = "1.0.0",
         description = "Executes SQL queries against a PostgreSQL database with advanced parameter handling and type inference.",
@@ -44,7 +44,7 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
 
     @Override
     public String key() {
-        return "core:postgresql:1.0.0";
+        return "integration:postgresql:1.0.0";
     }
 
     @Override

@@ -3,7 +3,7 @@ spring:
   application:
     name: Zenflow
   datasource:
-    url: ${SPRING_DATASOURCE}
+    url: ${SPRING_DATASOURCE:jdbc:postgresql://localhost:5432/zenflow}
     username: ${POSTGRES_USER:postgres}
     password: ${POSTGRES_PASSWORD:123456}
     driver-class-name: org.postgresql.Driver
@@ -23,16 +23,16 @@ spring:
           generate_statistics: false
     open-in-view: false
   mail:
-    host: ${MAIL_HOST}
-    port: ${MAIL_PORT}
-    username: ${MAIL_USERNAME}
-    password: ${MAIL_PASSWORD}
+    host: ${MAIL_HOST:smtp.localhost}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
     properties:
       mail:
         smtp:
-          auth: ${MAIL_SMTP_AUTH}
+          auth: ${MAIL_SMTP_AUTH:true}
           starttls:
-            enable: ${MAIL_SMTP_STARTTLS}
+            enable: ${MAIL_SMTP_STARTTLS:true}
 
 server:
   servlet:

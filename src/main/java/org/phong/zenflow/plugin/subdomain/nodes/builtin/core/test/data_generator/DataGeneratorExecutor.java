@@ -13,7 +13,7 @@ import java.util.Map;
 
 @Component
 @PluginNode(
-        key = "core:data.generate",
+        key = "test:data.generate",
         name = "Data Generator",
         version = "1.0.0"
 )
@@ -21,7 +21,7 @@ public class DataGeneratorExecutor implements PluginNodeExecutor {
     
     @Override
     public String key() {
-        return "core:data.generate:1.0.0";
+        return "test:data.generate:1.0.0";
     }
 
     @Override

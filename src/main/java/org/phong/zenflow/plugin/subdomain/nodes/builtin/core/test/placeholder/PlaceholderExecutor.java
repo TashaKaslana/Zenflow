@@ -13,7 +13,7 @@ import java.util.Map;
 
 @Component
 @PluginNode(
-        key = "core:placeholder",
+        key = "test:placeholder",
         name = "Placeholder Node",
         version = "1.0.0",
         description = "A placeholder node that echoes its input as output.",
@@ -25,7 +25,7 @@ public class PlaceholderExecutor implements PluginNodeExecutor {
 
     @Override
     public String key() {
-        return "core:placeholder:1.0.0";
+        return "test:placeholder:1.0.0";
     }
 
     @Override
