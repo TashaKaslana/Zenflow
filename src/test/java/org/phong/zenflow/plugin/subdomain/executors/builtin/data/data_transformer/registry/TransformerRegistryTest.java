@@ -3,7 +3,8 @@ package org.phong.zenflow.plugin.subdomain.executors.builtin.data.data_transform
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.phong.zenflow.plugin.subdomain.execution.exceptions.ExecutorException;
-import org.phong.zenflow.plugin.subdomain.executors.builtin.data.data_transformer.interfaces.DataTransformer;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.data.data_transformer.interfaces.DataTransformer;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.data.data_transformer.registry.TransformerRegistry;
 
 import java.util.Arrays;
 import java.util.List;

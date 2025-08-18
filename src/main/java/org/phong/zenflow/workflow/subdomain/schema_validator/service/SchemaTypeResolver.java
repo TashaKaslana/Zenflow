@@ -1,5 +1,6 @@
 package org.phong.zenflow.workflow.subdomain.schema_validator.service;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.stereotype.Service;
 
@@ -53,6 +54,41 @@ public class SchemaTypeResolver {
             return "string"; // Enums are typically strings
         }
         return "any"; // Default to any if no type specified
+    }
+
+    /**
+     * Gets the JSON Schema type name for a runtime value.
+     * This replaces the duplicate logic in SchemaValidationService.
+     *
+     * @param value The runtime value to get the type for
+     * @return The JSON Schema type name
+     */
+    public String getJsonValueType(Object value) {
+        if (value instanceof String) return "string";
+        if (value instanceof Number) return "number";
+        if (value instanceof Boolean) return "boolean";
+        if (value instanceof JSONArray) return "array";
+        if (value instanceof JSONObject) return "object";
+        if (value == null || value == JSONObject.NULL) return "null";
+        return "unknown";
+    }
+
+    /**
+     * Gets a human-readable type name for error messages.
+     * This replaces the duplicate logic in SchemaValidationService.
+     *
+     * @param value The value to get a human-readable type name for
+     * @return Human-readable type name
+     */
+    public String getValueTypeName(Object value) {
+        if (value instanceof String) return "string";
+        if (value instanceof Integer) return "integer";
+        if (value instanceof Double || value instanceof Float) return "number";
+        if (value instanceof Boolean) return "boolean";
+        if (value instanceof JSONArray) return "array";
+        if (value instanceof JSONObject) return "object";
+        if (value == null || value == JSONObject.NULL) return "null";
+        return value.getClass().getSimpleName();
     }
 
     /**

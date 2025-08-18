@@ -1,6 +1,7 @@
 package org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin;
 
 
+import lombok.NonNull;
 
 public record PluginNodeIdentifier(String pluginKey, String nodeKey, String version, String executorType) {
     public static PluginNodeIdentifier fromString(String s) {
@@ -19,6 +20,7 @@ public record PluginNodeIdentifier(String pluginKey, String nodeKey, String vers
         return pluginKey + ":" + nodeKey + ":" + version;
     }
 
+    @NonNull
     @Override
     public String toString() {
         return pluginKey + ":" + nodeKey + ":" + version;

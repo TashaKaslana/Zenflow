@@ -11,25 +11,32 @@ import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.reposi
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
+import org.springframework.core.annotation.Order;
 import org.springframework.core.type.filter.AnnotationTypeFilter;
 import org.springframework.stereotype.Component;
 
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Map;
 
 /**
  * Scans the classpath for {@link org.phong.zenflow.plugin.subdomain.node.registry.PluginNode}
  * annotations and synchronizes their metadata with the {@code plugin_nodes} table.
+ * <p>
+ * This synchronizer runs after the PluginSynchronizer to ensure plugins are registered first.
  */
 @Component
 @RequiredArgsConstructor
 @Slf4j
+@Order(20) // Run after PluginSynchronizer (order 10)
 public class PluginNodeSynchronizer implements ApplicationRunner {
 
     private final PluginNodeRepository pluginNodeRepository;
     private final PluginRepository pluginRepository;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
     @Override
     public void run(ApplicationArguments args) {
@@ -60,7 +67,7 @@ public class PluginNodeSynchronizer implements ApplicationRunner {
             String pluginKey = parts[0];
             String nodeKey = parts[1];
 
-            Map<String, Object> schema = loadSchema(clazz);
+            Map<String, Object> schema = loadSchema(clazz, annotation.schemaPath().trim());
 
             Plugin plugin = pluginRepository.findByKey(pluginKey)
                     .orElseThrow(() -> new IllegalStateException("Plugin not found: " + pluginKey));
@@ -80,21 +87,57 @@ public class PluginNodeSynchronizer implements ApplicationRunner {
             entity.setConfigSchema(schema);
 
             pluginNodeRepository.save(entity);
+            log.info("Synchronized plugin node: {}:{} v{} for plugin: {}",
+                    pluginKey, nodeKey, annotation.version(), plugin.getName());
         } catch (Exception e) {
             log.error("Failed to synchronize plugin node for class {}", className, e);
         }
     }
 
-    private Map<String, Object> loadSchema(Class<?> clazz) {
-        String resource = clazz.getPackageName().replace('.', '/') + "/schema.json";
-        try (InputStream is = clazz.getClassLoader().getResourceAsStream(resource)) {
-            if (is == null) {
-                log.warn("No schema.json found for {}", clazz.getName());
-                return Map.of();
+    public Map<String, Object> loadSchema(Class<?> clazz, String customPath) {
+        String resourcePath = extractPath(clazz, customPath);
+        String classpathResource = "/" + resourcePath;
+
+        // 1. Try classpath first (works for packaged nodes)
+        InputStream classpathStream = clazz.getResourceAsStream(classpathResource);
+        if (classpathStream != null) {
+            try (InputStream is = classpathStream) {
+                return objectMapper.readValue(is, new TypeReference<>() {});
+            } catch (Exception e) {
+                throw new IllegalStateException("Failed to load schema from classpath for " + clazz.getName(), e);
             }
-            return objectMapper.readValue(is, new TypeReference<>() {});
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to load schema for " + clazz.getName(), e);
         }
+
+        // 2. Fallback to file system (works for external plugin nodes)
+        Path filePath = Paths.get(resourcePath);
+        if (Files.exists(filePath)) {
+            try (InputStream is = Files.newInputStream(filePath)) {
+                return objectMapper.readValue(is, new TypeReference<>() {});
+            } catch (Exception e) {
+                throw new IllegalStateException("Failed to load schema from filesystem for " + clazz.getName(), e);
+            }
+        }
+
+        log.warn("No schema.json found for {}", clazz.getName());
+        return Map.of();
+    }
+
+    public String extractPath(Class<?> clazz, String customPath) {
+        Path basePath = Paths.get(clazz.getPackageName().replace('.', '/'));
+
+        Path resultPath;
+        if (customPath.isEmpty()) {
+            resultPath = basePath.resolve("schema.json");
+        } else if (customPath.startsWith("/")) {
+            resultPath = basePath.resolve(customPath.substring(1));
+        } else if (customPath.startsWith("./")) {
+            resultPath = basePath.resolve(customPath.substring(2));
+        } else if (customPath.startsWith("../")) {
+            resultPath = basePath.resolve(customPath).normalize();
+        } else {
+            resultPath = basePath.resolve(customPath);
+        }
+
+        return resultPath.toString().replace("\\", "/");
     }
 }

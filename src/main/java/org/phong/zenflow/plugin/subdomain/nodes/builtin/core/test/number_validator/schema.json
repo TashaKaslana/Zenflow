@@ -1,0 +1,40 @@
+{
+  "type": "object",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "required": [
+    "input"
+  ],
+  "properties": {
+    "input": {
+      "type": "object",
+      "required": [
+        "number",
+        "threshold"
+      ],
+      "properties": {
+        "number": {
+          "type": "integer",
+          "description": "Number to validate"
+        },
+        "threshold": {
+          "type": "integer",
+          "description": "Validation threshold"
+        }
+      },
+      "additionalProperties": false
+    },
+    "output": {
+      "type": "object",
+      "properties": {
+        "valid": {
+          "type": "boolean"
+        },
+        "value": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
