@@ -20,7 +20,7 @@ import java.util.Properties;
 @Slf4j
 @Component
 @PluginNode(
-        key = "core:email",
+        key = "integration:email",
         name = "Email",
         version = "1.0.0",
         description = "Sends an email using SMTP configuration provided in the input.",
@@ -34,7 +34,7 @@ public class EmailExecutor implements PluginNodeExecutor {
 
     @Override
     public String key() {
-        return "core:email:1.0.0";
+        return "integration:email:1.0.0";
     }
 
     @Override

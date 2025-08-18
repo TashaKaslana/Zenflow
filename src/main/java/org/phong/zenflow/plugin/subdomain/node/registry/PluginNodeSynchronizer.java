@@ -11,6 +11,7 @@ import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.reposi
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
+import org.springframework.core.annotation.Order;
 import org.springframework.core.type.filter.AnnotationTypeFilter;
 import org.springframework.stereotype.Component;
 
@@ -24,10 +25,13 @@ import java.util.Map;
 /**
  * Scans the classpath for {@link org.phong.zenflow.plugin.subdomain.node.registry.PluginNode}
  * annotations and synchronizes their metadata with the {@code plugin_nodes} table.
+ * <p>
+ * This synchronizer runs after the PluginSynchronizer to ensure plugins are registered first.
  */
 @Component
 @RequiredArgsConstructor
 @Slf4j
+@Order(20) // Run after PluginSynchronizer (order 10)
 public class PluginNodeSynchronizer implements ApplicationRunner {
 
     private final PluginNodeRepository pluginNodeRepository;
@@ -83,6 +87,8 @@ public class PluginNodeSynchronizer implements ApplicationRunner {
             entity.setConfigSchema(schema);
 
             pluginNodeRepository.save(entity);
+            log.info("Synchronized plugin node: {}:{} v{} for plugin: {}",
+                    pluginKey, nodeKey, annotation.version(), plugin.getName());
         } catch (Exception e) {
             log.error("Failed to synchronize plugin node for class {}", className, e);
         }

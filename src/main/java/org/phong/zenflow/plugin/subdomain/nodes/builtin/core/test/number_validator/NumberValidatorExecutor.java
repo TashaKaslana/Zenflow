@@ -13,7 +13,7 @@ import java.util.Map;
 
 @Component
 @PluginNode(
-        key = "core:number.validate",
+        key = "test:number.validate",
         name = "Number Validator",
         version = "1.0.0"
 )
@@ -21,7 +21,7 @@ public class NumberValidatorExecutor implements PluginNodeExecutor {
     
     @Override
     public String key() {
-        return "core:number.validate:1.0.0";
+        return "test:number.validate:1.0.0";
     }
 
     @Override

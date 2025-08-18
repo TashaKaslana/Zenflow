@@ -1,4 +1,4 @@
-package org.phong.zenflow.plugin.subdomain.executors.builtin.schema;
+package org.phong.zenflow.plugin.subdomain.registry;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.json.JSONObject;
@@ -61,7 +61,7 @@ public class PluginNodeTest {
     @Test
     void isPluginRegistered() {
         // Test that the placeholder plugin node is properly registered
-        PluginNodeIdentifier placeholderIdentifier = PluginNodeIdentifier.fromString("core:placeholder:1.0.0", "builtin");
+        PluginNodeIdentifier placeholderIdentifier = PluginNodeIdentifier.fromString("test:placeholder:1.0.0", "builtin");
 
         assertTrue(
                 executorRegistry.getExecutor(placeholderIdentifier).isPresent(),
@@ -70,7 +70,7 @@ public class PluginNodeTest {
 
         var executor = executorRegistry.getExecutor(placeholderIdentifier).orElseThrow();
         assertEquals(
-                "core:placeholder:1.0.0",
+                "test:placeholder:1.0.0",
                 executor.key(),
                 "Executor key should match the expected format"
         );
@@ -79,7 +79,7 @@ public class PluginNodeTest {
     @Test
     void testSchemaLoading() {
         // Test that the placeholder node's schema can be loaded successfully
-        String templateString = "core:placeholder:1.0.0";
+        String templateString = "test:placeholder:1.0.0";
 
         assertDoesNotThrow(() -> {
             JSONObject schema = schemaRegistry.getSchemaByTemplateString(templateString);
@@ -102,7 +102,7 @@ public class PluginNodeTest {
     @Test
     void testFileBasedSchemaLoading() {
         // Test direct file-based schema loading for performance
-        PluginNodeIdentifier identifier = PluginNodeIdentifier.fromString("core:placeholder:1.0.0", "builtin");
+        PluginNodeIdentifier identifier = PluginNodeIdentifier.fromString("test:placeholder:1.0.0", "builtin");
 
         assertDoesNotThrow(() -> {
             // Test file-based loading directly through SchemaRegistry
@@ -130,7 +130,7 @@ public class PluginNodeTest {
     @Test
     void testExecutorDispatch() {
         // Test that the dispatcher can correctly dispatch to the right executor
-        PluginNodeIdentifier placeholderIdentifier = PluginNodeIdentifier.fromString("core:placeholder:1.0.0", "builtin");
+        PluginNodeIdentifier placeholderIdentifier = PluginNodeIdentifier.fromString("test:placeholder:1.0.0", "builtin");
 
         // Create test configuration
         Map<String, Object> inputData = Map.of(

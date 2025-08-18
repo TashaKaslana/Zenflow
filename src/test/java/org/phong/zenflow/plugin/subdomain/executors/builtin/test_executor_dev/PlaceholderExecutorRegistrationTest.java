@@ -26,12 +26,12 @@ class PlaceholderExecutorRegistrationTest {
 
     @Test
     void placeholderExecutorIsRegistered() {
-        assertTrue(registry.getExecutor(PluginNodeIdentifier.fromString("core:placeholder:1.0.0")).isPresent());
+        assertTrue(registry.getExecutor(PluginNodeIdentifier.fromString("test:placeholder:1.0.0")).isPresent());
     }
 
     @Test
     void isSendBackData() {
-        var executor = registry.getExecutor(PluginNodeIdentifier.fromString("core:placeholder:1.0.0")).orElseThrow();
+        var executor = registry.getExecutor(PluginNodeIdentifier.fromString("test:placeholder:1.0.0")).orElseThrow();
         WorkflowConfig resolvedConfig = new WorkflowConfig(
                 Map.of(
                         "input1", "value1",
