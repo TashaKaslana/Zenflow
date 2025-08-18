@@ -49,7 +49,10 @@ public class NodeSampleDataService {
             //noinspection unchecked
             return (Map<String, Object>) map;
         }
-        return Map.of("value", sample);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("value", sample);
+        return result;
     }
 
     private Object generateSample(JSONObject schema) {

@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "definitions": {
+    "filter_params": {
+      "type": "object",
+      "properties": {
+        "expression": {"type": "string"},
+        "mode": {"type": "string", "enum": ["include","exclude"], "default": "include"}
+      },
+      "required": ["expression"]
+    }
+  },
+  "properties": {
+    "input": {
+      "type": "object",
+      "properties": {
+        "data": {"type": "array"},
+        "params": {"$ref": "#/definitions/filter_params"}
+      },
+      "required": ["data","params"],
+      "additionalProperties": false
+    },
+    "output": {"type": "object"}
+  },
+  "required": ["input"]
+}

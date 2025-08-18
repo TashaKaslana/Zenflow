@@ -153,6 +153,21 @@ public class WorkflowValidationService {
             String templateString = identifier.toCacheKey();
             log.debug("Plugin node detected - templateString: {}", templateString);
 
+            // This validates the structure and static values against the schema while skipping template fields
+            if (node.getConfig() != null) {
+                log.debug("Validating schema structure for node: {}", node.getKey());
+                List<ValidationError> schemaErrors = schemaValidationService.validateAgainstSchema(
+                        node.getKey(),
+                        node.getConfig(),
+                        templateString,
+                        node.getKey() + ".config.input",
+                        "input",
+                        true  // Skip template fields during definition phase
+                );
+                log.debug("Found {} schema errors for node: {} (template fields excluded)", schemaErrors.size(), node.getKey());
+                errors.addAll(schemaErrors);
+            }
+
             executorRegistry.getExecutor(identifier).ifPresent(executor -> {
                 List<ValidationError> defErrors = executor.validateDefinition(node.getConfig());
                 if (defErrors != null) {

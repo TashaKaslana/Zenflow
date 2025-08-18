@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "input": {
+      "type": "object",
+      "properties": {
+        "duration": {
+          "type": "string",
+          "description": "The duration to wait (e.g., \"5\" for 5 units)."
+        },
+        "unit": {
+          "type": "string",
+          "enum": [
+            "milliseconds",
+            "seconds"
+          ],
+          "description": "The unit of time for the duration.",
+          "default": "seconds"
+        },
+        "next": {
+          "type": "array",
+          "description": "The node(s) to execute after the timeout.",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "duration",
+        "unit"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "type": "object"
+    },
+    "secrets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": { "type": "string" }
+        },
+        "required": ["key"]
+      }
+    }
+  },
+  "required": ["input"]
+}

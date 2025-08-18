@@ -34,10 +34,15 @@ public class SchemaRegistry {
     private final Cache<String, JSONObject> builtinCache;
     private final Cache<String, JSONObject> pluginCache;
 
+    // Performance optimization: use file-based loading by default
+    private final boolean useFileBasedLoading;
+
     public SchemaRegistry(
             PluginNodeSchemaProvider pluginProvider,
-            @Value("${zenflow.schema.cache-ttl-seconds:3600}") long cacheTtlSeconds) {
+            @Value("${zenflow.schema.cache-ttl-seconds:3600}") long cacheTtlSeconds,
+            @Value("${zenflow.schema.use-file-based-loading:true}") boolean useFileBasedLoading) {
         this.pluginProvider = pluginProvider;
+        this.useFileBasedLoading = useFileBasedLoading;
         Duration ttl = Duration.ofSeconds(cacheTtlSeconds);
         this.builtinCache = Caffeine.newBuilder()
                 .expireAfterWrite(ttl)
@@ -132,6 +137,7 @@ public class SchemaRegistry {
 
     /**
      * Get plugin node schema using PluginNodeIdentifier
+     * Uses file-based loading for better performance when enabled
      * @param identifier The plugin node identifier
      * @return JSONObject containing the schema
      */
@@ -143,7 +149,18 @@ public class SchemaRegistry {
             return cached;
         }
         log.debug("Plugin schema cache miss for {}", key);
-        Map<String, Object> schema = pluginProvider.getSchemaJson(identifier);
+
+        Map<String, Object> schema;
+        if (useFileBasedLoading) {
+            // Use direct file access for better performance
+            schema = pluginProvider.getSchemaJsonFromFile(identifier);
+            log.debug("Loaded schema from file for {}", key);
+        } else {
+            // Fallback to database access
+            schema = pluginProvider.getSchemaJson(identifier);
+            log.debug("Loaded schema from database for {}", key);
+        }
+
         if (schema.isEmpty()) {
             throw new NodeSchemaMissingException("No schema found for plugin node: " + key, List.of(key));
         }
@@ -154,6 +171,7 @@ public class SchemaRegistry {
 
     /**
      * Efficiently retrieve multiple plugin schemas by identifiers in a single batch operation.
+     * Uses file-based loading for better performance when enabled.
      * Fails if any identifier has no corresponding schema.
      *
      * @param identifiers Set of plugin node identifiers
@@ -195,7 +213,17 @@ public class SchemaRegistry {
 
     private void putNewSchemasForUncachedIdentifiers(List<PluginNodeIdentifier> uncachedIdentifiers) {
         if (!uncachedIdentifiers.isEmpty()) {
-            Map<String, Map<String, Object>> schemas = pluginProvider.getAllSchemasByIdentifiers(uncachedIdentifiers);
+            Map<String, Map<String, Object>> schemas;
+
+            if (useFileBasedLoading) {
+                // Use direct file access for better performance
+                schemas = pluginProvider.getAllSchemasByIdentifiersFromFile(uncachedIdentifiers);
+                log.debug("Loaded {} schemas from file", schemas.size());
+            } else {
+                // Fallback to database access
+                schemas = pluginProvider.getAllSchemasByIdentifiers(uncachedIdentifiers);
+                log.debug("Loaded {} schemas from database", schemas.size());
+            }
 
             schemas.forEach((key, schemaMap) -> {
                 if (schemaMap == null) {
@@ -218,6 +246,34 @@ public class SchemaRegistry {
                         entry -> PluginNodeIdentifier.fromString(entry.getKey()),
                         Map.Entry::getValue
                 ));
+    }
+
+    /**
+     * Force database-based schema loading for specific use cases (e.g., frontend API)
+     * @param identifier The plugin node identifier
+     * @return JSONObject containing the schema from database
+     */
+    public JSONObject getPluginSchemaFromDatabase(PluginNodeIdentifier identifier) {
+        String key = identifier.toCacheKey();
+        Map<String, Object> schema = pluginProvider.getSchemaJson(identifier);
+        if (schema.isEmpty()) {
+            throw new NodeSchemaMissingException("No schema found in database for plugin node: " + key, List.of(key));
+        }
+        return new JSONObject(schema);
+    }
+
+    /**
+     * Force file-based schema loading for specific use cases
+     * @param identifier The plugin node identifier
+     * @return JSONObject containing the schema from file
+     */
+    public JSONObject getPluginSchemaFromFile(PluginNodeIdentifier identifier) {
+        String key = identifier.toCacheKey();
+        Map<String, Object> schema = pluginProvider.getSchemaJsonFromFile(identifier);
+        if (schema.isEmpty()) {
+            throw new NodeSchemaMissingException("No schema found in file for plugin node: " + key, List.of(key));
+        }
+        return new JSONObject(schema);
     }
 
     /**

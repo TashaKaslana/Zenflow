@@ -1,5 +1,6 @@
 package org.phong.zenflow.plugin.subdomain.execution.register;
 
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
@@ -19,10 +20,15 @@ public class ExecutorInitializer implements ApplicationListener<ContextRefreshed
 
     @Override
     public void onApplicationEvent(@NonNull ContextRefreshedEvent event) {
+        registerExecutors();
+    }
+
+    @PostConstruct
+    public void registerExecutors() {
         String[] beanNames = applicationContext.getBeanNamesForType(PluginNodeExecutor.class);
         for (String beanName : beanNames) {
             PluginNodeExecutor executor = applicationContext.getBean(beanName, PluginNodeExecutor.class);
-            PluginNodeIdentifier identifier = PluginNodeIdentifier.fromString(executor.key());
+            PluginNodeIdentifier identifier = PluginNodeIdentifier.fromString(executor.key(), "builtin");
             registry.register(identifier, () -> applicationContext.getBean(beanName, PluginNodeExecutor.class));
         }
     }

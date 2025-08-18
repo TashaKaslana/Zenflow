@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "input": {
+      "type": "object",
+      "properties": {
+        "payload": {
+          "type": "object",
+          "description": "Optional payload data to pass to the workflow.",
+          "additionalProperties": true
+        },
+        "cron_expression": {
+          "type": "string",
+          "description": "The CRON expression for the schedule."
+        },
+        "schedule_description": {
+          "type": "string",
+          "description": "Optional description of the schedule."
+        }
+      },
+      "additionalProperties": true
+    },
+    "output": {
+      "type": "object",
+      "properties": {
+        "trigger_type": {
+          "type": "string"
+        },
+        "triggered_at": {
+          "type": "string"
+        },
+        "trigger_source": {
+          "type": "string"
+        },
+        "cron_expression": {
+          "type": "string"
+        },
+        "schedule_description": {
+          "type": "string"
+        },
+        "payload": {
+          "type": "object"
+        }
+      }
+    }
+  }
+}
