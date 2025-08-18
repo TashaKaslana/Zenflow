@@ -71,7 +71,7 @@ public class SchemaValidationService {
             /* 2. Pick the slice of schema to use */
             JSONObject schemaJsonToUse = getFullJsonObject(slice, fullSchemaJson);
 
-            /* 3. Serialise data and pick the matching slice from the instance */
+            /* 3. Serialize data and pick the matching slice from the instance */
             String dataJson = objectMapper.writeValueAsString(data);
             Object instanceToValidate = getInstanceToValidate(slice, dataJson);
 
@@ -101,16 +101,61 @@ public class SchemaValidationService {
     }
 
     private static JSONObject getFullJsonObject(String slice, JSONObject fullSchemaJson) {
-        JSONObject schemaJsonToUse = fullSchemaJson;          // default = whole schema
+        JSONObject schemaJsonToUse;
         if (slice != null && !slice.isEmpty()) {
             if (slice.charAt(0) == '/') {
                 JSONPointer ptr = new JSONPointer(slice);
                 schemaJsonToUse = (JSONObject) ptr.queryFrom(fullSchemaJson);
             } else {
-                schemaJsonToUse = fullSchemaJson.getJSONObject("properties").getJSONObject(slice);
+                // When slicing to a property, we need to preserve schema metadata if they exist
+                JSONObject propertySchema = fullSchemaJson.getJSONObject("properties").getJSONObject(slice);
+
+                // Check if the property schema contains references that might need the root schema context
+                if (schemaContainsReferences(propertySchema)) {
+                    // Create a new schema object that includes the property schema plus necessary root-level metadata
+                    schemaJsonToUse = new JSONObject();
+                    // Copy all properties from the property schema
+                    propertySchema.keys().forEachRemaining(key ->
+                        schemaJsonToUse.put(key, propertySchema.get(key))
+                    );
+
+                    // Preserve important root-level schema metadata that might be needed for reference resolution
+                    preserveSchemaMetadata(fullSchemaJson, schemaJsonToUse);
+                } else {
+                    schemaJsonToUse = propertySchema;
+                }
             }
+        } else {
+            schemaJsonToUse = fullSchemaJson;
         }
         return schemaJsonToUse;
+    }
+
+    /**
+     * Preserves important schema metadata needed for reference resolution
+     */
+    private static void preserveSchemaMetadata(JSONObject fullSchema, JSONObject targetSchema) {
+        // Preserve definitions if they exist (for internal references like #/definitions/...)
+        if (fullSchema.has("definitions")) {
+            targetSchema.put("definitions", fullSchema.getJSONObject("definitions"));
+        }
+
+        // Preserve $schema if it exists (maybe needed for external references)
+        if (fullSchema.has("$schema")) {
+            targetSchema.put("$schema", fullSchema.getString("$schema"));
+        }
+
+        // Preserve $id if it exists (base URI for resolving relative references)
+        if (fullSchema.has("$id")) {
+            targetSchema.put("$id", fullSchema.getString("$id"));
+        }
+    }
+
+    /**
+     * Checks if a JSON schema contains $ref references that might need definitions
+     */
+    private static boolean schemaContainsReferences(JSONObject schema) {
+        return schema.toString().contains("$ref");
     }
 
     private static Object getInstanceToValidate(String slice, String dataJson) {
@@ -168,7 +213,7 @@ public class SchemaValidationService {
     private List<ValidationError> convertValidationException(String nodeKey, ValidationException e, String basePath) {
         List<ValidationError> errors = new ArrayList<>();
 
-        // Handle main violation
+        // Handle the main violation
         errors.add(ValidationError.builder()
                 .nodeKey(nodeKey)
                 .errorType("definition")
