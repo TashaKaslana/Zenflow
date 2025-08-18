@@ -2,240 +2,88 @@
 
 ## Overview
 
-The Placeholder Node is a utility node designed for testing and development purposes within the Zenflow workflow system. It acts as a simple pass-through node that echoes its input as output while logging all input values, making it ideal for debugging workflows and testing data flow.
+A simple test node that passes input data through to output, useful for testing workflow structure and data flow patterns.
 
 ## Node Information
 
-- **Key**: `core:placeholder`
+- **Key**: `core:test.placeholder`
 - **Version**: `1.0.0`
-- **Type**: `data`
+- **Type**: `action`
 - **Icon**: `ph:placeholder`
-- **Tags**: `data`, `placeholder`
+- **Tags**: `test`, `placeholder`, `passthrough`, `debug`
 
 ## Description
 
-A placeholder node that echoes its input as output. This node is particularly useful during workflow development and debugging phases, allowing you to:
-
-- Verify data flow between nodes
-- Log input values for inspection
-- Act as a temporary replacement for more complex nodes during development
-- Test workflow configurations without side effects
-
-## Features
-
-- **Pass-through functionality**: All input data is directly returned as output
-- **Comprehensive logging**: Every input key-value pair is logged for debugging
-- **Zero side effects**: No data modification or external operations
-- **Simple configuration**: No complex setup required
+The Placeholder node is a utility node primarily used for testing and development. It accepts any input data and passes it through to the output unchanged, making it perfect for testing workflow structure, data flow patterns, and placeholder logic during development.
 
 ## Input/Output
 
 ### Input
-- **Type**: `Map<String, Object>`
-- **Description**: Accepts any key-value pairs as input
-- **Requirements**: None - accepts any valid input structure
+- Any object structure (additionalProperties: true)
 
 ### Output
-- **Type**: `Map<String, Object>`
-- **Description**: Returns the exact same data structure that was provided as input
-- **Format**: Identical to input format
-
-## Configuration
-
-The Placeholder node requires no specific configuration. It will process any input provided through the standard workflow configuration.
-
-### Example Configuration
-
-```yaml
-nodes:
-  - id: "placeholder-test"
-    type: "core:placeholder"
-    input:
-      message: "Hello World"
-      number: 42
-      array: [1, 2, 3]
-      nested:
-        key: "value"
-```
+- Same structure as input (passes through unchanged)
+- `processed_at` (string): ISO timestamp when node executed
+- `node_type` (string): Always "placeholder"
 
 ## Usage Examples
 
-### Example 1: Basic Data Pass-through
-
-**Input:**
+### Basic Data Passthrough
 ```json
 {
-  "username": "john_doe",
-  "email": "john@example.com",
-  "age": 30
-}
-```
-
-**Output:**
-```json
-{
-  "username": "john_doe",
-  "email": "john@example.com",
-  "age": 30
-}
-```
-
-**Logs:**
-```
-INFO - Input username: john_doe
-INFO - Input email: john@example.com  
-INFO - Input age: 30
-```
-
-### Example 2: Complex Data Structures
-
-**Input:**
-```json
-{
-  "user": {
-    "profile": {
-      "name": "Alice",
-      "preferences": ["theme:dark", "lang:en"]
-    }
+  "key": "test-placeholder",
+  "type": "PLUGIN",
+  "pluginNode": {
+    "pluginKey": "core",
+    "nodeKey": "test.placeholder",
+    "version": "1.0.0"
   },
-  "metadata": {
-    "timestamp": "2025-08-16T10:30:00Z",
-    "version": "1.2.3"
+  "config": {
+    "input": {
+      "test_data": "example",
+      "user_id": 12345,
+      "active": true
+    }
   }
 }
 ```
 
-**Output:**
+### Workflow Testing
 ```json
 {
-  "user": {
-    "profile": {
-      "name": "Alice",
-      "preferences": ["theme:dark", "lang:en"]
+  "input": {
+    "upstream_data": "{{previous_node.output}}",
+    "debug_info": {
+      "workflow_id": "test-123",
+      "step": "validation"
     }
-  },
-  "metadata": {
-    "timestamp": "2025-08-16T10:30:00Z",
-    "version": "1.2.3"
   }
 }
 ```
 
-## Use Cases
+## Common Use Cases
 
-### 1. Workflow Development
-Use the Placeholder node as a temporary replacement while developing more complex nodes:
+- **Workflow Testing**: Test workflow structure without actual processing
+- **Development**: Placeholder for nodes not yet implemented
+- **Debugging**: Examine data flow between nodes
+- **Prototyping**: Quick workflow prototyping and validation
+- **Load Testing**: Test workflow performance with minimal processing
+- **Data Flow Validation**: Verify data structures between workflow steps
 
-```yaml
-workflow:
-  nodes:
-    - id: "data-source"
-      type: "http:request"
-    - id: "processing-placeholder"  # Temporary placeholder
-      type: "core:placeholder"
-    - id: "data-sink"  
-      type: "file:write"
+## Output Example
+
+Input:
+```json
+{
+  "name": "John",
+  "age": 30
+}
 ```
 
-### 2. Debugging Data Flow
-Insert Placeholder nodes between existing nodes to inspect data at specific points:
-
-```yaml
-workflow:
-  nodes:
-    - id: "transform-data"
-      type: "data:transform"
-    - id: "debug-checkpoint"  # Debug insertion point
-      type: "core:placeholder"
-    - id: "save-results"
-      type: "database:save"
+Output:
+```json
+{
+  "name": "John",
+  "age": 30
+}
 ```
-
-### 3. Testing Workflow Structure
-Validate workflow connectivity and configuration without performing actual operations:
-
-```yaml
-workflow:
-  nodes:
-    - id: "mock-api"
-      type: "core:placeholder"
-      input:
-        status: "success"
-        data: ["item1", "item2"]
-    - id: "process-results"
-      type: "core:placeholder"
-```
-
-## Error Handling
-
-The Placeholder node is designed to be robust and will:
-- Accept any valid input structure
-- Never fail during execution
-- Always return a successful execution result
-- Log any issues during input conversion
-
-## Performance Considerations
-
-- **Minimal overhead**: Simple pass-through operation
-- **Memory efficient**: No data duplication or transformation
-- **Fast execution**: Immediate input-to-output mapping
-- **Safe for large datasets**: No processing or modification of data
-
-## Integration
-
-The Placeholder node integrates seamlessly with all other Zenflow nodes and can be placed anywhere in a workflow where a data transformation step is expected.
-
-### Chaining Example
-
-```yaml
-workflow:
-  nodes:
-    - id: "input"
-      type: "core:placeholder"
-      input:
-        rawData: "user input"
-    - id: "validate"  
-      type: "core:placeholder"  # Temporary validation placeholder
-    - id: "output"
-      type: "core:placeholder"
-```
-
-## Troubleshooting
-
-### Common Issues
-
-1. **No output visible**: Check logs for input data confirmation
-2. **Unexpected data structure**: Verify input format matches expectations
-3. **Missing logs**: Ensure logging level is set to INFO or DEBUG
-
-### Log Analysis
-
-Monitor the execution logs to see all input data:
-```
-INFO - Input key1: value1
-INFO - Input key2: value2
-```
-
-## Technical Implementation
-
-- **Executor**: `PlaceholderExecutor`
-- **Interface**: Implements `PluginNodeExecutor`
-- **Conversion**: Uses `ObjectConversion.convertObjectToMap()` for input processing
-- **Logging**: Utilizes `LogCollector` for structured logging
-- **Result**: Returns `ExecutionResult.success()` with original input and logs
-
-## Version History
-
-### 1.0.0
-- Initial implementation
-- Basic pass-through functionality  
-- Input logging capabilities
-- Integration with Zenflow plugin system
-
-## Related Documentation
-
-[//]: # (- [Plugin Node Development Guide]&#40;../../../../../../../docs/plugin-node-sample.md&#41;)
-
-[//]: # (- [Data Transformer Documentation]&#40;../../../../../../../docs/data-transformer.md&#41;)
-
-[//]: # (- [Workflow Configuration Reference]&#40;../../../../../../workflow/README.md&#41;)
