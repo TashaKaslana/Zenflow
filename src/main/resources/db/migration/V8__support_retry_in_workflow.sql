@@ -1,3 +1,12 @@
+ALTER TABLE plugin_nodes
+    ADD COLUMN IF NOT EXISTS icon TEXT,
+    ADD COLUMN IF NOT EXISTS key TEXT UNIQUE;
+
+ALTER TABLE plugins
+    ADD COLUMN IF NOT EXISTS icon TEXT;
+ALTER TABLE plugins
+    ADD COLUMN IF NOT EXISTS key TEXT UNIQUE DEFAULT gen_random_uuid()::text;
+
 ALTER TABLE workflows
     ADD COLUMN IF NOT EXISTS retry_policy JSONB,
     ADD COLUMN IF NOT EXISTS description  TEXT;
@@ -14,13 +23,6 @@ ALTER TABLE node_logs
 
 ALTER TABLE plugin_nodes
     ALTER COLUMN executor_type TYPE TEXT;
-
-UPDATE plugins
-SET key = 'core', publisher_id = '00000000-0000-0000-0000-000000000000'
-WHERE id = (SELECT id
-            FROM plugins
-            WHERE name = 'core'
-            LIMIT 1);
 
 ALTER TABLE plugins
     ALTER COLUMN key SET NOT NULL;
