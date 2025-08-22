@@ -1,4 +1,4 @@
-package org.phong.zenflow.workflow.subdomain.node_logs.logging.durable;
+package org.phong.zenflow.workflow.subdomain.logging.config;
 
 import lombok.Getter;
 import lombok.Setter;

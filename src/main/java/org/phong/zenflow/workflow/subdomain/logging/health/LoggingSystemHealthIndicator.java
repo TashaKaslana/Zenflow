@@ -1,5 +1,10 @@
-package org.phong.zenflow.workflow.subdomain.node_logs.logging.durable;
+package org.phong.zenflow.workflow.subdomain.logging.health;
 
+import org.phong.zenflow.workflow.subdomain.logging.buffer.WorkflowBufferManager;
+import org.phong.zenflow.workflow.subdomain.logging.collector.GlobalLogCollector;
+import org.phong.zenflow.workflow.subdomain.logging.config.LoggingProperties;
+import org.phong.zenflow.workflow.subdomain.logging.metrics.LoggingMetrics;
+import org.phong.zenflow.workflow.subdomain.logging.util.SharedThreadPoolManager;
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.HealthIndicator;
 import org.springframework.stereotype.Component;

@@ -1,10 +1,8 @@
-package org.phong.zenflow.workflow.subdomain.node_logs.service;
+package org.phong.zenflow.workflow.subdomain.logging.core;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import org.phong.zenflow.workflow.subdomain.node_logs.enums.LogLevel;
-import org.phong.zenflow.workflow.subdomain.node_logs.logging.LogContextManager;
-import org.phong.zenflow.workflow.subdomain.node_logs.logging.LogEntry;
+import lombok.Setter;
 import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.Instant;
@@ -23,7 +21,8 @@ public class NodeLogPublisher {
     private final ApplicationEventPublisher publisher;
     private final UUID workflowId;
     private final UUID runId;
-    private final String nodeKey;
+    @Setter
+    private String nodeKey;
     private final UUID userId;
 
     // Basic logging methods
@@ -177,18 +176,18 @@ public class NodeLogPublisher {
                 .timestamp(Instant.now())
                 .traceId(getTraceId())
                 .hierarchy(getHierarchy())
-                .userId(userId != null ? userId.toString() : null)
+                .userId(userId)
                 .build();
     }
 
-    // Helper methods for context data since LogContextManager methods don't exist
+    // Helper methods for context data using LogContextManager
     private String getTraceId() {
-        // TODO: Implement trace ID retrieval when LogContextManager is available
-        return null;
+        LogContext context = LogContextManager.snapshot();
+        return context.traceId();
     }
 
     private String getHierarchy() {
-        // TODO: Implement hierarchy retrieval when LogContextManager is available
-        return null;
+        LogContext context = LogContextManager.snapshot();
+        return context.hierarchy();
     }
 }

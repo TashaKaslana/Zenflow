@@ -1,6 +1,7 @@
-package org.phong.zenflow.workflow.subdomain.node_logs.logging.durable;
+package org.phong.zenflow.workflow.subdomain.logging.util;
 
 import lombok.Getter;
+import org.phong.zenflow.workflow.subdomain.logging.config.LoggingProperties;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.*;

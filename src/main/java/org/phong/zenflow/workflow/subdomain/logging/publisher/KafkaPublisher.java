@@ -1,5 +1,5 @@
-package org.phong.zenflow.workflow.subdomain.node_logs.logging.durable;// logging/collector/KafkaPublisher.java
-import org.phong.zenflow.workflow.subdomain.node_logs.logging.LogEntry;
+package org.phong.zenflow.workflow.subdomain.logging.publisher;// logging/collector/KafkaPublisher.java
+import org.phong.zenflow.workflow.subdomain.logging.core.LogEntry;
 
 import java.util.List;
 

@@ -1,6 +1,8 @@
-package org.phong.zenflow.workflow.subdomain.node_logs.logging.durable;
+package org.phong.zenflow.workflow.subdomain.logging.util;
 
 import lombok.Getter;
+import org.phong.zenflow.workflow.subdomain.logging.config.LoggingProperties;
+import org.phong.zenflow.workflow.subdomain.logging.metrics.LoggingMetrics;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -24,7 +26,7 @@ public class CircuitBreaker {
     private final AtomicLong lastFailureTime = new AtomicLong(0);
 
     public CircuitBreaker(LoggingProperties.PersistenceConfig.CircuitBreakerConfig config,
-                         LoggingMetrics metrics) {
+                          LoggingMetrics metrics) {
         this.failureThreshold = config.getFailureThreshold();
         this.recoveryTimeMs = config.getRecoveryTimeMs();
         this.metrics = metrics;

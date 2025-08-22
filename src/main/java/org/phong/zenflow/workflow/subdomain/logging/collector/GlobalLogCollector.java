@@ -1,7 +1,12 @@
-package org.phong.zenflow.workflow.subdomain.node_logs.logging.durable;
+package org.phong.zenflow.workflow.subdomain.logging.collector;
 import io.micrometer.core.instrument.Timer;
-import org.phong.zenflow.workflow.subdomain.node_logs.enums.LogLevel;
-import org.phong.zenflow.workflow.subdomain.node_logs.logging.LogEntry;
+import org.phong.zenflow.workflow.subdomain.logging.core.LogLevel;
+import org.phong.zenflow.workflow.subdomain.logging.config.LoggingProperties;
+import org.phong.zenflow.workflow.subdomain.logging.metrics.LoggingMetrics;
+import org.phong.zenflow.workflow.subdomain.logging.persistence.PersistenceService;
+import org.phong.zenflow.workflow.subdomain.logging.core.LogEntry;
+import org.phong.zenflow.workflow.subdomain.logging.publisher.KafkaPublisher;
+import org.phong.zenflow.workflow.subdomain.logging.util.CircuitBreaker;
 
 import java.util.*;
 import java.util.concurrent.*;

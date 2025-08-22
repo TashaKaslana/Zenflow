@@ -1,4 +1,4 @@
-package org.phong.zenflow.workflow.subdomain.node_logs.enums;
+package org.phong.zenflow.workflow.subdomain.logging.core;
 
 public enum LogLevel {
     INFO,
