@@ -1,8 +1,7 @@
-package org.phong.zenflow.workflow.subdomain.node_logs.logging;
+package org.phong.zenflow.workflow.subdomain.logging.core;
 
 import lombok.Builder;
 import lombok.Data;
-import org.phong.zenflow.workflow.subdomain.node_logs.enums.LogLevel;
 
 import java.time.Instant;
 import java.util.Map;
@@ -22,16 +21,17 @@ public class LogEntry {
     Map<String, Object> meta;// optional (JSONB in DB)
     String traceId;         // from LogContext/MDC
     String hierarchy;       // from LogContext (a->b->c)
-    String userId;          // optional actor
+    UUID userId;          // optional actor
     String correlationId;   // optional cross-service
 
     public static LogEntry of(LogLevel level, String message) {
+        final var context = LogContextManager.snapshot();
         return LogEntry.builder()
                 .level(level)
                 .message(message)
                 .timestamp(Instant.now())
-                .traceId(LogContextManager.snapshot().traceId())
-                .hierarchy(LogContextManager.snapshot().hierarchy())
+                .traceId(context.traceId())
+                .hierarchy(context.hierarchy())
                 .build();
     }
 }

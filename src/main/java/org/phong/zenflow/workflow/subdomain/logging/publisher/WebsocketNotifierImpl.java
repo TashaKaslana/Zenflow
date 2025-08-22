@@ -1,6 +1,6 @@
-package org.phong.zenflow.workflow.subdomain.node_logs.logging.durable;
+package org.phong.zenflow.workflow.subdomain.logging.publisher;
 
-import org.phong.zenflow.workflow.subdomain.node_logs.logging.LogEntry;
+import org.phong.zenflow.workflow.subdomain.logging.core.LogEntry;
 import org.springframework.stereotype.Component;
 
 @Component

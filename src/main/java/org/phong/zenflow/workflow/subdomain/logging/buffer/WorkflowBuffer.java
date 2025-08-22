@@ -1,6 +1,9 @@
-package org.phong.zenflow.workflow.subdomain.node_logs.logging.durable;
-import org.phong.zenflow.workflow.subdomain.node_logs.enums.LogLevel;
-import org.phong.zenflow.workflow.subdomain.node_logs.logging.LogEntry;
+package org.phong.zenflow.workflow.subdomain.logging.buffer;
+import org.phong.zenflow.workflow.subdomain.logging.core.LogLevel;
+import org.phong.zenflow.workflow.subdomain.logging.collector.GlobalLogCollector;
+import org.phong.zenflow.workflow.subdomain.logging.config.LoggingProperties;
+import org.phong.zenflow.workflow.subdomain.logging.util.SharedThreadPoolManager;
+import org.phong.zenflow.workflow.subdomain.logging.core.LogEntry;
 
 import java.util.*;
 import java.util.concurrent.*;

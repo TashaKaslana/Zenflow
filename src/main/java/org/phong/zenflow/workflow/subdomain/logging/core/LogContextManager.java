@@ -1,4 +1,4 @@
-package org.phong.zenflow.workflow.subdomain.node_logs.logging;
+package org.phong.zenflow.workflow.subdomain.logging.core;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -18,7 +18,10 @@ public class LogContextManager {
     }
 
     public static void pop() {
-        stack.get().pop();
+        Deque<String> deque = stack.get();
+        if (!deque.isEmpty()) {
+            deque.pop();
+        }
     }
 
     public static LogContext snapshot() {
