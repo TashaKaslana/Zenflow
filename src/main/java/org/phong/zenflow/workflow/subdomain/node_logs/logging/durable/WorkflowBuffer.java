@@ -1,16 +1,17 @@
-package org.phong.zenflow.workflow.subdomain.node_logs.logging.durable;// logging/buffer/WorkflowBuffer.java
+package org.phong.zenflow.workflow.subdomain.node_logs.logging.durable;
 import org.phong.zenflow.workflow.subdomain.node_logs.enums.LogLevel;
 import org.phong.zenflow.workflow.subdomain.node_logs.logging.LogEntry;
 
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 class WorkflowBuffer {
     private final UUID runId;
     private final GlobalLogCollector collector;
-    private final int batchSize;
-    private final long maxDelayMillis;
+    private final LoggingProperties.BufferConfig config;
+    private final SharedThreadPoolManager threadPoolManager;
 
     // FIFO for batch, lock-free for producers
     private final ConcurrentLinkedQueue<LogEntry> queue = new ConcurrentLinkedQueue<>();
@@ -18,61 +19,158 @@ class WorkflowBuffer {
     private final ArrayDeque<LogEntry> ring;
     private final int ringCap;
 
-    private final ScheduledExecutorService scheduler;
+    // Shared scheduler instead of per-workflow scheduler
     private final ScheduledFuture<?> ticker;
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
-    WorkflowBuffer(UUID runId, GlobalLogCollector collector, int batchSize, long maxDelayMillis, int ringSize){
-        this.runId = runId; this.collector = collector; this.batchSize = batchSize; this.maxDelayMillis = maxDelayMillis;
-        this.ringCap = Math.max(1, ringSize); this.ring = new ArrayDeque<>(ringCap);
-        this.scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread t = new Thread(r, "wfbuf-"+runId); t.setDaemon(true); return t;
-        });
-        this.ticker = scheduler.scheduleAtFixedRate(this::flushIfAny, maxDelayMillis, maxDelayMillis, TimeUnit.MILLISECONDS);
+    // Adaptive batching metrics
+    private final AtomicLong lastFlushTime = new AtomicLong(System.currentTimeMillis());
+    private final AtomicLong totalEntriesProcessed = new AtomicLong(0);
+    private volatile int currentBatchSize;
+    private volatile long lastActivityTime = System.currentTimeMillis();
+
+    WorkflowBuffer(UUID runId, GlobalLogCollector collector, LoggingProperties.BufferConfig config,
+                   SharedThreadPoolManager threadPoolManager) {
+        this.runId = runId;
+        this.collector = collector;
+        this.config = config;
+        this.threadPoolManager = threadPoolManager;
+        this.ringCap = Math.max(1, config.getRingBufferSize());
+        this.ring = new ArrayDeque<>(ringCap);
+        this.currentBatchSize = config.getDefaultBatchSize();
+
+        // Use shared scheduler instead of creating per-workflow scheduler
+        this.ticker = threadPoolManager.getSharedScheduler().scheduleAtFixedRate(
+            this::flushIfAny,
+            config.getMaxDelayMs(),
+            config.getMaxDelayMs(),
+            TimeUnit.MILLISECONDS
+        );
+
+        threadPoolManager.incrementActiveWorkflows();
     }
 
-    void append(LogEntry e){
-        if(closed.get()) return;
+    void append(LogEntry e) {
+        if (closed.get()) return;
+
         queue.offer(e);
         addToRing(e);
-        // immediate flush on errors (include prior)
-        if(e.getLevel() == LogLevel.ERROR || queue.size() >= batchSize){
-            flushIfAny();
+        lastActivityTime = System.currentTimeMillis();
+
+        // Adaptive batching logic
+        int queueSize = queue.size();
+        boolean shouldFlushImmediate = false;
+
+        // Priority-aware batching - ERROR logs get immediate processing
+        if (e.getLevel() == LogLevel.ERROR) {
+            shouldFlushImmediate = true;
+        }
+        // Dynamic batch size based on queue depth and system load
+        else if (config.isAdaptiveBatching()) {
+            updateAdaptiveBatchSize(queueSize);
+            shouldFlushImmediate = queueSize >= currentBatchSize;
+        } else {
+            shouldFlushImmediate = queueSize >= config.getDefaultBatchSize();
+        }
+
+        if (shouldFlushImmediate) {
+            // Use batch processor service to avoid blocking the caller
+            threadPoolManager.getBatchProcessorService().execute(this::flushIfAny);
         }
     }
 
-    synchronized void flushIfAny(){
-        if(queue.isEmpty()) return;
-        List<LogEntry> batch = new ArrayList<>(Math.min(queue.size(), batchSize));
+    synchronized void flushIfAny() {
+        if (queue.isEmpty()) return;
+
+        long flushStart = System.currentTimeMillis();
+        List<LogEntry> batch = new ArrayList<>(Math.min(queue.size(), getCurrentEffectiveBatchSize()));
         LogEntry x;
-        while((x = queue.poll()) != null){
+
+        while ((x = queue.poll()) != null) {
             batch.add(x);
-            if(batch.size() >= batchSize && !queue.isEmpty()){
+            if (batch.size() >= getCurrentEffectiveBatchSize() && !queue.isEmpty()) {
                 collector.accept(runId, batch);
-                batch = new ArrayList<>(Math.min(queue.size(), batchSize));
+                totalEntriesProcessed.addAndGet(batch.size());
+                batch = new ArrayList<>(Math.min(queue.size(), getCurrentEffectiveBatchSize()));
             }
         }
-        if(!batch.isEmpty()) collector.accept(runId, batch);
+
+        if (!batch.isEmpty()) {
+            collector.accept(runId, batch);
+            totalEntriesProcessed.addAndGet(batch.size());
+        }
+
+        lastFlushTime.set(flushStart);
     }
 
-    List<LogEntry> recent(int limit){
+    List<LogEntry> recent(int limit) {
         synchronized (ring) {
-            return ring.stream().skip(Math.max(0, ring.size()-limit)).toList();
+            return ring.stream().skip(Math.max(0, ring.size() - limit)).toList();
         }
     }
 
-    void closeAndFlush(){
-        if(closed.compareAndSet(false,true)){
-            try { ticker.cancel(false); } catch (Exception ignore) {}
+    void closeAndFlush() {
+        if (closed.compareAndSet(false, true)) {
+            try {
+                ticker.cancel(false);
+            } catch (Exception ignore) {}
+
             flushIfAny();
-            scheduler.shutdownNow();
+            threadPoolManager.decrementActiveWorkflows();
         }
     }
 
-    private void addToRing(LogEntry e){
+    // Check if buffer has been idle for cleanup
+    boolean isIdleForCleanup() {
+        return System.currentTimeMillis() - lastActivityTime > config.getCleanupIdleAfterMs();
+    }
+
+    // Memory pressure callback
+    void handleMemoryPressure() {
+        // Force flush under memory pressure
+        if (!queue.isEmpty()) {
+            threadPoolManager.getBatchProcessorService().execute(this::flushIfAny);
+        }
+    }
+
+    private void addToRing(LogEntry e) {
         synchronized (ring) {
-            if(ring.size() == ringCap) ring.removeFirst();
+            if (ring.size() == ringCap) ring.removeFirst();
             ring.addLast(e);
         }
+    }
+
+    private void updateAdaptiveBatchSize(int queueSize) {
+        // Adaptive batching based on queue depth and system load
+        int systemLoad = threadPoolManager.getActiveWorkflowCount();
+
+        if (queueSize > config.getDefaultBatchSize() * 2 || systemLoad > 10) {
+            // High load - increase batch size to improve throughput
+            currentBatchSize = Math.min(config.getMaxBatchSize(), currentBatchSize + 10);
+        } else if (queueSize < config.getDefaultBatchSize() / 2 && systemLoad < 5) {
+            // Low load - decrease batch size for better latency
+            currentBatchSize = Math.max(config.getMinBatchSize(), currentBatchSize - 5);
+        }
+    }
+
+    private int getCurrentEffectiveBatchSize() {
+        return config.isAdaptiveBatching() ? currentBatchSize : config.getDefaultBatchSize();
+    }
+
+    // Metrics for monitoring
+    public long getTotalEntriesProcessed() {
+        return totalEntriesProcessed.get();
+    }
+
+    public int getCurrentQueueSize() {
+        return queue.size();
+    }
+
+    public long getLastFlushTime() {
+        return lastFlushTime.get();
+    }
+
+    public int getCurrentBatchSize() {
+        return currentBatchSize;
     }
 }

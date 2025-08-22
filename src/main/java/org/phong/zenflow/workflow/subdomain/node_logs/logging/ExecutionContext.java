@@ -18,7 +18,7 @@ public class ExecutionContext {
         this.nodeKey = nodeKey;
         this.log = NodeLogPublisher.builder()
                 .workflowId(workflowId)
-                .workflowRunId(workflowRunId)
+                .runId(workflowRunId)
                 .nodeKey(nodeKey)
                 .build();
     }
@@ -29,7 +29,7 @@ public class ExecutionContext {
         this.nodeKey = nodeKey;
         this.log = NodeLogPublisher.builder()
                 .workflowId(workflowId)
-                .workflowRunId(workflowRunId)
+                .runId(workflowRunId)
                 .nodeKey(nodeKey)
                 .userId(userId)
                 .build();
