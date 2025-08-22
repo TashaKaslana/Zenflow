@@ -1,5 +1,6 @@
 package org.phong.zenflow.workflow.subdomain.logging.config;
 
+import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -22,6 +23,9 @@ public class LoggingProperties {
 
     @NestedConfigurationProperty
     private ThreadPoolConfig threadPool = new ThreadPoolConfig();
+
+    @NestedConfigurationProperty
+    private HealthConfig healthConfig = new HealthConfig();
 
     @Setter
     @Getter
@@ -73,5 +77,13 @@ public class LoggingProperties {
         private int maximumPoolSize = 10;
         private long keepAliveTimeMs = 60000;
         private int queueCapacity = 1000;
+    }
+
+    @Data
+    public static class HealthConfig {
+        private int queueCapacity = 10000;
+        private boolean enabled = true;
+        private long intervalMs = 60000;
+        private int maxUnhealthyRuns = 3; // Fail after 3 consecutive unhealthy checks
     }
 }

@@ -8,6 +8,7 @@ import org.phong.zenflow.workflow.subdomain.logging.core.LogEntry;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 class WorkflowBuffer {
@@ -29,7 +30,7 @@ class WorkflowBuffer {
     // Adaptive batching metrics
     private final AtomicLong lastFlushTime = new AtomicLong(System.currentTimeMillis());
     private final AtomicLong totalEntriesProcessed = new AtomicLong(0);
-    private volatile int currentBatchSize;
+    private final AtomicInteger currentBatchSize;
     private volatile long lastActivityTime = System.currentTimeMillis();
 
     WorkflowBuffer(UUID runId, GlobalLogCollector collector, LoggingProperties.BufferConfig config,
@@ -40,7 +41,7 @@ class WorkflowBuffer {
         this.threadPoolManager = threadPoolManager;
         this.ringCap = Math.max(1, config.getRingBufferSize());
         this.ring = new ArrayDeque<>(ringCap);
-        this.currentBatchSize = config.getDefaultBatchSize();
+        this.currentBatchSize = new AtomicInteger(config.getDefaultBatchSize());
 
         // Use shared scheduler instead of creating per-workflow scheduler
         this.ticker = threadPoolManager.getSharedScheduler().scheduleAtFixedRate(
@@ -71,7 +72,7 @@ class WorkflowBuffer {
         // Dynamic batch size based on queue depth and system load
         else if (config.isAdaptiveBatching()) {
             updateAdaptiveBatchSize(queueSize);
-            shouldFlushImmediate = queueSize >= currentBatchSize;
+            shouldFlushImmediate = queueSize >= currentBatchSize.get();
         } else {
             shouldFlushImmediate = queueSize >= config.getDefaultBatchSize();
         }
@@ -149,15 +150,15 @@ class WorkflowBuffer {
 
         if (queueSize > config.getDefaultBatchSize() * 2 || systemLoad > 10) {
             // High load - increase batch size to improve throughput
-            currentBatchSize = Math.min(config.getMaxBatchSize(), currentBatchSize + 10);
+            currentBatchSize.set(Math.min(config.getMaxBatchSize(), currentBatchSize.get() + 10));
         } else if (queueSize < config.getDefaultBatchSize() / 2 && systemLoad < 5) {
             // Low load - decrease batch size for better latency
-            currentBatchSize = Math.max(config.getMinBatchSize(), currentBatchSize - 5);
+            currentBatchSize.set(Math.max(config.getMinBatchSize(), currentBatchSize.get() - 5));
         }
     }
 
     private int getCurrentEffectiveBatchSize() {
-        return config.isAdaptiveBatching() ? currentBatchSize : config.getDefaultBatchSize();
+        return config.isAdaptiveBatching() ? currentBatchSize.get() : config.getDefaultBatchSize();
     }
 
     // Metrics for monitoring
@@ -171,9 +172,5 @@ class WorkflowBuffer {
 
     public long getLastFlushTime() {
         return lastFlushTime.get();
-    }
-
-    public int getCurrentBatchSize() {
-        return currentBatchSize;
     }
 }

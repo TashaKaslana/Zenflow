@@ -39,7 +39,7 @@ public class LoggingSystemHealthIndicator implements HealthIndicator {
         try {
             // Check queue health
             int queueSize = globalLogCollector.getQueueSize();
-            double queueUtilization = queueSize / 10_000.0; // TODO: Make capacity configurable
+            double queueUtilization = (double) queueSize / properties.getHealthConfig().getQueueCapacity();
 
             if (queueUtilization > 0.9) {
                 builder.down().withDetail("reason", "Queue utilization critical: " +
