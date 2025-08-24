@@ -2,7 +2,7 @@ package org.phong.zenflow.workflow.subdomain.logging.util;
 
 import lombok.Getter;
 import org.phong.zenflow.workflow.subdomain.logging.config.LoggingProperties;
-import org.phong.zenflow.workflow.subdomain.logging.metrics.LoggingMetrics;
+import org.phong.zenflow.workflow.subdomain.logging.infrastructure.metrics.LoggingMetrics;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
