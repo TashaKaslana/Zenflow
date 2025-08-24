@@ -370,6 +370,17 @@ public class RuntimeContext {
     }
 
     /**
+     * Remove a specific key from context and consumers (useful for manual cleanup)
+     *
+     * @param key The key to remove
+     */
+    public void remove(String key) {
+        context.remove(key);
+        consumers.remove(key);
+        log.debug("Removed key '{}' from context and consumers", key);
+    }
+
+    /**
      * Clear all context data (useful for testing or cleanup)
      */
     public void clear() {
