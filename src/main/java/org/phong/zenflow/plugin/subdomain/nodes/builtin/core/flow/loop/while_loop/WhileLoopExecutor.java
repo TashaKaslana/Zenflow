@@ -9,7 +9,7 @@ import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
-import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
+import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
@@ -36,7 +36,7 @@ public class WhileLoopExecutor implements PluginNodeExecutor {
 
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
-        LogCollector logCollector = new LogCollector();
+        NodeLogPublisher logCollector = context.getLogPublisher();
         try {
             Map<String, Object> input = config.input();
 
@@ -48,9 +48,9 @@ public class WhileLoopExecutor implements PluginNodeExecutor {
                 logCollector.info("While loop completed.");
                 if (loopEnd.isEmpty()) {
                     logCollector.warning("loopEnd is empty, no next node to proceed to after completion.");
-                    return ExecutionResult.loopEnd(null, input, logCollector.getLogs());
+                    return ExecutionResult.loopEnd(null, input, null);
                 }
-                return ExecutionResult.loopEnd(loopEnd.getFirst(), input, logCollector.getLogs());
+                return ExecutionResult.loopEnd(loopEnd.getFirst(), input, null);
             }
 
             if (evalCondition(input.get("breakCondition"), input, logCollector)) {
@@ -58,32 +58,31 @@ public class WhileLoopExecutor implements PluginNodeExecutor {
                 logCollector.info("Break condition met, exiting while loop.");
                 if (loopEnd.isEmpty()) {
                     logCollector.warning("loopEnd is empty, no next node to proceed to after break condition.");
-                    return ExecutionResult.loopBreak(null, input, logCollector.getLogs());
+                    return ExecutionResult.loopBreak(null, input, null);
                 }
-                return ExecutionResult.loopBreak(loopEnd.getFirst(), input, logCollector.getLogs());
+                return ExecutionResult.loopBreak(loopEnd.getFirst(), input, null);
             }
 
             if (evalCondition(input.get("continueCondition"), input, logCollector)) {
                 logCollector.info("Continue condition met, skipping to next iteration.");
-                return ExecutionResult.loopContinue(input, logCollector.getLogs());
+                return ExecutionResult.loopContinue(input, null);
             }
 
             List<String> next = ObjectConversion.safeConvert(input.get("next"), new TypeReference<>() {});
             logCollector.info("Proceeding to while loop body.");
             if (next.isEmpty()) {
                 logCollector.warning("next is empty, no next node to proceed to for loop body.");
-                return ExecutionResult.loopNext(null, input, logCollector.getLogs());
+                return ExecutionResult.loopNext(null, input, null);
             }
-            return ExecutionResult.loopNext(next.getFirst(), input, logCollector.getLogs());
+            return ExecutionResult.loopNext(next.getFirst(), input, null);
 
         } catch (Exception e) {
-            log.error("Failed to process while-loop", e);
-            logCollector.error("Failed to process while-loop: " + e.getMessage());
-            return ExecutionResult.error("Failed to process while-loop: " + e.getMessage(), logCollector.getLogs());
+            logCollector.withException(e).error("Failed to process while-loop: {}", e.getMessage());
+            return ExecutionResult.error("Failed to process while-loop: " + e.getMessage(), null);
         }
     }
 
-    private boolean evalCondition(Object rawExpr, Map<String, Object> context, LogCollector logCollector) {
+    private boolean evalCondition(Object rawExpr, Map<String, Object> context, NodeLogPublisher logCollector) {
         if (rawExpr instanceof String expr && !expr.isBlank()) {
             try {
                 Object result = AviatorEvaluator.execute(expr, context);

@@ -6,7 +6,7 @@ import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
-import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
+import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
@@ -39,10 +39,10 @@ public class EmailExecutor implements PluginNodeExecutor {
 
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
-        LogCollector logCollector = new LogCollector();
+        NodeLogPublisher logCollector = context.getLogPublisher();
         try {
-            log.info("Starting email executor");
-            logCollector.info("Executing email node with config: " + config);
+            logCollector.info("Starting email executor");
+            logCollector.info("Executing email node with config: {}", config);
             JavaMailSender mailSender = getJavaMailSender(config);
 
             String to = (String) config.input().get("to");
@@ -54,18 +54,18 @@ public class EmailExecutor implements PluginNodeExecutor {
             mailMessage.setSubject(subject);
             mailMessage.setText(body);
 
-            logCollector.info("Sending email to: " + to);
+            logCollector.info("Sending email to: {}", to);
             mailSender.send(mailMessage);
-            logCollector.info("Email sent successfully to: " + to);
+            logCollector.success("Email sent successfully to: {}", to);
 
             Map<String, Object> output = new HashMap<>();
             output.put("to", to);
             output.put("subject", subject);
 
-            return ExecutionResult.success(output, logCollector.getLogs());
+            return ExecutionResult.success(output, null);
         } catch (Exception e) {
-            logCollector.error("Error executing email node: " + e.getMessage(), e);
-            return ExecutionResult.error(e.getMessage(), logCollector.getLogs());
+            logCollector.withException(e).error("Error executing email node: {}", e.getMessage());
+            return ExecutionResult.error(e.getMessage(), null);
         }
     }
 
