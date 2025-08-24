@@ -23,5 +23,5 @@ CREATE TABLE IF NOT EXISTS node_logs (
     FOREIGN KEY (workflow_run_id) REFERENCES workflow_runs(id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_node_logs_workflow_run_id ON node_logs(workflow_run_id);
-CREATE INDEX idx_node_logs_node_key ON node_logs(node_key);
+CREATE INDEX idx_node_log_workflow_run_id ON node_logs(workflow_run_id);
+CREATE INDEX idx_node_log_node_key ON node_logs(node_key);
