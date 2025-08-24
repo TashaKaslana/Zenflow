@@ -3,7 +3,8 @@ package org.phong.zenflow.plugin.subdomain.executors.builtin.flow.branch.executo
 import org.junit.jupiter.api.Test;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.branch.if_node.IfNodeExecutor;
-import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
+import org.phong.zenflow.TestExecutionContextUtils;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 
 import java.util.List;
@@ -17,7 +18,7 @@ class IfNodeExecutorTest {
 
     @Test
     void directsToTrueBranchWhenConditionMatches() {
-        RuntimeContext context = new RuntimeContext();
+        ExecutionContext context = TestExecutionContextUtils.createExecutionContext();
         WorkflowConfig config = new WorkflowConfig(Map.of(
                 "condition", "1 == 1",
                 "next_true", List.of("true"),
@@ -32,7 +33,7 @@ class IfNodeExecutorTest {
 
     @Test
     void directsToFalseBranchWhenConditionFails() {
-        RuntimeContext context = new RuntimeContext();
+        ExecutionContext context = TestExecutionContextUtils.createExecutionContext();
         WorkflowConfig config = new WorkflowConfig(Map.of(
                 "condition", "1 == 0",
                 "next_true", List.of("true"),

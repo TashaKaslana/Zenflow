@@ -11,7 +11,8 @@ import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.data.data_transformer.executor.DataTransformerExecutor;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.data.data_transformer.interfaces.DataTransformer;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.data.data_transformer.registry.TransformerRegistry;
-import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.TestExecutionContextUtils;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 
 import java.util.*;
@@ -60,14 +61,14 @@ class DataTransformerExecutorTest {
     @Mock
     private DataTransformer toJsonTransformer;
 
-    @Mock
-    private RuntimeContext runtimeContext;
+    private ExecutionContext runtimeContext;
 
     private DataTransformerExecutor executor;
 
     @BeforeEach
     void setUp() {
         executor = new DataTransformerExecutor(registry);
+        runtimeContext = TestExecutionContextUtils.createExecutionContext();
     }
 
     @Test

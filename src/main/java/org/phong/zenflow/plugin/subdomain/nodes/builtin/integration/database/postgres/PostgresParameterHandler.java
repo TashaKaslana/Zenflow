@@ -2,7 +2,7 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.po
 
 import lombok.AllArgsConstructor;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.BaseSqlExecutor;
-import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
+import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.postgresql.util.PGobject;
 import org.springframework.stereotype.Component;
 
@@ -57,7 +57,7 @@ public class PostgresParameterHandler {
     /**
      * Handle batch processing where each element in parameters represents one complete batch iteration
      */
-    private void bindBatchParameters(PreparedStatement stmt, List<Map<String, Object>> batchParameters, LogCollector logCollector) throws SQLException {
+    private void bindBatchParameters(PreparedStatement stmt, List<Map<String, Object>> batchParameters, NodeLogPublisher logCollector) throws SQLException {
         for (Map<String, Object> batchParam : batchParameters) {
             // For batch processing, we expect each batch parameter to contain a "parameters" key
             // with the actual parameter list for that batch iteration
@@ -82,7 +82,7 @@ public class PostgresParameterHandler {
      * {"index": 3, "type": "string", "value": "text"}
      * ]
      */
-    private void bindIndexedParameters(PreparedStatement stmt, List<Map<String, Object>> parameters, LogCollector logCollector, boolean isBatch) throws SQLException {
+    private void bindIndexedParameters(PreparedStatement stmt, List<Map<String, Object>> parameters, NodeLogPublisher logCollector, boolean isBatch) throws SQLException {
         // Sort by index to ensure correct binding order - CRITICAL for SQL injection prevention
         parameters.sort(Comparator.comparingInt(a -> (Integer) a.get("index")));
 
@@ -159,7 +159,7 @@ public class PostgresParameterHandler {
      * Validates that parameter indices are sequential and start from 1
      * This prevents SQL injection through parameter index manipulation
      */
-    private void validateParameterIndices(List<Map<String, Object>> parameters, LogCollector logCollector) throws SQLException {
+    private void validateParameterIndices(List<Map<String, Object>> parameters, NodeLogPublisher logCollector) throws SQLException {
         if (parameters.isEmpty()) return;
 
         for (int i = 0; i < parameters.size(); i++) {
@@ -177,7 +177,7 @@ public class PostgresParameterHandler {
         logCollector.info("Parameter index validation passed for " + parameters.size() + " parameters");
     }
 
-    private void bindJsonbParameter(PreparedStatement stmt, int index, Object value, LogCollector logCollector) throws SQLException {
+    private void bindJsonbParameter(PreparedStatement stmt, int index, Object value, NodeLogPublisher logCollector) throws SQLException {
         if (value == null) {
             stmt.setObject(index, null);
             logCollector.info("Applied JSONB parameter at index " + index + " with null value");
@@ -213,7 +213,7 @@ public class PostgresParameterHandler {
         }
     }
 
-    private void bindArrayParameter(PreparedStatement stmt, int index, Object value, LogCollector logCollector) throws SQLException {
+    private void bindArrayParameter(PreparedStatement stmt, int index, Object value, NodeLogPublisher logCollector) throws SQLException {
         try {
             Object[] array;
             if (value instanceof List<?> list) {
@@ -271,7 +271,7 @@ public class PostgresParameterHandler {
         return "text";
     }
 
-    private void bindUuidParameter(PreparedStatement stmt, int index, String value, LogCollector logCollector) throws SQLException {
+    private void bindUuidParameter(PreparedStatement stmt, int index, String value, NodeLogPublisher logCollector) throws SQLException {
         try {
             stmt.setObject(index, UUID.fromString(value));
             logCollector.info("Applied UUID parameter at index " + index);
@@ -329,7 +329,7 @@ public class PostgresParameterHandler {
      * Parse PostgreSQL timestamp strings with various formats including timezone information
      * Handles formats like: 2025-07-10 10:52:38.384986 +00:00, 2025-07-10T10:52:38.384986Z, etc.
      */
-    private Timestamp parsePostgresTimestamp(String timestampStr, LogCollector logCollector) throws SQLException {
+    private Timestamp parsePostgresTimestamp(String timestampStr, NodeLogPublisher logCollector) throws SQLException {
         if (timestampStr == null || timestampStr.trim().isEmpty()) {
             throw new SQLException("Timestamp string cannot be null or empty");
         }
@@ -366,7 +366,7 @@ public class PostgresParameterHandler {
 
         } catch (Exception e) {
             String error = "Failed to parse timestamp string: " + timestampStr + ". Expected format: yyyy-mm-dd hh:mm:ss[.fffffffff]";
-            logCollector.error(error + " - " + e.getMessage());
+            logCollector.withException(e).error(error);
             throw new SQLException(error, e);
         }
     }

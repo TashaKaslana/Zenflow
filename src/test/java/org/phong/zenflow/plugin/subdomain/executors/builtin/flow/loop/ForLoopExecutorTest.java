@@ -3,7 +3,8 @@ package org.phong.zenflow.plugin.subdomain.executors.builtin.flow.loop;
 import org.junit.jupiter.api.Test;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.loop.for_loop.ForLoopExecutor;
-import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
+import org.phong.zenflow.TestExecutionContextUtils;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 
 import java.util.HashMap;
@@ -19,7 +20,7 @@ class ForLoopExecutorTest {
 
     @Test
     void iteratesThreeTimesThenEnds() {
-        RuntimeContext context = new RuntimeContext();
+        ExecutionContext context = TestExecutionContextUtils.createExecutionContext();
         Map<String, Object> input = new HashMap<>();
         input.put("index", 0);
         input.put("total", 3);

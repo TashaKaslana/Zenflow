@@ -2,10 +2,9 @@ package org.phong.zenflow.workflow.subdomain.context;
 
 import lombok.Builder;
 import lombok.Getter;
-import lombok.Setter;
-import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 
 import java.util.UUID;
+import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 
 @Getter
 @Builder
@@ -13,12 +12,10 @@ public class ExecutionContext {
     private final UUID workflowId;
     private final UUID workflowRunId;
     private final String traceId;
-    @Setter
-    private String nodeKey;
     private final UUID userId;
-    private final NodeLogPublisher log;
-
     private final RuntimeContextManager contextManager;
+    private final NodeLogPublisher logPublisher;
+    private String nodeKey;
 
     public <T> T read(String key, Class<T> clazz) {
         Object o = contextManager
@@ -45,5 +42,12 @@ public class ExecutionContext {
         contextManager
                 .getOrCreate(workflowRunId.toString())
                 .remove(key);
+    }
+
+    public void setNodeKey(String nodeKey) {
+        this.nodeKey = nodeKey;
+        if (logPublisher != null) {
+            logPublisher.setNodeKey(nodeKey);
+        }
     }
 }

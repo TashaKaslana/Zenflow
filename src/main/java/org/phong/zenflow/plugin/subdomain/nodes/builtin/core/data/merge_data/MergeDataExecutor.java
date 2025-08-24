@@ -6,9 +6,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
-import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
-import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
+import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
@@ -36,62 +36,62 @@ public class MergeDataExecutor implements PluginNodeExecutor {
     }
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config, RuntimeContext context) {
-        LogCollector logs = new LogCollector();
+    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
+        NodeLogPublisher logPublisher = context.getLogPublisher();
         try {
-            logs.info("Starting data merge operation");
+            logPublisher.info("Starting data merge operation");
             log.debug("Executing MergeDataExecutor with config: {}", config);
 
             Map<String, Object> input = config.input();
             if (input == null || input.isEmpty()) {
-                logs.error("Input configuration is missing or empty");
-                return ExecutionResult.error("Input configuration is required", logs.getLogs());
+                logPublisher.error("Input configuration is missing or empty");
+                return ExecutionResult.error("Input configuration is required", null);
             }
 
             // Extract and validate sources
-            List<Map<String, Object>> sources = extractSources(input, logs);
+            List<Map<String, Object>> sources = extractSources(input, logPublisher);
             if (sources.isEmpty()) {
-                return ExecutionResult.error("No valid source data provided", logs.getLogs());
+                return ExecutionResult.error("No valid source data provided", null);
             }
 
             // Extract and validate strategy
-            MergeStrategy strategy = extractStrategy(input, logs);
+            MergeStrategy strategy = extractStrategy(input, logPublisher);
 
             // Additional merge options
             MergeOptions options = extractMergeOptions(input);
 
-            logs.info("Merging {} sources using {} strategy", sources.size(), strategy);
+            logPublisher.info("Merging {} sources using {} strategy", sources.size(), strategy);
 
             // Perform the merge operation
-            Map<String, Object> result = performMerge(sources, strategy, options, logs);
+            Map<String, Object> result = performMerge(sources, strategy, options, logPublisher);
 
-            logs.success("Data merge completed successfully. Result contains {} items",
+            logPublisher.success("Data merge completed successfully. Result contains {} items",
                         result.containsKey("data") ? getDataSize(result.get("data")) : 0);
 
-            return ExecutionResult.success(result, logs.getLogs());
+            return ExecutionResult.success(result, null);
 
         } catch (IllegalArgumentException e) {
-            logs.error("Invalid configuration: {}", e.getMessage());
+            logPublisher.error("Invalid configuration: {}", e.getMessage());
             log.debug("Configuration validation failed", e);
-            return ExecutionResult.error("Configuration error: " + e.getMessage(), logs.getLogs());
+            return ExecutionResult.error("Configuration error: " + e.getMessage(), null);
         } catch (Exception e) {
-            logs.error("Unexpected error during data merge: {}", e.getMessage());
+            logPublisher.error("Unexpected error during data merge: {}", e.getMessage());
             log.error("Data merge operation failed", e);
-            return ExecutionResult.error("Merge operation failed: " + e.getMessage(), logs.getLogs());
+            return ExecutionResult.error("Merge operation failed: " + e.getMessage(), null);
         }
     }
 
-    private List<Map<String, Object>> extractSources(Map<String, Object> input, LogCollector logs) {
+    private List<Map<String, Object>> extractSources(Map<String, Object> input, NodeLogPublisher logPublisher) {
         Object sourcesObj = input.get("sources");
         if (sourcesObj == null) {
-            logs.warning("No 'sources' field found in input, checking for direct data fields");
+            logPublisher.warning("No 'sources' field found in input, checking for direct data fields");
             // Support alternative input format where data is provided directly
-            return extractDirectSources(input, logs);
+            return extractDirectSources(input, logPublisher);
         }
 
         List<Map<String, Object>> sources = ObjectConversion.safeConvert(sourcesObj, new TypeReference<>() {});
         if (sources == null) {
-            logs.error("Sources field is not in the expected format (List<Map<String, Object>>)");
+            logPublisher.error("Sources field is not in the expected format (List<Map<String, Object>>)");
             throw new IllegalArgumentException("Invalid sources format");
         }
 
@@ -102,14 +102,14 @@ public class MergeDataExecutor implements PluginNodeExecutor {
             if (source != null && source.containsKey("data")) {
                 validSources.add(source);
             } else {
-                logs.warning("Source at index {} is invalid or missing 'data' field, skipping", i);
+                logPublisher.warning("Source at index {} is invalid or missing 'data' field, skipping", i);
             }
         }
 
         return validSources;
     }
 
-    private List<Map<String, Object>> extractDirectSources(Map<String, Object> input, LogCollector logs) {
+    private List<Map<String, Object>> extractDirectSources(Map<String, Object> input, NodeLogPublisher logPublisher) {
         List<Map<String, Object>> sources = new ArrayList<>();
 
         // Look for common data field names
@@ -121,19 +121,19 @@ public class MergeDataExecutor implements PluginNodeExecutor {
                 source.put("data", input.get(field));
                 source.put("source_field", field);
                 sources.add(source);
-                logs.info("Found data in field: {}", field);
+                logPublisher.info("Found data in field: {}", field);
             }
         }
 
         return sources;
     }
 
-    private MergeStrategy extractStrategy(Map<String, Object> input, LogCollector logs) {
+    private MergeStrategy extractStrategy(Map<String, Object> input, NodeLogPublisher logPublisher) {
         Object strategyObj = input.get("strategy");
 
         switch (strategyObj) {
             case null -> {
-                logs.info("No strategy specified, using default: DEEP_MERGE");
+                logPublisher.info("No strategy specified, using default: DEEP_MERGE");
                 return MergeStrategy.DEEP_MERGE;
             }
             case MergeStrategy mergeStrategy -> {
@@ -143,7 +143,7 @@ public class MergeDataExecutor implements PluginNodeExecutor {
                 try {
                     return MergeStrategy.fromString(strategyStr);
                 } catch (IllegalArgumentException e) {
-                    logs.error("Invalid merge strategy: {}. Available strategies: {}",
+                    logPublisher.error("Invalid merge strategy: {}. Available strategies: {}",
                             strategyStr, Arrays.toString(MergeStrategy.values()));
                     throw e;
                 }
@@ -205,7 +205,7 @@ public class MergeDataExecutor implements PluginNodeExecutor {
     private Map<String, Object> performMerge(List<Map<String, Object>> sources,
                                             MergeStrategy strategy,
                                             MergeOptions options,
-                                            LogCollector logs) {
+                                            NodeLogPublisher logPublisher) {
 
         List<Object> dataList = sources.stream()
                 .map(source -> source.get("data"))
@@ -218,11 +218,11 @@ public class MergeDataExecutor implements PluginNodeExecutor {
                 .collect(Collectors.toList());
 
         Object mergedData = switch (strategy) {
-            case CONCAT -> concatData(dataList, logs);
-            case DEEP_MERGE -> deepMergeData(dataList, options, logs);
-            case COLLECT -> collectData(dataList, options, logs);
-            case OVERWRITE -> overwriteData(dataList, options, logs);
-            case SHALLOW_MERGE -> shallowMergeData(dataList, options, logs);
+            case CONCAT -> concatData(dataList, logPublisher);
+            case DEEP_MERGE -> deepMergeData(dataList, options, logPublisher);
+            case COLLECT -> collectData(dataList, options, logPublisher);
+            case OVERWRITE -> overwriteData(dataList, options, logPublisher);
+            case SHALLOW_MERGE -> shallowMergeData(dataList, options, logPublisher);
         };
 
         // Create comprehensive result
@@ -247,7 +247,7 @@ public class MergeDataExecutor implements PluginNodeExecutor {
         return result;
     }
 
-    private Object concatData(List<Object> dataList, LogCollector logs) {
+    private Object concatData(List<Object> dataList, NodeLogPublisher logPublisher) {
         List<Object> result = new ArrayList<>();
 
         for (Object data : dataList) {
@@ -263,11 +263,11 @@ public class MergeDataExecutor implements PluginNodeExecutor {
             }
         }
 
-        logs.info("Concatenated {} items into a single list", result.size());
+        logPublisher.info("Concatenated {} items into a single list", result.size());
         return result;
     }
 
-    private Object deepMergeData(List<Object> dataList, MergeOptions options, LogCollector logs) {
+    private Object deepMergeData(List<Object> dataList, MergeOptions options, NodeLogPublisher logPublisher) {
         Map<String, Object> result = options.preserveOrder ? new LinkedHashMap<>() : new HashMap<>();
         int mergedFields = 0;
 
@@ -275,13 +275,13 @@ public class MergeDataExecutor implements PluginNodeExecutor {
             if (data instanceof Map<?, ?> map) {
                 mergedFields += mergeMapIntoResult(result, map, options, 0);
             } else if (data == null) {
-                logs.warning("Cannot deep merge null data source");
+                logPublisher.warning("Cannot deep merge null data source");
             } else {
-                logs.warning("Cannot deep merge non-map data: {}", data.getClass().getSimpleName());
+                logPublisher.warning("Cannot deep merge non-map data: {}", data.getClass().getSimpleName());
             }
         }
 
-        logs.info("Deep merged {} fields across {} maps", mergedFields, dataList.size());
+        logPublisher.info("Deep merged {} fields across {} maps", mergedFields, dataList.size());
         return result;
     }
 
@@ -337,7 +337,7 @@ public class MergeDataExecutor implements PluginNodeExecutor {
         };
     }
 
-    private Object shallowMergeData(List<Object> dataList, MergeOptions options, LogCollector logs) {
+    private Object shallowMergeData(List<Object> dataList, MergeOptions options, NodeLogPublisher logPublisher) {
         Map<String, Object> result = options.preserveOrder ? new LinkedHashMap<>() : new HashMap<>();
 
         for (Object data : dataList) {
@@ -350,20 +350,20 @@ public class MergeDataExecutor implements PluginNodeExecutor {
             }
         }
 
-        logs.info("Shallow merged {} maps into {} fields", dataList.size(), result.size());
+        logPublisher.info("Shallow merged {} maps into {} fields", dataList.size(), result.size());
         return result;
     }
 
-    private Object collectData(List<Object> dataList, MergeOptions options, LogCollector logs) {
+    private Object collectData(List<Object> dataList, MergeOptions options, NodeLogPublisher logPublisher) {
         List<Object> filtered = dataList.stream()
                 .filter(data -> data != null || !options.ignoreNulls)
                 .collect(Collectors.toList());
 
-        logs.info("Collected {} data items", filtered.size());
+        logPublisher.info("Collected {} data items", filtered.size());
         return filtered;
     }
 
-    private Object overwriteData(List<Object> dataList, MergeOptions options, LogCollector logs) {
+    private Object overwriteData(List<Object> dataList, MergeOptions options, NodeLogPublisher logPublisher) {
         if (dataList.isEmpty()) {
             return null;
         }
@@ -373,14 +373,14 @@ public class MergeDataExecutor implements PluginNodeExecutor {
             for (int i = dataList.size() - 1; i >= 0; i--) {
                 Object data = dataList.get(i);
                 if (data != null) {
-                    logs.info("Using data from source {} (last non-null)", i);
+                    logPublisher.info("Using data from source {} (last non-null)", i);
                     return data;
                 }
             }
         }
 
         Object result = dataList.getLast();
-        logs.info("Using data from last source (index {})", dataList.size() - 1);
+        logPublisher.info("Using data from last source (index {})", dataList.size() - 1);
         return result;
     }
 

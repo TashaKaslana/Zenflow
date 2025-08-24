@@ -5,7 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
 import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
-import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.OutputUsage;
@@ -104,7 +104,7 @@ public class WorkflowValidationService {
      *                       </ul>
      * @return ValidationResult containing any runtime validation errors found
      */
-    public ValidationResult validateRuntime(String nodeKey, WorkflowConfig resolvedConfig, String templateString, RuntimeContext context) {
+    public ValidationResult validateRuntime(String nodeKey, WorkflowConfig resolvedConfig, String templateString, ExecutionContext context) {
         List<ValidationError> errors = new ArrayList<>();
 
         try {
@@ -318,7 +318,7 @@ public class WorkflowValidationService {
     private List<ValidationError> validateRuntimeConstraints(String nodeKey,
                                                              WorkflowConfig resolvedConfig,
                                                              PluginNodeIdentifier executorIdentifier,
-                                                             RuntimeContext context) {
+                                                             ExecutionContext context) {
         List<ValidationError> errors = new ArrayList<>();
 
         // Add specific runtime validations based on a node type

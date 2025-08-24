@@ -6,9 +6,9 @@ import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.http.exception.HttpExecutorException;
-import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
-import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
+import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
@@ -46,8 +46,8 @@ public class HttpRequestExecutor implements PluginNodeExecutor {
     }
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config, RuntimeContext context) {
-        LogCollector logs = new LogCollector();
+    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
+        NodeLogPublisher logs = context.getLogPublisher();
         try {
             Map<String, Object> input = config.input();
 
@@ -56,7 +56,7 @@ public class HttpRequestExecutor implements PluginNodeExecutor {
             Object body = input.getOrDefault("body", Map.of());
             Map<String, Object> headers = ObjectConversion.convertObjectToMap(input.getOrDefault("headers", Map.of()));
 
-            logs.info("Sending HTTP request to " + url + " with method " + method);
+            logs.info("Sending HTTP request to {} with method {}", url, method);
 
             Map<String, Object> response = webClient.method(method)
                     .uri(url)
@@ -67,15 +67,15 @@ public class HttpRequestExecutor implements PluginNodeExecutor {
 
             logs.success("Received response successfully");
 
-            return ExecutionResult.success(response, logs.getLogs());
+            return ExecutionResult.success(response, null);
         } catch (WebClientResponseException e) {
-            logs.error("HTTP error with status {}", e.getStatusCode());
+            logs.withException(e).error("HTTP error with status {}", e.getStatusCode());
             log.debug("HTTP error with status {}", e.getStatusCode());
-            return ExecutionResult.error(e.getResponseBodyAsString(), logs.getLogs());
+            return ExecutionResult.error(e.getResponseBodyAsString(), null);
         } catch (Exception e) {
-            logs.error("Unexpected error occurred: {}", e.getMessage());
+            logs.withException(e).error("Unexpected error occurred: {}", e.getMessage());
             log.debug("Unexpected error during HTTP request execution", e);
-            return ExecutionResult.error(e.getMessage(), logs.getLogs());
+            return ExecutionResult.error(e.getMessage(), null);
         }
     }
 
@@ -91,7 +91,7 @@ public class HttpRequestExecutor implements PluginNodeExecutor {
                 });
     }
 
-    private void getHeaders(LogCollector logs, HttpHeaders httpHeaders, Map<String, Object> headers) {
+    private void getHeaders(NodeLogPublisher logs, HttpHeaders httpHeaders, Map<String, Object> headers) {
         if (headers != null) {
             headers.forEach((key, value) -> {
                 if (!VALID_HEADER_NAME.matcher(key).matches()) {

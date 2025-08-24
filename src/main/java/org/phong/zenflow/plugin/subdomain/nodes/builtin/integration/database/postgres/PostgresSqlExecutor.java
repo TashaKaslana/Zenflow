@@ -8,9 +8,9 @@ import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecuto
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.BaseDbConnection;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.BaseSqlExecutor;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.dto.ResolvedDbConfig;
-import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
-import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
+import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
@@ -48,19 +48,19 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
     }
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config, RuntimeContext context) {
-        LogCollector logCollector = new LogCollector();
+    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
+        NodeLogPublisher logPublisher = context.getLogPublisher();
         try {
-            log.info("Executing Postgres SQL node with config: {}", config);
+            logPublisher.info("Executing Postgres SQL node with config: {}", config);
 
             config.input().put("driver", "postgresql");
-            ResolvedDbConfig dbConfig = baseDbConnection.establishConnection(config, context, logCollector);
+            ResolvedDbConfig dbConfig = baseDbConnection.establishConnection(config, context);
 
             // Pre-process PostgreSQL-specific syntax
-            dbConfig = preprocessPostgresSyntax(dbConfig, logCollector);
+            dbConfig = preprocessPostgresSyntax(dbConfig, logPublisher);
 
             // Intelligent parameter processing - infer types automatically
-            dbConfig = processParametersWithTypeInference(dbConfig, logCollector);
+            dbConfig = processParametersWithTypeInference(dbConfig, logPublisher);
 
             // Create PostgreSQL-specific parameter binder and result processor
             BaseSqlExecutor.ParameterBinder parameterBinder = hasParameters(dbConfig) ?
@@ -69,11 +69,11 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
             BaseSqlExecutor.ResultProcessor resultProcessor = postgresHandler.createResultProcessor();
 
             // Execute using BaseSqlExecutor with PostgreSQL-specific lambdas
-            return baseSqlExecutor.execute(dbConfig, logCollector, parameterBinder, resultProcessor);
+            return baseSqlExecutor.execute(dbConfig, logPublisher, parameterBinder, resultProcessor);
 
         } catch (Exception e) {
-            log.error("Postgres SQL execution failed", e);
-            return ExecutionResult.error("Postgres SQL execution failed: " + e.getMessage(), logCollector.getLogs());
+            logPublisher.withException(e).error("Postgres SQL execution failed: {}", e.getMessage());
+            return ExecutionResult.error("Postgres SQL execution failed: " + e.getMessage(), null);
         }
     }
 
@@ -83,7 +83,7 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
     }
 
     @Override
-    public List<ValidationError> validateRuntime(WorkflowConfig config, RuntimeContext ctx) {
+    public List<ValidationError> validateRuntime(WorkflowConfig config, ExecutionContext ctx) {
         return runtimeValidator.validate(config, ctx);
     }
 
@@ -103,7 +103,7 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
      * Smart parameter processing - acts like a database compiler
      * Automatically infers PostgreSQL types from Java objects
      */
-    private ResolvedDbConfig processParametersWithTypeInference(ResolvedDbConfig dbConfig, LogCollector logCollector) {
+    private ResolvedDbConfig processParametersWithTypeInference(ResolvedDbConfig dbConfig, NodeLogPublisher logCollector) {
         Map<String, Object> params = dbConfig.getParams();
         if (params == null) return dbConfig;
 
@@ -130,7 +130,7 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
      * Database compiler-style type inference
      * Analyzes Java objects and maps them to PostgreSQL types
      */
-    private ResolvedDbConfig inferParameterTypes(ResolvedDbConfig dbConfig, LogCollector logCollector, boolean isBatch, AtomicInteger startIndex) {
+    private ResolvedDbConfig inferParameterTypes(ResolvedDbConfig dbConfig, NodeLogPublisher logCollector, boolean isBatch, AtomicInteger startIndex) {
         Map<String, Object> params = dbConfig.getParams();
         Object valuesObj = params.get(isBatch ? "batchValues" : "values");
 
@@ -190,7 +190,7 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
         return dbConfig;
     }
 
-    private void extractParamsTypes(LogCollector logCollector, List<Map<String, Object>> inferredParameters, Object value, int index, boolean isBatch) {
+    private void extractParamsTypes(NodeLogPublisher logCollector, List<Map<String, Object>> inferredParameters, Object value, int index, boolean isBatch) {
         String inferredType = inferPostgresType(value, logCollector);
         Object processedValue = preprocessValue(value, inferredType, logCollector);
         Map<String, Object> param = new HashMap<>();
@@ -205,7 +205,7 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
     /**
      * Preprocesses values to ensure they're in the correct format for PostgreSQL binding
      */
-    private Object preprocessValue(Object value, String inferredType, LogCollector logCollector) {
+    private Object preprocessValue(Object value, String inferredType, NodeLogPublisher logCollector) {
         if (value == null) return null;
 
         switch (inferredType.toLowerCase()) {
@@ -239,7 +239,7 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
      * Database compiler-style type inference
      * Analyzes Java objects and maps them to PostgreSQL types
      */
-    private String inferPostgresType(Object value, LogCollector logCollector) {
+    private String inferPostgresType(Object value, NodeLogPublisher logCollector) {
         if (value == null) return "string"; // Default to string for nulls
 
         Class<?> clazz = value.getClass();
@@ -343,7 +343,7 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
         return clazz.getDeclaredFields().length > 0;
     }
 
-    private ResolvedDbConfig preprocessPostgresSyntax(ResolvedDbConfig dbConfig, LogCollector logCollector) {
+    private ResolvedDbConfig preprocessPostgresSyntax(ResolvedDbConfig dbConfig, NodeLogPublisher logCollector) {
         String originalQuery = dbConfig.getQuery();
         Map<String, Object> params = dbConfig.getParams();
 

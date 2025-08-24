@@ -3,9 +3,9 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.test.data_generato
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
-import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
-import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
+import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
@@ -25,8 +25,8 @@ public class DataGeneratorExecutor implements PluginNodeExecutor {
     }
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config, RuntimeContext context) {
-        LogCollector logCollector = new LogCollector();
+    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
+        NodeLogPublisher logCollector = context.getLogPublisher();
         
         try {
             Map<String, Object> input = ObjectConversion.convertObjectToMap(config.input());
@@ -47,11 +47,11 @@ public class DataGeneratorExecutor implements PluginNodeExecutor {
             logCollector.info("Generated mock user data: email={}, age={}, active={}", 
                             output.get("user_email"), output.get("user_age"), output.get("user_active"));
             
-            return ExecutionResult.success(output, logCollector.getLogs());
-            
+            return ExecutionResult.success(output, null);
+
         } catch (Exception e) {
-            logCollector.error("Data generation failed: " + e.getMessage());
-            return ExecutionResult.error("Data generation failed: " + e.getMessage(), logCollector.getLogs());
+            logCollector.withException(e).error("Data generation failed: {}", e.getMessage());
+            return ExecutionResult.error("Data generation failed: " + e.getMessage(), null);
         }
     }
 }
