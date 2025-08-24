@@ -68,46 +68,55 @@ public class WorkflowRunnerService {
             targetIdExpression = "#workflowId"
     )
     public void runWorkflow(UUID workflowRunId, TriggerType triggerType, UUID workflowId, @Nullable WorkflowRunnerRequest request) {
-        log.info("Starting workflow with ID: {}", workflowId);
-
-        Workflow workflow = workflowService.getWorkflow(workflowId);
-        if (!workflow.getIsActive()) {
-            throw new WorkflowException("Workflow with ID: " + workflowId + " is not active");
-        }
-
-        triggerType = triggerType != null ? triggerType : TriggerType.MANUAL;
-        RuntimeContext context = new RuntimeContext();
-        contextManager.assign(workflowRunId.toString(), context);
-
+        // Initialize logging context with trace ID for this workflow run
+        String traceId = UUID.randomUUID().toString();
+        LogContextManager.init(workflowRunId.toString(), traceId);
+        
         try {
-            // This will create a new run if it doesn't exist, or return the existing one.
-            WorkflowRun workflowRun = workflowRunService.findOrCreateWorkflowRun(workflowRunId, workflowId, triggerType);
+            log.info("Starting workflow with ID: {}", workflowId);
 
-            // Extract consumer map from the static context in the workflow definition
-            WorkflowMetadata metadata = workflow.getDefinition().metadata();
-            Map<String, Set<String>> consumers = metadata.nodeConsumers().entrySet().stream()
-                    .collect(Collectors.toMap(
-                            Map.Entry::getKey,
-                            entry -> Set.of(entry.getValue().toString())
-                    ));
-            Map<String, String> aliasMap = metadata.aliases();
+            Workflow workflow = workflowService.getWorkflow(workflowId);
+            if (!workflow.getIsActive()) {
+                throw new WorkflowException("Workflow with ID: " + workflowId + " is not active");
+            }
 
-            initializeContext(workflowRunId, workflowId, request, workflowRun, context, consumers, aliasMap);
+            triggerType = triggerType != null ? triggerType : TriggerType.MANUAL;
+            RuntimeContext context = new RuntimeContext();
+            contextManager.assign(workflowRunId.toString(), context);
 
-            String startFromNodeKey = (request != null) ? request.startFromNodeKey() : null;
-            WorkflowExecutionStatus status = workflowEngineService.runWorkflow(workflowId, workflowRunId, startFromNodeKey, context);
+            try {
+                // This will create a new run if it doesn't exist or return the existing one.
+                WorkflowRun workflowRun = workflowRunService.findOrCreateWorkflowRun(workflowRunId, workflowId, triggerType);
 
-            handleWorkflowExecutionStatus(workflowRunId, workflowId, status, context);
+                // Extract the consumer map from the static context in the workflow definition
+                WorkflowMetadata metadata = workflow.getDefinition().metadata();
+                Map<String, Set<String>> consumers = metadata.nodeConsumers().entrySet().stream()
+                        .collect(Collectors.toMap(
+                                Map.Entry::getKey,
+                                entry -> Set.of(entry.getValue().toString())
+                        ));
+                Map<String, String> aliasMap = metadata.aliases();
 
-        } catch (Exception e) {
-            log.warn("Error running workflow with ID: {}", workflowId, e);
-            workflowRunService.handleWorkflowError(workflowRunId, e);
-            Object callbackUrlObj = context.get(callbackUrlKeyOnContext);
-            if (callbackUrlObj instanceof String callbackUrl && !callbackUrl.isEmpty()) {
-                notifyCallbackUrl(callbackUrl, workflowRunId);
+                initializeContext(workflowRunId, workflowId, request, workflowRun, context, consumers, aliasMap);
+
+                String startFromNodeKey = (request != null) ? request.startFromNodeKey() : null;
+                WorkflowExecutionStatus status = workflowEngineService.runWorkflow(workflowId, workflowRunId, startFromNodeKey, context);
+
+                handleWorkflowExecutionStatus(workflowRunId, workflowId, status, context);
+
+            } catch (Exception e) {
+                log.warn("Error running workflow with ID: {}", workflowId, e);
+                workflowRunService.handleWorkflowError(workflowRunId, e);
+                Object callbackUrlObj = context.get(callbackUrlKeyOnContext);
+                if (callbackUrlObj instanceof String callbackUrl && !callbackUrl.isEmpty()) {
+                    notifyCallbackUrl(callbackUrl, workflowRunId);
+                }
+            } finally {
+                contextManager.remove(workflowRunId.toString());
             }
         } finally {
-            contextManager.remove(workflowRunId.toString());
+            // Clean up the logging context when workflow execution completes
+            LogContextManager.cleanup(workflowRunId.toString());
         }
     }
 
