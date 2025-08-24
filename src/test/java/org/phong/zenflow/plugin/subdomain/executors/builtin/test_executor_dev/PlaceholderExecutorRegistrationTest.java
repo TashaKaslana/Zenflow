@@ -8,6 +8,8 @@ import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.phong.zenflow.plugin.subdomain.execution.register.ExecutorInitializer;
 import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
+import org.phong.zenflow.TestExecutionContextUtils;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 
 import java.util.Map;
 
@@ -39,7 +41,8 @@ class PlaceholderExecutorRegistrationTest {
                         "input3", true
                 )
         );
-        var result = executor.execute(resolvedConfig, null);
+        ExecutionContext context = TestExecutionContextUtils.createExecutionContext();
+        var result = executor.execute(resolvedConfig, context);
 
         assertEquals("value1", result.getOutput().get("input1"));
         assertEquals(42, result.getOutput().get("input2"));
