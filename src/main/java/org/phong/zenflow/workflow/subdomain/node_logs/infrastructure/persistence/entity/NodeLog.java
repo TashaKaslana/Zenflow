@@ -1,4 +1,4 @@
-package org.phong.zenflow.workflow.subdomain.node_logs.infraustructure.persistence.entity;
+package org.phong.zenflow.workflow.subdomain.node_logs.infrastructure.persistence.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -12,27 +12,30 @@ import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
-import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 import org.hibernate.type.SqlTypes;
 import org.phong.zenflow.core.superbase.BaseIdEntity;
-import org.phong.zenflow.workflow.subdomain.node_logs.dto.LogEntry;
-import org.phong.zenflow.workflow.subdomain.node_logs.enums.NodeLogStatus;
+import org.phong.zenflow.workflow.subdomain.node_logs.enums.LogLevel;
 import org.phong.zenflow.workflow.subdomain.workflow_run.infrastructure.persistence.entity.WorkflowRun;
 
 import java.time.OffsetDateTime;
-import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Getter
 @Setter
 @Entity
 @Table(name = "node_logs", indexes = {
-        @Index(name = "idx_node_logs_workflow_run_id", columnList = "workflow_run_id")
+        @Index(name = "idx_node_log_workflow_run_id", columnList = "workflow_run_id"),
+        @Index(name = "idx_node_log_node_key", columnList = "node_key")
 })
 public class NodeLog extends BaseIdEntity {
+    @NotNull
+    @Column(name = "workflow_id", nullable = false)
+    private UUID workflowId;
+
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
@@ -44,30 +47,36 @@ public class NodeLog extends BaseIdEntity {
     private String nodeKey;
 
     @NotNull
-    @Column(name = "status", nullable = false, length = Integer.MAX_VALUE)
-    @Enumerated(EnumType.STRING)
-    private NodeLogStatus status = NodeLogStatus.RUNNING;
-
-    @Column(name = "error", length = Integer.MAX_VALUE)
-    private String error;
-
-    @ColumnDefault("1")
-    @Column(name = "attempts")
-    private Integer attempts;
-
-    @Column(name = "output")
-    @JdbcTypeCode(SqlTypes.JSON)
-    private Map<String, Object> output;
+    @Column(name = "timestamp", nullable = false)
+    private OffsetDateTime timestamp;
 
     @NotNull
-    @ColumnDefault("now()")
-    @Column(name = "started_at", nullable = false)
-    private OffsetDateTime startedAt;
+    @Column(name = "level", nullable = false, length = Integer.MAX_VALUE)
+    @Enumerated(EnumType.STRING)
+    private LogLevel level;
 
-    @Column(name = "ended_at")
-    private OffsetDateTime endedAt;
+    @Column(name = "message", length = Integer.MAX_VALUE)
+    private String message;
 
-    @Column(name = "logs")
+    @Column(name = "error_code", length = Integer.MAX_VALUE)
+    private String errorCode;
+
+    @Column(name = "error_message", length = Integer.MAX_VALUE)
+    private String errorMessage;
+
     @JdbcTypeCode(SqlTypes.JSON)
-    private List<LogEntry> logs;
+    @Column(name = "meta")
+    private Map<String, Object> meta;
+
+    @Column(name = "trace_id", length = Integer.MAX_VALUE)
+    private String traceId;
+
+    @Column(name = "hierarchy", length = Integer.MAX_VALUE)
+    private String hierarchy;
+
+    @Column(name = "user_id")
+    private UUID userId;
+
+    @Column(name = "correlation_id", length = Integer.MAX_VALUE)
+    private String correlationId;
 }
