@@ -33,6 +33,6 @@ public class PlaceholderExecutor implements PluginNodeExecutor {
         NodeLogPublisher logCollector = context.getLogPublisher();
         Map<String, Object> input = ObjectConversion.convertObjectToMap(config.input());
         input.forEach((k, v) -> logCollector.info("Input {}: {}", k, v));
-        return ExecutionResult.success(input, null);
+        return ExecutionResult.success(input);
     }
 }

@@ -50,11 +50,11 @@ public class NumberValidatorExecutor implements PluginNodeExecutor {
             logCollector.info("Number validation completed. Valid: {}, Message: {}", 
                             output.get("valid"), output.get("validation_message"));
             
-            return ExecutionResult.success(output, null);
+            return ExecutionResult.success(output);
 
         } catch (Exception e) {
             logCollector.withException(e).error("Number validation failed: {}", e.getMessage());
-            return ExecutionResult.error("Number validation failed: " + e.getMessage(), null);
+            return ExecutionResult.error("Number validation failed: " + e.getMessage());
         }
     }
 }

@@ -47,9 +47,9 @@ public class ForEachLoopExecutor implements PluginNodeExecutor {
                 logCollector.info("Loop completed after {} iterations", items.size());
                 if (loopEnd.isEmpty()) {
                     logCollector.warning("loopEnd is empty, no next node to proceed to after completion.");
-                    return ExecutionResult.loopEnd(null, null);
+                    return ExecutionResult.loopEnd(null);
                 }
-                return ExecutionResult.loopEnd(loopEnd.getFirst(), null);
+                return ExecutionResult.loopEnd(loopEnd.getFirst());
             }
 
             Object currentItem = items.get(index);
@@ -71,15 +71,15 @@ public class ForEachLoopExecutor implements PluginNodeExecutor {
                 logCollector.info("Break condition met at index {}, exiting loop", index);
                 if (loopEnd.isEmpty()) {
                     logCollector.warning("loopEnd is empty, no next node to proceed to after break condition.");
-                    return ExecutionResult.loopBreak(null, output, null);
+                    return ExecutionResult.loopBreak(null, output);
                 }
-                return ExecutionResult.loopBreak(loopEnd.getFirst(), output, null);
+                return ExecutionResult.loopBreak(loopEnd.getFirst(), output);
             }
 
             if (evalCondition(input.get("continueCondition"), output, logCollector)) {
                 output.put("index", index + 1);
                 logCollector.info("Continue condition met at index {}, skipping to next", index);
-                return ExecutionResult.loopContinue(output, null);
+                return ExecutionResult.loopContinue(output);
             }
 
             List<String> next = ObjectConversion.safeConvert(input.get("next"), new TypeReference<>() {});
@@ -88,13 +88,13 @@ public class ForEachLoopExecutor implements PluginNodeExecutor {
             logCollector.info("Processing item {} of {}: {}", index + 1, items.size(), currentItem);
             if (next.isEmpty()) {
                 logCollector.warning("next is empty, no next node to proceed to for loop body.");
-                return ExecutionResult.loopNext(null, output, null);
+                return ExecutionResult.loopNext(null, output);
             }
-            return ExecutionResult.loopNext(next.getFirst(), output, null);
+            return ExecutionResult.loopNext(next.getFirst(), output);
 
         } catch (Exception e) {
             logCollector.withException(e).error("Execution failed: {}", e.getMessage());
-            return ExecutionResult.error("Execution failed: " + e.getMessage(), null);
+            return ExecutionResult.error("Execution failed: " + e.getMessage());
         }
     }
 

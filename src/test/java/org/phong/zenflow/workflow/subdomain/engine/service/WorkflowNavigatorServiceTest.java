@@ -39,7 +39,7 @@ public class WorkflowNavigatorServiceTest {
                 "mode", "all",
                 "threshold", 1
         );
-        ExecutionResult result = ExecutionResult.uncommit(output, List.of());
+        ExecutionResult result = ExecutionResult.uncommit(output);
 
         UUID workflowId = UUID.randomUUID();
         UUID runId = UUID.randomUUID();

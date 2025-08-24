@@ -67,7 +67,7 @@ public class IfNodeExecutor implements PluginNodeExecutor {
             return getExpressionExecutionResult(condition, nextTrue, logCollector, nextFalse);
         } catch (Exception e) {
             logCollector.withException(e).error("Failed to process if-node: {}", e.getMessage());
-            return ExecutionResult.error("Failed to process if-node: " + e.getMessage(), null);
+            return ExecutionResult.error("Failed to process if-node: " + e.getMessage());
         }
     }
 

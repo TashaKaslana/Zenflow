@@ -55,7 +55,7 @@ public class TimeoutExecutor implements PluginNodeExecutor {
         timeoutScheduler.scheduleTimeout(workflowId, workflowRunId, nodeKey, millis);
         logCollector.info("Timeout scheduled for {} {} ({} milliseconds)", duration, unit, millis);
 
-        return ExecutionResult.waiting(null);
+        return ExecutionResult.waiting();
     }
 
     private long parseDuration(String duration, String unit) {

@@ -85,7 +85,7 @@ public class ConditionNodeExecutor implements PluginNodeExecutor {
         } catch (Exception e) {
             log.error("Failed to parse or evaluate cases", e);
             log.error("Invalid cases format or condition expression: {}", e.getMessage());
-            return ExecutionResult.error("Invalid cases format or condition expression", null);
+            return ExecutionResult.error("Invalid cases format or condition expression");
         }
     }
 }

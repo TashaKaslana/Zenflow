@@ -95,11 +95,11 @@ public class DataTransformerExecutor implements PluginNodeExecutor {
             }
             logPublisher.success("Data transformation completed successfully.");
 
-            return ExecutionResult.success(Map.of("result", result), null);
+            return ExecutionResult.success(Map.of("result", result));
         } catch (Exception e) {
             logPublisher.error("Error occurred during data transformation: " + e.getMessage());
             log.debug("Data transformation failed {}", e.getMessage(), e);
-            return ExecutionResult.error(e.getMessage(), null);
+            return ExecutionResult.error(e.getMessage());
         }
     }
 

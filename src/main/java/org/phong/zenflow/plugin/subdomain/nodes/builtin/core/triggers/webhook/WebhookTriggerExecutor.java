@@ -95,10 +95,10 @@ public class WebhookTriggerExecutor implements PluginNodeExecutor {
 
             logs.success("Webhook trigger completed successfully");
 
-            return ExecutionResult.success(output, null);
+            return ExecutionResult.success(output);
         } catch (Exception e) {
             logs.withException(e).error("Unexpected error occurred during webhook trigger execution: {}", e.getMessage());
-            return ExecutionResult.error(e.getMessage(), null);
+            return ExecutionResult.error(e.getMessage());
         }
     }
 }

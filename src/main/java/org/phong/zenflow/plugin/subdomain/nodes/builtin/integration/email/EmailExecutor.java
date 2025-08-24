@@ -62,10 +62,10 @@ public class EmailExecutor implements PluginNodeExecutor {
             output.put("to", to);
             output.put("subject", subject);
 
-            return ExecutionResult.success(output, null);
+            return ExecutionResult.success(output);
         } catch (Exception e) {
             logCollector.withException(e).error("Error executing email node: {}", e.getMessage());
-            return ExecutionResult.error(e.getMessage(), null);
+            return ExecutionResult.error(e.getMessage());
         }
     }
 
