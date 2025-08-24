@@ -11,6 +11,7 @@ import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContextManager;
 import org.phong.zenflow.workflow.subdomain.logging.core.LogContextManager;
 import org.phong.zenflow.workflow.subdomain.logging.core.LogContext;
+import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.engine.dto.WorkflowExecutionStatus;
 import org.phong.zenflow.workflow.subdomain.engine.event.NodeCommitEvent;
 import org.phong.zenflow.workflow.subdomain.engine.exception.WorkflowEngineException;
@@ -61,12 +62,20 @@ public class WorkflowEngineService {
             String currentNodeKey = (startFromNodeKey != null) ? startFromNodeKey : workflow.getStartNode();
             BaseWorkflowNode workingNode = workflowNavigatorService.findNodeByKey(workflowNodes, currentNodeKey);
 
+            NodeLogPublisher logPublisher = NodeLogPublisher.builder()
+                    .publisher(publisher)
+                    .workflowId(workflowId)
+                    .runId(workflowRunId)
+                    .userId(null)
+                    .build();
+
             ExecutionContext execCtx = ExecutionContext.builder()
                     .workflowId(workflowId)
                     .workflowRunId(workflowRunId)
                     .traceId(LogContextManager.snapshot().traceId())
                     .userId(null)
                     .contextManager(contextManager)
+                    .logPublisher(logPublisher)
                     .build();
 
             return getWorkflowExecutionStatus(workflowId, workflowRunId, context, workingNode, workflowNodes, execCtx);
@@ -144,6 +153,8 @@ public class WorkflowEngineService {
                 log.info("[traceId={}] [hierarchy={}] Node finished", ctx.traceId(), ctx.hierarchy());
                 return ExecutionResult.validationError(validationResult, workingNode.getKey());
             }
+
+            execCtx.getLogPublisher().setNodeKey(workingNode.getKey());
 
             ExecutionResult result = executorDispatcher.dispatch(workingNode.getPluginNode(), resolvedConfig, execCtx);
             log.info("[traceId={}] [hierarchy={}] Node finished", ctx.traceId(), ctx.hierarchy());

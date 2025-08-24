@@ -9,11 +9,13 @@ import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContextManager;
 import org.phong.zenflow.workflow.subdomain.logging.core.LogContextManager;
 import org.phong.zenflow.workflow.subdomain.logging.core.LogContext;
+import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import java.util.UUID;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
 import org.phong.zenflow.workflow.subdomain.schema_validator.service.WorkflowValidationService;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
@@ -32,6 +34,7 @@ public class SingleNodeExecutionService {
     private final PluginNodeExecutorDispatcher executorDispatcher;
     private final WorkflowValidationService workflowValidationService;
     private final RuntimeContextManager contextManager;
+    private final ApplicationEventPublisher publisher;
 
     /**
      * Execute a plugin node with the provided configuration.
@@ -47,12 +50,20 @@ public class SingleNodeExecutionService {
         UUID workflowId = UUID.randomUUID();
         UUID runId = UUID.randomUUID();
         contextManager.assign(runId.toString(), context);
+        NodeLogPublisher logPublisher = NodeLogPublisher.builder()
+                .publisher(publisher)
+                .workflowId(workflowId)
+                .runId(runId)
+                .userId(null)
+                .build();
+
         ExecutionContext execCtx = ExecutionContext.builder()
                 .workflowId(workflowId)
                 .workflowRunId(runId)
                 .traceId(LogContextManager.snapshot().traceId())
                 .userId(null)
                 .contextManager(contextManager)
+                .logPublisher(logPublisher)
                 .build();
 
         WorkflowConfig safeConfig = (config != null) ? config : new WorkflowConfig();
@@ -68,6 +79,8 @@ public class SingleNodeExecutionService {
         return LogContextManager.withComponent(plugin.getKey(), () -> {
             LogContext ctx = LogContextManager.snapshot();
             log.info("[traceId={}] [hierarchy={}] Node started", ctx.traceId(), ctx.hierarchy());
+            execCtx.getLogPublisher().setNodeKey(plugin.getKey());
+
             ValidationResult validationResult = workflowValidationService.validateRuntime(
                     plugin.getKey(),
                     resolvedConfig,
