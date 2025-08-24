@@ -15,6 +15,7 @@ public class ExecutionContext {
     private final UUID userId;
     private final RuntimeContextManager contextManager;
     private final NodeLogPublisher logPublisher;
+    private String nodeKey;
 
     public <T> T read(String key, Class<T> clazz) {
         Object o = contextManager
@@ -41,5 +42,12 @@ public class ExecutionContext {
         contextManager
                 .getOrCreate(workflowRunId.toString())
                 .remove(key);
+    }
+
+    public void setNodeKey(String nodeKey) {
+        this.nodeKey = nodeKey;
+        if (logPublisher != null) {
+            logPublisher.setNodeKey(nodeKey);
+        }
     }
 }

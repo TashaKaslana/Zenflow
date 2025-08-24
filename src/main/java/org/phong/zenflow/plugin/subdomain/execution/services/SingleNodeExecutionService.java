@@ -79,7 +79,7 @@ public class SingleNodeExecutionService {
         return LogContextManager.withComponent(plugin.getKey(), () -> {
             LogContext ctx = LogContextManager.snapshot();
             log.info("[traceId={}] [hierarchy={}] Node started", ctx.traceId(), ctx.hierarchy());
-            execCtx.getLogPublisher().setNodeKey(plugin.getKey());
+            execCtx.setNodeKey(plugin.getKey());
 
             ValidationResult validationResult = workflowValidationService.validateRuntime(
                     plugin.getKey(),

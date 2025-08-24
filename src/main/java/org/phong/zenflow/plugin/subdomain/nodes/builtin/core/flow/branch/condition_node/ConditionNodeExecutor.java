@@ -9,7 +9,7 @@ import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
-import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
+import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
@@ -41,12 +41,12 @@ public class ConditionNodeExecutor implements PluginNodeExecutor {
 
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
-        LogCollector logCollector = new LogCollector();
+        NodeLogPublisher log = context.getLogPublisher();
         try {
             Map<String, Object> input = config.input();
             List<ConditionalCase> cases = ObjectConversion.safeConvert(input.get("cases"), new TypeReference<>() {});
 
-            logCollector.info("Begin condition flow with cases: {}", cases.toString());
+            log.info("Begin condition flow with cases: {}", cases.toString());
 
             for (ConditionalCase caseDef : cases) {
                 String rawCondition = caseDef.when();
@@ -55,7 +55,7 @@ public class ConditionNodeExecutor implements PluginNodeExecutor {
                 }
 
                 if (UNRESOLVED_PATTERN.matcher(rawCondition).find()) {
-                    logCollector.warning("Skipping condition due to unresolved placeholder: " + rawCondition);
+                    log.warning("Skipping condition due to unresolved placeholder: " + rawCondition);
                     continue;
                 }
 
@@ -65,27 +65,27 @@ public class ConditionNodeExecutor implements PluginNodeExecutor {
                     Object result = AviatorEvaluator.execute(rawCondition);
                     Boolean isMatch = (Boolean) result;
                     if (Boolean.TRUE.equals(isMatch)) {
-                        logCollector.info("Condition matched: {} than next to {}", rawCondition, caseDef.then());
-                        return ExecutionResult.nextNode(caseDef.then(), logCollector.getLogs());
+                        log.info("Condition matched: {} than next to {}", rawCondition, caseDef.then());
+                        return ExecutionResult.nextNode(caseDef.then());
                     }
                 } catch (Exception conditionException) {
                     log.warn("Condition evaluation failed for: {} - {}", rawCondition, conditionException.getMessage());
-                    logCollector.warning(conditionException.getMessage());
+                    log.warning(conditionException.getMessage());
                 }
             }
 
-            logCollector.info("No conditions matched, executing default case.");
+            log.info("No conditions matched, executing default case.");
             if (!input.containsKey("default_case")) {
                 log.warn("No default case provided in the input.");
-                logCollector.warning("No default case provided. Return null instead.");
-                return ExecutionResult.nextNode(null, logCollector.getLogs());
+                log.warning("No default case provided. Return null instead.");
+                return ExecutionResult.nextNode(null);
             } else {
-                return ExecutionResult.nextNode(input.get("default_case").toString(), logCollector.getLogs());
+                return ExecutionResult.nextNode(input.get("default_case").toString());
             }
         } catch (Exception e) {
             log.error("Failed to parse or evaluate cases", e);
-            logCollector.error("Invalid cases format or condition expression: " + e.getMessage());
-            return ExecutionResult.error("Invalid cases format or condition expression", logCollector.getLogs());
+            log.error("Invalid cases format or condition expression: {}", e.getMessage());
+            return ExecutionResult.error("Invalid cases format or condition expression", null);
         }
     }
 }
