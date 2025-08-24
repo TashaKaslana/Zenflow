@@ -1,4 +1,5 @@
-package org.phong.zenflow.workflow.subdomain.logging.persistence;// logging/collector/PersistenceService.java
+package org.phong.zenflow.workflow.subdomain.logging.persistence;
+
 import org.phong.zenflow.workflow.subdomain.logging.core.LogEntry;
 
 import java.util.List;

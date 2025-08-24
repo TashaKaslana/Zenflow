@@ -1,18 +1,26 @@
 package org.phong.zenflow.workflow.subdomain.node_logs.dto;
 
-import jakarta.validation.constraints.NotNull;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import org.phong.zenflow.workflow.subdomain.node_logs.enums.LogLevel;
 
-import java.io.Serializable;
 import java.time.OffsetDateTime;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * DTO for {@link org.phong.zenflow.workflow.subdomain.node_logs.infraustructure.persistence.entity.NodeLog}
- */
-public record NodeLogDto(@NotNull UUID id, UUID workflowRunId, @NotNull String nodeKey, @NotNull String status,
-                         String error, Integer attempts, Map<String, Object> output,
-                         @NotNull OffsetDateTime startedAt, OffsetDateTime endedAt,
-                         List<LogEntry> logs) implements Serializable {
-}
+public record NodeLogDto(
+        UUID id,
+        UUID workflowId,
+        UUID workflowRunId,
+        String nodeKey,
+        @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX")
+        OffsetDateTime timestamp,
+        LogLevel level,
+        String message,
+        String errorCode,
+        String errorMessage,
+        Map<String, Object> meta,
+        String traceId,
+        String hierarchy,
+        UUID userId,
+        String correlationId
+) {}
