@@ -1,8 +1,8 @@
-package org.phong.zenflow.workflow.subdomain.logging.router;// logging/router/LogRouter.java
+package org.phong.zenflow.workflow.subdomain.logging.router;
 import org.phong.zenflow.workflow.subdomain.logging.core.LogLevel;
-import org.phong.zenflow.workflow.subdomain.logging.buffer.WorkflowBufferManager;
+import org.phong.zenflow.workflow.subdomain.logging.infrastructure.buffer.WorkflowBufferManager;
 import org.phong.zenflow.workflow.subdomain.logging.core.LogEntry;
-import org.phong.zenflow.workflow.subdomain.logging.publisher.WebSocketNotifier;
+import org.phong.zenflow.workflow.subdomain.logging.infrastructure.publisher.WebSocketNotifier;
 
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;

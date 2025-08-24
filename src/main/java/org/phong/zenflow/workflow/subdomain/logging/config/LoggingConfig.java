@@ -1,10 +1,10 @@
 package org.phong.zenflow.workflow.subdomain.logging.config;
 
 import io.micrometer.core.instrument.MeterRegistry;
-import org.phong.zenflow.workflow.subdomain.logging.metrics.LoggingMetrics;
-import org.phong.zenflow.workflow.subdomain.logging.publisher.KafkaImpl;
-import org.phong.zenflow.workflow.subdomain.logging.publisher.KafkaPublisher;
-import org.phong.zenflow.workflow.subdomain.logging.publisher.WebSocketNotifier;
+import org.phong.zenflow.workflow.subdomain.logging.infrastructure.metrics.LoggingMetrics;
+import org.phong.zenflow.workflow.subdomain.logging.infrastructure.publisher.KafkaImpl;
+import org.phong.zenflow.workflow.subdomain.logging.infrastructure.publisher.KafkaPublisher;
+import org.phong.zenflow.workflow.subdomain.logging.infrastructure.publisher.WebSocketNotifier;
 import org.phong.zenflow.workflow.subdomain.logging.router.LogRouter;
 import org.phong.zenflow.workflow.subdomain.logging.util.CircuitBreaker;
 import org.phong.zenflow.workflow.subdomain.logging.util.SharedThreadPoolManager;
@@ -12,10 +12,10 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import org.phong.zenflow.workflow.subdomain.logging.persistence.JdbcPersistenceService;
-import org.phong.zenflow.workflow.subdomain.logging.persistence.PersistenceService;
-import org.phong.zenflow.workflow.subdomain.logging.collector.GlobalLogCollector;
-import org.phong.zenflow.workflow.subdomain.logging.buffer.WorkflowBufferManager;
+import org.phong.zenflow.workflow.subdomain.logging.infrastructure.persistence.JdbcPersistenceService;
+import org.phong.zenflow.workflow.subdomain.logging.infrastructure.persistence.PersistenceService;
+import org.phong.zenflow.workflow.subdomain.logging.infrastructure.collector.GlobalLogCollector;
+import org.phong.zenflow.workflow.subdomain.logging.infrastructure.buffer.WorkflowBufferManager;
 import javax.sql.DataSource;
 
 @Configuration
