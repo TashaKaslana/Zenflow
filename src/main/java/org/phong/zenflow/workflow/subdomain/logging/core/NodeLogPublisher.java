@@ -11,11 +11,14 @@ import java.io.StringWriter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * NodeLogPublisher is responsible for publishing log entries related to workflow nodes.
  * It provides methods to log messages at different levels (success, debug, info, warn, error)
  * and includes metadata such as workflow ID, run ID, node key, and user ID.
+ *
+ * <p>Thread-safe implementation using atomic operations for mutable state.</p>
  *
  * <p>Usage examples:</p>
  * <pre>
@@ -40,15 +43,15 @@ public class NodeLogPublisher {
     private String nodeKey;
     private final UUID userId;
 
-    // mutable builder state
-    private Map<String, Object> meta;
-    private Throwable exception;
+    // Thread-safe mutable builder state using AtomicReference
+    private final AtomicReference<Map<String, Object>> meta = new AtomicReference<>();
+    private final AtomicReference<Throwable> exception = new AtomicReference<>();
 
     /**
      * Attach metadata to the next log call.
      */
     public NodeLogPublisher withMeta(Map<String, Object> meta) {
-        this.meta = meta;
+        this.meta.set(meta != null ? new HashMap<>(meta) : null);
         return this;
     }
 
@@ -57,7 +60,7 @@ public class NodeLogPublisher {
      * will be captured.
      */
     public NodeLogPublisher withException(Throwable t) {
-        this.exception = t;
+        this.exception.set(t);
         return this;
     }
 
@@ -104,23 +107,40 @@ public class NodeLogPublisher {
     }
 
     private void publish(LogLevel level, String message) {
-        Map<String, Object> metaToUse = this.meta != null ? new HashMap<>(this.meta) : null;
+        // Atomically get and reset the state to ensure thread safety
+        Map<String, Object> currentMeta = this.meta.getAndSet(null);
+        Throwable currentException = this.exception.getAndSet(null);
+
+        Map<String, Object> metaToUse = currentMeta != null ? new HashMap<>(currentMeta) : null;
         String errMessage = null;
-        if (exception != null) {
-            errMessage = exception.getMessage();
+
+        if (currentException != null) {
+            errMessage = currentException.getMessage();
             if (metaToUse == null) {
                 metaToUse = new HashMap<>();
             }
-            metaToUse.put("stackTrace", getStackTraceAsString(exception));
+            metaToUse.put("stackTrace", getStackTraceAsString(currentException));
         }
-        LogEntry entry = init(level, message, null, errMessage, metaToUse);
-        publisher.publishEvent(entry);
-        reset();
-    }
 
-    private void reset() {
-        this.meta = null;
-        this.exception = null;
+        // Get context information from LogContextManager
+        LogContext context = LogContextManager.snapshot();
+
+        LogEntry entry = LogEntry.builder()
+                .workflowId(workflowId)
+                .workflowRunId(runId)
+                .nodeKey(nodeKey)
+                .level(level)
+                .message(message)
+                .errorCode(null)
+                .errorMessage(errMessage)
+                .meta(metaToUse)
+                .timestamp(Instant.now())
+                .traceId(context.traceId())
+                .hierarchy(context.hierarchy())
+                .userId(userId)
+                .build();
+
+        publisher.publishEvent(entry);
     }
 
     // Helper methods
@@ -140,33 +160,5 @@ public class NodeLogPublisher {
         StringWriter sw = new StringWriter();
         t.printStackTrace(new PrintWriter(sw));
         return sw.toString();
-    }
-
-    private LogEntry init(LogLevel level, String message, String errorCode, String errMessage, Map<String, Object> meta) {
-        return LogEntry.builder()
-                .workflowId(workflowId)
-                .workflowRunId(runId)
-                .nodeKey(nodeKey)
-                .level(level)
-                .message(message)
-                .errorCode(errorCode)
-                .errorMessage(errMessage)
-                .meta(meta)
-                .timestamp(Instant.now())
-                .traceId(getTraceId())
-                .hierarchy(getHierarchy())
-                .userId(userId)
-                .build();
-    }
-
-    // Helper methods for context data using LogContextManager
-    private String getTraceId() {
-        LogContext context = LogContextManager.snapshot();
-        return context.traceId();
-    }
-
-    private String getHierarchy() {
-        LogContext context = LogContextManager.snapshot();
-        return context.hierarchy();
     }
 }
