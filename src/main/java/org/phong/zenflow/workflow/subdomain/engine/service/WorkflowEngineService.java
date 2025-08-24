@@ -154,7 +154,7 @@ public class WorkflowEngineService {
                 return ExecutionResult.validationError(validationResult, workingNode.getKey());
             }
 
-            execCtx.getLogPublisher().setNodeKey(workingNode.getKey());
+            execCtx.setNodeKey(workingNode.getKey());
 
             ExecutionResult result = executorDispatcher.dispatch(workingNode.getPluginNode(), resolvedConfig, execCtx);
             log.info("[traceId={}] [hierarchy={}] Node finished", ctx.traceId(), ctx.hierarchy());
