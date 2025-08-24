@@ -6,6 +6,8 @@ import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecuto
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -14,8 +16,10 @@ import java.util.function.Supplier;
 @Component
 public class PluginNodeExecutorRegistry {
 
-    private final Cache<String, PluginNodeExecutor> executorCache =
-            Caffeine.newBuilder().build();
+    private final Cache<String, PluginNodeExecutor> executorCache = Caffeine.newBuilder()
+            .expireAfterAccess(Duration.of(30, ChronoUnit.MINUTES))
+            .maximumSize(1000)
+            .build();
 
     private final Map<String, Supplier<PluginNodeExecutor>> executorSuppliers =
             new ConcurrentHashMap<>();
