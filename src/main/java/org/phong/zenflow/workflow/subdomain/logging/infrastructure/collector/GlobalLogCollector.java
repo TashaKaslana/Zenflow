@@ -1,5 +1,6 @@
 package org.phong.zenflow.workflow.subdomain.logging.infrastructure.collector;
 import io.micrometer.core.instrument.Timer;
+import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.workflow.subdomain.logging.core.LogLevel;
 import org.phong.zenflow.workflow.subdomain.logging.config.LoggingProperties;
 import org.phong.zenflow.workflow.subdomain.logging.infrastructure.metrics.LoggingMetrics;
@@ -12,6 +13,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+@Slf4j
 public class GlobalLogCollector {
     private final BlockingQueue<Batch> queue;
     private final PersistenceService persistence;
@@ -147,7 +149,6 @@ public class GlobalLogCollector {
 
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return;
         } catch (Exception ex) {
             retryBatch(batch, ex, attempt + 1);
         }
@@ -189,7 +190,11 @@ public class GlobalLogCollector {
             .toList();
 
         if (!errorEntries.isEmpty()) {
-            queue.offer(new Batch(batch.runId, errorEntries));
+            if (!queue.offer(new Batch(batch.runId, errorEntries))) {
+                // Queue is full, can't even save ERROR logs - log this critical situation
+                log.error("Critical: Unable to queue ERROR logs due to full buffer. Circuit breaker is open.");
+                metrics.incrementBufferOverflows();
+            }
         }
     }
 

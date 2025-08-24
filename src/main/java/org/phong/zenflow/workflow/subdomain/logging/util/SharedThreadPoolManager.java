@@ -1,6 +1,7 @@
 package org.phong.zenflow.workflow.subdomain.logging.util;
 
 import lombok.Getter;
+import lombok.NonNull;
 import org.phong.zenflow.workflow.subdomain.logging.config.LoggingProperties;
 import org.springframework.stereotype.Component;
 
@@ -25,7 +26,7 @@ public class SharedThreadPoolManager {
             new ThreadFactory() {
                 private final AtomicInteger counter = new AtomicInteger(0);
                 @Override
-                public Thread newThread(Runnable r) {
+                public Thread newThread(@NonNull Runnable r) {
                     Thread t = new Thread(r, "logging-scheduler-" + counter.incrementAndGet());
                     t.setDaemon(true);
                     return t;
@@ -43,7 +44,7 @@ public class SharedThreadPoolManager {
             new ThreadFactory() {
                 private final AtomicInteger counter = new AtomicInteger(0);
                 @Override
-                public Thread newThread(Runnable r) {
+                public Thread newThread(@NonNull Runnable r) {
                     Thread t = new Thread(r, "logging-batch-processor-" + counter.incrementAndGet());
                     t.setDaemon(true);
                     return t;

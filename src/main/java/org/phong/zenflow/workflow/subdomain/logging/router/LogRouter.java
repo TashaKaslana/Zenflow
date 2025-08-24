@@ -25,13 +25,17 @@ public class LogRouter {
             });
             for(int i=0;i<workers;i++){
                 pool.submit(() -> {
-                    while(true){
-                        LogEntry e = QUEUE.take();
-                        // FAST lane: immediate WebSocket
-                        if(ws != null) ws.onLog(e);
-                        // DURABLE lane: enqueue to per-run buffer
-                        if(buffers != null) buffers.enqueue(e);
-                        if(metrics != null) metrics.onLog(e);
+                    try {
+                        while(!Thread.currentThread().isInterrupted()){
+                            LogEntry e = QUEUE.take();
+                            // FAST lane: immediate WebSocket
+                            if(ws != null) ws.onLog(e);
+                            // DURABLE lane: enqueue to per-run buffer
+                            if(buffers != null) buffers.enqueue(e);
+                            if(metrics != null) metrics.onLog(e);
+                        }
+                    } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt(); // Restore interrupt status
                     }
                 });
             }
@@ -43,7 +47,11 @@ public class LogRouter {
         if(!QUEUE.offer(entry)){
             if(entry.getLevel() == LogLevel.DEBUG) return;
             QUEUE.poll(); // free one
-            QUEUE.offer(entry);
+            if(!QUEUE.offer(entry)) {
+                // Log entry could not be queued even after making space
+                // This is a rare edge case but we should handle it gracefully
+                System.err.println("Warning: Failed to enqueue log entry after retry");
+            }
         }
     }
 

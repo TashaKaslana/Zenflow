@@ -63,7 +63,7 @@ class WorkflowBuffer {
 
         // Adaptive batching logic
         int queueSize = queue.size();
-        boolean shouldFlushImmediate = false;
+        boolean shouldFlushImmediate;
 
         // Priority-aware batching - ERROR logs get immediate processing
         if (e.getLevel() == LogLevel.ERROR) {
