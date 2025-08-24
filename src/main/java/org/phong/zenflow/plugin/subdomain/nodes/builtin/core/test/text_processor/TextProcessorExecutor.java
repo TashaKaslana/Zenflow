@@ -3,9 +3,9 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.test.text_processo
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
-import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
-import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
+import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
@@ -25,8 +25,8 @@ public class TextProcessorExecutor implements PluginNodeExecutor {
     }
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config, RuntimeContext context) {
-        LogCollector logCollector = new LogCollector();
+    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
+        NodeLogPublisher logCollector = context.getLogPublisher();
         
         try {
             Map<String, Object> input = ObjectConversion.convertObjectToMap(config.input());
@@ -46,11 +46,11 @@ public class TextProcessorExecutor implements PluginNodeExecutor {
             logCollector.info("Text processing completed. Result length: {}, processed count: {}", 
                             output.get("result").toString().length(), output.get("processed_count"));
             
-            return ExecutionResult.success(output, logCollector.getLogs());
-            
+            return ExecutionResult.success(output, null);
+
         } catch (Exception e) {
-            logCollector.error("Text processing failed: " + e.getMessage());
-            return ExecutionResult.error("Text processing failed: " + e.getMessage(), logCollector.getLogs());
+            logCollector.withException(e).error("Text processing failed: {}", e.getMessage());
+            return ExecutionResult.error("Text processing failed: " + e.getMessage(), null);
         }
     }
 }

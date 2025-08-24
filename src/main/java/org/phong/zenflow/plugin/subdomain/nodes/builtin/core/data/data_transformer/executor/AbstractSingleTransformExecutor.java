@@ -3,7 +3,7 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.data.data_transfor
 import lombok.AllArgsConstructor;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
-import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 
 import java.util.HashMap;
@@ -20,7 +20,7 @@ public abstract class AbstractSingleTransformExecutor implements PluginNodeExecu
     protected abstract String transformerName();
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config, RuntimeContext context) {
+    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         Map<String, Object> input = new HashMap<>(config.input());
         input.put("name", transformerName());
         WorkflowConfig updated = new WorkflowConfig(input, config.output());

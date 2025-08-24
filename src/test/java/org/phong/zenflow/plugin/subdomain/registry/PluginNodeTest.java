@@ -16,7 +16,8 @@ import org.phong.zenflow.plugin.subdomain.node.interfaces.PluginNodeSchemaProvid
 import org.phong.zenflow.plugin.subdomain.node.service.PluginNodeSchemaProviderImpl;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNodeSynchronizer;
 import org.phong.zenflow.plugin.subdomain.schema.services.SchemaRegistry;
-import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
+import org.phong.zenflow.TestExecutionContextUtils;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -139,7 +140,7 @@ public class PluginNodeTest {
                 "testKey3", true
         );
         WorkflowConfig config = new WorkflowConfig(inputData);
-        RuntimeContext context = new RuntimeContext();
+        ExecutionContext context = TestExecutionContextUtils.createExecutionContext();
 
         // Test dispatch execution
         ExecutionResult result = dispatcher.dispatch(placeholderIdentifier, config, context);
@@ -154,8 +155,8 @@ public class PluginNodeTest {
         assertEquals(123, output.get("testKey2"), "Output should contain testKey2 with correct value");
         assertEquals(true, output.get("testKey3"), "Output should contain testKey3 with correct value");
 
-        // Verify logs are present
-        assertNotNull(result.getLogs(), "Logs should not be null");
-        assertFalse(result.getLogs().isEmpty(), "Logs should contain execution information");
+        // Logging is now handled asynchronously via NodeLogPublisher
+        // ExecutionResult no longer carries node logs directly
+        assertNull(result.getLogs(), "Logs should be managed by the logging subsystem");
     }
 }
