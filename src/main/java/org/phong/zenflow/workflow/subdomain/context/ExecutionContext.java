@@ -2,8 +2,6 @@ package org.phong.zenflow.workflow.subdomain.context;
 
 import lombok.Builder;
 import lombok.Getter;
-import lombok.Setter;
-import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 
 import java.util.UUID;
 
@@ -13,11 +11,7 @@ public class ExecutionContext {
     private final UUID workflowId;
     private final UUID workflowRunId;
     private final String traceId;
-    @Setter
-    private String nodeKey;
     private final UUID userId;
-    private final NodeLogPublisher log;
-
     private final RuntimeContextManager contextManager;
 
     public <T> T read(String key, Class<T> clazz) {

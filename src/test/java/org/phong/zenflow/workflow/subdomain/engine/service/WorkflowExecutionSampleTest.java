@@ -6,7 +6,8 @@ import org.phong.zenflow.plugin.subdomain.execution.register.ExecutorInitializer
 import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.test.placeholder.PlaceholderExecutor;
-import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
+import org.phong.zenflow.TestExecutionContextUtils;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.loop.for_loop.ForLoopExecutor;
@@ -35,7 +36,7 @@ class WorkflowExecutionSampleTest {
 
     @Test
     void executesWorkflowWithLoopAndBranches() {
-        RuntimeContext context = new RuntimeContext();
+        ExecutionContext context = TestExecutionContextUtils.createExecutionContext();
         List<String> nodeKeys = List.of(
                 "core:flow.loop.for:1.0.0",
                 "test:placeholder:1.0.0",

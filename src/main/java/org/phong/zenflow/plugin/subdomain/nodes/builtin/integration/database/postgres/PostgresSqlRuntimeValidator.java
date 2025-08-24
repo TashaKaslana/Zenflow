@@ -2,7 +2,7 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.po
 
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
-import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
 import org.phong.zenflow.workflow.subdomain.schema_validator.enums.ValidationErrorCode;
@@ -15,7 +15,7 @@ import java.util.Map;
 @Component
 public class PostgresSqlRuntimeValidator {
 
-    public List<ValidationError> validate(WorkflowConfig config, RuntimeContext ctx) {
+    public List<ValidationError> validate(WorkflowConfig config, ExecutionContext ctx) {
         List<ValidationError> errors = new ArrayList<>();
         Map<String, Object> input = config != null ? config.input() : null;
         if (input == null) {

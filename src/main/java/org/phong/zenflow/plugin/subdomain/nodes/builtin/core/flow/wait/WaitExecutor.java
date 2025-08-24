@@ -6,7 +6,7 @@ import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
-import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_logs.dto.LogEntry;
 import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
@@ -35,7 +35,7 @@ public class WaitExecutor implements PluginNodeExecutor {
     }
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config, RuntimeContext context) {
+    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         LogCollector logCollector = new LogCollector();
         try {
             logCollector.info("Starting wait node execution");
@@ -66,10 +66,10 @@ public class WaitExecutor implements PluginNodeExecutor {
 
                 if (timeoutMs != null) {
                     String timerKey = buildTimerKey(config);
-                    Long start = (Long) context.get(timerKey);
+                    Long start = context.read(timerKey, Long.class);
                     if (start == null) {
                         start = System.currentTimeMillis();
-                        context.put(timerKey, start);
+                        context.write(timerKey, start);
                     }
 
                     long elapsed = System.currentTimeMillis() - start;

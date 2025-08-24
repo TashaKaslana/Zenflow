@@ -16,7 +16,8 @@ import org.phong.zenflow.plugin.subdomain.node.interfaces.PluginNodeSchemaProvid
 import org.phong.zenflow.plugin.subdomain.node.service.PluginNodeSchemaProviderImpl;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNodeSynchronizer;
 import org.phong.zenflow.plugin.subdomain.schema.services.SchemaRegistry;
-import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
+import org.phong.zenflow.TestExecutionContextUtils;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -139,7 +140,7 @@ public class PluginNodeTest {
                 "testKey3", true
         );
         WorkflowConfig config = new WorkflowConfig(inputData);
-        RuntimeContext context = new RuntimeContext();
+        ExecutionContext context = TestExecutionContextUtils.createExecutionContext();
 
         // Test dispatch execution
         ExecutionResult result = dispatcher.dispatch(placeholderIdentifier, config, context);
