@@ -2,6 +2,7 @@ package org.phong.zenflow.workflow.subdomain.logging.config;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import org.phong.zenflow.workflow.subdomain.logging.metrics.LoggingMetrics;
+import org.phong.zenflow.workflow.subdomain.logging.publisher.KafkaImpl;
 import org.phong.zenflow.workflow.subdomain.logging.publisher.KafkaPublisher;
 import org.phong.zenflow.workflow.subdomain.logging.publisher.WebSocketNotifier;
 import org.phong.zenflow.workflow.subdomain.logging.router.LogRouter;
@@ -43,8 +44,7 @@ public class LoggingConfig {
 
     @Bean
     public KafkaPublisher kafkaPublisher() {
-        // TODO: Implement Kafka publisher when ready
-        return null;
+        return new KafkaImpl();
     }
 
     @Bean
@@ -95,14 +95,5 @@ public class LoggingConfig {
         // Return a placeholder or null since LogRouter.init is static
         // This bean definition ensures proper initialization order
         return null;
-    }
-
-    // Legacy static method kept for backward compatibility
-    @Deprecated
-    public static void wire(DataSource ds, WebSocketNotifier ws) {
-        // This method is deprecated - use Spring configuration instead
-        throw new UnsupportedOperationException(
-                "Legacy configuration method deprecated. Use Spring configuration instead."
-        );
     }
 }
