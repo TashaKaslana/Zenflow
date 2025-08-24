@@ -3,6 +3,7 @@ package org.phong.zenflow.workflow.subdomain.engine.service;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
+import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.plugin.subdomain.execution.services.PluginNodeExecutorDispatcher;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.infrastructure.persistence.repository.WorkflowRepository;
@@ -18,7 +19,7 @@ import org.phong.zenflow.workflow.subdomain.engine.exception.WorkflowEngineExcep
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
-import org.phong.zenflow.workflow.subdomain.node_logs.service.NodeLogService;
+import org.phong.zenflow.workflow.subdomain.node_execution.service.NodeExecutionService;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
 import org.phong.zenflow.workflow.subdomain.schema_validator.service.WorkflowValidationService;
 import org.springframework.context.ApplicationEventPublisher;
@@ -35,7 +36,7 @@ import java.util.UUID;
 @Slf4j
 public class WorkflowEngineService {
     private final WorkflowRepository workflowRepository;
-    private final NodeLogService nodeLogService;
+    private final NodeExecutionService nodeExecutionService;
     private final WorkflowValidationService workflowValidationService;
     private final PluginNodeExecutorDispatcher executorDispatcher;
     private final WorkflowNavigatorService workflowNavigatorService;
@@ -111,12 +112,12 @@ public class WorkflowEngineService {
                                                       BaseWorkflowNode workingNode,
                                                       ExecutionContext execCtx) {
         ExecutionResult result;
-        nodeLogService.startNode(workflowRunId, workingNode.getKey());
+        nodeExecutionService.startNode(workflowRunId, workingNode.getKey());
 
         WorkflowConfig config = workingNode.getConfig() != null ? workingNode.getConfig() : new WorkflowConfig();
         WorkflowConfig resolvedConfig = context.resolveConfig(workingNode.getKey(), config);
 
-        result = executeWorkingNode(workflowId, workflowRunId, workingNode, resolvedConfig, context, execCtx);
+        result = executeWorkingNode(workingNode, resolvedConfig, execCtx);
 
         Map<String, Object> output = result.getOutput();
         if (output != null) {
@@ -124,20 +125,17 @@ public class WorkflowEngineService {
         } else {
             log.warn("Output of node {} is null, skipping putting into context", workingNode.getKey());
         }
-        nodeLogService.resolveNodeLog(workflowId, workflowRunId, workingNode, result);
+        nodeExecutionService.resolveNodeExecution(workflowId, workflowRunId, workingNode, result);
 
-        if (result.getStatus() == org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus.COMMIT) {
+        if (result.getStatus() == ExecutionStatus.COMMIT) {
             publisher.publishEvent(new NodeCommitEvent(workflowId, workflowRunId, workingNode.getKey()));
         }
 
         return result;
     }
 
-    private ExecutionResult executeWorkingNode(UUID workflowId,
-                                               UUID workflowRunId,
-                                               BaseWorkflowNode workingNode,
+    private ExecutionResult executeWorkingNode(BaseWorkflowNode workingNode,
                                                WorkflowConfig resolvedConfig,
-                                               RuntimeContext context,
                                                ExecutionContext execCtx) {
         return LogContextManager.withComponent(workingNode.getKey(), () -> {
             LogContext ctx = LogContextManager.snapshot();
