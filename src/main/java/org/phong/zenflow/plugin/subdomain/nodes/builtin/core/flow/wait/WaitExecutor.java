@@ -12,7 +12,6 @@ import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
-import java.util.List;
 import java.util.Map;
 
 @Component
@@ -47,7 +46,7 @@ public class WaitExecutor implements PluginNodeExecutor {
 
             if (waitingNodes == null || waitingNodes.isEmpty()) {
                 log.error("No waiting nodes provided in the input.");
-                return ExecutionResult.error("No waiting nodes provided", null);
+                return ExecutionResult.error("No waiting nodes provided");
             }
 
             boolean isReady = isReady(waitingNodes, mode, threshold);
@@ -77,18 +76,18 @@ public class WaitExecutor implements PluginNodeExecutor {
                         if (fallbackStatus != null && fallbackStatus != ExecutionStatus.ERROR) {
                             return buildFallbackResult(fallbackStatus, output, message);
                         }
-                        return ExecutionResult.error(message, null);
+                        return ExecutionResult.error(message);
                     }
                 }
 
-                return ExecutionResult.uncommit(output, null);
+                return ExecutionResult.uncommit(output);
             }
 
-            return ExecutionResult.commit(output, null);
+            return ExecutionResult.commit(output);
         } catch (Exception e) {
             log.error("Failed to process wait node", e);
             log.withException(e).error("Failed to process wait node: " + e.getMessage());
-            return ExecutionResult.error("Failed to process wait node: " + e.getMessage(), null);
+            return ExecutionResult.error("Failed to process wait node: " + e.getMessage());
         }
     }
 
@@ -130,11 +129,11 @@ public class WaitExecutor implements PluginNodeExecutor {
                                                 Map<String, Object> output,
                                                 String message) {
         return switch (status) {
-            case COMMIT -> ExecutionResult.commit(output, null);
-            case UNCOMMIT -> ExecutionResult.uncommit(output, null);
-            case WAITING -> ExecutionResult.waiting(null);
-            case SUCCESS -> ExecutionResult.success(output, null);
-            default -> ExecutionResult.error(message, null);
+            case COMMIT -> ExecutionResult.commit(output);
+            case UNCOMMIT -> ExecutionResult.uncommit(output);
+            case WAITING -> ExecutionResult.waiting();
+            case SUCCESS -> ExecutionResult.success(output);
+            default -> ExecutionResult.error(message);
         };
     }
 }

@@ -48,9 +48,9 @@ public class WhileLoopExecutor implements PluginNodeExecutor {
                 logCollector.info("While loop completed.");
                 if (loopEnd.isEmpty()) {
                     logCollector.warning("loopEnd is empty, no next node to proceed to after completion.");
-                    return ExecutionResult.loopEnd(null, input, null);
+                    return ExecutionResult.loopEnd(null, input);
                 }
-                return ExecutionResult.loopEnd(loopEnd.getFirst(), input, null);
+                return ExecutionResult.loopEnd(loopEnd.getFirst(), input);
             }
 
             if (evalCondition(input.get("breakCondition"), input, logCollector)) {
@@ -58,27 +58,27 @@ public class WhileLoopExecutor implements PluginNodeExecutor {
                 logCollector.info("Break condition met, exiting while loop.");
                 if (loopEnd.isEmpty()) {
                     logCollector.warning("loopEnd is empty, no next node to proceed to after break condition.");
-                    return ExecutionResult.loopBreak(null, input, null);
+                    return ExecutionResult.loopBreak(null, input);
                 }
-                return ExecutionResult.loopBreak(loopEnd.getFirst(), input, null);
+                return ExecutionResult.loopBreak(loopEnd.getFirst(), input);
             }
 
             if (evalCondition(input.get("continueCondition"), input, logCollector)) {
                 logCollector.info("Continue condition met, skipping to next iteration.");
-                return ExecutionResult.loopContinue(input, null);
+                return ExecutionResult.loopContinue(input);
             }
 
             List<String> next = ObjectConversion.safeConvert(input.get("next"), new TypeReference<>() {});
             logCollector.info("Proceeding to while loop body.");
             if (next.isEmpty()) {
                 logCollector.warning("next is empty, no next node to proceed to for loop body.");
-                return ExecutionResult.loopNext(null, input, null);
+                return ExecutionResult.loopNext(null, input);
             }
-            return ExecutionResult.loopNext(next.getFirst(), input, null);
+            return ExecutionResult.loopNext(next.getFirst(), input);
 
         } catch (Exception e) {
             logCollector.withException(e).error("Failed to process while-loop: {}", e.getMessage());
-            return ExecutionResult.error("Failed to process while-loop: " + e.getMessage(), null);
+            return ExecutionResult.error("Failed to process while-loop: " + e.getMessage());
         }
     }
 

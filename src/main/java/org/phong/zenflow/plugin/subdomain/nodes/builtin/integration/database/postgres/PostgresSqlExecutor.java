@@ -73,7 +73,7 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
 
         } catch (Exception e) {
             logPublisher.withException(e).error("Postgres SQL execution failed: {}", e.getMessage());
-            return ExecutionResult.error("Postgres SQL execution failed: " + e.getMessage(), null);
+            return ExecutionResult.error("Postgres SQL execution failed: " + e.getMessage());
         }
     }
 

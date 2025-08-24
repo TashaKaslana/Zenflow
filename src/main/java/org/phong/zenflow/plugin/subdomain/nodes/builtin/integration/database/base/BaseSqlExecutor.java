@@ -42,10 +42,10 @@ public class BaseSqlExecutor {
                 result = resultProcessor.process(result, config, nodeLog);
             }
 
-            return ExecutionResult.success(result, null);
+            return ExecutionResult.success(result);
         } catch (Exception e) {
             nodeLog.withException(e).error("Error executing {} query: {}", config.getDriver(), e.getMessage());
-            return ExecutionResult.error("Execution error: " + e.getMessage(), null);
+            return ExecutionResult.error("Execution error: " + e.getMessage());
         }
     }
 

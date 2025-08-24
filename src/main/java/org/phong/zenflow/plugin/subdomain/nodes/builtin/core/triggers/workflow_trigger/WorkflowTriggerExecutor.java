@@ -125,13 +125,13 @@ public class WorkflowTriggerExecutor implements PluginNodeExecutor {
 
             logs.success("Workflow trigger request created successfully for workflow ID: {} and run ID: {}", workflowId, workflowRunId);
 
-            return ExecutionResult.success(output, null);
+            return ExecutionResult.success(output);
         } catch (IllegalArgumentException e) {
             logs.withException(e).error("Invalid input parameter: {}", e.getMessage());
-            return ExecutionResult.error("Invalid input: " + e.getMessage(), null);
+            return ExecutionResult.error("Invalid input: " + e.getMessage());
         } catch (Exception e) {
             logs.withException(e).error("Unexpected error occurred during workflow trigger execution: {}", e.getMessage());
-            return ExecutionResult.error(e.getMessage(), null);
+            return ExecutionResult.error(e.getMessage());
         }
     }
 }

@@ -67,15 +67,15 @@ public class HttpRequestExecutor implements PluginNodeExecutor {
 
             logs.success("Received response successfully");
 
-            return ExecutionResult.success(response, null);
+            return ExecutionResult.success(response);
         } catch (WebClientResponseException e) {
             logs.withException(e).error("HTTP error with status {}", e.getStatusCode());
             log.debug("HTTP error with status {}", e.getStatusCode());
-            return ExecutionResult.error(e.getResponseBodyAsString(), null);
+            return ExecutionResult.error(e.getResponseBodyAsString());
         } catch (Exception e) {
             logs.withException(e).error("Unexpected error occurred: {}", e.getMessage());
             log.debug("Unexpected error during HTTP request execution", e);
-            return ExecutionResult.error(e.getMessage(), null);
+            return ExecutionResult.error(e.getMessage());
         }
     }
 

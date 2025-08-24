@@ -46,11 +46,11 @@ public class TextProcessorExecutor implements PluginNodeExecutor {
             logCollector.info("Text processing completed. Result length: {}, processed count: {}", 
                             output.get("result").toString().length(), output.get("processed_count"));
             
-            return ExecutionResult.success(output, null);
+            return ExecutionResult.success(output);
 
         } catch (Exception e) {
             logCollector.withException(e).error("Text processing failed: {}", e.getMessage());
-            return ExecutionResult.error("Text processing failed: " + e.getMessage(), null);
+            return ExecutionResult.error("Text processing failed: " + e.getMessage());
         }
     }
 }

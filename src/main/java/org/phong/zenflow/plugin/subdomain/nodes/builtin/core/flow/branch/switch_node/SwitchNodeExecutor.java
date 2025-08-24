@@ -53,7 +53,7 @@ public class SwitchNodeExecutor implements PluginNodeExecutor {
                 logCollector.info("Begin switch flow with expression: {} and {} cases", value, cases.size());
             } catch (Exception e) {
                 logCollector.withException(e).error("Failed to parse switch cases: {}", e.getMessage());
-                return ExecutionResult.error("Invalid switch cases format", null);
+                return ExecutionResult.error("Invalid switch cases format");
             }
 
             if (value == null) {
@@ -75,7 +75,7 @@ public class SwitchNodeExecutor implements PluginNodeExecutor {
             return getFallbackResult(logCollector, input);
         } catch (Exception e) {
             logCollector.withException(e).error("Failed to process switch-node: {}", e.getMessage());
-            return ExecutionResult.error("Failed to process switch-node: " + e.getMessage(), null);
+            return ExecutionResult.error("Failed to process switch-node: " + e.getMessage());
         }
     }
 

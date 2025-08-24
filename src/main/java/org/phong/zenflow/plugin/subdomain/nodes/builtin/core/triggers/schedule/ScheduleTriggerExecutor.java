@@ -77,10 +77,10 @@ public class ScheduleTriggerExecutor implements PluginNodeExecutor {
 
             logs.success("Schedule trigger completed successfully");
 
-            return ExecutionResult.success(output, null);
+            return ExecutionResult.success(output);
         } catch (Exception e) {
             logs.withException(e).error("Unexpected error occurred during schedule trigger execution: {}", e.getMessage());
-            return ExecutionResult.error(e.getMessage(), null);
+            return ExecutionResult.error(e.getMessage());
         }
     }
 }

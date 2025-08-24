@@ -47,11 +47,11 @@ public class DataGeneratorExecutor implements PluginNodeExecutor {
             logCollector.info("Generated mock user data: email={}, age={}, active={}", 
                             output.get("user_email"), output.get("user_age"), output.get("user_active"));
             
-            return ExecutionResult.success(output, null);
+            return ExecutionResult.success(output);
 
         } catch (Exception e) {
             logCollector.withException(e).error("Data generation failed: {}", e.getMessage());
-            return ExecutionResult.error("Data generation failed: " + e.getMessage(), null);
+            return ExecutionResult.error("Data generation failed: " + e.getMessage());
         }
     }
 }
