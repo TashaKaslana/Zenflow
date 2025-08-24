@@ -3,7 +3,8 @@ package org.phong.zenflow.plugin.subdomain.executors.builtin.test_executor_dev;
 import org.junit.jupiter.api.Test;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.test.text_processor.TextProcessorExecutor;
-import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
+import org.phong.zenflow.TestExecutionContextUtils;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 
 import java.util.Map;
@@ -23,7 +24,7 @@ class TextProcessorExecutorTest {
                         "flag", true
                 )
         );
-        var result = executor.execute(config, new RuntimeContext());
+        var result = executor.execute(config, TestExecutionContextUtils.createExecutionContext());
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
         assertEquals("Processed text: hello", result.getOutput().get("result"));

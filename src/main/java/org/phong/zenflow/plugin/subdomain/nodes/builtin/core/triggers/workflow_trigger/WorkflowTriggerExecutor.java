@@ -4,7 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
-import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
@@ -40,7 +40,7 @@ public class WorkflowTriggerExecutor implements PluginNodeExecutor {
 
     @Override
     @Transactional
-    public ExecutionResult execute(WorkflowConfig config, RuntimeContext context) {
+    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         LogCollector logs = new LogCollector();
         try {
             logs.info("Workflow trigger started at {}", OffsetDateTime.now());

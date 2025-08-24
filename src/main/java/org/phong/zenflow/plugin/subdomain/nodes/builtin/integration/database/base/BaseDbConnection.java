@@ -6,7 +6,7 @@ import org.phong.zenflow.plugin.subdomain.execution.exceptions.ExecutorException
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.dto.DbConnectionKey;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.dto.ResolvedDbConfig;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.pool.GlobalDbConnectionPool;
-import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
 import org.springframework.lang.Nullable;
@@ -25,7 +25,7 @@ public class BaseDbConnection {
         return "_db:" + connectionId;
     }
 
-    public ResolvedDbConfig establishConnection(WorkflowConfig config, RuntimeContext context, LogCollector logCollector) {
+    public ResolvedDbConfig establishConnection(WorkflowConfig config, ExecutionContext context, LogCollector logCollector) {
         try {
             logCollector.info("Executing DB node with config: " + config);
             Map<String, Object> input = config.input();
@@ -51,12 +51,12 @@ public class BaseDbConnection {
         }
     }
 
-    private void storeInContext(RuntimeContext context, String connectionId, DataSource ds) {
-        context.put(buildDbKey(connectionId), ds);
+    private void storeInContext(ExecutionContext context, String connectionId, DataSource ds) {
+        context.write(buildDbKey(connectionId), ds);
     }
 
     @Nullable
-    private DataSource getContextDataSource(RuntimeContext context, String connectionId) {
-        return (DataSource) context.get(buildDbKey(connectionId));
+    private DataSource getContextDataSource(ExecutionContext context, String connectionId) {
+        return context.read(buildDbKey(connectionId), DataSource.class);
     }
 }

@@ -10,6 +10,7 @@ import org.phong.zenflow.workflow.exception.WorkflowException;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.service.WorkflowService;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.RuntimeContextManager;
 import org.phong.zenflow.workflow.subdomain.engine.dto.WorkflowExecutionStatus;
 import org.phong.zenflow.workflow.subdomain.engine.service.WorkflowEngineService;
 import org.phong.zenflow.workflow.subdomain.logging.core.LogContextManager;
@@ -41,6 +42,7 @@ public class WorkflowRunnerService {
     private final WorkflowService workflowService;
     private final SecretService secretService;
     private final Executor executor;
+    private final RuntimeContextManager contextManager;
 
     public WorkflowRunnerService(
             WorkflowEngineService workflowEngineService,
@@ -48,7 +50,8 @@ public class WorkflowRunnerService {
             WebClient webClient,
             WorkflowService workflowService,
             SecretService secretService,
-            @Qualifier("virtualThreadExecutor") Executor executor
+            @Qualifier("virtualThreadExecutor") Executor executor,
+            RuntimeContextManager contextManager
     ) {
         this.workflowEngineService = workflowEngineService;
         this.workflowRunService = workflowRunService;
@@ -56,6 +59,7 @@ public class WorkflowRunnerService {
         this.workflowService = workflowService;
         this.secretService = secretService;
         this.executor = executor;
+        this.contextManager = contextManager;
     }
 
     @AuditLog(
@@ -73,6 +77,7 @@ public class WorkflowRunnerService {
 
         triggerType = triggerType != null ? triggerType : TriggerType.MANUAL;
         RuntimeContext context = new RuntimeContext();
+        contextManager.assign(workflowRunId.toString(), context);
 
         try {
             // This will create a new run if it doesn't exist, or return the existing one.
@@ -101,6 +106,8 @@ public class WorkflowRunnerService {
             if (callbackUrlObj instanceof String callbackUrl && !callbackUrl.isEmpty()) {
                 notifyCallbackUrl(callbackUrl, workflowRunId);
             }
+        } finally {
+            contextManager.remove(workflowRunId.toString());
         }
     }
 

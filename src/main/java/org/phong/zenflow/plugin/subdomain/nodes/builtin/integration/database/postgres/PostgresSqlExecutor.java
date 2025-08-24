@@ -8,7 +8,7 @@ import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecuto
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.BaseDbConnection;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.BaseSqlExecutor;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.dto.ResolvedDbConfig;
-import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
 import org.springframework.stereotype.Component;
@@ -48,7 +48,7 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
     }
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config, RuntimeContext context) {
+    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         LogCollector logCollector = new LogCollector();
         try {
             log.info("Executing Postgres SQL node with config: {}", config);
@@ -83,7 +83,7 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
     }
 
     @Override
-    public List<ValidationError> validateRuntime(WorkflowConfig config, RuntimeContext ctx) {
+    public List<ValidationError> validateRuntime(WorkflowConfig config, ExecutionContext ctx) {
         return runtimeValidator.validate(config, ctx);
     }
 

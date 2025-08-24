@@ -6,7 +6,11 @@ import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.services.PluginNodeExecutorDispatcher;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.infrastructure.persistence.repository.WorkflowRepository;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.RuntimeContextManager;
+import org.phong.zenflow.workflow.subdomain.logging.core.LogContextManager;
+import org.phong.zenflow.workflow.subdomain.logging.core.LogContext;
 import org.phong.zenflow.workflow.subdomain.engine.dto.WorkflowExecutionStatus;
 import org.phong.zenflow.workflow.subdomain.engine.event.NodeCommitEvent;
 import org.phong.zenflow.workflow.subdomain.engine.exception.WorkflowEngineException;
@@ -35,6 +39,7 @@ public class WorkflowEngineService {
     private final PluginNodeExecutorDispatcher executorDispatcher;
     private final WorkflowNavigatorService workflowNavigatorService;
     private final ApplicationEventPublisher publisher;
+    private final RuntimeContextManager contextManager;
     
 
     @Transactional
@@ -56,7 +61,15 @@ public class WorkflowEngineService {
             String currentNodeKey = (startFromNodeKey != null) ? startFromNodeKey : workflow.getStartNode();
             BaseWorkflowNode workingNode = workflowNavigatorService.findNodeByKey(workflowNodes, currentNodeKey);
 
-            return getWorkflowExecutionStatus(workflowId, workflowRunId, context, workingNode, workflowNodes);
+            ExecutionContext execCtx = ExecutionContext.builder()
+                    .workflowId(workflowId)
+                    .workflowRunId(workflowRunId)
+                    .traceId(LogContextManager.snapshot().traceId())
+                    .userId(null)
+                    .contextManager(contextManager)
+                    .build();
+
+            return getWorkflowExecutionStatus(workflowId, workflowRunId, context, workingNode, workflowNodes, execCtx);
         } catch (Exception e) {
             log.warn("Error running workflow with ID: {}", workflowId, e);
             throw new WorkflowEngineException("Workflow failed", e);
@@ -67,12 +80,13 @@ public class WorkflowEngineService {
                                                                UUID workflowRunId,
                                                                RuntimeContext context,
                                                                BaseWorkflowNode workingNode,
-                                                               List<BaseWorkflowNode> workflowNodes) {
+                                                               List<BaseWorkflowNode> workflowNodes,
+                                                               ExecutionContext execCtx) {
         WorkflowExecutionStatus executionStatus = WorkflowExecutionStatus.COMPLETED;
         ExecutionResult result;
 
         while (workingNode != null) {
-            result = setupAndExecutionWorkflow(workflowId, workflowRunId, context, workingNode);
+            result = setupAndExecutionWorkflow(workflowId, workflowRunId, context, workingNode, execCtx);
             WorkflowNavigatorService.ExecutionStepOutcome outcome = workflowNavigatorService.handleExecutionResult(workflowId, workflowRunId, workingNode, result, workflowNodes, context);
             workingNode = outcome.nextNode();
             executionStatus = outcome.status();
@@ -85,14 +99,15 @@ public class WorkflowEngineService {
     private ExecutionResult setupAndExecutionWorkflow(UUID workflowId,
                                                       UUID workflowRunId,
                                                       RuntimeContext context,
-                                                      BaseWorkflowNode workingNode) {
+                                                      BaseWorkflowNode workingNode,
+                                                      ExecutionContext execCtx) {
         ExecutionResult result;
         nodeLogService.startNode(workflowRunId, workingNode.getKey());
 
         WorkflowConfig config = workingNode.getConfig() != null ? workingNode.getConfig() : new WorkflowConfig();
         WorkflowConfig resolvedConfig = context.resolveConfig(workingNode.getKey(), config);
 
-        result = executeWorkingNode(workingNode, resolvedConfig, context);
+        result = executeWorkingNode(workflowId, workflowRunId, workingNode, resolvedConfig, context, execCtx);
 
         Map<String, Object> output = result.getOutput();
         if (output != null) {
@@ -109,23 +124,30 @@ public class WorkflowEngineService {
         return result;
     }
 
-    private ExecutionResult executeWorkingNode(BaseWorkflowNode workingNode,
+    private ExecutionResult executeWorkingNode(UUID workflowId,
+                                               UUID workflowRunId,
+                                               BaseWorkflowNode workingNode,
                                                WorkflowConfig resolvedConfig,
-                                               RuntimeContext context) {
-        ExecutionResult result;
+                                               RuntimeContext context,
+                                               ExecutionContext execCtx) {
+        return LogContextManager.withComponent(workingNode.getKey(), () -> {
+            LogContext ctx = LogContextManager.snapshot();
+            log.info("[traceId={}] [hierarchy={}] Node started", ctx.traceId(), ctx.hierarchy());
 
-        ValidationResult validationResult = workflowValidationService.validateRuntime(
-                workingNode.getKey(),
-                resolvedConfig,
-                workingNode.getPluginNode().toCacheKey(),
-                context
-        );
-        if (!validationResult.isValid()) {
-            return ExecutionResult.validationError(validationResult, workingNode.getKey());
-        }
+            ValidationResult validationResult = workflowValidationService.validateRuntime(
+                    workingNode.getKey(),
+                    resolvedConfig,
+                    workingNode.getPluginNode().toCacheKey(),
+                    execCtx
+            );
+            if (!validationResult.isValid()) {
+                log.info("[traceId={}] [hierarchy={}] Node finished", ctx.traceId(), ctx.hierarchy());
+                return ExecutionResult.validationError(validationResult, workingNode.getKey());
+            }
 
-        result = executorDispatcher.dispatch(workingNode.getPluginNode(), resolvedConfig, context);
-
-        return result;
+            ExecutionResult result = executorDispatcher.dispatch(workingNode.getPluginNode(), resolvedConfig, execCtx);
+            log.info("[traceId={}] [hierarchy={}] Node finished", ctx.traceId(), ctx.hierarchy());
+            return result;
+        });
     }
 }
