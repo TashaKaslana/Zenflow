@@ -9,7 +9,7 @@ import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
-import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
+import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
@@ -39,7 +39,7 @@ public class IfNodeExecutor implements PluginNodeExecutor {
 
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
-        LogCollector logCollector = new LogCollector();
+        NodeLogPublisher logCollector = context.getLogPublisher();
         try {
             Map<String, Object> input = config.input();
             String condition = (String) input.get("condition"); // e.g. "true", "1 > 0"
@@ -58,21 +58,20 @@ public class IfNodeExecutor implements PluginNodeExecutor {
             }
 
             if (UNRESOLVED_PATTERN.matcher(condition).find()) {
-                logCollector.warning("Skipping condition due to unresolved placeholder: " + condition);
-                return ExecutionResult.nextNode(getFirstOrNull(nextFalse), logCollector.getLogs());
+                logCollector.warning("Skipping condition due to unresolved placeholder: {}", condition);
+                return ExecutionResult.nextNode(getFirstOrNull(nextFalse));
             }
 
             log.debug("Evaluating IF condition: {}", condition);
 
             return getExpressionExecutionResult(condition, nextTrue, logCollector, nextFalse);
         } catch (Exception e) {
-            log.error("Failed to process if-node", e);
-            logCollector.error("Failed to process if-node: " + e.getMessage());
-            return ExecutionResult.error("Failed to process if-node: " + e.getMessage(), logCollector.getLogs());
+            logCollector.withException(e).error("Failed to process if-node: {}", e.getMessage());
+            return ExecutionResult.error("Failed to process if-node: " + e.getMessage(), null);
         }
     }
 
-    private ExecutionResult getExpressionExecutionResult(String condition, List<String> nextTrue, LogCollector logCollector, List<String> nextFalse) {
+    private ExecutionResult getExpressionExecutionResult(String condition, List<String> nextTrue, NodeLogPublisher logCollector, List<String> nextFalse) {
         try {
             Object result = AviatorEvaluator.execute(condition);
             Boolean isMatch = (Boolean) result;
@@ -85,15 +84,15 @@ public class IfNodeExecutor implements PluginNodeExecutor {
                 next = getFirstOrNull(nextFalse);
                 logCollector.info("Condition not matched: {} - proceeding to false branch: {}", condition, next);
             }
-            return ExecutionResult.nextNode(next, logCollector.getLogs());
+            return ExecutionResult.nextNode(next);
         } catch (Exception conditionException) {
             log.warn("Condition evaluation failed: {} - {}", condition, conditionException.getMessage());
-            logCollector.warning("Condition evaluation failed: " + conditionException.getMessage());
+            logCollector.warning("Condition evaluation failed: {}", conditionException.getMessage());
 
             String next = getFirstOrNull(nextFalse);
             logCollector.info("Falling back to false branch due to evaluation error: {}", next);
 
-            return ExecutionResult.nextNode(next, logCollector.getLogs());
+            return ExecutionResult.nextNode(next);
         }
     }
 

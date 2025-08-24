@@ -5,7 +5,7 @@ import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
-import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
+import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
@@ -31,9 +31,9 @@ public class ManualTriggerExecutor implements PluginNodeExecutor {
 
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
-        LogCollector logs = new LogCollector();
+        NodeLogPublisher logs = context.getLogPublisher();
         try {
-            log.info("Executing ManualTriggerExecutor with config: {}", config);
+            logs.info("Executing ManualTriggerExecutor with config: {}", config);
 
             logs.info("Manual trigger started at {}", OffsetDateTime.now());
 
@@ -64,11 +64,10 @@ public class ManualTriggerExecutor implements PluginNodeExecutor {
 
             logs.success("Manual trigger completed successfully");
 
-            return ExecutionResult.success(output, logs.getLogs());
+            return ExecutionResult.success(output, null);
         } catch (Exception e) {
-            logs.error("Unexpected error occurred during manual trigger execution: {}", e.getMessage());
-            log.error("Unexpected error during manual trigger execution", e);
-            return ExecutionResult.error(e.getMessage(), logs.getLogs());
+            logs.withException(e).error("Unexpected error occurred during manual trigger execution: {}", e.getMessage());
+            return ExecutionResult.error(e.getMessage(), null);
         }
     }
 }

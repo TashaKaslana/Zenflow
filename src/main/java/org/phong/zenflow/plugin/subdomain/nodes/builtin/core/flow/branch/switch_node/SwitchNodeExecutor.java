@@ -8,7 +8,7 @@ import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
-import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
+import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
@@ -35,7 +35,7 @@ public class SwitchNodeExecutor implements PluginNodeExecutor {
 
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
-        LogCollector logCollector = new LogCollector();
+        NodeLogPublisher logCollector = context.getLogPublisher();
         try {
             Map<String, Object> input = config.input();
 
@@ -52,8 +52,8 @@ public class SwitchNodeExecutor implements PluginNodeExecutor {
                 cases = ObjectConversion.safeConvert(input.get("cases"), new TypeReference<>() {});
                 logCollector.info("Begin switch flow with expression: {} and {} cases", value, cases.size());
             } catch (Exception e) {
-                logCollector.error("Failed to parse switch cases: " + e.getMessage());
-                return ExecutionResult.error("Invalid switch cases format", logCollector.getLogs());
+                logCollector.withException(e).error("Failed to parse switch cases: {}", e.getMessage());
+                return ExecutionResult.error("Invalid switch cases format", null);
             }
 
             if (value == null) {
@@ -65,7 +65,7 @@ public class SwitchNodeExecutor implements PluginNodeExecutor {
             for (SwitchCase c : cases) {
                 if (c.value().equals(value)) {
                     logCollector.info("Found matching case for value: {} - proceeding to: {}", value, c.next());
-                    return ExecutionResult.nextNode(c.next().getFirst(), logCollector.getLogs());
+                    return ExecutionResult.nextNode(c.next().getFirst());
                 }
             }
 
@@ -74,20 +74,19 @@ public class SwitchNodeExecutor implements PluginNodeExecutor {
 
             return getFallbackResult(logCollector, input);
         } catch (Exception e) {
-            log.error("Failed to process switch-node", e);
-            logCollector.error("Failed to process switch-node: " + e.getMessage());
-            return ExecutionResult.error("Failed to process switch-node: " + e.getMessage(), logCollector.getLogs());
+            logCollector.withException(e).error("Failed to process switch-node: {}", e.getMessage());
+            return ExecutionResult.error("Failed to process switch-node: " + e.getMessage(), null);
         }
     }
 
-    private ExecutionResult getFallbackResult(LogCollector logCollector, Map<String, Object> input) {
+    private ExecutionResult getFallbackResult(NodeLogPublisher logCollector, Map<String, Object> input) {
         if (!input.containsKey("default_case")) {
             logCollector.warning("No default case provided. Return null instead.");
-            return ExecutionResult.nextNode(null, logCollector.getLogs());
+            return ExecutionResult.nextNode(null);
         } else {
             String defaultCase = input.get("default_case") != null ? input.get("default_case").toString() : null;
             logCollector.info("Using default case: {}", defaultCase);
-            return ExecutionResult.nextNode(defaultCase, logCollector.getLogs());
+            return ExecutionResult.nextNode(defaultCase);
         }
     }
 }
