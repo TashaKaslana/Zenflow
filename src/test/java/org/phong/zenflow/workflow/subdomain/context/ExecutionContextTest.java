@@ -1,6 +1,7 @@
 package org.phong.zenflow.workflow.subdomain.context;
 
 import org.junit.jupiter.api.Test;
+import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 
 import java.util.UUID;
 
@@ -20,6 +21,12 @@ public class ExecutionContextTest {
                 .traceId("trace")
                 .userId(null)
                 .contextManager(manager)
+                .logPublisher(NodeLogPublisher.builder()
+                        .publisher(event -> {})
+                        .workflowId(workflowId)
+                        .runId(runId)
+                        .userId(null)
+                        .build())
                 .build();
 
         ctx.write("foo", "bar");

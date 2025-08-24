@@ -3,6 +3,7 @@ package org.phong.zenflow;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContextManager;
+import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.UUID;
@@ -24,6 +25,12 @@ public class TestExecutionContextUtils {
                 .traceId("trace")
                 .userId(null)
                 .contextManager(manager)
+                .logPublisher(NodeLogPublisher.builder()
+                        .publisher(publisher)
+                        .workflowId(workflowId)
+                        .runId(runId)
+                        .userId(null)
+                        .build())
                 .build();
     }
 }

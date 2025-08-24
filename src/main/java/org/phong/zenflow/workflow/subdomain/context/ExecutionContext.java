@@ -4,6 +4,7 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.util.UUID;
+import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 
 @Getter
 @Builder
@@ -13,6 +14,7 @@ public class ExecutionContext {
     private final String traceId;
     private final UUID userId;
     private final RuntimeContextManager contextManager;
+    private final NodeLogPublisher logPublisher;
 
     public <T> T read(String key, Class<T> clazz) {
         Object o = contextManager

@@ -81,6 +81,13 @@ public class NodeLogPublisher {
         publish(LogLevel.WARNING, message);
     }
 
+    /**
+     * Delegate method for compatibility with previous LogCollector API.
+     */
+    public void warning(String message) {
+        warn(message);
+    }
+
     public void error(String message) {
         publish(LogLevel.ERROR, message);
     }
@@ -100,6 +107,13 @@ public class NodeLogPublisher {
 
     public void warn(String format, Object... args) {
         publish(LogLevel.WARNING, formatMessage(format, args));
+    }
+
+    /**
+     * Delegate method for compatibility with previous LogCollector API.
+     */
+    public void warning(String format, Object... args) {
+        warn(format, args);
     }
 
     public void error(String format, Object... args) {
