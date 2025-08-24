@@ -11,6 +11,7 @@ import java.util.UUID;
 public class ExecutionContext {
     private final UUID workflowId;
     private final UUID workflowRunId;
+    private final String traceId;
     @Setter
     private String nodeKey;
     private final UUID userId;
@@ -24,7 +25,7 @@ public class ExecutionContext {
                     .nodeKey(nodeKey)
                     .userId(userId)
                     .build();
-            return new ExecutionContext(workflowId, workflowRunId, nodeKey, userId, publisher);
+            return new ExecutionContext(workflowId, workflowRunId, traceId, nodeKey, userId, publisher);
         }
     }
 }

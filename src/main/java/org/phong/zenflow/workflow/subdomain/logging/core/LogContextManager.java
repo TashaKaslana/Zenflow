@@ -78,7 +78,7 @@ public class LogContextManager {
         }
         return new LogContext(
             context.traceId(),
-            String.join("->", context.stack())
+            String.join("->", (Iterable<String>) () -> context.stack().descendingIterator())
         );
     }
 

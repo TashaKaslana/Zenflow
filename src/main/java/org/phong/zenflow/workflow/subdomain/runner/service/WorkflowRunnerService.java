@@ -12,6 +12,7 @@ import org.phong.zenflow.workflow.service.WorkflowService;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.engine.dto.WorkflowExecutionStatus;
 import org.phong.zenflow.workflow.subdomain.engine.service.WorkflowEngineService;
+import org.phong.zenflow.workflow.subdomain.logging.core.LogContextManager;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowMetadata;
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
@@ -137,13 +138,25 @@ public class WorkflowRunnerService {
 
     private void notifyCallbackUrl(@NotNull @NotEmpty String callbackUrl, UUID workflowRunId) {
         if (callbackUrl != null && !callbackUrl.isEmpty()) {
-            executor.execute(() -> webClient.post()
-                    .uri(callbackUrl)
-                    .bodyValue(workflowRunId)
-                    .retrieve()
-                    .bodyToMono(Void.class)
-                    .doOnError(error -> log.error("Failed to notify callback URL: {}", callbackUrl, error))
-                    .subscribe());
+            executor.execute(() -> {
+                String runId = workflowRunId.toString();
+                String traceId = UUID.randomUUID().toString();
+                LogContextManager.init(runId, traceId);
+                try {
+                    LogContextManager.withContext(runId, () -> {
+                        webClient.post()
+                                .uri(callbackUrl)
+                                .bodyValue(workflowRunId)
+                                .retrieve()
+                                .bodyToMono(Void.class)
+                                .doOnError(error -> log.error("Failed to notify callback URL: {}", callbackUrl, error))
+                                .subscribe();
+                        return null;
+                    });
+                } finally {
+                    LogContextManager.cleanup(runId);
+                }
+            });
         }
     }
 }
