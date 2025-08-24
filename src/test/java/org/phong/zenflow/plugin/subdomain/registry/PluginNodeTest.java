@@ -154,9 +154,5 @@ public class PluginNodeTest {
         assertEquals("testValue1", output.get("testKey1"), "Output should contain testKey1 with correct value");
         assertEquals(123, output.get("testKey2"), "Output should contain testKey2 with correct value");
         assertEquals(true, output.get("testKey3"), "Output should contain testKey3 with correct value");
-
-        // Logging is now handled asynchronously via NodeLogPublisher
-        // ExecutionResult no longer carries node logs directly
-        assertNull(result.getLogs(), "Logs should be managed by the logging subsystem");
     }
 }

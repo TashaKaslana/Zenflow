@@ -6,14 +6,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
+import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.data.data_transformer.dto.TransformStep;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.data.data_transformer.exception.DataTransformerExecutorException;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.data.data_transformer.registry.TransformerRegistry;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.logging.core.LogContextManager;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.springframework.stereotype.Component;
-import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -77,23 +78,7 @@ public class DataTransformerExecutor implements PluginNodeExecutor {
             boolean forEach = Boolean.TRUE.equals(input.get("forEach"));
             Object result;
 
-            if (forEach) {
-                if (!(inputValue instanceof List)) {
-                    logPublisher.error("Input must be a List when 'forEach' is true.");
-                    throw new DataTransformerExecutorException("Input must be a List when 'forEach' is true.");
-                }
-                logPublisher.info(String.format("Executing pipeline for each of %d items.", ((List<?>) inputValue).size()));
-                List<Object> resultList = new ArrayList<>();
-                for (Object item : (List<?>) inputValue) {
-                    Object transformedItem = getResultTransform(input, isPipeline, item, transformerName, params, logPublisher);
-                    resultList.add(transformedItem);
-                }
-                result = resultList;
-
-            } else {
-                result = getResultTransform(input, isPipeline, inputValue, transformerName, params, logPublisher);
-            }
-            logPublisher.success("Data transformation completed successfully.");
+            result = getResult(forEach, inputValue, logPublisher, input, isPipeline, transformerName, params);
 
             return ExecutionResult.success(Map.of("result", result));
         } catch (Exception e) {
@@ -101,6 +86,28 @@ public class DataTransformerExecutor implements PluginNodeExecutor {
             log.debug("Data transformation failed {}", e.getMessage(), e);
             return ExecutionResult.error(e.getMessage());
         }
+    }
+
+    private Object getResult(boolean forEach, Object inputValue, NodeLogPublisher logPublisher, Map<String, Object> input, boolean isPipeline, String transformerName, Map<String, Object> params) {
+        Object result;
+        if (forEach) {
+            if (!(inputValue instanceof List)) {
+                logPublisher.error("Input must be a List when 'forEach' is true.");
+                throw new DataTransformerExecutorException("Input must be a List when 'forEach' is true.");
+            }
+            logPublisher.info(String.format("Executing pipeline for each of %d items.", ((List<?>) inputValue).size()));
+            List<Object> resultList = new ArrayList<>();
+            for (Object item : (List<?>) inputValue) {
+                Object transformedItem = getResultTransform(input, isPipeline, item, transformerName, params, logPublisher);
+                resultList.add(transformedItem);
+            }
+            result = resultList;
+
+        } else {
+            result = getResultTransform(input, isPipeline, inputValue, transformerName, params, logPublisher);
+        }
+        logPublisher.success("Data transformation completed successfully.");
+        return result;
     }
 
     private Object getResultTransform(Map<String, Object> input,
@@ -136,8 +143,10 @@ public class DataTransformerExecutor implements PluginNodeExecutor {
             }
 
             for (TransformStep step : steps) {
+                LogContextManager.push(step.getTransformer());
                 result = registry.getTransformer(step.getTransformer()).transform(result, step.getParams());
                 logPublisher.info(String.format("Applied transformer '%s' with params %s", step.getTransformer(), step.getParams()));
+                LogContextManager.pop();
             }
         } else {
             if (transformerName == null || transformerName.trim().isEmpty()) {
