@@ -183,7 +183,7 @@ public class LoggingNodeTest {
 
             // Log ERROR from middle node - should trigger immediate processing
             LogContextManager.push(nodeKeys[1]);
-            publishers[1].error("Critical error in validation").withErrorCode("VALIDATION_FAILED").log();
+            publishers[1].error("Critical error in validation");
             LogContextManager.pop();
 
             // Wait for ERROR log to be processed immediately
@@ -426,18 +426,14 @@ public class LoggingNodeTest {
             // Test different log types with metadata
             LogContextManager.push("TestComponent");
 
-            publisher.successBuilder("Operation completed successfully")
-                .withMeta(Map.of("operation", "data_transform", "records", 100))
-                .log();
+            publisher.withMeta(Map.of("operation", "data_transform", "records", 100))
+                    .success("Operation completed successfully");
 
-            publisher.error("Processing failed")
-                .withErrorCode("PROC_ERR_001")
-                .withMeta(Map.of("failedRecords", 5, "retryable", true))
-                .log();
+            publisher.withMeta(Map.of("failedRecords", 5, "retryable", true))
+                    .error("Processing failed");
 
-            publisher.warnBuilder("Memory usage high")
-                .withMeta(Map.of("memoryUsage", "85%", "threshold", "80%"))
-                .log();
+            publisher.withMeta(Map.of("memoryUsage", "85%", "threshold", "80%"))
+                    .warn("Memory usage high");
 
         } finally {
             LogContextManager.pop();
