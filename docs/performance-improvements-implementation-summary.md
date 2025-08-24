@@ -140,18 +140,17 @@ zenflow:
 - Spring configuration integration
 
 ### ⚠️ Notes:
-- Compilation currently blocked by unrelated syntax errors in `NodeLogPublisher.java`
-- Performance improvements are ready and will be active once compilation issues are resolved
-- All new code follows Spring best practices with dependency injection
+- `NodeLogPublisher` now supports a fluent builder style:
+  `log.withMeta(Map.of("k","v")).withException(e).error("msg")`
+- All improvements follow Spring best practices with dependency injection
 - Configuration is externalized and environment-ready
 
 ## 🚀 NEXT STEPS
 
-1. **Fix Compilation**: Resolve syntax errors in NodeLogPublisher.java
-2. **Testing**: Run performance benchmarks to validate improvements
-3. **Database**: Complete the non-functional JDBC persistence implementation
-4. **Monitoring**: Set up dashboards for the new metrics
-5. **Documentation**: Update operational runbooks with new health checks
+1. **Testing**: Run performance benchmarks to validate improvements
+2. **Database**: Complete the non-functional JDBC persistence implementation
+3. **Monitoring**: Set up dashboards for the new metrics
+4. **Documentation**: Update operational runbooks with new health checks
 
 ## 📈 MONITORING READY
 
