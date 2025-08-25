@@ -2,6 +2,7 @@ package org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.repos
 
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.entity.PluginNode;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.projections.PluginNodeId;
+import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.projections.PluginNodeSchema;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -21,7 +22,12 @@ public interface PluginNodeRepository extends JpaRepository<PluginNode, UUID>, J
     Optional<PluginNode> findByCompositeKey(String key);
 
     @Query(
-            "SELECT id from PluginNode where id in :compositeKeys"
+            "SELECT CAST(p.id AS string) as id, p.configSchema as configSchema from PluginNode p where p.id in :nodeIds"
     )
-    Set<PluginNodeId> findAllByCompositeKeys(Set<String> compositeKeys);
+    Set<PluginNodeSchema> findAllSchemasByNodeIds(Set<UUID> nodeIds);
+
+    @Query(
+            "SELECT CAST(p.id AS string) as id, p.compositeKey as compositeKey FROM PluginNode p WHERE p.compositeKey IN :compositeKeys"
+    )
+    Set<PluginNodeId> findIdsByCompositeKeys(Set<String> compositeKeys);
 }

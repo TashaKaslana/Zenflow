@@ -11,8 +11,9 @@ import org.phong.zenflow.workflow.subdomain.logging.core.LogContextManager;
 import org.phong.zenflow.workflow.subdomain.logging.core.LogContext;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import java.util.UUID;
+
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
 import org.phong.zenflow.workflow.subdomain.schema_validator.service.WorkflowValidationService;
 import org.springframework.context.ApplicationEventPublisher;
@@ -37,13 +38,13 @@ public class SingleNodeExecutionService {
     private final ApplicationEventPublisher publisher;
 
     /**
-     * Execute a plugin node with the provided configuration.
+     * Execute a pluginNode node with the provided configuration.
      *
-     * @param plugin the plugin node to execute
-     * @param config the configuration for the node
+     * @param pluginNode the pluginNode node to execute
+     * @param node the instance node
      * @return the {@link ExecutionResult} returned by the node's executor
      */
-    public ExecutionResult executeNode(PluginNode plugin, WorkflowConfig config) {
+    public ExecutionResult executeNode(PluginNode pluginNode, BaseWorkflowNode node) {
         // Initialize runtime context similar to workflow runs
         RuntimeContext context = new RuntimeContext();
         context.initialize(Map.of(), Map.of(), Map.of());
@@ -66,33 +67,32 @@ public class SingleNodeExecutionService {
                 .logPublisher(logPublisher)
                 .build();
 
+        WorkflowConfig config = node.getConfig();
         WorkflowConfig safeConfig = (config != null) ? config : new WorkflowConfig();
-        WorkflowConfig resolvedConfig = context.resolveConfig(plugin.getCompositeKey(), safeConfig);
+        WorkflowConfig resolvedConfig = context.resolveConfig(pluginNode.getCompositeKey(), safeConfig);
 
-        PluginNodeIdentifier identifier = new PluginNodeIdentifier(
-                plugin.getPlugin().getKey(),
-                plugin.getCompositeKey(),
-                plugin.getPluginNodeVersion(),
-                plugin.getExecutorType()
-        );
-
-        return LogContextManager.withComponent(plugin.getCompositeKey(), () -> {
+        return LogContextManager.withComponent(pluginNode.getCompositeKey(), () -> {
             LogContext ctx = LogContextManager.snapshot();
             log.info("[traceId={}] [hierarchy={}] Node started", ctx.traceId(), ctx.hierarchy());
-            execCtx.setNodeKey(plugin.getCompositeKey());
+            execCtx.setNodeKey(pluginNode.getCompositeKey());
 
             ValidationResult validationResult = workflowValidationService.validateRuntime(
-                    plugin.getCompositeKey(),
+                    node.getKey(),
                     resolvedConfig,
-                    identifier.toCacheKey(),
+                    pluginNode.getId().toString(),
                     execCtx
             );
             if (!validationResult.isValid()) {
-                log.warn("Validation failed for node {}: {}", plugin.getCompositeKey(), validationResult.getErrors());
+                log.warn("Validation failed for node {}: {}", pluginNode.getCompositeKey(), validationResult.getErrors());
                 log.info("[traceId={}] [hierarchy={}] Node finished", ctx.traceId(), ctx.hierarchy());
-                return ExecutionResult.validationError(validationResult, plugin.getCompositeKey());
+                return ExecutionResult.validationError(validationResult, pluginNode.getCompositeKey());
             }
-            ExecutionResult result = executorDispatcher.dispatch(identifier, resolvedConfig, execCtx);
+            ExecutionResult result = executorDispatcher.dispatch(
+                    pluginNode.getId().toString(),
+                    pluginNode.getExecutorType(),
+                    resolvedConfig,
+                    execCtx
+            );
             log.info("[traceId={}] [hierarchy={}] Node finished", ctx.traceId(), ctx.hierarchy());
             return result;
         });

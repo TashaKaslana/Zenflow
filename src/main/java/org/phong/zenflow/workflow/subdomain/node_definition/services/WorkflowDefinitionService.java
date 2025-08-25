@@ -148,24 +148,32 @@ public class WorkflowDefinitionService {
     }
 
     private WorkflowDefinition resolvePluginId(WorkflowDefinition workflowDefinition, List<ValidationError> validationErrors) {
-        Set<PluginNodeId> pluginNodeIdSet = pluginNodeRepository.findAllByCompositeKeys(workflowDefinition.getPluginNodeCompositeKeys());
-        Map<String, UUID> pluginNodeIdMap = new HashMap<>();
+        Set<String> compositeKeys = workflowDefinition.getPluginNodeCompositeKeys();
+        if (compositeKeys.isEmpty()) {
+            return workflowDefinition;
+        }
 
-        pluginNodeIdSet.forEach(pluginNodeId -> pluginNodeIdMap.put(pluginNodeId.getCompositeKey(), pluginNodeId.getId()));
+        Set<PluginNodeId> pluginNodeIds = pluginNodeRepository.findIdsByCompositeKeys(compositeKeys);
 
-        for (Map.Entry<String, BaseWorkflowNode> node: workflowDefinition.getNodeMap().entrySet()) {
-            if (pluginNodeIdMap.containsKey(node.getKey())) {
-                node.getValue()
-                        .getPluginNode()
-                        .setNodeId(pluginNodeIdMap.get(node.getKey()));
+        Map<String, UUID> compositeKeyToIdMap = new HashMap<>();
+        pluginNodeIds.forEach(pluginNodeId ->
+            compositeKeyToIdMap.put(pluginNodeId.getCompositeKey(), pluginNodeId.getId()));
+
+        // Update workflow nodes with the resolved UUIDs
+        for (Map.Entry<String, BaseWorkflowNode> nodeEntry : workflowDefinition.getNodeMap().entrySet()) {
+            BaseWorkflowNode workflowNode = nodeEntry.getValue();
+            String compositeKey = workflowNode.getPluginNode().toCacheKey();
+
+            if (compositeKeyToIdMap.containsKey(compositeKey)) {
+                workflowNode.getPluginNode().setNodeId(compositeKeyToIdMap.get(compositeKey));
             } else {
                 validationErrors.add(
                         ValidationError.builder()
-                                .nodeKey(node.getKey())
+                                .nodeKey(nodeEntry.getKey())
                                 .errorCode(ValidationErrorCode.VALIDATION_ERROR)
                                 .errorType("definition")
                                 .path("nodes.pluginNode.nodeId")
-                                .message("Plugin Node doesn't exist!")
+                                .message("Plugin Node doesn't exist with composite key: " + compositeKey)
                                 .build()
                 );
             }

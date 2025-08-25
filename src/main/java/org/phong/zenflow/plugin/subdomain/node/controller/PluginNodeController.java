@@ -9,7 +9,7 @@ import org.phong.zenflow.plugin.subdomain.node.dto.PluginNodeDto;
 import org.phong.zenflow.plugin.subdomain.node.dto.UpdatePluginNodeRequest;
 import org.phong.zenflow.plugin.subdomain.node.service.PluginNodeService;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.entity.PluginNode;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -84,9 +84,9 @@ public class PluginNodeController {
     @PostMapping("/{nodeId}/execute")
     public ResponseEntity<RestApiResponse<ExecutionResult>> executePluginNode(
             @PathVariable UUID nodeId,
-            @RequestBody(required = false) WorkflowConfig config) {
+            @RequestBody(required = false) BaseWorkflowNode instanceNode) {
         PluginNode node = pluginNodeService.findById(nodeId);
-        ExecutionResult result = singleNodeExecutionService.executeNode(node, config);
+        ExecutionResult result = singleNodeExecutionService.executeNode(node, instanceNode);
         return RestApiResponse.success(result, "Plugin node executed successfully");
     }
 }

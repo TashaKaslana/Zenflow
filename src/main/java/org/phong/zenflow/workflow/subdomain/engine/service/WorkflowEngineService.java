@@ -141,10 +141,15 @@ public class WorkflowEngineService {
             LogContext ctx = LogContextManager.snapshot();
             log.info("[traceId={}] [hierarchy={}] Node started", ctx.traceId(), ctx.hierarchy());
 
+            // Use UUID if available, fallback to a composite key
+            String templateString = workingNode.getPluginNode().getNodeId() != null ?
+                workingNode.getPluginNode().getNodeId().toString() :
+                workingNode.getPluginNode().toCacheKey();
+
             ValidationResult validationResult = workflowValidationService.validateRuntime(
                     workingNode.getKey(),
                     resolvedConfig,
-                    workingNode.getPluginNode().toCacheKey(),
+                    templateString,
                     execCtx
             );
             if (!validationResult.isValid()) {
@@ -154,7 +159,12 @@ public class WorkflowEngineService {
 
             execCtx.setNodeKey(workingNode.getKey());
 
-            ExecutionResult result = executorDispatcher.dispatch(workingNode.getPluginNode(), resolvedConfig, execCtx);
+            // Use UUID for dispatcher if available, fallback to a composite key
+            String executorKey = workingNode.getPluginNode().getNodeId() != null ?
+                workingNode.getPluginNode().getNodeId().toString() :
+                workingNode.getPluginNode().toCacheKey();
+
+            ExecutionResult result = executorDispatcher.dispatch(executorKey, workingNode.getKey(), resolvedConfig, execCtx);
             log.info("[traceId={}] [hierarchy={}] Node finished", ctx.traceId(), ctx.hierarchy());
             return result;
         });
