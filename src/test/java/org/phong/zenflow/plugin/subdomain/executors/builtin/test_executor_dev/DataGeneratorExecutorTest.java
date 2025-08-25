@@ -3,7 +3,8 @@ package org.phong.zenflow.plugin.subdomain.executors.builtin.test_executor_dev;
 import org.junit.jupiter.api.Test;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.test.data_generator.DataGeneratorExecutor;
-import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
+import org.phong.zenflow.TestExecutionContextUtils;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 
 import java.util.Map;
@@ -22,7 +23,7 @@ class DataGeneratorExecutorTest {
                         "format", "json"
                 )
         );
-        var result = executor.execute(config, new RuntimeContext());
+        var result = executor.execute(config, TestExecutionContextUtils.createExecutionContext());
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
         assertEquals("test+tag@very-long-domain-name.example.org", result.getOutput().get("user_email"));

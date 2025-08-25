@@ -50,6 +50,54 @@ zenflow:
     # Time-to-live for schema cache entries in seconds
     cache-ttl-seconds: 3600
 
+  # Performance-optimized logging configuration
+  logging:
+    durable:
+      router:
+        queue-capacity: 100000
+        workers: 4
+        backpressure:
+          strategy: DROP_DEBUG_FIRST
+          threshold: 0.8
+      buffer:
+        default-batch-size: 100
+        max-delay-ms: 2000
+        ring-buffer-size: 200
+        cleanup-idle-after-ms: 300000  # 5 minutes
+        adaptive-batching: true
+        min-batch-size: 10
+        max-batch-size: 500
+      persistence:
+        batch-timeout-ms: 5000
+        retry-attempts: 3
+        retry-backoff-ms: 1000
+        circuit-breaker:
+          failure-threshold: 10
+          recovery-time-ms: 30000  # 30 seconds
+      thread-pool:
+        core-pool-size: 4
+        maximum-pool-size: 12
+        keep-alive-time-ms: 60000  # 1 minute
+        queue-capacity: 1000
+
+# Enable actuator endpoints for monitoring
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,info,logging
+  endpoint:
+    health:
+      show-details: when-authorized
+      show-components: always
+  metrics:
+    distribution:
+      percentiles-histogram:
+        zenflow.logging.*: true
+      sla:
+        zenflow.logging.persistence.latency: 50ms,100ms,200ms,500ms
+        zenflow.logging.buffer.flush.time: 10ms,25ms,50ms,100ms
+
 # Logging configuration (commented out in the original)
 #logging:
 #  level:

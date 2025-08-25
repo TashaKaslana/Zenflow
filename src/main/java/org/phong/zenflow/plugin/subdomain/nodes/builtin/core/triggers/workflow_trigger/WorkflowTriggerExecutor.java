@@ -4,9 +4,9 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
-import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
-import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
+import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
 import org.phong.zenflow.workflow.subdomain.runner.event.WorkflowRunnerPublishableEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
@@ -40,8 +40,8 @@ public class WorkflowTriggerExecutor implements PluginNodeExecutor {
 
     @Override
     @Transactional
-    public ExecutionResult execute(WorkflowConfig config, RuntimeContext context) {
-        LogCollector logs = new LogCollector();
+    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
+        NodeLogPublisher logs = context.getLogPublisher();
         try {
             logs.info("Workflow trigger started at {}", OffsetDateTime.now());
 
@@ -125,15 +125,13 @@ public class WorkflowTriggerExecutor implements PluginNodeExecutor {
 
             logs.success("Workflow trigger request created successfully for workflow ID: {} and run ID: {}", workflowId, workflowRunId);
 
-            return ExecutionResult.success(output, logs.getLogs());
+            return ExecutionResult.success(output);
         } catch (IllegalArgumentException e) {
-            logs.error("Invalid input parameter: {}", e.getMessage());
-            log.error("Invalid input parameter for workflow trigger", e);
-            return ExecutionResult.error("Invalid input: " + e.getMessage(), logs.getLogs());
+            logs.withException(e).error("Invalid input parameter: {}", e.getMessage());
+            return ExecutionResult.error("Invalid input: " + e.getMessage());
         } catch (Exception e) {
-            logs.error("Unexpected error occurred during workflow trigger execution: {}", e.getMessage());
-            log.error("Unexpected error during workflow trigger execution", e);
-            return ExecutionResult.error(e.getMessage(), logs.getLogs());
+            logs.withException(e).error("Unexpected error occurred during workflow trigger execution: {}", e.getMessage());
+            return ExecutionResult.error(e.getMessage());
         }
     }
 }

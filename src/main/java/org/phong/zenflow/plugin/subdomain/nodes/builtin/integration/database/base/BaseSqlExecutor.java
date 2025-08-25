@@ -3,7 +3,7 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.ba
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.exceptions.ExecutorException;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.dto.ResolvedDbConfig;
-import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
+import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 
 import java.sql.*;
@@ -20,63 +20,57 @@ public class BaseSqlExecutor {
 
     @FunctionalInterface
     public interface ParameterBinder {
-        void bind(PreparedStatement stmt, ResolvedDbConfig config, LogCollector logCollector, AtomicBoolean isBatch) throws SQLException;
+        void bind(PreparedStatement stmt, ResolvedDbConfig config, NodeLogPublisher log, AtomicBoolean isBatch) throws SQLException;
     }
 
     @FunctionalInterface
     public interface ResultProcessor {
-        Map<String, Object> process(Map<String, Object> result, ResolvedDbConfig config, LogCollector logCollector);
+        Map<String, Object> process(Map<String, Object> result, ResolvedDbConfig config, NodeLogPublisher log);
     }
 
-    public ExecutionResult execute(ResolvedDbConfig config) {
-        LogCollector logCollector = new LogCollector();
-        return execute(config, logCollector);
+    public ExecutionResult execute(ResolvedDbConfig config, NodeLogPublisher nodeLog) {
+        return execute(config, nodeLog, null, null);
     }
 
-    public ExecutionResult execute(ResolvedDbConfig config, LogCollector logCollector) {
-        return execute(config, logCollector, null, null);
-    }
-
-    public ExecutionResult execute(ResolvedDbConfig config, LogCollector logCollector,
+    public ExecutionResult execute(ResolvedDbConfig config, NodeLogPublisher nodeLog,
                                    ParameterBinder parameterBinder, ResultProcessor resultProcessor) {
         try {
-            logCollector.info("Executing " + config.getDriver() + " query with config: " + config);
-            Map<String, Object> result = executeGeneric(config, logCollector, parameterBinder);
+            nodeLog.info("Executing {} query with config: {}", config.getDriver(), config);
+            Map<String, Object> result = executeGeneric(config, nodeLog, parameterBinder);
 
-            // Apply result processing if provided
             if (resultProcessor != null) {
-                result = resultProcessor.process(result, config, logCollector);
+                result = resultProcessor.process(result, config, nodeLog);
             }
 
-            return ExecutionResult.success(result, logCollector.getLogs());
+            return ExecutionResult.success(result);
         } catch (Exception e) {
-            logCollector.error("Error executing " + config.getDriver() + " query: " + e.getMessage());
-            return ExecutionResult.error("Execution error: " + e.getMessage(), logCollector.getLogs());
+            nodeLog.withException(e).error("Error executing {} query: {}", config.getDriver(), e.getMessage());
+            return ExecutionResult.error("Execution error: " + e.getMessage());
         }
     }
 
-    private Map<String, Object> executeGeneric(ResolvedDbConfig config, LogCollector logCollector, ParameterBinder parameterBinder) {
+    private Map<String, Object> executeGeneric(ResolvedDbConfig config, NodeLogPublisher nodeLog, ParameterBinder parameterBinder) {
         String query = config.getQuery();
         boolean enableTransaction = config.getParams() != null && (boolean) config.getParams().getOrDefault("enableTransaction", false);
 
         try (Connection conn = config.getDataSource().getConnection()) {
-            return prepareAndExecute(config, logCollector, conn, query, enableTransaction, parameterBinder);
+            return prepareAndExecute(config, nodeLog, conn, query, enableTransaction, parameterBinder);
         } catch (SQLException e) {
-            logCollector.error("SQL error: " + e.getMessage(), e);
+            nodeLog.withException(e).error("SQL error: {}", e.getMessage());
             throw new ExecutorException("SQL error: " + e.getMessage(), e);
         }
     }
 
-    private Map<String, Object> prepareAndExecute(ResolvedDbConfig config, LogCollector logCollector, Connection conn,
+    private Map<String, Object> prepareAndExecute(ResolvedDbConfig config, NodeLogPublisher nodeLog, Connection conn,
                                                   String query, boolean enableTransaction, ParameterBinder parameterBinder) {
         try (PreparedStatement stmt = conn.prepareStatement(query)) {
-            logCollector.info("Preparing statement: " + query);
+            nodeLog.info("Preparing statement: {}", query);
             Instant start = Instant.now();
             AtomicBoolean isBatch = new AtomicBoolean(false);
 
             // Apply custom parameter binding if provided
             if (parameterBinder != null) {
-                parameterBinder.bind(stmt, config, logCollector, isBatch);
+                parameterBinder.bind(stmt, config, nodeLog, isBatch);
             }
 
             if (enableTransaction) {
@@ -100,24 +94,24 @@ public class BaseSqlExecutor {
                 conn.commit();
             }
             Instant end = Instant.now();
-            logCollector.info("Execution time: " + Duration.between(start, end).toMillis() + " ms");
+            nodeLog.info("Execution time: {} ms", Duration.between(start, end).toMillis());
 
-            return getOutputResult(logCollector, query, isResult, stmt, start, end, affectedRows, batchCounts);
+            return getOutputResult(nodeLog, query, isResult, stmt, start, end, affectedRows, batchCounts);
         } catch (Exception e) {
             if (enableTransaction && conn != null) {
                 try {
-                    logCollector.info("Rolling back transaction due to error: " + e.getMessage());
+                    nodeLog.info("Rolling back transaction due to error: {}", e.getMessage());
                     conn.rollback();
                 } catch (SQLException rollbackEx) {
-                    logCollector.error("Rollback failed: " + rollbackEx.getMessage(), rollbackEx);
+                    nodeLog.withException(rollbackEx).error("Rollback failed: {}", rollbackEx.getMessage());
                 }
             }
-            logCollector.error("Query execution failed: " + e.getMessage(), e);
+            nodeLog.withException(e).error("Query execution failed: {}", e.getMessage());
             throw new ExecutorException("Query execution failed: " + e.getMessage(), e);
         }
     }
 
-    private Map<String, Object> getOutputResult(LogCollector logCollector, String query, boolean isResult,
+    private Map<String, Object> getOutputResult(NodeLogPublisher nodeLog, String query, boolean isResult,
                                                PreparedStatement stmt, Instant start, Instant end,
                                                int affectedRows, int[] batchCounts) throws Exception {
         if (isResult) {
@@ -131,7 +125,7 @@ public class BaseSqlExecutor {
                     "results", results
             );
         } else {
-            logCollector.info("Query executed successfully, affected rows: " + affectedRows);
+            nodeLog.info("Query executed successfully, affected rows: {}", affectedRows);
 
             Map<String, Object> result = new HashMap<>();
             result.put("query", query);

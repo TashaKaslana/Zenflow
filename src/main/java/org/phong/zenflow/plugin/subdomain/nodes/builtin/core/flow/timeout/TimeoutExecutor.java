@@ -3,9 +3,9 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.timeout;
 import lombok.RequiredArgsConstructor;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
-import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
-import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
+import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
@@ -33,8 +33,8 @@ public class TimeoutExecutor implements PluginNodeExecutor {
     }
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config, RuntimeContext context) {
-        LogCollector logCollector = new LogCollector();
+    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
+        NodeLogPublisher logCollector = context.getLogPublisher();
         logCollector.info("Starting timeout node execution");
 
         Map<String, Object> input = config.input();
@@ -55,7 +55,7 @@ public class TimeoutExecutor implements PluginNodeExecutor {
         timeoutScheduler.scheduleTimeout(workflowId, workflowRunId, nodeKey, millis);
         logCollector.info("Timeout scheduled for {} {} ({} milliseconds)", duration, unit, millis);
 
-        return ExecutionResult.waiting(logCollector.getLogs());
+        return ExecutionResult.waiting();
     }
 
     private long parseDuration(String duration, String unit) {

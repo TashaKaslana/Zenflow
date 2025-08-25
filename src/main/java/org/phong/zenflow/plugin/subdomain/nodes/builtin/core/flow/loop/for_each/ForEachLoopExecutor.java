@@ -6,9 +6,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
-import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
-import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
+import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
@@ -35,8 +35,8 @@ public class ForEachLoopExecutor implements PluginNodeExecutor {
     }
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config, RuntimeContext context) {
-        LogCollector logCollector = new LogCollector();
+    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
+        NodeLogPublisher logCollector = context.getLogPublisher();
         try {
             Map<String, Object> input = config.input();
             List<Object> items = ObjectConversion.safeConvert(input.get("items"), new TypeReference<>() {});
@@ -47,9 +47,9 @@ public class ForEachLoopExecutor implements PluginNodeExecutor {
                 logCollector.info("Loop completed after {} iterations", items.size());
                 if (loopEnd.isEmpty()) {
                     logCollector.warning("loopEnd is empty, no next node to proceed to after completion.");
-                    return ExecutionResult.loopEnd(null, logCollector.getLogs());
+                    return ExecutionResult.loopEnd(null);
                 }
-                return ExecutionResult.loopEnd(loopEnd.getFirst(), logCollector.getLogs());
+                return ExecutionResult.loopEnd(loopEnd.getFirst());
             }
 
             Object currentItem = items.get(index);
@@ -71,15 +71,15 @@ public class ForEachLoopExecutor implements PluginNodeExecutor {
                 logCollector.info("Break condition met at index {}, exiting loop", index);
                 if (loopEnd.isEmpty()) {
                     logCollector.warning("loopEnd is empty, no next node to proceed to after break condition.");
-                    return ExecutionResult.loopBreak(null, output, logCollector.getLogs());
+                    return ExecutionResult.loopBreak(null, output);
                 }
-                return ExecutionResult.loopBreak(loopEnd.getFirst(), output, logCollector.getLogs());
+                return ExecutionResult.loopBreak(loopEnd.getFirst(), output);
             }
 
             if (evalCondition(input.get("continueCondition"), output, logCollector)) {
                 output.put("index", index + 1);
                 logCollector.info("Continue condition met at index {}, skipping to next", index);
-                return ExecutionResult.loopContinue(output, logCollector.getLogs());
+                return ExecutionResult.loopContinue(output);
             }
 
             List<String> next = ObjectConversion.safeConvert(input.get("next"), new TypeReference<>() {});
@@ -88,18 +88,17 @@ public class ForEachLoopExecutor implements PluginNodeExecutor {
             logCollector.info("Processing item {} of {}: {}", index + 1, items.size(), currentItem);
             if (next.isEmpty()) {
                 logCollector.warning("next is empty, no next node to proceed to for loop body.");
-                return ExecutionResult.loopNext(null, output, logCollector.getLogs());
+                return ExecutionResult.loopNext(null, output);
             }
-            return ExecutionResult.loopNext(next.getFirst(), output, logCollector.getLogs());
+            return ExecutionResult.loopNext(next.getFirst(), output);
 
         } catch (Exception e) {
-            log.error("Execution failed in ForEachLoop", e);
-            logCollector.error("Execution failed: " + e.getMessage());
-            return ExecutionResult.error("Execution failed: " + e.getMessage(), logCollector.getLogs());
+            logCollector.withException(e).error("Execution failed: {}", e.getMessage());
+            return ExecutionResult.error("Execution failed: " + e.getMessage());
         }
     }
 
-    private boolean evalCondition(Object rawExpr, Map<String, Object> context, LogCollector logCollector) {
+    private boolean evalCondition(Object rawExpr, Map<String, Object> context, NodeLogPublisher logCollector) {
         if (rawExpr instanceof String expr && !expr.isBlank()) {
             try {
                 Object result = AviatorEvaluator.execute(expr, context);
