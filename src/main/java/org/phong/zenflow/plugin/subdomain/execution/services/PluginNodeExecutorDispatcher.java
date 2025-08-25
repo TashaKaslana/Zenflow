@@ -36,8 +36,8 @@ public class PluginNodeExecutorDispatcher {
             default -> throw new ExecutorException("Unknown executor type: " + identifier.executorType());
         }
 
-        LogContext ctx = LogContextManager.snapshot();
         if (executor instanceof ExternalPluginExecutor external) {
+            LogContext ctx = LogContextManager.snapshot();
             external.setLogContext(ctx);
         }
         return executor.execute(config, context);

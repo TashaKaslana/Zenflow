@@ -8,6 +8,9 @@ import org.phong.zenflow.plugin.infrastructure.persistence.entity.Plugin;
 import org.phong.zenflow.plugin.infrastructure.persistence.repository.PluginRepository;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.entity.PluginNode;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.repository.PluginNodeRepository;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
+import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.repository.WorkflowTriggerRepository;
+import org.phong.zenflow.workflow.subdomain.trigger.registry.TriggerRegistry;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
@@ -37,6 +40,7 @@ public class PluginNodeSynchronizer implements ApplicationRunner {
     private final PluginNodeRepository pluginNodeRepository;
     private final PluginRepository pluginRepository;
     private final ObjectMapper objectMapper;
+    private final TriggerRegistry triggerRegistry;
 
     @Override
     public void run(ApplicationArguments args) {
@@ -69,7 +73,7 @@ public class PluginNodeSynchronizer implements ApplicationRunner {
 
             Map<String, Object> schema = loadSchema(clazz, annotation.schemaPath().trim());
 
-            Plugin plugin = pluginRepository.findByKey(pluginKey)
+            Plugin plugin = pluginRepository.getReferenceByKey(pluginKey)
                     .orElseThrow(() -> new IllegalStateException("Plugin not found: " + pluginKey));
 
             PluginNode entity = pluginNodeRepository.findByKey(nodeKey)
@@ -87,8 +91,14 @@ public class PluginNodeSynchronizer implements ApplicationRunner {
             entity.setConfigSchema(schema);
 
             pluginNodeRepository.save(entity);
-            log.info("Synchronized plugin node: {}:{} v{} for plugin: {}",
-                    pluginKey, nodeKey, annotation.version(), plugin.getName());
+            log.info("Synchronized plugin node: {}:{} v{} for plugin key: {}",
+                    pluginKey, nodeKey, annotation.version(), pluginKey);
+
+            if ("trigger".equalsIgnoreCase(annotation.type())) {
+                triggerRegistry.registerTrigger(PluginNodeIdentifier.fromString(
+                        String.format("%s:%s:%s", annotation.key(), annotation.name(), annotation.version())
+                ));
+            }
         } catch (Exception e) {
             log.error("Failed to synchronize plugin node for class {}", className, e);
         }
