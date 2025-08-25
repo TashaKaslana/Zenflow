@@ -8,12 +8,11 @@ import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.plugin.subdomain.execution.exceptions.ExecutorException;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.http.executor.HttpRequestExecutor;
-import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.springframework.stereotype.Component;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,7 +34,7 @@ public class RemoteNodeExecutor implements PluginNodeExecutor {
     }
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config, RuntimeContext context) {
+    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         Map<String, Object> entrypoint = config.entrypoint();
         Map<String, Object> input = config.input();
 
@@ -101,10 +100,10 @@ public class RemoteNodeExecutor implements PluginNodeExecutor {
             if (remoteResponseBody instanceof Map && ((Map<?, ?>) remoteResponseBody).containsKey("status")) {
                 return ObjectConversion.safeConvert(remoteResponseBody, ExecutionResult.class);
             } else {
-                return ExecutionResult.success(Map.of("response", remoteResponseBody), Collections.emptyList());
+                return ExecutionResult.success(Map.of("response", remoteResponseBody));
             }
         } catch (Exception e) {
-            return ExecutionResult.success(Map.of("response", remoteResponseBody), Collections.emptyList());
+            return ExecutionResult.success(Map.of("response", remoteResponseBody));
         }
     }
 }

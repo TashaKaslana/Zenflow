@@ -1,6 +1,6 @@
 services:
   postgres:
-    container_name: zenflow
+    container_name: dev
     image: postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -11,6 +11,22 @@ services:
        - postgres:/data/postgres
     ports:
       - "5432:5432"
+    networks:
+      - postgres
+    restart: unless-stopped
+
+  postgres-test:
+    container_name: zenflow-test
+    image: postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER_TEST}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_TEST}
+      POSTGRES_DB: ${POSTGRES_DB_TEST}
+      PGDATA: /data/postgres
+    volumes:
+      - postgres_test_data:/data/postgres
+    ports:
+      - "5433:5432"
     networks:
       - postgres
     restart: unless-stopped
@@ -29,4 +45,5 @@ networks:
 
 volumes:
     postgres:
+    postgres_test_data:
     pgadmin:

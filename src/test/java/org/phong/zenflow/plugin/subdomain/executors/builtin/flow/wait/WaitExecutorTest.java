@@ -4,7 +4,8 @@ import org.junit.jupiter.api.Test;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.wait.WaitExecutor;
-import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
+import org.phong.zenflow.TestExecutionContextUtils;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 
 import java.util.HashMap;
@@ -19,7 +20,7 @@ class WaitExecutorTest {
 
     @Test
     void commitWhenAllDependenciesReady() {
-        RuntimeContext context = new RuntimeContext();
+        ExecutionContext context = TestExecutionContextUtils.createExecutionContext();
         Map<String, Object> input = new HashMap<>();
         input.put("mode", "all");
         input.put("waitingNodes", Map.of("A", true, "B", true));
@@ -33,7 +34,7 @@ class WaitExecutorTest {
 
     @Test
     void timeoutWithoutFallbackReturnsError() throws InterruptedException {
-        RuntimeContext context = new RuntimeContext();
+        ExecutionContext context = TestExecutionContextUtils.createExecutionContext();
         Map<String, Object> input = new HashMap<>();
         input.put("mode", "all");
         input.put("waitingNodes", Map.of("A", false));
@@ -51,7 +52,7 @@ class WaitExecutorTest {
 
     @Test
     void timeoutWithFallbackReturnsConfiguredStatus() throws InterruptedException {
-        RuntimeContext context = new RuntimeContext();
+        ExecutionContext context = TestExecutionContextUtils.createExecutionContext();
         Map<String, Object> input = new HashMap<>();
         input.put("mode", "all");
         input.put("waitingNodes", Map.of("A", false));

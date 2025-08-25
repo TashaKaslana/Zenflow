@@ -6,14 +6,12 @@ import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
-import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
-import org.phong.zenflow.workflow.subdomain.node_logs.dto.LogEntry;
-import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
+import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
-import java.util.List;
 import java.util.Map;
 
 @Component
@@ -35,10 +33,10 @@ public class WaitExecutor implements PluginNodeExecutor {
     }
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config, RuntimeContext context) {
-        LogCollector logCollector = new LogCollector();
+    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
+        NodeLogPublisher log = context.getLogPublisher();
         try {
-            logCollector.info("Starting wait node execution");
+            log.info("Starting wait node execution");
             String mode = (String) config.input().getOrDefault("mode", "any");
             int threshold = 1;
             if (mode.equals("threshold")) {
@@ -47,12 +45,12 @@ public class WaitExecutor implements PluginNodeExecutor {
             Map<String, Boolean> waitingNodes = ObjectConversion.convertObjectToMap(config.input().get("waitingNodes"), Boolean.class);
 
             if (waitingNodes == null || waitingNodes.isEmpty()) {
-                logCollector.error("No waiting nodes provided in the input.");
-                return ExecutionResult.error("No waiting nodes provided", logCollector.getLogs());
+                log.error("No waiting nodes provided in the input.");
+                return ExecutionResult.error("No waiting nodes provided");
             }
 
             boolean isReady = isReady(waitingNodes, mode, threshold);
-            logCollector.info("Status of waiting nodes: {}", waitingNodes);
+            log.info("Status of waiting nodes: {}", waitingNodes);
             Map<String, Object> output = Map.of(
                 "waitingNodes", waitingNodes,
                 "mode", mode,
@@ -66,30 +64,30 @@ public class WaitExecutor implements PluginNodeExecutor {
 
                 if (timeoutMs != null) {
                     String timerKey = buildTimerKey(config);
-                    Long start = (Long) context.get(timerKey);
+                    Long start = context.read(timerKey, Long.class);
                     if (start == null) {
                         start = System.currentTimeMillis();
-                        context.put(timerKey, start);
+                        context.write(timerKey, start);
                     }
 
                     long elapsed = System.currentTimeMillis() - start;
                     if (elapsed >= timeoutMs) {
                         String message = String.format("Timeout after %dms", timeoutMs);
                         if (fallbackStatus != null && fallbackStatus != ExecutionStatus.ERROR) {
-                            return buildFallbackResult(fallbackStatus, output, logCollector.getLogs(), message);
+                            return buildFallbackResult(fallbackStatus, output, message);
                         }
-                        return ExecutionResult.error(message, logCollector.getLogs());
+                        return ExecutionResult.error(message);
                     }
                 }
 
-                return ExecutionResult.uncommit(output, logCollector.getLogs());
+                return ExecutionResult.uncommit(output);
             }
 
-            return ExecutionResult.commit(output, logCollector.getLogs());
+            return ExecutionResult.commit(output);
         } catch (Exception e) {
             log.error("Failed to process wait node", e);
-            logCollector.error("Failed to process wait node: " + e.getMessage());
-            return ExecutionResult.error("Failed to process wait node: " + e.getMessage(), logCollector.getLogs());
+            log.withException(e).error("Failed to process wait node: " + e.getMessage());
+            return ExecutionResult.error("Failed to process wait node: " + e.getMessage());
         }
     }
 
@@ -129,14 +127,13 @@ public class WaitExecutor implements PluginNodeExecutor {
 
     private ExecutionResult buildFallbackResult(ExecutionStatus status,
                                                 Map<String, Object> output,
-                                                List<LogEntry> logs,
                                                 String message) {
         return switch (status) {
-            case COMMIT -> ExecutionResult.commit(output, logs);
-            case UNCOMMIT -> ExecutionResult.uncommit(output, logs);
-            case WAITING -> ExecutionResult.waiting(logs);
-            case SUCCESS -> ExecutionResult.success(output, logs);
-            default -> ExecutionResult.error(message, logs);
+            case COMMIT -> ExecutionResult.commit(output);
+            case UNCOMMIT -> ExecutionResult.uncommit(output);
+            case WAITING -> ExecutionResult.waiting();
+            case SUCCESS -> ExecutionResult.success(output);
+            default -> ExecutionResult.error(message);
         };
     }
 }

@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: ${SPRING_DATASOURCE}
-    username: ${POSTGRES_USER:postgres}
-    password: ${POSTGRES_PASSWORD:123456}
+    url: ${SPRING_DATASOURCE_TEST:jdbc:postgresql://localhost:5433/zenflow_test}
+    username: ${POSTGRES_USER_TEST:postgres}
+    password: ${POSTGRES_PASSWORD_TEST:123456}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:

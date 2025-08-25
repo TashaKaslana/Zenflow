@@ -4,9 +4,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
-import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
-import org.phong.zenflow.workflow.subdomain.node_logs.utils.LogCollector;
+import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
@@ -31,10 +31,10 @@ public class WebhookTriggerExecutor implements PluginNodeExecutor {
     }
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config, RuntimeContext context) {
-        LogCollector logs = new LogCollector();
+    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
+        NodeLogPublisher logs = context.getLogPublisher();
         try {
-            log.info("Executing WebhookTriggerExecutor with config: {}", config);
+            logs.info("Executing WebhookTriggerExecutor with config: {}", config);
 
             logs.info("Webhook trigger started at {}", OffsetDateTime.now());
 
@@ -95,11 +95,10 @@ public class WebhookTriggerExecutor implements PluginNodeExecutor {
 
             logs.success("Webhook trigger completed successfully");
 
-            return ExecutionResult.success(output, logs.getLogs());
+            return ExecutionResult.success(output);
         } catch (Exception e) {
-            logs.error("Unexpected error occurred during webhook trigger execution: {}", e.getMessage());
-            log.error("Unexpected error during webhook trigger execution", e);
-            return ExecutionResult.error(e.getMessage(), logs.getLogs());
+            logs.withException(e).error("Unexpected error occurred during webhook trigger execution: {}", e.getMessage());
+            return ExecutionResult.error(e.getMessage());
         }
     }
 }
