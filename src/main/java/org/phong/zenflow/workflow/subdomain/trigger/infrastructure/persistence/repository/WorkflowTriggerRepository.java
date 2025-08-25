@@ -19,4 +19,6 @@ public interface WorkflowTriggerRepository extends JpaRepository<WorkflowTrigger
             "WHERE t.config->>'custom_path' = :identifier " +
             "AND t.enabled = true", nativeQuery = true)
     Optional<WorkflowTrigger> findByCustomPath(@Param("identifier") String identifier);
+
+    Iterable<WorkflowTrigger> findByEnabledTrue();
 }
