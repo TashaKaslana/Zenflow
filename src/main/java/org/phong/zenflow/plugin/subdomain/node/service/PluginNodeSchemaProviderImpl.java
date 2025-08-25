@@ -99,7 +99,7 @@ public class PluginNodeSchemaProviderImpl implements PluginNodeSchemaProvider {
     }
 
     private String getCacheKey(PluginNode entity) {
-        return entity.getPlugin().getName() + ":" + entity.getKey() + ":" + entity.getPluginNodeVersion();
+        return entity.getPlugin().getName() + ":" + entity.getCompositeKey() + ":" + entity.getPluginNodeVersion();
     }
 
     /**

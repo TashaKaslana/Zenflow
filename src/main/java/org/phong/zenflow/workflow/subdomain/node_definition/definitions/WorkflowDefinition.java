@@ -7,6 +7,9 @@ import org.springframework.stereotype.Component;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Component
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -39,5 +42,26 @@ public record WorkflowDefinition(List<BaseWorkflowNode> nodes, WorkflowMetadata 
             new WorkflowMetadata();
 
         return new WorkflowDefinition(copiedNodes, copiedMetadata);
+    }
+
+    public Set<String> getNodeKeys() {
+        return nodes.stream()
+                .map(BaseWorkflowNode::getKey)
+                .collect(Collectors.toSet());
+    }
+
+    public Map<String, BaseWorkflowNode> getNodeMap() {
+        return nodes.stream()
+                .collect(Collectors.toMap(
+                        BaseWorkflowNode::getKey,
+                        node -> node,
+                        (existing, replacement) -> existing
+                ));
+    }
+
+    public Set<String> getPluginNodeCompositeKeys() {
+        return nodes.stream()
+                .map(node -> node.getPluginNode().toCacheKey())
+                .collect(Collectors.toSet());
     }
 }
