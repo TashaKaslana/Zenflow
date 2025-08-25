@@ -9,7 +9,6 @@ import org.phong.zenflow.plugin.infrastructure.persistence.repository.PluginRepo
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.entity.PluginNode;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.repository.PluginNodeRepository;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
-import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.repository.WorkflowTriggerRepository;
 import org.phong.zenflow.workflow.subdomain.trigger.registry.TriggerRegistry;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
@@ -69,18 +68,18 @@ public class PluginNodeSynchronizer implements ApplicationRunner {
                 return;
             }
             String pluginKey = parts[0];
-            String nodeKey = parts[1];
+            String compositeKey = annotation.key() + ':' + annotation.version();
 
             Map<String, Object> schema = loadSchema(clazz, annotation.schemaPath().trim());
 
             Plugin plugin = pluginRepository.getReferenceByKey(pluginKey)
-                    .orElseThrow(() -> new IllegalStateException("Plugin not found: " + pluginKey));
+                    .orElseThrow(() -> new IllegalStateException("Plugin not found with composite key: " + compositeKey));
 
-            PluginNode entity = pluginNodeRepository.findByKey(nodeKey)
+            PluginNode entity = pluginNodeRepository.findByCompositeKey(compositeKey)
                     .orElseGet(PluginNode::new);
 
             entity.setPlugin(plugin);
-            entity.setKey(nodeKey);
+            entity.setCompositeKey(compositeKey);
             entity.setName(annotation.name());
             entity.setType(annotation.type());
             entity.setPluginNodeVersion(annotation.version());
@@ -91,8 +90,7 @@ public class PluginNodeSynchronizer implements ApplicationRunner {
             entity.setConfigSchema(schema);
 
             pluginNodeRepository.save(entity);
-            log.info("Synchronized plugin node: {}:{} v{} for plugin key: {}",
-                    pluginKey, nodeKey, annotation.version(), pluginKey);
+            log.info("Synchronized plugin node with composite key: {}", compositeKey);
 
             if ("trigger".equalsIgnoreCase(annotation.type())) {
                 triggerRegistry.registerTrigger(PluginNodeIdentifier.fromString(

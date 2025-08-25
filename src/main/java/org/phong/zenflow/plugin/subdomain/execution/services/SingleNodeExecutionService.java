@@ -67,30 +67,30 @@ public class SingleNodeExecutionService {
                 .build();
 
         WorkflowConfig safeConfig = (config != null) ? config : new WorkflowConfig();
-        WorkflowConfig resolvedConfig = context.resolveConfig(plugin.getKey(), safeConfig);
+        WorkflowConfig resolvedConfig = context.resolveConfig(plugin.getCompositeKey(), safeConfig);
 
         PluginNodeIdentifier identifier = new PluginNodeIdentifier(
                 plugin.getPlugin().getKey(),
-                plugin.getKey(),
+                plugin.getCompositeKey(),
                 plugin.getPluginNodeVersion(),
                 plugin.getExecutorType()
         );
 
-        return LogContextManager.withComponent(plugin.getKey(), () -> {
+        return LogContextManager.withComponent(plugin.getCompositeKey(), () -> {
             LogContext ctx = LogContextManager.snapshot();
             log.info("[traceId={}] [hierarchy={}] Node started", ctx.traceId(), ctx.hierarchy());
-            execCtx.setNodeKey(plugin.getKey());
+            execCtx.setNodeKey(plugin.getCompositeKey());
 
             ValidationResult validationResult = workflowValidationService.validateRuntime(
-                    plugin.getKey(),
+                    plugin.getCompositeKey(),
                     resolvedConfig,
                     identifier.toCacheKey(),
                     execCtx
             );
             if (!validationResult.isValid()) {
-                log.warn("Validation failed for node {}: {}", plugin.getKey(), validationResult.getErrors());
+                log.warn("Validation failed for node {}: {}", plugin.getCompositeKey(), validationResult.getErrors());
                 log.info("[traceId={}] [hierarchy={}] Node finished", ctx.traceId(), ctx.hierarchy());
-                return ExecutionResult.validationError(validationResult, plugin.getKey());
+                return ExecutionResult.validationError(validationResult, plugin.getCompositeKey());
             }
             ExecutionResult result = executorDispatcher.dispatch(identifier, resolvedConfig, execCtx);
             log.info("[traceId={}] [hierarchy={}] Node finished", ctx.traceId(), ctx.hierarchy());

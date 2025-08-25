@@ -19,4 +19,9 @@ public class ValidationResult {
         this.errors = errors;
         this.valid = errors.isEmpty();
     }
+
+    public ValidationResult addAllErrors(List<ValidationError> errors) {
+        this.errors.addAll(errors);
+        return this;
+    }
 }

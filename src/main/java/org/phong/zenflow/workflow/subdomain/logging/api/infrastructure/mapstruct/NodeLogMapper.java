@@ -1,5 +1,6 @@
 package org.phong.zenflow.workflow.subdomain.logging.api.infrastructure.mapstruct;
 
+import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
@@ -20,5 +21,6 @@ public interface NodeLogMapper {
     @Mapping(source = "workflowRun.id", target = "workflowRunId")
     NodeLogDto toDto(NodeLog entity);
 
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     void updateEntity(UpdateNodeLogRequest request, @MappingTarget NodeLog entity);
 }

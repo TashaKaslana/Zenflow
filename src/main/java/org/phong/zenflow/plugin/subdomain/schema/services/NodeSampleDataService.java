@@ -38,7 +38,7 @@ public class NodeSampleDataService {
 
         PluginNodeIdentifier identifier = new PluginNodeIdentifier(
                 node.getPlugin().getKey(),
-                node.getKey(),
+                node.getCompositeKey(),
                 node.getPluginNodeVersion(),
                 node.getExecutorType()
         );
