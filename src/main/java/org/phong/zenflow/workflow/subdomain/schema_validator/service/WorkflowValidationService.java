@@ -100,7 +100,7 @@ public class WorkflowValidationService {
      * @param templateString Template string formats:
      *                       <ul>
      *                         <li>Built-in: <code>builtin:&#60;name&#62;</code> (e.g., <code>builtin:http-trigger</code>)</li>
-     *                         <li>Plugin: <code>&#60;nodeKey&#62;</code> (e.g., <code>123e4567-e89b-12d3-a456-426614174001</code>)</li>
+     *                         <li>Plugin: <code>&#60;nodeUuid&#62;</code> (e.g., <code>123e4567-e89b-12d3-a456-426614174001</code>)</li>
      *                       </ul>
      * @return ValidationResult containing any runtime validation errors found
      */
@@ -113,14 +113,8 @@ public class WorkflowValidationService {
                         nodeKey, resolvedConfig, templateString, nodeKey + ".config.input", "input"));
             }
 
-            PluginNodeIdentifier identifier = null;
-            try {
-                identifier = PluginNodeIdentifier.fromString(templateString);
-            } catch (Exception ignored) {
-            }
-
             // Additional runtime-specific validations
-            errors.addAll(validateRuntimeConstraints(nodeKey, resolvedConfig, identifier, context));
+            errors.addAll(validateRuntimeConstraints(nodeKey, resolvedConfig, templateString, context));
 
         } catch (Exception e) {
             errors.add(ValidationError.builder()
@@ -150,7 +144,7 @@ public class WorkflowValidationService {
 
             validatePluginNode(node, errors);
             PluginNodeIdentifier identifier = node.getPluginNode();
-            String templateString = identifier.toCacheKey();
+            String templateString = identifier.getNodeId() != null ? identifier.getNodeId().toString() : identifier.toCacheKey();
             log.debug("Plugin node detected - templateString: {}", templateString);
 
             // This validates the structure and static values against the schema while skipping template fields
@@ -168,7 +162,9 @@ public class WorkflowValidationService {
                 errors.addAll(schemaErrors);
             }
 
-            executorRegistry.getExecutor(identifier).ifPresent(executor -> {
+            // Use UUID string if available, fallback to composite key lookup
+            String executorKey = identifier.getNodeId() != null ? identifier.getNodeId().toString() : identifier.toCacheKey();
+            executorRegistry.getExecutor(executorKey).ifPresent(executor -> {
                 List<ValidationError> defErrors = executor.validateDefinition(node.getConfig());
                 if (defErrors != null) {
                     defErrors.forEach(error -> {
@@ -311,18 +307,18 @@ public class WorkflowValidationService {
      *
      * @param nodeKey        The key of the node being validated
      * @param resolvedConfig The resolved configuration with all templates expanded
-     * @param executorIdentifier The identifier for the plugin node executor
+     * @param executorIdentifier The UUID identifier for the plugin node executor
      * @param context        The runtime context for validation
      * @return List of validation errors found during runtime constraint validation
      */
     private List<ValidationError> validateRuntimeConstraints(String nodeKey,
                                                              WorkflowConfig resolvedConfig,
-                                                             PluginNodeIdentifier executorIdentifier,
+                                                             String executorIdentifier,
                                                              ExecutionContext context) {
         List<ValidationError> errors = new ArrayList<>();
 
         // Add specific runtime validations based on a node type
-        if (executorIdentifier != null && "core:flow.branch.condition:1.0.0".equals(executorIdentifier.toCacheKey())) {
+        if ("core:flow.branch.condition:1.0.0".equals(executorIdentifier)) {
             errors.addAll(validateConditionNodeRuntime(nodeKey, resolvedConfig));
         }
 

@@ -3,9 +3,7 @@ package org.phong.zenflow.workflow.subdomain.trigger.registry;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerExecutor;
 import org.springframework.stereotype.Component;
 
@@ -18,17 +16,17 @@ import java.util.Set;
 @Component
 public class TriggerRegistry {
     private final PluginNodeExecutorRegistry registry;
-    private final Set<PluginNodeIdentifier> triggerExecutorIds = new HashSet<>();
+    private final Set<String> triggerExecutorIds = new HashSet<>();
 
-    public void registerTrigger(PluginNodeIdentifier key) {
+    public void registerTrigger(String key) {
         triggerExecutorIds.add(key);
     }
 
-    public void unregisterTrigger(PluginNodeIdentifier key) {
+    public void unregisterTrigger(String key) {
         triggerExecutorIds.remove(key);
     }
 
-    public TriggerExecutor getRegistry(PluginNodeIdentifier triggerKey) {
+    public TriggerExecutor getRegistry(String triggerKey) {
         if (!triggerExecutorIds.contains(triggerKey) && registry.getExecutor(triggerKey).isEmpty()) {
             log.warn("Trigger not found for key {}", triggerKey);
             return null;
