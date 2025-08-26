@@ -18,7 +18,9 @@ public enum NodeType {
     TIMEOUT("timeout"),
     TRIGGER("trigger"),
     START("start"),
-    END("end");
+    END("end"),
+    ACTION("action") //generic action node
+    ;
 
     private final String type;
 
