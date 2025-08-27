@@ -1,0 +1,76 @@
+package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.discord;
+
+import lombok.extern.slf4j.Slf4j;
+import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import org.phong.zenflow.workflow.subdomain.trigger.resource.BaseTriggerResourceManager;
+import org.phong.zenflow.workflow.subdomain.trigger.resource.TriggerResourceConfig;
+import org.springframework.stereotype.Component;
+
+/**
+ * Discord JDA Resource Manager - handles sharing JDA instances across multiple triggers.
+ * One JDA instance per Discord bot token, no matter how many workflow triggers use it.
+ */
+@Slf4j
+@Component
+public class DiscordJdaResourceManager extends BaseTriggerResourceManager<JDA> {
+
+    @Override
+    protected JDA createResource(String resourceKey, TriggerResourceConfig config) {
+        try {
+            String botToken = config.getResourceIdentifier();
+            log.info("Creating new JDA instance for bot token: {}...", botToken.substring(0, 8));
+
+            JDA jda = JDABuilder.createDefault(botToken)
+                    .build();
+
+            // Wait for JDA to be ready
+            jda.awaitReady();
+
+            log.info("JDA instance created and ready for token: {}...", botToken.substring(0, 8));
+            return jda;
+
+        } catch (Exception e) {
+            log.error("Failed to create JDA instance: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to create Discord JDA connection", e);
+        }
+    }
+
+    @Override
+    protected void cleanupResource(JDA jda) {
+        try {
+            log.info("Shutting down JDA instance");
+            jda.shutdown();
+        } catch (Exception e) {
+            log.error("Error shutting down JDA: {}", e.getMessage(), e);
+        }
+    }
+
+    @Override
+    protected boolean checkResourceHealth(JDA jda) {
+        return jda.getStatus() == JDA.Status.CONNECTED;
+    }
+
+    /**
+     * Helper method to add event listeners to shared JDA instances
+     */
+    public void addEventListenerToJda(String resourceKey, ListenerAdapter listener) {
+        JDA jda = getExistingResource(resourceKey);
+        if (jda != null) {
+            jda.addEventListener(listener);
+            log.debug("Added event listener to JDA instance for key: {}", resourceKey);
+        }
+    }
+
+    /**
+     * Helper method to remove event listeners from shared JDA instances
+     */
+    public void removeEventListenerFromJda(String resourceKey, ListenerAdapter listener) {
+        JDA jda = getExistingResource(resourceKey);
+        if (jda != null) {
+            jda.removeEventListener(listener);
+            log.debug("Removed event listener from JDA instance for key: {}", resourceKey);
+        }
+    }
+}
