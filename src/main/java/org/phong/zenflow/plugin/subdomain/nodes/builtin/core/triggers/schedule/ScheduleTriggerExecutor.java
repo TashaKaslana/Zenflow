@@ -9,8 +9,8 @@ import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContext;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerExecutor;
-import org.phong.zenflow.workflow.subdomain.trigger.quartz.QuartzSchedulerResourceManager;
 import org.phong.zenflow.workflow.subdomain.trigger.quartz.WorkflowTriggerJob;
+import org.phong.zenflow.core.services.SharedQuartzSchedulerService;
 import org.phong.zenflow.workflow.subdomain.trigger.resource.TriggerResourceManager;
 import org.springframework.stereotype.Component;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
@@ -24,37 +24,37 @@ import java.util.*;
         key = "core:schedule.trigger",
         name = "Schedule Trigger",
         version = "1.0.0",
-        description = "Triggers a workflow based on a schedule using Quartz Scheduler. " +
-                "Supports persistent scheduling with enterprise-level features.",
+        description = "Triggers workflows using a shared Quartz Scheduler for maximum efficiency. " +
+                "Supports both interval and cron-based scheduling with database persistence.",
         type = "trigger",
-        tags = {"core", "trigger", "schedule", "quartz"},
+        tags = {"core", "trigger", "schedule", "quartz", "optimized"},
         icon = "ph:clock"
 )
 @Slf4j
 @AllArgsConstructor
 public class ScheduleTriggerExecutor implements TriggerExecutor {
 
-    private final QuartzSchedulerResourceManager quartzResourceManager;
+    private final SharedQuartzSchedulerService schedulerService;
 
     @Override
     public String key() {
         return "core:schedule.trigger:1.0.0";
     }
 
+    // Remove resource manager - we don't need resource pooling for schedulers
     @Override
     public Optional<TriggerResourceManager<?>> getResourceManager() {
-        return Optional.of(quartzResourceManager);
+        return Optional.empty(); // No resource pooling needed
     }
 
     @Override
     public Optional<String> getResourceKey(WorkflowTrigger trigger) {
-        // Use a shared scheduler resource key (could be tenant-based in the future)
-        return Optional.of("default-scheduler");
+        return Optional.empty(); // No resource key needed
     }
 
     @Override
     public RunningHandle start(WorkflowTrigger trigger, TriggerContext ctx) throws Exception {
-        log.info("Starting Quartz schedule trigger for workflow: {}", trigger.getWorkflowId());
+        log.info("Starting optimized schedule trigger for workflow: {}", trigger.getWorkflowId());
 
         Map<String, Object> config = trigger.getConfig();
 
@@ -63,31 +63,21 @@ public class ScheduleTriggerExecutor implements TriggerExecutor {
         String cronExpression = (String) config.get("cron_expression");
         String description = (String) config.getOrDefault("description", "Scheduled trigger");
 
-        // Validate that either interval or cron is provided (following your validation pattern)
+        // Validate configuration
         if (intervalSeconds == null && (cronExpression == null || cronExpression.trim().isEmpty())) {
             throw new IllegalArgumentException("Either 'interval_seconds' or 'cron_expression' must be provided in trigger config");
         }
 
-        // Log configuration (similar to your DB connection logging)
+        // Log configuration
         if (cronExpression != null && !cronExpression.trim().isEmpty()) {
-            log.info("Quartz schedule trigger configured with cron: '{}', description: {}",
+            log.info("Schedule trigger configured with cron: '{}', description: {}",
                      cronExpression, description);
         } else {
-            log.info("Quartz schedule trigger configured: {} seconds interval, description: {}",
+            log.info("Schedule trigger configured: {} seconds interval, description: {}",
                      intervalSeconds, description);
         }
 
-        // Create resource configuration following BaseDbConnection pattern
-        String resourceKey = getResourceKey(trigger).orElse("default-scheduler");
-
-        // For schedule triggers, we don't need a specific field from config as resource key
-        // All schedule triggers can share the same scheduler, unlike DB connections which need different parameters
-        ScheduleTriggerResourceConfig resourceConfig = new ScheduleTriggerResourceConfig(trigger);
-
-        // Get or create shared Quartz Scheduler (like GlobalDbConnectionPool.getOrCreate())
-        Scheduler scheduler = quartzResourceManager.getOrCreateResource(resourceKey, resourceConfig);
-
-        // Create Quartz job (similar to creating a SQL statement)
+        // Create Quartz job
         JobDetail job = JobBuilder.newJob(WorkflowTriggerJob.class)
                 .withIdentity("trigger-" + trigger.getId(), "workflow-triggers")
                 .usingJobData("triggerId", trigger.getId().toString())
@@ -97,18 +87,16 @@ public class ScheduleTriggerExecutor implements TriggerExecutor {
                 .usingJobData("cronExpression", cronExpression != null ? cronExpression : "")
                 .build();
 
-        // Create Quartz trigger with appropriate schedule
+        // Create appropriate trigger
         Trigger quartzTrigger;
         if (cronExpression != null && !cronExpression.trim().isEmpty()) {
-            // Cron-based trigger
             quartzTrigger = TriggerBuilder.newTrigger()
                     .withIdentity("trigger-" + trigger.getId(), "workflow-triggers")
                     .startNow()
                     .withSchedule(CronScheduleBuilder.cronSchedule(cronExpression)
-                            .withMisfireHandlingInstructionDoNothing()) // Handle misfires gracefully
+                            .withMisfireHandlingInstructionDoNothing())
                     .build();
         } else {
-            // Interval-based trigger (existing logic)
             quartzTrigger = TriggerBuilder.newTrigger()
                     .withIdentity("trigger-" + trigger.getId(), "workflow-triggers")
                     .startNow()
@@ -118,13 +106,13 @@ public class ScheduleTriggerExecutor implements TriggerExecutor {
                     .build();
         }
 
-        // Schedule the job using the shared scheduler
-        quartzResourceManager.scheduleJob(resourceKey, job, quartzTrigger);
+        // Schedule on the shared scheduler (much more efficient)
+        schedulerService.scheduleJob(job, quartzTrigger);
 
-        log.info("Quartz schedule trigger started successfully for trigger: {}", trigger.getId());
+        log.info("Schedule trigger started successfully for trigger: {}", trigger.getId());
 
-        return new QuartzRunningHandle(resourceKey, quartzTrigger.getKey(), trigger.getId(),
-                                     intervalSeconds, cronExpression, description, quartzResourceManager);
+        return new OptimizedRunningHandle(quartzTrigger.getKey(), trigger.getId(),
+                                        intervalSeconds, cronExpression, description, schedulerService);
     }
 
     @Override
@@ -134,20 +122,17 @@ public class ScheduleTriggerExecutor implements TriggerExecutor {
             logs.info("Executing ScheduleTriggerExecutor with config: {}", config);
             logs.info("Schedule trigger started at {}", OffsetDateTime.now());
 
-            // Extract optional payload and schedule configuration from input
             Map<String, Object> input = config.input();
             Object payload = input.get("payload");
             String cronExpression = (String) input.get("cron_expression");
             String scheduleDescription = (String) input.get("schedule_description");
 
-            // Create output map with trigger metadata and payload
             Map<String, Object> output = new HashMap<>();
             output.put("trigger_type", "schedule");
             output.put("triggered_at", OffsetDateTime.now().toString());
             output.put("trigger_source", "scheduled_execution");
-            output.put("scheduler", "quartz");
+            output.put("scheduler", "shared-quartz");
 
-            // Add schedule-specific metadata
             if (cronExpression != null) {
                 output.put("cron_expression", cronExpression);
                 logs.info("Schedule triggered with cron: {}", cronExpression);
@@ -157,7 +142,6 @@ public class ScheduleTriggerExecutor implements TriggerExecutor {
                 output.put("schedule_description", scheduleDescription);
             }
 
-            // Include payload in output if provided
             if (payload != null) {
                 output.put("payload", payload);
                 logs.info("Payload received: {}", payload);
@@ -165,7 +149,6 @@ public class ScheduleTriggerExecutor implements TriggerExecutor {
                 logs.info("No payload provided");
             }
 
-            // Add any additional input parameters to output for flexibility
             input.forEach((key, value) -> {
                 if (!Set.of("payload", "cron_expression", "schedule_description").contains(key)) {
                     output.put("input_" + key, value);
@@ -181,45 +164,39 @@ public class ScheduleTriggerExecutor implements TriggerExecutor {
     }
 
     /**
-     * Running handle for Quartz-based scheduled triggers.
-     * Follows the same pattern as database connection cleanup.
+     * Optimized running handle that uses the shared scheduler.
      */
-    private static class QuartzRunningHandle implements RunningHandle {
-        private final String resourceKey;
+    private static class OptimizedRunningHandle implements RunningHandle {
         private final TriggerKey triggerKey;
         private final UUID triggerId;
         private final Integer intervalSeconds;
         private final String cronExpression;
         private final String description;
-        private final QuartzSchedulerResourceManager resourceManager;
+        private final SharedQuartzSchedulerService schedulerService;
         private volatile boolean running = true;
 
-        public QuartzRunningHandle(String resourceKey, TriggerKey triggerKey, UUID triggerId,
-                                 Integer intervalSeconds, String cronExpression, String description,
-                                 QuartzSchedulerResourceManager resourceManager) {
-            this.resourceKey = resourceKey;
+        public OptimizedRunningHandle(TriggerKey triggerKey, UUID triggerId,
+                                    Integer intervalSeconds, String cronExpression, String description,
+                                    SharedQuartzSchedulerService schedulerService) {
             this.triggerKey = triggerKey;
             this.triggerId = triggerId;
             this.intervalSeconds = intervalSeconds;
             this.cronExpression = cronExpression;
             this.description = description;
-            this.resourceManager = resourceManager;
+            this.schedulerService = schedulerService;
         }
 
         @Override
         public void stop() {
             if (running) {
                 running = false;
+                schedulerService.unscheduleJob(triggerKey);
 
-                // Unschedule from shared Quartz scheduler (like closing a DB connection)
-                resourceManager.unscheduleJob(resourceKey, triggerKey);
-
-                // Log appropriate message based on schedule type
                 if (cronExpression != null && !cronExpression.trim().isEmpty()) {
-                    log.info("Quartz schedule trigger stopped: {} (cron: '{}', description: {})",
+                    log.info("Schedule trigger stopped: {} (cron: '{}', description: {})",
                             triggerId, cronExpression, description);
                 } else {
-                    log.info("Quartz schedule trigger stopped: {} (interval: {}s, description: {})",
+                    log.info("Schedule trigger stopped: {} (interval: {}s, description: {})",
                             triggerId, intervalSeconds, description);
                 }
             }
@@ -227,13 +204,13 @@ public class ScheduleTriggerExecutor implements TriggerExecutor {
 
         @Override
         public boolean isRunning() {
-            return running && resourceManager.isResourceHealthy(resourceKey);
+            return running && schedulerService.isSchedulerHealthy();
         }
 
         @Override
         public String getStatus() {
             if (!running) return "STOPPED";
-            return resourceManager.isResourceHealthy(resourceKey) ? "RUNNING" : "UNHEALTHY";
+            return schedulerService.isSchedulerHealthy() ? "RUNNING" : "UNHEALTHY";
         }
     }
 }

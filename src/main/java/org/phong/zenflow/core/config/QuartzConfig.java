@@ -1,35 +1,44 @@
 package org.phong.zenflow.core.config;
 
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.provider.SpringAwareJobFactory;
 import org.quartz.Scheduler;
-import org.quartz.SchedulerFactory;
-import org.quartz.impl.StdSchedulerFactory;
+import org.quartz.SchedulerException;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.quartz.SchedulerFactoryBean;
 
 /**
- * Quartz configuration that enables Spring dependency injection in job classes.
- * This follows the same configuration pattern as your database connection setup.
+ * Optimized Quartz configuration using Spring Boot auto-configuration.
+ * This fixes the DataSource configuration issue by using Spring's approach.
  */
 @Configuration
 @AllArgsConstructor
+@Slf4j
 public class QuartzConfig {
 
     private final SpringAwareJobFactory springJobFactory;
 
     @Bean
-    public SchedulerFactory schedulerFactory() {
-        return new StdSchedulerFactory();
+    public SchedulerFactoryBean schedulerFactoryBean() {
+        SchedulerFactoryBean factory = new SchedulerFactoryBean();
+
+        // Enable Spring dependency injection
+        factory.setJobFactory(springJobFactory);
+
+        factory.setApplicationContextSchedulerContextKey("applicationContext");
+
+        // Start scheduler automatically
+        factory.setAutoStartup(true);
+
+        return factory;
     }
 
     @Bean
-    public Scheduler scheduler(SchedulerFactory schedulerFactory) throws Exception {
-        Scheduler scheduler = schedulerFactory.getScheduler();
-
-        // Set the Spring-aware job factory to enable dependency injection
-        scheduler.setJobFactory(springJobFactory);
-
+    public Scheduler scheduler(SchedulerFactoryBean factory) throws SchedulerException {
+        Scheduler scheduler = factory.getScheduler();
+        log.info("Created optimized shared Quartz scheduler: {}", scheduler.getSchedulerName());
         return scheduler;
     }
 }
