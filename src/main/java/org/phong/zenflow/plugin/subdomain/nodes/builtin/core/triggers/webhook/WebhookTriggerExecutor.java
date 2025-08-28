@@ -20,6 +20,7 @@ import java.util.*;
         version = "1.0.0",
         description = "Executes when a webhook is triggered, processing the request data and metadata.",
         type = "trigger",
+        triggerType = "webhook",
         tags = {"webhook", "trigger", "http", "api", "event" },
         icon = "ph:webhook"
 )

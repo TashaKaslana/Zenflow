@@ -24,6 +24,7 @@ import java.util.*;
         name = "Workflow Trigger",
         version = "1.0.0",
         type = "trigger",
+        triggerType = "manual",
         description = "Triggers a workflow execution based on provided parameters.",
         tags = {"workflow", "trigger", "execution"},
         icon = "ph:rocket-launch"

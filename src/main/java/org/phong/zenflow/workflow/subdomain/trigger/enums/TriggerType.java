@@ -9,7 +9,8 @@ public enum TriggerType {
     MANUAL("MANUAL"),
     SCHEDULE("SCHEDULE"),
     WEBHOOK("WEBHOOK"),
-    EVENT("EVENT");
+    EVENT("EVENT"),
+    POLLING("POLLING");
 
     private final String type;
 }

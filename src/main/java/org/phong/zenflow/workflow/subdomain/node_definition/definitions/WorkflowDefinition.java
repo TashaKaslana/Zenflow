@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Component
@@ -62,6 +63,12 @@ public record WorkflowDefinition(List<BaseWorkflowNode> nodes, WorkflowMetadata 
     public Set<String> getPluginNodeCompositeKeys() {
         return nodes.stream()
                 .map(node -> node.getPluginNode().toCacheKey())
+                .collect(Collectors.toSet());
+    }
+
+    public Set<UUID> getPluginNodeIds() {
+        return nodes.stream()
+                .map(node -> node.getPluginNode().getNodeId())
                 .collect(Collectors.toSet());
     }
 }
