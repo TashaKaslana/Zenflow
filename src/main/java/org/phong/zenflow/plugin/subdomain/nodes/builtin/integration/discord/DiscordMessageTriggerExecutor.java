@@ -3,9 +3,6 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.discord;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
-import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
-import net.dv8tion.jda.api.hooks.ListenerAdapter;
-import org.jetbrains.annotations.NotNull;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
@@ -24,7 +21,7 @@ import java.util.*;
         key = "integration:discord.message.trigger",
         name = "Discord Message Trigger",
         version = "1.0.0",
-        description = "Listens for Discord messages and triggers workflows. Shares JDA connections efficiently.",
+        description = "Listens for Discord messages and triggers workflows. Uses centralized hub for O(1) performance.",
         type = "trigger",
         tags = {"integration", "discord", "trigger", "message"},
         icon = "simple-icons:discord"
@@ -34,6 +31,7 @@ import java.util.*;
 public class DiscordMessageTriggerExecutor implements TriggerExecutor {
 
     private final DiscordJdaResourceManager jdaResourceManager;
+    private final DiscordMessageListenerHub listenerHub;
 
     @Override
     public String key() {
@@ -66,20 +64,31 @@ public class DiscordMessageTriggerExecutor implements TriggerExecutor {
         // Register this trigger as using the resource
         jdaResourceManager.registerTriggerUsage(resourceKey, trigger.getId());
 
-        // Create event listener for this specific trigger
-        DiscordMessageListener listener = new DiscordMessageListener(
-                trigger.getId(),
-                trigger.getWorkflowId(),
-                trigger.getConfig(),
-                ctx
-        );
+        // Add hub listener to JDA if not already added (idempotent)
+        ensureHubListenerRegistered(resourceKey, jda);
 
-        // Add listener to shared JDA instance
-        jdaResourceManager.addEventListenerToJda(resourceKey, listener);
+        // Extract channel ID from trigger config
+        String channelId = (String) trigger.getConfig().get("channel_id");
+        if (channelId == null) {
+            throw new IllegalArgumentException("channel_id is required in trigger configuration");
+        }
 
-        log.info("Discord trigger started successfully for trigger: {}", trigger.getId());
+        // Create context for the hub
+        DiscordMessageListenerHub.DiscordMessageContext context =
+                new DiscordMessageListenerHub.DiscordMessageContext(
+                        trigger.getId(),
+                        trigger.getWorkflowId(),
+                        trigger.getConfig(),
+                        ctx
+                );
 
-        return new DiscordRunningHandle(resourceKey, listener, trigger.getId(), jdaResourceManager);
+        // Register with the hub using channel ID as key
+        listenerHub.addListener(channelId, context);
+
+        log.info("Discord trigger started successfully for trigger: {} on channel: {}",
+                trigger.getId(), channelId);
+
+        return new DiscordHubRunningHandle(resourceKey, channelId, trigger.getId(), jdaResourceManager, listenerHub);
     }
 
     @Override
@@ -93,83 +102,38 @@ public class DiscordMessageTriggerExecutor implements TriggerExecutor {
     }
 
     /**
-     * Event listener that handles Discord messages for a specific workflow trigger
+     * Ensures the hub listener is registered with the JDA instance (idempotent operation)
      */
-    @AllArgsConstructor
-    private static class DiscordMessageListener extends ListenerAdapter {
-        private final UUID triggerId;
-        private final UUID workflowId;
-        private final Map<String, Object> config;
-        private final TriggerContext triggerContext;
+    private void ensureHubListenerRegistered(String resourceKey, JDA jda) {
+        // Check if hub is already registered as listener
+        boolean hubAlreadyRegistered = jda.getRegisteredListeners().stream()
+                .anyMatch(listener -> listener instanceof DiscordMessageListenerHub);
 
-        @Override
-        public void onMessageReceived(@NotNull MessageReceivedEvent event) {
-            try {
-                // Apply filters from config
-                if (!shouldTrigger(event)) {
-                    return;
-                }
-
-                // Create payload with Discord event data
-                Map<String, Object> payload = getPayload(event);
-
-                // Start the workflow
-                triggerContext.startWorkflow(workflowId, payload);
-                triggerContext.markTriggered(triggerId, java.time.Instant.now());
-
-                log.debug("Discord trigger fired for message: {}", event.getMessageId());
-
-            } catch (Exception e) {
-                log.error("Error handling Discord message for trigger {}: {}", triggerId, e.getMessage(), e);
-            }
+        if (!hubAlreadyRegistered) {
+            jda.addEventListener(listenerHub);
+            log.debug("Registered DiscordMessageListenerHub with JDA instance for key: {}", resourceKey);
         }
-
-        private boolean shouldTrigger(MessageReceivedEvent event) {
-            // Apply configuration-based filters
-            String channelFilter = (String) config.get("channel_id");
-            if (channelFilter != null && !channelFilter.equals(event.getChannel().getId())) {
-                return false;
-            }
-
-            String contentFilter = (String) config.get("content_contains");
-            if (contentFilter != null && !event.getMessage().getContentDisplay().contains(contentFilter)) {
-                return false;
-            }
-
-            Boolean ignoreBotsConfig = (Boolean) config.get("ignore_bots");
-            return !Boolean.TRUE.equals(ignoreBotsConfig) || !event.getAuthor().isBot();
-        }
-    }
-
-    @NotNull
-    private static Map<String, Object> getPayload(MessageReceivedEvent event) {
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("message_id", event.getMessageId());
-        payload.put("channel_id", event.getChannel().getId());
-        payload.put("author_id", event.getAuthor().getId());
-        payload.put("content", event.getMessage().getContentDisplay());
-        event.getGuild();
-        payload.put("guild_id", event.getGuild().getId());
-        payload.put("timestamp", event.getMessage().getTimeCreated().toString());
-        return payload;
     }
 
     /**
-     * Running handle that manages the lifecycle of a Discord trigger
+     * Running handle that manages the lifecycle of a Discord trigger using the hub approach
      */
-    private static class DiscordRunningHandle implements RunningHandle {
+    private static class DiscordHubRunningHandle implements RunningHandle {
         private final String resourceKey;
-        private final DiscordMessageListener listener;
+        private final String channelId;
         private final UUID triggerId;
         private final DiscordJdaResourceManager resourceManager;
+        private final DiscordMessageListenerHub listenerHub;
         private volatile boolean running = true;
 
-        public DiscordRunningHandle(String resourceKey, DiscordMessageListener listener,
-                                  UUID triggerId, DiscordJdaResourceManager resourceManager) {
+        public DiscordHubRunningHandle(String resourceKey, String channelId, UUID triggerId,
+                                      DiscordJdaResourceManager resourceManager,
+                                      DiscordMessageListenerHub listenerHub) {
             this.resourceKey = resourceKey;
-            this.listener = listener;
+            this.channelId = channelId;
             this.triggerId = triggerId;
             this.resourceManager = resourceManager;
+            this.listenerHub = listenerHub;
         }
 
         @Override
@@ -177,13 +141,13 @@ public class DiscordMessageTriggerExecutor implements TriggerExecutor {
             if (running) {
                 running = false;
 
-                // Remove listener from shared JDA
-                resourceManager.removeEventListenerFromJda(resourceKey, listener);
+                // Remove from hub
+                listenerHub.removeListener(channelId);
 
                 // Unregister trigger usage (will cleanup JDA if no more triggers use it)
                 resourceManager.unregisterTriggerUsage(resourceKey, triggerId);
 
-                log.info("Discord trigger stopped: {}", triggerId);
+                log.info("Discord trigger stopped: {} for channel: {}", triggerId, channelId);
             }
         }
 
