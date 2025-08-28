@@ -1,4 +1,4 @@
-package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.discord;
+package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.discord.share;
 
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;

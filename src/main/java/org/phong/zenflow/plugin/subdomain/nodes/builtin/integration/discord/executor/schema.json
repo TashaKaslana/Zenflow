@@ -1,0 +1,180 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "input": {
+      "type": "object",
+      "properties": {
+        "bot_token": {
+          "type": "string",
+          "description": "Discord bot token for authentication. Keep this secure and never expose it in logs.",
+          "minLength": 50
+        },
+        "channel_id": {
+          "type": "string",
+          "description": "Discord channel ID where the message should be sent. Must be a valid Discord snowflake ID.",
+          "pattern": "^[0-9]{17,19}$"
+        },
+        "message": {
+          "type": "string",
+          "description": "The text content of the message to send.",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "embed": {
+          "type": "object",
+          "description": "Optional Discord embed to include with the message.",
+          "properties": {
+            "title": {
+              "type": "string",
+              "maxLength": 256,
+              "description": "Embed title"
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 4096,
+              "description": "Embed description"
+            },
+            "color": {
+              "type": "string",
+              "description": "Embed color as hex (#FF0000), color name (red), or decimal number",
+              "oneOf": [
+                {"pattern": "^#[0-9A-Fa-f]{6}$"},
+                {"pattern": "^\\d+$"},
+                {"enum": ["red", "green", "blue", "yellow", "orange", "pink", "cyan", "magenta", "white", "black", "gray", "grey"]}
+              ]
+            },
+            "thumbnail": {
+              "type": "string",
+              "format": "uri",
+              "description": "URL for embed thumbnail image"
+            },
+            "image": {
+              "type": "string",
+              "format": "uri",
+              "description": "URL for embed main image"
+            },
+            "footer": {
+              "type": "string",
+              "maxLength": 2048,
+              "description": "Embed footer text"
+            },
+            "fields": {
+              "type": "array",
+              "maxItems": 25,
+              "description": "Array of embed fields",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 256,
+                    "description": "Field name"
+                  },
+                  "value": {
+                    "type": "string",
+                    "maxLength": 1024,
+                    "description": "Field value"
+                  },
+                  "inline": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Whether the field should be displayed inline"
+                  }
+                },
+                "required": ["name", "value"],
+                "additionalProperties": false
+              }
+            },
+            "author": {
+              "type": "object",
+              "description": "Embed author information",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "maxLength": 256,
+                  "description": "Author name"
+                },
+                "url": {
+                  "type": "string",
+                  "format": "uri",
+                  "description": "Author URL"
+                },
+                "icon_url": {
+                  "type": "string",
+                  "format": "uri",
+                  "description": "Author icon URL"
+                }
+              },
+              "required": ["name"],
+              "additionalProperties": false
+            },
+            "url": {
+              "type": "string",
+              "format": "uri",
+              "description": "URL that the embed title links to"
+            },
+            "timestamp": {
+              "type": "string",
+              "format": "date-time",
+              "description": "ISO timestamp for the embed"
+            }
+          },
+          "additionalProperties": false
+        },
+        "reply_to": {
+          "type": "string",
+          "pattern": "^[0-9]{17,19}$",
+          "description": "Message ID to reply to (optional)"
+        },
+        "tts": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether the message should be sent as text-to-speech"
+        }
+      },
+      "required": ["bot_token", "channel_id", "message"],
+      "additionalProperties": true
+    },
+    "output": {
+      "type": "object",
+      "properties": {
+        "message_id": {
+          "type": "string",
+          "description": "ID of the sent Discord message"
+        },
+        "channel_id": {
+          "type": "string",
+          "description": "Channel ID where the message was sent"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO timestamp when the message was sent"
+        },
+        "content": {
+          "type": "string",
+          "description": "The message content that was sent"
+        },
+        "embed_sent": {
+          "type": "boolean",
+          "description": "Whether an embed was included in the message"
+        },
+        "guild_id": {
+          "type": "string",
+          "description": "Guild (server) ID where the message was sent"
+        },
+        "author": {
+          "type": "object",
+          "description": "Bot user information",
+          "properties": {
+            "id": {"type": "string"},
+            "username": {"type": "string"},
+            "discriminator": {"type": "string"}
+          }
+        }
+      }
+    }
+  }
+}
+
