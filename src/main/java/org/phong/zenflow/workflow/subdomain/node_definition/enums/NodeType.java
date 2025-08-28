@@ -22,11 +22,11 @@ public enum NodeType {
     ACTION("action") //generic action node
     ;
 
-    private final String type;
+    private final String nodeType;
 
     public static NodeType fromString(String type) {
         for (NodeType nodeType : NodeType.values()) {
-            if (nodeType.getType().equalsIgnoreCase(type)) {
+            if (nodeType.getNodeType().equalsIgnoreCase(type)) {
                 return nodeType;
             }
         }

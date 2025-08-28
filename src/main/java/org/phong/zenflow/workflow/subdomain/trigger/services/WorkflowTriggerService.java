@@ -2,6 +2,8 @@ package org.phong.zenflow.workflow.subdomain.trigger.services;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.CreateWorkflowTriggerRequest;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.UpdateWorkflowTriggerRequest;
@@ -12,6 +14,7 @@ import org.phong.zenflow.workflow.subdomain.trigger.exception.WorkflowTriggerExc
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.mapstruct.WorkflowTriggerMapper;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.repository.WorkflowTriggerRepository;
+import org.phong.zenflow.workflow.subdomain.trigger.registry.TriggerRegistry;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -20,6 +23,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -33,6 +39,7 @@ public class WorkflowTriggerService {
     private final WorkflowTriggerMapper triggerMapper;
     private final WorkflowSchedulerService workflowSchedulerService;
     private final ApplicationEventPublisher publisher;
+    private final TriggerRegistry triggerRegistry;
 
     @Transactional
     public WorkflowTriggerDto createTrigger(CreateWorkflowTriggerRequest request) {
@@ -50,6 +57,64 @@ public class WorkflowTriggerService {
 
         log.info("Created workflow trigger with ID: {}", trigger.getId());
         return triggerMapper.toDto(trigger);
+    }
+
+    public void synchronizeTrigger(UUID workflowId, WorkflowDefinition wf) {
+        Set<UUID> pluginNodeIds = wf.getPluginNodeIds();
+        Set<String> triggerKeys = triggerRegistry.getAllTriggerKeys();
+        Map<String, BaseWorkflowNode> nodeMap = wf.getNodeMap();
+
+        // Find nodes in the workflow that match registered trigger types
+        List<UUID> triggerNodeIds = pluginNodeIds.stream()
+                .filter(nodeId -> {
+                    BaseWorkflowNode node = nodeMap.get(nodeId.toString());
+                    if (node == null) return false;
+
+                    // Check if this node's type matches any registered trigger key
+                    String nodeType = node.getType().getNodeType();
+                    return triggerKeys.contains(nodeType);
+                })
+                .toList();
+
+        List<WorkflowTrigger> existingTriggers = triggerRepository.findByWorkflowId(workflowId);
+
+        triggerNodeIds.forEach(nodeId -> {
+            BaseWorkflowNode node = nodeMap.get(nodeId.toString());
+
+            if (node != null) {
+                // Check if trigger already exists for this node
+                boolean triggerExists = existingTriggers.stream()
+                        .anyMatch(trigger ->
+                            trigger.getConfig().containsKey("nodeId") &&
+                            trigger.getConfig().get("nodeId").equals(nodeId.toString())
+                        );
+
+                if (!triggerExists) {
+                    // Get the trigger type from the registry
+                    String nodeType = node.getType().getNodeType();
+                    Optional<TriggerType> triggerTypeOpt = triggerRegistry.getTriggerType(nodeType);
+
+                    if (triggerTypeOpt.isPresent()) {
+                        TriggerType triggerType = triggerTypeOpt.get();
+
+                        CreateWorkflowTriggerRequest request = new CreateWorkflowTriggerRequest();
+                        request.setWorkflowId(workflowId);
+                        request.setType(triggerType);
+                        request.setConfig(Map.of(
+                            "nodeId", nodeId.toString(),
+                            "nodeType", nodeType
+                        ));
+                        request.setEnabled(true);
+
+                        createTrigger(request);
+                        log.info("Synchronized and created {} trigger for node ID: {} (type: {})",
+                                triggerType, nodeId, nodeType);
+                    } else {
+                        log.warn("Could not determine trigger type for node {} with type {}", nodeId, nodeType);
+                    }
+                }
+            }
+        });
     }
 
     public WorkflowTriggerDto getTriggerById(UUID triggerId) {
@@ -164,7 +229,7 @@ public class WorkflowTriggerService {
         validateTriggerConfigurationForType(request.getType(), request.getConfig());
     }
 
-    private void validateTriggerConfigurationForType(TriggerType type, java.util.Map<String, Object> config) {
+    private void validateTriggerConfigurationForType(TriggerType type, Map<String, Object> config) {
         switch (type) {
             case SCHEDULE:
                 if (config == null || !config.containsKey("cron")) {

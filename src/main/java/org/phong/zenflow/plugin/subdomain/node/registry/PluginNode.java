@@ -38,6 +38,12 @@ public @interface PluginNode {
     String executor() default "builtin";
 
     /**
+     * For trigger nodes, specifies the trigger type (manual, webhook, event, schedule, polling).
+     * This field is optional and only used when type="trigger".
+     */
+    String triggerType() default "";
+
+    /**
      * Custom path to the schema file for this node definition.
      * This is used to validate the node configuration against a JSON schema.
      */

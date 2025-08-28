@@ -23,6 +23,7 @@ import java.util.*;
         version = "1.0.0",
         description = "Listens for Discord messages and triggers workflows. Uses centralized hub for O(1) performance.",
         type = "trigger",
+        triggerType = "event",
         tags = {"integration", "discord", "trigger", "message"},
         icon = "simple-icons:discord"
 )

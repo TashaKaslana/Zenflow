@@ -27,6 +27,7 @@ import java.util.*;
         description = "Triggers workflows using a shared Quartz Scheduler for maximum efficiency. " +
                 "Supports both interval and cron-based scheduling with database persistence.",
         type = "trigger",
+        triggerType = "schedule",
         tags = {"core", "trigger", "schedule", "quartz", "optimized"},
         icon = "ph:clock"
 )

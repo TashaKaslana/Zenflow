@@ -17,6 +17,7 @@ import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.infrastructure.persistence.repository.WorkflowRepository;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.services.WorkflowDefinitionService;
+import org.phong.zenflow.workflow.subdomain.trigger.services.WorkflowTriggerService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -35,6 +36,7 @@ public class WorkflowService {
     private final ProjectRepository projectRepository;
     private final WorkflowMapper workflowMapper;
     private final WorkflowDefinitionService definitionService;
+    private final WorkflowTriggerService triggerService;
 
     /**
      * Create a new workflow
@@ -87,6 +89,9 @@ public class WorkflowService {
         // Force Hibernate update, save
         workflow.setDefinition(upserted);
         Workflow saved = workflowRepository.save(workflow);
+
+        //TODO: should make async this process because it may take time and be side affect the user experience
+        triggerService.synchronizeTrigger(workflowId, upserted);
 
         return saved.getDefinition();
     }

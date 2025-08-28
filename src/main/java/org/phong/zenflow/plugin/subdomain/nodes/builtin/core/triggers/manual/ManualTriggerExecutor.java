@@ -19,6 +19,7 @@ import java.util.*;
         version = "1.0.0",
         description = "Executes a manual trigger with optional payload and schedule configuration.",
         type = "trigger",
+        triggerType = "manual",
         tags = {"core", "trigger", "manual"},
         icon = "ph:play"
 )
