@@ -1,0 +1,109 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "input": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "The HTTP endpoint URL to poll for changes.",
+          "format": "uri"
+        },
+        "interval_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Polling interval in seconds (minimum 1 second)."
+        },
+        "http_method": {
+          "type": "string",
+          "enum": ["GET", "POST", "PUT", "PATCH", "HEAD"],
+          "default": "GET",
+          "description": "HTTP method to use for polling requests."
+        },
+        "change_detection": {
+          "type": "string",
+          "enum": ["full_response", "hash_comparison", "size_change"],
+          "default": "full_response",
+          "description": "Strategy for detecting changes in the response."
+        },
+        "json_path": {
+          "type": "string",
+          "description": "JSONPath expression to extract specific data for comparison (e.g., '$.data.items')."
+        },
+        "headers": {
+          "type": "object",
+          "description": "HTTP headers to include in polling requests.",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "request_body": {
+          "description": "Request body for POST/PUT requests (JSON object or string)."
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300,
+          "default": 30,
+          "description": "Request timeout in seconds (1-300 seconds)."
+        },
+        "include_response": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to include full response data in workflow payload."
+        }
+      },
+      "required": ["url", "interval_seconds"],
+      "additionalProperties": true
+    },
+    "output": {
+      "type": "object",
+      "properties": {
+        "trigger_type": {
+          "type": "string",
+          "const": "polling"
+        },
+        "triggered_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "trigger_source": {
+          "type": "string",
+          "const": "polling_change_detected"
+        },
+        "scheduler_type": {
+          "type": "string",
+          "const": "quartz"
+        },
+        "polling_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "change_type": {
+          "type": "string",
+          "enum": ["initial_data", "data_changed", "items_added", "items_removed", "items_modified", "data_removed"]
+        },
+        "current_response": {
+          "description": "Current response data from the polled endpoint."
+        },
+        "previous_response": {
+          "description": "Previous response data for comparison."
+        },
+        "extracted_data": {
+          "description": "Data extracted using JSONPath if json_path was specified."
+        },
+        "json_path": {
+          "type": "string"
+        },
+        "polling_method": {
+          "type": "string"
+        },
+        "detection_strategy": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
+
