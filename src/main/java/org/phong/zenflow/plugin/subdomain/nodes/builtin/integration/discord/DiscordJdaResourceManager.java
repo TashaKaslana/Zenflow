@@ -3,7 +3,6 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.discord;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
-import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.phong.zenflow.workflow.subdomain.trigger.resource.BaseTriggerResourceManager;
 import org.phong.zenflow.workflow.subdomain.trigger.resource.TriggerResourceConfig;
 import org.springframework.stereotype.Component;
@@ -50,27 +49,5 @@ public class DiscordJdaResourceManager extends BaseTriggerResourceManager<JDA> {
     @Override
     protected boolean checkResourceHealth(JDA jda) {
         return jda.getStatus() == JDA.Status.CONNECTED;
-    }
-
-    /**
-     * Helper method to add event listeners to shared JDA instances
-     */
-    public void addEventListenerToJda(String resourceKey, ListenerAdapter listener) {
-        JDA jda = getExistingResource(resourceKey);
-        if (jda != null) {
-            jda.addEventListener(listener);
-            log.debug("Added event listener to JDA instance for key: {}", resourceKey);
-        }
-    }
-
-    /**
-     * Helper method to remove event listeners from shared JDA instances
-     */
-    public void removeEventListenerFromJda(String resourceKey, ListenerAdapter listener) {
-        JDA jda = getExistingResource(resourceKey);
-        if (jda != null) {
-            jda.removeEventListener(listener);
-            log.debug("Removed event listener from JDA instance for key: {}", resourceKey);
-        }
     }
 }
