@@ -42,14 +42,16 @@ public class WorkflowDefinitionService {
      * Updates or inserts nodes in the temporary definition based on the existing definition.
      * Preserves existing nodes and adds new ones, generating keys for nodes without them.
      *
-     * @param existingDef The existing workflow definition containing current nodes
-     * @param tempDef     The temporary workflow definition being built
+     * @param tempDef     The temporary workflow definition being built (target)
+     * @param newDef      The new workflow definition containing nodes to add (source)
      * @throws WorkflowNodeDefinitionException If any node has an empty type
      */
-    private void upsertNodes(WorkflowDefinition existingDef, WorkflowDefinition tempDef) {
-        Map<String, BaseWorkflowNode> keyToNode = existingDef.nodes().asMap();
+    private void upsertNodes(WorkflowDefinition tempDef, WorkflowDefinition newDef) {
+        // Start with existing nodes from tempDef (which was created from existingDef)
+        Map<String, BaseWorkflowNode> keyToNode = new HashMap<>(tempDef.nodes().asMap());
 
-        tempDef.nodes().forEach((ignored, node) -> {
+        // Add/update with new nodes from newDef
+        newDef.nodes().forEach((ignored, node) -> {
             String type = node.getType().name();
             if (type.isBlank()) {
                 throw new WorkflowNodeDefinitionException("Each node must have a 'type'");
@@ -67,8 +69,9 @@ public class WorkflowDefinitionService {
             keyToNode.put(key, node);
         });
 
-        existingDef.nodes().clear();
-        keyToNode.forEach((k, node) -> existingDef.nodes().put(node));
+        // Update tempDef with the merged nodes
+        tempDef.nodes().clear();
+        keyToNode.forEach((k, node) -> tempDef.nodes().put(node));
     }
 
     /**
@@ -119,7 +122,7 @@ public class WorkflowDefinitionService {
         List<ValidationError> validationErrors = new ArrayList<>();
 
         resolvePluginId(tempDef, validationErrors);
-        updateStaticContextMetadata(tempDef);
+        tempDef = updateStaticContextMetadata(tempDef);
 
         ValidationResult validationResult = workflowValidationService.validateDefinition(tempDef);
         validationResult.addAllErrors(validationErrors);
@@ -132,14 +135,14 @@ public class WorkflowDefinitionService {
         return tempDef;
     }
 
-    private void updateStaticContextMetadata(WorkflowDefinition definition) {
+    private WorkflowDefinition updateStaticContextMetadata(WorkflowDefinition definition) {
         if (definition == null) {
             definition = new WorkflowDefinition();
         }
 
         WorkflowMetadata newMetadata = workflowContextService.buildStaticContext(definition);
 
-        new WorkflowDefinition(definition.nodes(), newMetadata);
+        return new WorkflowDefinition(definition.nodes(), newMetadata);
     }
 
     private void resolvePluginId(WorkflowDefinition workflowDefinition, List<ValidationError> validationErrors) {
