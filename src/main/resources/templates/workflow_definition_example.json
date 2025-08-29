@@ -1,102 +1,92 @@
 {
-    "nodes": [
-        {
-            "key": "node1",
-            "type": "plugin",
-            "pluginNode": {
-                "pluginId": "examplePlugin",
-                "nodeId": "exampleNode"
-            },
-            "next": ["node2"],
-            "config": {
-                "input": {
-                    "name": "John Doe",
-                    "age": 30
+    "upsert": {
+        "nodes": [
+            {
+                "key": "start",
+                "type": "TRIGGER",
+                "pluginNode": {
+                    "pluginKey": "core",
+                    "nodeKey": "webhook.trigger",
+                    "version": "1.0.0",
+                    "executorType": "builtin"
                 },
-                "output": {
-                    "name": "{{node1.output.name}}",
-                    "age": "{{node1.output.age}}",
-                    "email": "{{node1.output.email}}"
+                "next": [
+                    "data-generator"
+                ],
+                "config": {
+                    "input": {
+                        "payload": {
+                            "haha": "badtime",
+                            "seed": 1234
+                        },
+                        "user_agent": "Sámung"
+                    },
+                    "output": null,
+                    "entrypoint": null
                 }
             },
-            "metadata": {
-                "description": "This node processes user information and generates an email."
+            {
+                "key": "data-generator",
+                "type": "PLUGIN",
+                "next": [
+                    "email"
+                ],
+                "config": {
+                    "input": {
+                        "seed": "{{start.output.payload.seed}}",
+                        "format": "json"
+                    },
+                    "output": null,
+                    "entrypoint": null
+                },
+                "pluginNode": {
+                    "pluginKey": "test",
+                    "nodeKey": "data.generate",
+                    "version": "1.0.0",
+                    "executorType": "builtin"
+                }
             },
-            "policy": {
-
+            {
+                "key": "email",
+                "type": "PLUGIN",
+                "next": [],
+                "config": {
+                    "input": {
+                        "isPipeline": true,
+                        "data": "   initial data   ",
+                        "steps": [
+                            {
+                                "transformer": "trim",
+                                "params": {}
+                            },
+                            {
+                                "transformer": "uppercase",
+                                "params": {}
+                            },
+                            {
+                                "transformer": "concat",
+                                "params": {
+                                    "suffix": " - processed"
+                                }
+                            }
+                        ]
+                    },
+                    "output": null,
+                    "entrypoint": null
+                },
+                "pluginNode": {
+                    "pluginKey": "core",
+                    "nodeKey": "data.transformer",
+                    "version": "1.0.0",
+                    "executorType": "builtin"
+                }
             }
-        },
-        {
-            "key": "node2",
-            "type": "plugin",
-            "pluginNode": {
-                "pluginId": "examplePlugin",
-                "nodeId": "exampleNode"
-            },
-            "next": ["node3"],
-            "config": {
-                "input": {
-                    "name": "{{node1.output.name}}",
-                    "age": "{{node1.output.age}}",
-                    "email": "{{yahooEmail}}"
-                },
-                "output": {
-                    "email": "{{node2.output.email}}"
-                }
-            },
-            "metadata": {
-                "description": "This node consumes the output from node1 and processes it further."
-            },
-            "policy": {
-
-            }
-        },
-        {
-            "key": "node3",
-            "type": "plugin",
-            "pluginNode": {
-                "pluginId": "examplePlugin",
-                "nodeId": "exampleNode"
-            },
-            "next": [],
-            "config": {
-                "input": {
-                    
-                },
-                "output": {
-                    
-                }
-            },
-            "metadata": {
-                "description": "This node is the final step in the workflow."
-            },
-            "policy": {
-
+        ],
+        "metadata": {
+            "aliases": {
+                 "user-active": "{{data-generator.output.user_active}}"
             }
         }
-    ],
-    
-    "metadata": {
-        "aliases": {
-            "yahooEmail": "{{node1.output.email}}"
-        },
-        "nodeDependencies" : {
-            "node2": ["node1.output.name", "node1.output.email", "node1.output.age"]
-        },
-        "nodeConsumers": {
-            "node1.output.name": {
-                "type": "string",
-                "consumers": ["node2"]
-            },
-            "node1.output.age": {
-                "type": "number",
-                "consumers": ["node2"]
-            },
-            "node1.output.email": {
-                "type": "string",
-                "consumers": ["node2"],
-                "alias": ["yahooEmail"]
-            }
-        }
-    }
+    },
+    "delete": ["node4", "node5"]
 }
