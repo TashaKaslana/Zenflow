@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -16,12 +17,19 @@ public class ValidationResult {
 
     public ValidationResult(String phase, List<ValidationError> errors) {
         this.phase = phase;
-        this.errors = errors;
-        this.valid = errors.isEmpty();
+        // Ensure we always have a mutable list to avoid UnsupportedOperationException
+        this.errors = errors != null ? new ArrayList<>(errors) : new ArrayList<>();
+        this.valid = this.errors.isEmpty();
     }
 
-    public ValidationResult addAllErrors(List<ValidationError> errors) {
-        this.errors.addAll(errors);
-        return this;
+    public void addAllErrors(List<ValidationError> errors) {
+        if (errors != null && !errors.isEmpty()) {
+            // Ensure we have a mutable list before adding
+            if (this.errors == null) {
+                this.errors = new ArrayList<>();
+            }
+            this.errors.addAll(errors);
+            this.valid = this.errors.isEmpty();
+        }
     }
 }
