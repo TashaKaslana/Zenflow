@@ -97,8 +97,14 @@
         "type": { "type": "string" },
         "pluginNode": {
           "type": ["object"],
-          "required": ["pluginKey", "nodeKey", "version"],
+          "required": ["nodeId", "pluginKey", "nodeKey", "version"],
           "properties": {
+            "nodeId": {
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+                "description": "The unique identifier of the plugin node instance (UUID).",
+                "examples": ["123e4567-e89b-12d3-a456-426614174000"]
+            },
             "pluginKey": {
               "type": "string",
               "pattern": "^[a-zA-Z0-9_.-]+$",

@@ -1,7 +1,9 @@
 package org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin;
 
 
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.NonNull;
 import lombok.Setter;
 
@@ -9,26 +11,14 @@ import java.util.UUID;
 
 @Getter
 @Setter
+@AllArgsConstructor
+@NoArgsConstructor(force = true)
 public final class PluginNodeIdentifier {
     private UUID nodeId;
     private final String pluginKey;
     private final String nodeKey;
     private final String version;
     private final String executorType;
-
-    public PluginNodeIdentifier(
-            UUID nodeId,
-            String pluginKey,
-            String nodeKey,
-            String version,
-            String executorType
-    ) {
-        this.nodeId = nodeId;
-        this.pluginKey = pluginKey;
-        this.nodeKey = nodeKey;
-        this.version = version;
-        this.executorType = executorType;
-    }
 
     public static PluginNodeIdentifier fromString(String s) {
         return fromString(s, null);

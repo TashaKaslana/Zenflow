@@ -1,5 +1,6 @@
 package org.phong.zenflow.workflow.subdomain.node_definition.definitions;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowMetadata;
 import org.springframework.stereotype.Component;
@@ -45,12 +46,14 @@ public record WorkflowDefinition(List<BaseWorkflowNode> nodes, WorkflowMetadata 
         return new WorkflowDefinition(copiedNodes, copiedMetadata);
     }
 
+    @JsonIgnore
     public Set<String> getNodeKeys() {
         return nodes.stream()
                 .map(BaseWorkflowNode::getKey)
                 .collect(Collectors.toSet());
     }
 
+    @JsonIgnore
     public Map<String, BaseWorkflowNode> getNodeMap() {
         return nodes.stream()
                 .collect(Collectors.toMap(
@@ -60,12 +63,14 @@ public record WorkflowDefinition(List<BaseWorkflowNode> nodes, WorkflowMetadata 
                 ));
     }
 
+    @JsonIgnore
     public Set<String> getPluginNodeCompositeKeys() {
         return nodes.stream()
                 .map(node -> node.getPluginNode().toCacheKey())
                 .collect(Collectors.toSet());
     }
 
+    @JsonIgnore
     public Set<UUID> getPluginNodeIds() {
         return nodes.stream()
                 .map(node -> node.getPluginNode().getNodeId())
