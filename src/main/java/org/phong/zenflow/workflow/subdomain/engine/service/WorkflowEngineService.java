@@ -18,16 +18,15 @@ import org.phong.zenflow.workflow.subdomain.engine.event.NodeCommitEvent;
 import org.phong.zenflow.workflow.subdomain.engine.exception.WorkflowEngineException;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowNodes;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_execution.service.NodeExecutionService;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
 import org.phong.zenflow.workflow.subdomain.schema_validator.service.WorkflowValidationService;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -47,7 +46,7 @@ public class WorkflowEngineService {
     @Transactional
     public WorkflowExecutionStatus runWorkflow(UUID workflowId,
                                                UUID workflowRunId,
-                                               @Nullable String startFromNodeKey,
+                                               String startFromNodeKey,
                                                RuntimeContext context) {
         try {
             Workflow workflow = workflowRepository.findById(workflowId).orElseThrow(
@@ -58,10 +57,12 @@ public class WorkflowEngineService {
             if (definition == null || definition.nodes() == null) {
                 throw new WorkflowEngineException("Workflow definition or nodes are missing for workflow ID: " + workflowId);
             }
-            List<BaseWorkflowNode> workflowNodes = definition.nodes();
+            WorkflowNodes workflowNodes = definition.nodes();
 
-            String currentNodeKey = (startFromNodeKey != null) ? startFromNodeKey : workflow.getStartNode();
-            BaseWorkflowNode workingNode = workflowNavigatorService.findNodeByKey(workflowNodes, currentNodeKey);
+            if (startFromNodeKey == null) {
+                throw new WorkflowEngineException("Start node key is required");
+            }
+            BaseWorkflowNode workingNode = workflowNodes.findByInstanceKey(startFromNodeKey);
 
             NodeLogPublisher logPublisher = NodeLogPublisher.builder()
                     .publisher(publisher)
@@ -90,7 +91,7 @@ public class WorkflowEngineService {
                                                                UUID workflowRunId,
                                                                RuntimeContext context,
                                                                BaseWorkflowNode workingNode,
-                                                               List<BaseWorkflowNode> workflowNodes,
+                                                               WorkflowNodes workflowNodes,
                                                                ExecutionContext execCtx) {
         WorkflowExecutionStatus executionStatus = WorkflowExecutionStatus.COMPLETED;
         ExecutionResult result;

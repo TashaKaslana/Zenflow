@@ -8,6 +8,7 @@ import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.engine.event.NodeCommitEvent;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowNodes;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
 import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
@@ -43,7 +44,7 @@ public class WorkflowNavigatorServiceTest {
 
         UUID workflowId = UUID.randomUUID();
         UUID runId = UUID.randomUUID();
-        service.handleExecutionResult(workflowId, runId, waitNode, result, List.of(), new RuntimeContext());
+        service.handleExecutionResult(workflowId, runId, waitNode, result, new WorkflowNodes(), new RuntimeContext());
 
         service.onNodeCommit(new NodeCommitEvent(workflowId, runId, "A"));
         verify(publisher, never()).publishEvent(any());

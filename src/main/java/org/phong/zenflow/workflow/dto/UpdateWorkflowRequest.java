@@ -9,7 +9,6 @@ import java.util.Map;
  * DTO for {@link org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow}
  */
 public record UpdateWorkflowRequest(String name, String description, WorkflowDefinition definition,
-                                    String startNode,
                                     Boolean isActive,
                                     Map<String, Object> retryPolicy) implements Serializable {
 }

@@ -47,9 +47,9 @@ public class WorkflowDefinitionService {
      * @throws WorkflowNodeDefinitionException If any node has an empty type
      */
     private void upsertNodes(WorkflowDefinition existingDef, WorkflowDefinition tempDef) {
-        Map<String, BaseWorkflowNode> keyToNode = existingDef.getNodeMap();
+        Map<String, BaseWorkflowNode> keyToNode = existingDef.nodes().asMap();
 
-        for (BaseWorkflowNode node : tempDef.nodes()) {
+        tempDef.nodes().forEach((ignored, node) -> {
             String type = node.getType().name();
             if (type.isBlank()) {
                 throw new WorkflowNodeDefinitionException("Each node must have a 'type'");
@@ -65,10 +65,10 @@ public class WorkflowDefinitionService {
             }
 
             keyToNode.put(key, node);
-        }
+        });
 
         existingDef.nodes().clear();
-        existingDef.nodes().addAll(keyToNode.values());
+        keyToNode.forEach((k, node) -> existingDef.nodes().put(node));
     }
 
     /**
@@ -143,7 +143,7 @@ public class WorkflowDefinitionService {
     }
 
     private void resolvePluginId(WorkflowDefinition workflowDefinition, List<ValidationError> validationErrors) {
-        Set<String> compositeKeys = workflowDefinition.getPluginNodeCompositeKeys();
+        Set<String> compositeKeys = workflowDefinition.nodes().getPluginNodeCompositeKeys();
         if (compositeKeys.isEmpty()) {
             return;
         }
@@ -155,7 +155,7 @@ public class WorkflowDefinitionService {
             compositeKeyToIdMap.put(pluginNodeId.getCompositeKey(), pluginNodeId.getId()));
 
         // Update workflow nodes with the resolved UUIDs
-        for (Map.Entry<String, BaseWorkflowNode> nodeEntry : workflowDefinition.getNodeMap().entrySet()) {
+        for (Map.Entry<String, BaseWorkflowNode> nodeEntry : workflowDefinition.nodes().asMap().entrySet()) {
             BaseWorkflowNode workflowNode = nodeEntry.getValue();
             String compositeKey = workflowNode.getPluginNode().toCacheKey();
 
@@ -191,7 +191,7 @@ public class WorkflowDefinitionService {
             return workflowDefinition;
         }
 
-        workflowDefinition.nodes().removeIf(node -> keysToRemove.contains(node.getKey()));
+        keysToRemove.forEach(workflowDefinition.nodes()::remove);
         return constructStaticGenerationAndValidate(workflowDefinition);
     }
 
