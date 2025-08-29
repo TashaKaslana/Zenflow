@@ -64,6 +64,16 @@ public record WorkflowDefinition(List<BaseWorkflowNode> nodes, WorkflowMetadata 
     }
 
     @JsonIgnore
+    public Map<String, BaseWorkflowNode> getNodeMapGroupByNodeId() {
+        return nodes.stream()
+                .collect(Collectors.toMap(
+                        node -> node.getPluginNode().getNodeId().toString(),
+                        node -> node,
+                        (existing, replacement) -> existing
+                ));
+    }
+
+    @JsonIgnore
     public Set<String> getPluginNodeCompositeKeys() {
         return nodes.stream()
                 .map(node -> node.getPluginNode().toCacheKey())

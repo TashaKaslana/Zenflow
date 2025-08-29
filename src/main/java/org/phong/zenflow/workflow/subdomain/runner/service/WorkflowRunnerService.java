@@ -9,6 +9,7 @@ import org.phong.zenflow.secret.service.SecretService;
 import org.phong.zenflow.workflow.exception.WorkflowException;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.service.WorkflowService;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContextKey;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContextManager;
 import org.phong.zenflow.workflow.subdomain.engine.dto.WorkflowExecutionStatus;
@@ -33,9 +34,6 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 public class WorkflowRunnerService {
-
-    private static final String callbackUrlKeyOnContext = "__zenflow_callback_url";
-
     private final WorkflowEngineService workflowEngineService;
     private final WorkflowRunService workflowRunService;
     private final WebClient webClient;
@@ -107,7 +105,7 @@ public class WorkflowRunnerService {
             } catch (Exception e) {
                 log.warn("Error running workflow with ID: {}", workflowId, e);
                 workflowRunService.handleWorkflowError(workflowRunId, e);
-                Object callbackUrlObj = context.get(callbackUrlKeyOnContext);
+                Object callbackUrlObj = context.get(ExecutionContextKey.CALLBACK_URL);
                 if (callbackUrlObj instanceof String callbackUrl && !callbackUrl.isEmpty()) {
                     notifyCallbackUrl(callbackUrl, workflowRunId);
                 }
@@ -127,7 +125,7 @@ public class WorkflowRunnerService {
             Map<String, String> secretOfWorkflow = secretService.getSecretMapByWorkflowId(workflowId);
             Map<String, Object> initialContext = new ConcurrentHashMap<>(Map.of("secrets", secretOfWorkflow));
             if (request != null && request.callbackUrl() != null && !request.callbackUrl().isEmpty()) {
-                initialContext.put(callbackUrlKeyOnContext, request.callbackUrl());
+                initialContext.put(ExecutionContextKey.CALLBACK_URL, request.callbackUrl());
             }
             context.initialize(initialContext, consumers, aliasMap);
         } else {
@@ -141,7 +139,7 @@ public class WorkflowRunnerService {
         if (status == WorkflowExecutionStatus.COMPLETED) {
             workflowRunService.completeWorkflowRun(workflowRunId);
             log.debug("Workflow with ID: {} completed successfully", workflowId);
-            Object callbackUrlObj = context.get(callbackUrlKeyOnContext);
+            Object callbackUrlObj = context.get(ExecutionContextKey.CALLBACK_URL);
             if (callbackUrlObj instanceof String callbackUrl && !callbackUrl.isEmpty()) {
                 notifyCallbackUrl(callbackUrl, workflowRunId);
             }
