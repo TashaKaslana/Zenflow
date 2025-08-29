@@ -22,4 +22,5 @@ public class WorkflowTriggerDto {
     private OffsetDateTime updatedAt;
     private UUID createdBy;
     private UUID updatedBy;
+    private UUID triggerExecutorId;
 }
