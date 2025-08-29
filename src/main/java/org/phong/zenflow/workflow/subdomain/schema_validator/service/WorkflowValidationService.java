@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 /**
  * Service responsible for validating workflow definitions and their runtime configurations.
@@ -139,7 +138,7 @@ public class WorkflowValidationService {
     private List<ValidationError> validateNodeConfigurations(WorkflowDefinition workflow) {
         List<ValidationError> errors = new ArrayList<>();
 
-        for (BaseWorkflowNode node : workflow.nodes()) {
+        workflow.nodes().forEach((k, node) -> {
             log.debug("Processing node: {} (type: {})", node.getKey(), node.getType());
 
             validatePluginNode(node, errors);
@@ -147,7 +146,6 @@ public class WorkflowValidationService {
             String templateString = identifier.getNodeId() != null ? identifier.getNodeId().toString() : identifier.toCacheKey();
             log.debug("Plugin node detected - templateString: {}", templateString);
 
-            // This validates the structure and static values against the schema while skipping template fields
             if (node.getConfig() != null) {
                 log.debug("Validating schema structure for node: {}", node.getKey());
                 List<ValidationError> schemaErrors = schemaValidationService.validateAgainstSchema(
@@ -156,13 +154,12 @@ public class WorkflowValidationService {
                         templateString,
                         node.getKey() + ".config.input",
                         "input",
-                        true  // Skip template fields during definition phase
+                        true
                 );
                 log.debug("Found {} schema errors for node: {} (template fields excluded)", schemaErrors.size(), node.getKey());
                 errors.addAll(schemaErrors);
             }
 
-            // Use UUID string if available, fallback to composite key lookup
             String executorKey = identifier.getNodeId() != null ? identifier.getNodeId().toString() : identifier.toCacheKey();
             executorRegistry.getExecutor(executorKey).ifPresent(executor -> {
                 List<ValidationError> defErrors = executor.validateDefinition(node.getConfig());
@@ -179,7 +176,6 @@ public class WorkflowValidationService {
                 }
             });
 
-            // Validate template references in the node's configuration
             if (node.getConfig().input() != null) {
                 Set<String> templates = TemplateEngine.extractRefs(node.getConfig());
                 Map<String, OutputUsage> nodeConsumers = workflow.metadata() != null ?
@@ -198,7 +194,7 @@ public class WorkflowValidationService {
                     errors.addAll(templateErrors);
                 }
             }
-        }
+        });
 
         return errors;
     }
@@ -251,13 +247,10 @@ public class WorkflowValidationService {
     private List<ValidationError> validateNodeReferences(WorkflowDefinition workflow) {
         List<ValidationError> errors = new ArrayList<>();
 
-        Set<String> nodeKeys = workflow.nodes().stream()
-                .map(BaseWorkflowNode::getKey)
-                .collect(Collectors.toSet());
+        Set<String> nodeKeys = workflow.nodes().keys();
+        Map<String, String> aliases = workflow.metadata().aliases();
 
-        for (BaseWorkflowNode node : workflow.nodes()) {
-            errors.addAll(validateNodeExistence(node, nodeKeys, workflow.metadata().aliases()));
-        }
+        workflow.nodes().forEach((k, node) -> errors.addAll(validateNodeExistence(node, nodeKeys, aliases)));
 
         return errors;
     }

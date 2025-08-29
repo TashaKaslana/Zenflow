@@ -56,9 +56,9 @@ public class WorkflowTriggerService {
     }
 
     public void synchronizeTrigger(UUID workflowId, WorkflowDefinition wf) {
-        Set<UUID> pluginNodeIds = wf.getPluginNodeIds();
+        Set<UUID> pluginNodeIds = wf.nodes().getPluginNodeIds();
         Set<String> triggerNodeIdSet = triggerRegistry.getAllTriggerKeys();
-        Map<String, BaseWorkflowNode> nodeMap = wf.getNodeMapGroupByNodeId();
+        Map<String, BaseWorkflowNode> nodeMap = wf.nodes().getNodeMapGroupByNodeId();
 
         // Find nodes in the workflow that match registered trigger types
         List<UUID> triggerNodeIds = pluginNodeIds.stream()

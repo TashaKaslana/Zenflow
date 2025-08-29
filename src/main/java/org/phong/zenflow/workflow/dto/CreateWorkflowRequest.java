@@ -12,5 +12,5 @@ import java.util.UUID;
  */
 public record CreateWorkflowRequest(UUID projectId, @NotNull String name, String description,
                                     WorkflowDefinition definition,
-                                    String startNode, Map<String, Object> retryPolicy) implements Serializable {
+                                    Map<String, Object> retryPolicy) implements Serializable {
 }
