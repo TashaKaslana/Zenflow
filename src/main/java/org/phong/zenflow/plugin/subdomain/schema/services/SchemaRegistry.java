@@ -189,10 +189,9 @@ public class SchemaRegistry {
                 .collect(
                         HashMap::new,
                         (m, id) -> {
-                            String key = id;
-                            JSONObject val = pluginCache.getIfPresent(key);
+                            JSONObject val = pluginCache.getIfPresent(id);
                             if (val != null) {
-                                m.put(key, val);
+                                m.put(id, val);
                             }
                         },
                         Map::putAll

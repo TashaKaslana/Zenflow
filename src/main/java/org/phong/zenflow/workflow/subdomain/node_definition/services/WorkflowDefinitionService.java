@@ -118,10 +118,10 @@ public class WorkflowDefinitionService {
     private WorkflowDefinition constructStaticGenerationAndValidate(WorkflowDefinition tempDef) {
         List<ValidationError> validationErrors = new ArrayList<>();
 
-        WorkflowDefinition workflowDefinition = updateStaticContextMetadata(tempDef);
-        WorkflowDefinition updateNodeIdDefinition = resolvePluginId(workflowDefinition, validationErrors);
+        resolvePluginId(tempDef, validationErrors);
+        updateStaticContextMetadata(tempDef);
 
-        ValidationResult validationResult = workflowValidationService.validateDefinition(workflowDefinition);
+        ValidationResult validationResult = workflowValidationService.validateDefinition(tempDef);
         validationResult.addAllErrors(validationErrors);
 
         if (!validationResult.isValid()) {
@@ -129,7 +129,7 @@ public class WorkflowDefinitionService {
             throw new WorkflowDefinitionValidationException("Workflow definition validation failed!", validationResult);
         }
 
-        return updateNodeIdDefinition;
+        return tempDef;
     }
 
     private WorkflowDefinition updateStaticContextMetadata(WorkflowDefinition definition) {
@@ -137,12 +137,7 @@ public class WorkflowDefinitionService {
             definition = new WorkflowDefinition();
         }
 
-        WorkflowMetadata metadata = definition.metadata();
-        if (metadata == null) {
-            metadata = new WorkflowMetadata();
-        }
-
-        WorkflowMetadata newMetadata = workflowContextService.buildStaticContext(definition.nodes(), metadata);
+        WorkflowMetadata newMetadata = workflowContextService.buildStaticContext(definition);
 
         return new WorkflowDefinition(definition.nodes(), newMetadata);
     }

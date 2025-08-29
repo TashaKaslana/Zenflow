@@ -7,8 +7,8 @@ import org.json.JSONObject;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
 import org.phong.zenflow.plugin.subdomain.schema.services.SchemaRegistry;
-import org.phong.zenflow.plugin.subdomain.schema.services.SchemaTemplateStringGenerator;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.OutputUsage;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowMetadata;
 
@@ -19,6 +19,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -46,8 +47,10 @@ public class WorkflowContextService {
         }
     }
 
-    public WorkflowMetadata buildStaticContext(List<BaseWorkflowNode> existingNodes, WorkflowMetadata existingMetadata) {
+    public WorkflowMetadata buildStaticContext(WorkflowDefinition wf) {
         WorkflowMetadata ctx = new WorkflowMetadata();
+        List<BaseWorkflowNode> existingNodes = wf.nodes();
+        WorkflowMetadata existingMetadata = wf.metadata();
 
         // Preserve existing aliases from metadata
         if (existingMetadata != null && existingMetadata.aliases() != null) {
@@ -57,7 +60,7 @@ public class WorkflowContextService {
 
         generateDependenciesAndConsumers(existingNodes, ctx);
         generateAliasLinkBackToConsumers(ctx);
-        generateTypeForConsumerFields(existingNodes, ctx);
+        generateTypeForConsumerFields(wf, ctx);
 
         return new WorkflowMetadata(ctx.aliases(), ctx.nodeDependencies(), ctx.nodeConsumers());
     }
@@ -96,11 +99,12 @@ public class WorkflowContextService {
         }
     }
 
-    private void generateTypeForConsumerFields(List<BaseWorkflowNode> existingNodes, WorkflowMetadata ctx) {
-        Set<String> templateStrings = SchemaTemplateStringGenerator.generateTemplateStrings(existingNodes);
-        Map<String, JSONObject> schemas = schemaRegistry.getSchemaMapByTemplateStrings(templateStrings);
-        Map<String, BaseWorkflowNode> nodeMap = existingNodes.stream()
-                .collect(Collectors.toMap(BaseWorkflowNode::getKey, node -> node));
+    private void generateTypeForConsumerFields(WorkflowDefinition wf, WorkflowMetadata ctx) {
+        Map<String, BaseWorkflowNode> nodeMap = wf.getNodeMap();
+        Set<String> pluginNodeIds = wf.getPluginNodeIds().stream()
+                .map(UUID::toString)
+                .collect(Collectors.toSet());
+        Map<String, JSONObject> schemas = schemaRegistry.getSchemaMapByTemplateStrings(pluginNodeIds);
 
         ctx.nodeConsumers().forEach((key, usage) -> {
             String[] parts = key.split("\\.output\\.");
@@ -117,7 +121,7 @@ public class WorkflowContextService {
                 return;
             }
 
-            String schemaKey = node.getPluginNode().toCacheKey();
+            String schemaKey = node.getPluginNode().getNodeId().toString();
             JSONObject schema = schemas.get(schemaKey);
 
             populateTypeNodeConsumer(key, usage, schema, outputFieldName, nodeKey);
