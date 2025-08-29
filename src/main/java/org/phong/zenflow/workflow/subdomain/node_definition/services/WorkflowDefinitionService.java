@@ -132,20 +132,20 @@ public class WorkflowDefinitionService {
         return tempDef;
     }
 
-    private WorkflowDefinition updateStaticContextMetadata(WorkflowDefinition definition) {
+    private void updateStaticContextMetadata(WorkflowDefinition definition) {
         if (definition == null) {
             definition = new WorkflowDefinition();
         }
 
         WorkflowMetadata newMetadata = workflowContextService.buildStaticContext(definition);
 
-        return new WorkflowDefinition(definition.nodes(), newMetadata);
+        new WorkflowDefinition(definition.nodes(), newMetadata);
     }
 
-    private WorkflowDefinition resolvePluginId(WorkflowDefinition workflowDefinition, List<ValidationError> validationErrors) {
+    private void resolvePluginId(WorkflowDefinition workflowDefinition, List<ValidationError> validationErrors) {
         Set<String> compositeKeys = workflowDefinition.getPluginNodeCompositeKeys();
         if (compositeKeys.isEmpty()) {
-            return workflowDefinition;
+            return;
         }
 
         Set<PluginNodeId> pluginNodeIds = pluginNodeRepository.findIdsByCompositeKeys(compositeKeys);
@@ -174,21 +174,24 @@ public class WorkflowDefinitionService {
             }
         }
 
-        return workflowDefinition;
     }
 
     /**
-     * Removes a node from the provided list of nodes based on its key.
+     * Removes multiple nodes from the provided workflow definition based on their keys.
      *
      * @param workflowDefinition The workflow definition containing the nodes
-     * @param keyToRemove        The key of the node to remove
-     * @return The updated workflow definition with the specified node removed
-     * @throws WorkflowNodeDefinitionException       If the node with the specified key does not exist
-     * @throws WorkflowDefinitionValidationException If the resulting workflow fails in validation
+     * @param keysToRemove       The keys of the nodes to remove
+     * @return The updated workflow definition with the specified nodes removed
      */
-    public WorkflowDefinition removeNode(WorkflowDefinition workflowDefinition, String keyToRemove) {
-        workflowDefinition.nodes()
-                .removeIf(node -> keyToRemove.equals(node.getKey()));
+    public WorkflowDefinition removeNodes(WorkflowDefinition workflowDefinition, List<String> keysToRemove) {
+        if (workflowDefinition == null) {
+            return new WorkflowDefinition();
+        }
+        if (keysToRemove == null || keysToRemove.isEmpty()) {
+            return workflowDefinition;
+        }
+
+        workflowDefinition.nodes().removeIf(node -> keysToRemove.contains(node.getKey()));
         return constructStaticGenerationAndValidate(workflowDefinition);
     }
 
