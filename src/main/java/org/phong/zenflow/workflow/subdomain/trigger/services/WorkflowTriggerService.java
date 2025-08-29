@@ -1,9 +1,7 @@
 package org.phong.zenflow.workflow.subdomain.trigger.services;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.phong.zenflow.core.services.SharedQuartzSchedulerService;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
@@ -13,7 +11,6 @@ import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerDto;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.phong.zenflow.workflow.subdomain.trigger.exception.WorkflowTriggerException;
-import org.phong.zenflow.workflow.subdomain.trigger.impl.ScheduledWorkflowJob;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.mapstruct.WorkflowTriggerMapper;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.repository.WorkflowTriggerRepository;
@@ -30,7 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.TimeZone;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -42,9 +38,9 @@ public class WorkflowTriggerService {
 
     private final WorkflowTriggerRepository triggerRepository;
     private final WorkflowTriggerMapper triggerMapper;
-    private final SharedQuartzSchedulerService sharedSchedulerService;
     private final ApplicationEventPublisher publisher;
     private final TriggerRegistry triggerRegistry;
+    private final TriggerOrchestrator triggerOrchestrator;
 
     @Transactional
     public WorkflowTriggerDto createTrigger(CreateWorkflowTriggerRequest request) {
@@ -53,9 +49,7 @@ public class WorkflowTriggerService {
         WorkflowTrigger trigger = triggerMapper.toEntity(request);
         trigger = triggerRepository.save(trigger);
 
-        if (trigger.getType() == TriggerType.SCHEDULE && trigger.getEnabled()) {
-            registerScheduleTrigger(trigger);
-        }
+        triggerOrchestrator.start(trigger);
 
         log.info("Created workflow trigger with ID: {}", trigger.getId());
         return triggerMapper.toDto(trigger);
@@ -123,26 +117,16 @@ public class WorkflowTriggerService {
      */
     private void updateExistingTrigger(WorkflowTrigger trigger, BaseWorkflowNode node, TriggerType triggerType) {
         Map<String, Object> newConfig = node.getConfig().input();
+        TriggerType oldType = trigger.getType();
 
         // Always update the config - no comparison needed, just overwrite
         trigger.setConfig(newConfig);
         trigger.setType(triggerType);
 
-        // Handle schedule trigger updates
-        boolean wasScheduleTrigger = trigger.getType() == TriggerType.SCHEDULE;
-        boolean isScheduleTrigger = triggerType == TriggerType.SCHEDULE;
-
         triggerRepository.save(trigger);
 
         // Manage schedule registration
-        if (isScheduleTrigger && trigger.getEnabled()) {
-            // Re-register with updated config
-            removeScheduleTrigger(trigger.getId());
-            registerScheduleTrigger(trigger);
-        } else if (wasScheduleTrigger && !isScheduleTrigger) {
-            // Remove old schedule
-            removeScheduleTrigger(trigger.getId());
-        }
+        manageTriggerRunning(oldType, trigger);
 
         log.info("Updated existing trigger for node ID: {} with new configuration", trigger.getTriggerExecutorId());
     }
@@ -215,24 +199,27 @@ public class WorkflowTriggerService {
         WorkflowTrigger trigger = triggerRepository.findById(triggerId)
                 .orElseThrow(() -> new WorkflowTriggerException.WorkflowTriggerNotFound(triggerId.toString()));
 
-        // Handle schedule trigger changes
-        boolean wasScheduleTrigger = trigger.getType() == TriggerType.SCHEDULE;
-        boolean willBeScheduleTrigger = request.getType() == null ? wasScheduleTrigger : request.getType() == TriggerType.SCHEDULE;
 
         triggerMapper.updateEntity(request, trigger);
         trigger = triggerRepository.save(trigger);
 
-        // Manage schedule registration/removal
-        if (wasScheduleTrigger && !willBeScheduleTrigger) {
-            removeScheduleTrigger(triggerId);
-        } else if (willBeScheduleTrigger && trigger.getEnabled()) {
-            // Re-register the schedule with updated configuration
-            removeScheduleTrigger(triggerId); // Remove old schedule first
-            registerScheduleTrigger(trigger);  // Register with new configuration
-        }
+        manageTriggerRunning(request.getType(), trigger);
 
         log.info("Updated workflow trigger with ID: {}", triggerId);
         return triggerMapper.toDto(trigger);
+    }
+
+    private void manageTriggerRunning(TriggerType oldType, WorkflowTrigger trigger) {
+        // Handle schedule trigger changes
+        boolean typeChanged = oldType != null && oldType != trigger.getType();
+        if (!typeChanged) {
+            return; // No type change, no action needed
+        }
+
+        triggerOrchestrator.stop(trigger);
+        if (trigger.getEnabled()) {
+            triggerOrchestrator.start(trigger);
+        }
     }
 
     @Transactional
@@ -244,9 +231,7 @@ public class WorkflowTriggerService {
 
         triggerRepository.deleteById(triggerId);
 
-        if (trigger.getType() == TriggerType.SCHEDULE) {
-            removeScheduleTrigger(triggerId);
-        }
+        triggerOrchestrator.stop(trigger);
         log.info("Deleted workflow trigger with ID: {}", triggerId);
     }
 
@@ -260,10 +245,8 @@ public class WorkflowTriggerService {
         trigger.setEnabled(true);
         trigger = triggerRepository.save(trigger);
 
-        // Register schedule if it's a schedule trigger
-        if (trigger.getType() == TriggerType.SCHEDULE) {
-            registerScheduleTrigger(trigger);
-        }
+        //start running the trigger
+        triggerOrchestrator.start(trigger);
 
         return triggerMapper.toDto(trigger);
     }
@@ -278,10 +261,7 @@ public class WorkflowTriggerService {
         trigger.setEnabled(false);
         trigger = triggerRepository.save(trigger);
 
-        // Remove schedule if it's a schedule trigger
-        if (trigger.getType() == TriggerType.SCHEDULE) {
-            removeScheduleTrigger(triggerId);
-        }
+        triggerOrchestrator.stop(trigger);
 
         return triggerMapper.toDto(trigger);
     }
@@ -304,57 +284,5 @@ public class WorkflowTriggerService {
         WorkflowTrigger trigger = markTriggered(triggerId);
         publisher.publishEvent(new WorkflowTriggerEvent(workflowRunId, trigger, request));
         return workflowRunId;
-    }
-
-    /**
-     * Register a schedule trigger using SharedQuartzSchedulerService
-     */
-    private void registerScheduleTrigger(WorkflowTrigger trigger) {
-        try {
-            JsonNode config = (JsonNode) trigger.getConfig();
-            String cron = config.has("cron") ? config.get("cron").asText() : null;
-            String timezone = config.has("timezone") ? config.get("timezone").asText() : "UTC";
-
-            if (cron == null) {
-                log.warn("Schedule trigger {} has no cron expression, cannot register", trigger.getId());
-                return;
-            }
-
-            JobDataMap dataMap = new JobDataMap();
-            dataMap.put("workflowId", trigger.getWorkflowId().toString());
-
-            JobDetail jobDetail = JobBuilder.newJob(ScheduledWorkflowJob.class)
-                    .withIdentity("job-" + trigger.getId())
-                    .usingJobData(dataMap)
-                    .storeDurably()
-                    .build();
-
-            Trigger quartzTrigger = TriggerBuilder.newTrigger()
-                    .withIdentity("trigger-" + trigger.getId())
-                    .forJob(jobDetail)
-                    .withSchedule(CronScheduleBuilder.cronSchedule(cron)
-                            .inTimeZone(TimeZone.getTimeZone(timezone)))
-                    .build();
-
-            sharedSchedulerService.scheduleJob(jobDetail, quartzTrigger);
-            log.info("Registered schedule trigger: {}", trigger.getId());
-
-        } catch (Exception e) {
-            log.error("Failed to register schedule trigger {}: {}", trigger.getId(), e.getMessage(), e);
-            throw new WorkflowTriggerException("Failed to register schedule: " + trigger.getId(), e);
-        }
-    }
-
-    /**
-     * Remove a schedule trigger using SharedQuartzSchedulerService
-     */
-    private void removeScheduleTrigger(UUID triggerId) {
-        try {
-            TriggerKey triggerKey = TriggerKey.triggerKey("trigger-" + triggerId);
-            sharedSchedulerService.unscheduleJob(triggerKey);
-            log.info("Removed schedule trigger: {}", triggerId);
-        } catch (Exception e) {
-            log.error("Failed to remove schedule for trigger ID: {}", triggerId, e);
-        }
     }
 }

@@ -82,6 +82,20 @@ public class TriggerOrchestrator {
         }
     }
 
+    public synchronized void stop(WorkflowTrigger trigger) {
+        var handle = running.remove(trigger.getId());
+        if (handle != null) {
+            try {
+                handleResourceUnregistration(trigger);
+
+                handle.stop();
+                log.info("Stopped trigger {}:", trigger.getId());
+            } catch (Exception e) {
+                log.error("Error stopping trigger {}: {}", trigger.getId(), e.getMessage(), e);
+            }
+        }
+    }
+
     public synchronized void restart(WorkflowTrigger t) {
         stop(t.getId());
         if (t.getEnabled()) start(t);
