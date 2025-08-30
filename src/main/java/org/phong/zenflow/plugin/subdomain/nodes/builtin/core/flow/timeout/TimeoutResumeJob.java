@@ -30,7 +30,6 @@ public class TimeoutResumeJob implements Job {
         publisher.publishEvent(new WorkflowTriggerEvent(
                 workflowRunId,
                 TriggerType.SCHEDULE,
-                null,
                 workflowId,
                 new WorkflowRunnerRequest(null, nodeKey)
         ));

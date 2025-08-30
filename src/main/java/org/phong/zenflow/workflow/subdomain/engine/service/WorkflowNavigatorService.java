@@ -92,7 +92,6 @@ public class WorkflowNavigatorService {
                     publisher.publishEvent(new WorkflowTriggerEvent(
                             halted.workflowRunId,
                             TriggerType.SCHEDULE,
-                            null,
                             halted.workflowId,
                             new WorkflowRunnerRequest(null, halted.nodeKey)
                     ));

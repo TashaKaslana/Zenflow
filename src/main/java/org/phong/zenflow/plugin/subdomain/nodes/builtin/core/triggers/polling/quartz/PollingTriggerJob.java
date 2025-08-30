@@ -36,13 +36,13 @@ public class PollingTriggerJob implements Job {
         try {
             UUID triggerId = UUID.fromString(dataMap.getString("triggerId"));
             UUID workflowId = UUID.fromString(dataMap.getString("workflowId"));
+            UUID triggerExecutorId = UUID.fromString(dataMap.getString("triggerExecutorId"));
             String url = dataMap.getString("url");
             String httpMethod = dataMap.getString("httpMethod");
             String changeDetectionStrategy = dataMap.getString("changeDetectionStrategy");
             String jsonPath = dataMap.getString("jsonPath");
             Integer timeoutSeconds = dataMap.getIntValue("timeoutSeconds");
             Boolean includeResponse = dataMap.getBooleanValue("includeResponse");
-            String triggerExecutorId = dataMap.getString("triggerExecutorId");
 
             // Get headers and request body from job data
             @SuppressWarnings("unchecked")
@@ -88,7 +88,7 @@ public class PollingTriggerJob implements Job {
                                                           dataToCompare, includeResponse);
 
                 // Trigger workflow
-                triggerContext.startWorkflow(workflowId, UUID.fromString(triggerExecutorId), payload);
+                triggerContext.startWorkflow(workflowId, triggerExecutorId, payload);
                 triggerContext.markTriggered(triggerId, Instant.now());
 
                 log.debug("Workflow triggered for polling change: {}", triggerId);

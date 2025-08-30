@@ -2,9 +2,11 @@ package org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.
 
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -20,4 +22,10 @@ public interface WorkflowTriggerRepository extends JpaRepository<WorkflowTrigger
     Iterable<WorkflowTrigger> findByEnabledTrue();
 
     Optional<WorkflowTrigger> findByWorkflowIdAndTriggerExecutorId(UUID workflowId, UUID nodeId);
+
+    @Modifying
+    @Query(
+            "UPDATE WorkflowTrigger t SET t.lastTriggeredAt = :now WHERE t.id = :triggerId"
+    )
+    void updateLastTriggeredAt(UUID triggerId, OffsetDateTime now);
 }

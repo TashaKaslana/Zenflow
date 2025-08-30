@@ -27,7 +27,6 @@ public class WorkflowRetryJob implements Job {
         publisher.publishEvent(new WorkflowTriggerEvent(
                 workflowRunId,
                 TriggerType.SCHEDULE_RETRY,
-                null,
                 workflowId,
                 new WorkflowRunnerRequest(callBackUrl, nodeKey)
         ));

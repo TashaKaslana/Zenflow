@@ -77,6 +77,9 @@ class WorkflowEngineServiceUuidIntegrationTest {
         workflowRunId = UUID.fromString("550e8400-e29b-41d4-a716-446655440001");
         testNodeId1 = UUID.fromString("123e4567-e89b-12d3-a456-426614174001");
         testNodeId2 = UUID.fromString("123e4567-e89b-12d3-a456-426614174002");
+
+        // Fix: Add proper stubbing for RuntimeContextManager to return a mock RuntimeContext
+        when(contextManager.getOrCreate(anyString())).thenReturn(runtimeContext);
     }
 
     @Test
@@ -227,7 +230,7 @@ class WorkflowEngineServiceUuidIntegrationTest {
         verify(executorDispatcher).dispatch(eq(testNodeId2.toString()), eq("transform-node"), any(), any());
         verify(runtimeContext).processOutputWithMetadata(eq("transform-node.output"), eq(expectedOutput));
         verify(nodeExecutionService).startNode(workflowRunId, "transform-node");
-        verify(nodeExecutionService).resolveNodeExecution(eq(workflowId), eq(workflowRunId), eq(node), any(), anyString());
+        verify(nodeExecutionService).resolveNodeExecution(eq(workflowId), eq(workflowRunId), eq(node), any(), isNull());
     }
 
     private PluginNodeIdentifier createPluginNodeIdentifier(String pluginKey, String nodeKey, String version, UUID nodeId) {
