@@ -32,9 +32,6 @@ public class TriggerContextImpl implements TriggerContext {
 
     @Override
     public void markTriggered(UUID triggerId, Instant at) {
-        repo.findById(triggerId).ifPresent(t -> {
-            t.setLastTriggeredAt(OffsetDateTime.from(at));
-            repo.save(t);
-        });
+        repo.updateLastTriggeredAt(triggerId, OffsetDateTime.from(at));
     }
 }

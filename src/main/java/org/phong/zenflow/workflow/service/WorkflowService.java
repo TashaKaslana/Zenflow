@@ -17,7 +17,11 @@ import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.infrastructure.persistence.repository.WorkflowRepository;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.services.WorkflowDefinitionService;
+import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
+import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerEvent;
+import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.phong.zenflow.workflow.subdomain.trigger.services.WorkflowTriggerService;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -37,6 +41,7 @@ public class WorkflowService {
     private final WorkflowMapper workflowMapper;
     private final WorkflowDefinitionService definitionService;
     private final WorkflowTriggerService triggerService;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * Create a new workflow
@@ -65,6 +70,24 @@ public class WorkflowService {
         return requests.stream()
                 .map(this::createWorkflow)
                 .toList();
+    }
+
+    @Transactional
+    @AuditLog(action = AuditAction.WORKFLOW_EXECUTE)
+    public UUID executeWorkflow(UUID workflowId, String startNodeKey) {
+        UUID workflowRunId = UUID.randomUUID();
+        String callbackUrl = "/workflow-runs/" + workflowRunId;
+
+        eventPublisher.publishEvent(new WorkflowTriggerEvent(
+                workflowRunId,
+                TriggerType.MANUAL,
+                workflowId,
+                new WorkflowRunnerRequest(
+                        callbackUrl, startNodeKey
+                )
+        ));
+
+        return workflowRunId;
     }
 
     /**

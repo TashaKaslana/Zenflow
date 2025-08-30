@@ -166,7 +166,17 @@ public class WorkflowEngineService {
                 workingNode.getPluginNode().getNodeId().toString() :
                 workingNode.getPluginNode().toCacheKey();
 
-            ExecutionResult result = executorDispatcher.dispatch(executorKey, workingNode.getKey(), resolvedConfig, execCtx);
+            String executorType = workingNode.getPluginNode().getExecutorType();
+            if (executorType == null) {
+                throw new WorkflowEngineException("Executor type is not defined for node: " + workingNode.getKey());
+            }
+
+            ExecutionResult result = executorDispatcher.dispatch(
+                    executorKey,
+                    workingNode.getPluginNode().getExecutorType(),
+                    resolvedConfig,
+                    execCtx
+            );
             log.info("[traceId={}] [hierarchy={}] Node finished", ctx.traceId(), ctx.hierarchy());
             return result;
         });

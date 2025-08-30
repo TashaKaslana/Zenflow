@@ -6,8 +6,10 @@ import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 
 import java.util.UUID;
 
-public record WorkflowTriggerEvent(UUID workflowRunId, TriggerType triggerType,
-                                   UUID triggerExecutorId, UUID workflowId,
+public record WorkflowTriggerEvent(UUID workflowRunId,
+                                   TriggerType triggerType,
+                                   UUID triggerExecutorId,
+                                   UUID workflowId,
                                    WorkflowRunnerRequest request) implements WorkflowRunnerPublishableEvent {
     @Override
     public UUID getWorkflowRunId() {
@@ -32,5 +34,12 @@ public record WorkflowTriggerEvent(UUID workflowRunId, TriggerType triggerType,
     @Override
     public WorkflowRunnerRequest request() {
         return request;
+    }
+
+    public WorkflowTriggerEvent(UUID workflowRunId,
+                                TriggerType triggerType,
+                                UUID workflowId,
+                                WorkflowRunnerRequest request) {
+        this(workflowRunId, triggerType, null, workflowId, request);
     }
 }

@@ -103,7 +103,6 @@ public class WorkflowTriggerExecutor implements TriggerExecutor {
             eventPublisher.publishEvent(new WorkflowTriggerEvent(
                     workflowRunId,
                     isAsync ? TriggerType.EVENT : TriggerType.MANUAL,
-                    null,
                     workflowId,
                     runnerRequest
             ));

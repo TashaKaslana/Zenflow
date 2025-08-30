@@ -101,11 +101,13 @@ public class WorkflowNodes implements Serializable {
         if (nodeId == null) {
             return null;
         }
+
         for (Entry<String, BaseWorkflowNode> node : nodeMap.entrySet()) {
             if (nodeId.equals(node.getValue().getPluginNode().getNodeId())) {
                 return node.getValue();
             }
         }
+
         return null;
     }
 
