@@ -10,7 +10,7 @@ import org.phong.zenflow.workflow.subdomain.engine.exception.WorkflowEngineExcep
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowNodes;
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
-import org.phong.zenflow.workflow.subdomain.runner.event.WorkflowRunnerPublishableEvent;
+import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
@@ -89,27 +89,13 @@ public class WorkflowNavigatorService {
                 halted.waitingNodes.put(event.nodeKey(), true);
                 if (isReady(halted.waitingNodes, halted.mode, halted.threshold)) {
                     nodes.remove(halted.nodeKey);
-                    publisher.publishEvent(new WorkflowRunnerPublishableEvent() {
-                        @Override
-                        public UUID getWorkflowRunId() {
-                            return halted.workflowRunId;
-                        }
-
-                        @Override
-                        public TriggerType getTriggerType() {
-                            return TriggerType.SCHEDULE;
-                        }
-
-                        @Override
-                        public UUID getWorkflowId() {
-                            return halted.workflowId;
-                        }
-
-                        @Override
-                        public WorkflowRunnerRequest request() {
-                            return new WorkflowRunnerRequest(null, halted.nodeKey);
-                        }
-                    });
+                    publisher.publishEvent(new WorkflowTriggerEvent(
+                            halted.workflowRunId,
+                            TriggerType.SCHEDULE,
+                            null,
+                            halted.workflowId,
+                            new WorkflowRunnerRequest(null, halted.nodeKey)
+                    ));
                 }
             }
         }));

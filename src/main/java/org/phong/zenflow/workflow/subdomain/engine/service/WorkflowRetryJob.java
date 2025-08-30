@@ -2,7 +2,7 @@ package org.phong.zenflow.workflow.subdomain.engine.service;
 
 import lombok.AllArgsConstructor;
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
-import org.phong.zenflow.workflow.subdomain.runner.event.WorkflowRunnerPublishableEvent;
+import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.quartz.Job;
 import org.quartz.JobDataMap;
@@ -19,29 +19,17 @@ public class WorkflowRetryJob implements Job {
     @Override
     public void execute(JobExecutionContext context) throws JobExecutionException {
         JobDataMap dataMap = context.getJobDetail().getJobDataMap();
-        publisher.publishEvent(new WorkflowRunnerPublishableEvent() {
-            @Override
-            public UUID getWorkflowRunId() {
-                return UUID.fromString(dataMap.getString("workflowRunId"));
-            }
+        UUID workflowRunId = UUID.fromString(dataMap.getString("workflowRunId"));
+        UUID workflowId = UUID.fromString(dataMap.getString("workflowId"));
+        String nodeKey = dataMap.getString("nodeKey");
+        String callBackUrl = dataMap.getString("callbackUrl");
 
-            @Override
-            public TriggerType getTriggerType() {
-                return TriggerType.SCHEDULE;
-            }
-
-            @Override
-            public UUID getWorkflowId() {
-                return UUID.fromString(dataMap.getString("workflowId"));
-            }
-
-            @Override
-            public WorkflowRunnerRequest request() {
-                return new WorkflowRunnerRequest(
-                        null,
-                        dataMap.getString("nodeKey")
-                );
-            }
-        });
+        publisher.publishEvent(new WorkflowTriggerEvent(
+                workflowRunId,
+                TriggerType.SCHEDULE_RETRY,
+                null,
+                workflowId,
+                new WorkflowRunnerRequest(callBackUrl, nodeKey)
+        ));
     }
 }

@@ -1,8 +1,7 @@
 package org.phong.zenflow.workflow.subdomain.trigger.services;
 
 import lombok.AllArgsConstructor;
-import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
-import org.phong.zenflow.workflow.subdomain.runner.event.WorkflowRunnerPublishableEvent;
+import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.repository.WorkflowTriggerRepository;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContext;
@@ -21,28 +20,14 @@ public class TriggerContextImpl implements TriggerContext {
     private final WorkflowTriggerRepository repo;
 
     @Override
-    public void startWorkflow(UUID workflowId, Map<String, Object> payload) {
-        publisher.publishEvent(new WorkflowRunnerPublishableEvent() {
-            @Override
-            public UUID getWorkflowRunId() {
-                return UUID.randomUUID();
-            }
-
-            @Override
-            public TriggerType getTriggerType() {
-                return TriggerType.EVENT;
-            }
-
-            @Override
-            public UUID getWorkflowId() {
-                return workflowId;
-            }
-
-            @Override
-            public WorkflowRunnerRequest request() {
-                return null;
-            }
-        });
+    public void startWorkflow(UUID workflowId, UUID triggerExecutorId, Map<String, Object> payload) {
+        publisher.publishEvent(new WorkflowTriggerEvent(
+                UUID.randomUUID(),
+                TriggerType.EVENT,
+                triggerExecutorId,
+                workflowId,
+                null
+        ));
     }
 
     @Override

@@ -86,6 +86,7 @@ public class ScheduleTriggerExecutor implements TriggerExecutor {
                 .usingJobData("description", description)
                 .usingJobData("intervalSeconds", intervalSeconds != null ? intervalSeconds : 0)
                 .usingJobData("cronExpression", cronExpression != null ? cronExpression : "")
+                .usingJobData("triggerExecutorId", trigger.getTriggerExecutorId().toString())
                 .build();
 
         // Create appropriate trigger

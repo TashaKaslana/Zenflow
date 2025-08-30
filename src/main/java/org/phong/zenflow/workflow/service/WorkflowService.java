@@ -118,7 +118,7 @@ public class WorkflowService {
 
     public Workflow getWorkflow(UUID id) {
         return workflowRepository.findById(id)
-                .orElseThrow(() -> new WorkflowException("Workflow not found"));
+                .orElseThrow(() -> new WorkflowException("Workflow not found with id: " + id));
     }
 
     /**

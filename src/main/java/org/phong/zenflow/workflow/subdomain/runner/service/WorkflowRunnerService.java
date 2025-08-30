@@ -15,6 +15,7 @@ import org.phong.zenflow.workflow.subdomain.context.RuntimeContextManager;
 import org.phong.zenflow.workflow.subdomain.engine.dto.WorkflowExecutionStatus;
 import org.phong.zenflow.workflow.subdomain.engine.service.WorkflowEngineService;
 import org.phong.zenflow.workflow.subdomain.logging.core.LogContextManager;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowNodes;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowMetadata;
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
@@ -31,6 +32,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
+
 @Slf4j
 @Service
 public class WorkflowRunnerService {
@@ -65,11 +67,15 @@ public class WorkflowRunnerService {
             description = "Run a workflow with the given ID",
             targetIdExpression = "#workflowId"
     )
-    public void runWorkflow(UUID workflowRunId, TriggerType triggerType, UUID workflowId, @Nullable WorkflowRunnerRequest request) {
+    public void runWorkflow(UUID workflowRunId,
+                            TriggerType triggerType,
+                            @Nullable UUID triggerId,
+                            UUID workflowId,
+                            @Nullable WorkflowRunnerRequest request) {
         // Initialize logging context with trace ID for this workflow run
         String traceId = UUID.randomUUID().toString();
         LogContextManager.init(workflowRunId.toString(), traceId);
-        
+
         try {
             log.info("Starting workflow with ID: {}", workflowId);
 
@@ -97,14 +103,15 @@ public class WorkflowRunnerService {
 
                 initializeContext(workflowRunId, workflowId, request, workflowRun, context, consumers, aliasMap);
 
-                String startFromNodeKey = (request != null) ? request.startFromNodeKey() : null;
-                WorkflowExecutionStatus status = workflowEngineService.runWorkflow(workflowId, workflowRunId, startFromNodeKey, context);
+                String startFromNodeKey = getStartNodeKey(workflow.getDefinition().nodes(), request, triggerId);
+                WorkflowExecutionStatus status = workflowEngineService.runWorkflow(workflow, workflowRunId, startFromNodeKey, context);
 
                 handleWorkflowExecutionStatus(workflowRunId, workflowId, status, context);
 
             } catch (Exception e) {
                 log.warn("Error running workflow with ID: {}", workflowId, e);
                 workflowRunService.handleWorkflowError(workflowRunId, e);
+
                 Object callbackUrlObj = context.get(ExecutionContextKey.CALLBACK_URL);
                 if (callbackUrlObj instanceof String callbackUrl && !callbackUrl.isEmpty()) {
                     notifyCallbackUrl(callbackUrl, workflowRunId);
@@ -124,6 +131,7 @@ public class WorkflowRunnerService {
             log.debug("No existing context found for workflow run ID: {}. Starting new run.", workflowRunId);
             Map<String, String> secretOfWorkflow = secretService.getSecretMapByWorkflowId(workflowId);
             Map<String, Object> initialContext = new ConcurrentHashMap<>(Map.of("secrets", secretOfWorkflow));
+
             if (request != null && request.callbackUrl() != null && !request.callbackUrl().isEmpty()) {
                 initialContext.put(ExecutionContextKey.CALLBACK_URL, request.callbackUrl());
             }
@@ -139,6 +147,7 @@ public class WorkflowRunnerService {
         if (status == WorkflowExecutionStatus.COMPLETED) {
             workflowRunService.completeWorkflowRun(workflowRunId);
             log.debug("Workflow with ID: {} completed successfully", workflowId);
+
             Object callbackUrlObj = context.get(ExecutionContextKey.CALLBACK_URL);
             if (callbackUrlObj instanceof String callbackUrl && !callbackUrl.isEmpty()) {
                 notifyCallbackUrl(callbackUrl, workflowRunId);
@@ -156,6 +165,7 @@ public class WorkflowRunnerService {
                 String runId = workflowRunId.toString();
                 String traceId = UUID.randomUUID().toString();
                 LogContextManager.init(runId, traceId);
+
                 try {
                     LogContextManager.withContext(runId, () -> {
                         webClient.post()
@@ -171,6 +181,22 @@ public class WorkflowRunnerService {
                     LogContextManager.cleanup(runId);
                 }
             });
+        }
+    }
+
+    private String getStartNodeKey(WorkflowNodes nodes, WorkflowRunnerRequest request, UUID triggerId) {
+        if (triggerId != null) {
+            return nodes.findByNodeId(triggerId).getKey();
+        }
+
+        if (request == null) {
+            return null;
+        }
+
+        if (request.startFromNodeKey() != null && nodes.findByInstanceKey(request.startFromNodeKey()) == null) {
+                throw new IllegalArgumentException("Invalid startFromNodeKey: " + request.startFromNodeKey());
+        } else {
+            return request.startFromNodeKey();
         }
     }
 }

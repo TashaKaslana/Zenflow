@@ -8,6 +8,8 @@ import lombok.Getter;
 public enum TriggerType {
     MANUAL("MANUAL"),
     SCHEDULE("SCHEDULE"),
+    SCHEDULE_RETRY("SCHEDULE_RETRY"),
+    SCHEDULE_TIMEOUT("SCHEDULE_TIMEOUT"),
     WEBHOOK("WEBHOOK"),
     EVENT("EVENT"),
     POLLING("POLLING");

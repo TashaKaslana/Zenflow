@@ -282,7 +282,13 @@ public class WorkflowTriggerService {
         UUID workflowRunId = UUID.randomUUID();
         log.info("Execute workflow trigger with ID: {}", triggerId);
         WorkflowTrigger trigger = markTriggered(triggerId);
-        publisher.publishEvent(new WorkflowTriggerEvent(workflowRunId, trigger, request));
+        publisher.publishEvent(new WorkflowTriggerEvent(
+                workflowRunId,
+                trigger.getType(),
+                trigger.getTriggerExecutorId(),
+                trigger.getWorkflowId(),
+                request
+        ));
         return workflowRunId;
     }
 }

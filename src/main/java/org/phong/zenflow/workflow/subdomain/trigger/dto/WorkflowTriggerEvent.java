@@ -3,11 +3,11 @@ package org.phong.zenflow.workflow.subdomain.trigger.dto;
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
 import org.phong.zenflow.workflow.subdomain.runner.event.WorkflowRunnerPublishableEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
-import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
 
 import java.util.UUID;
 
-public record WorkflowTriggerEvent(UUID workflowRunId, WorkflowTrigger workflowTrigger,
+public record WorkflowTriggerEvent(UUID workflowRunId, TriggerType triggerType,
+                                   UUID triggerExecutorId, UUID workflowId,
                                    WorkflowRunnerRequest request) implements WorkflowRunnerPublishableEvent {
     @Override
     public UUID getWorkflowRunId() {
@@ -16,12 +16,17 @@ public record WorkflowTriggerEvent(UUID workflowRunId, WorkflowTrigger workflowT
 
     @Override
     public TriggerType getTriggerType() {
-        return workflowTrigger.getType();
+        return triggerType;
+    }
+
+    @Override
+    public UUID getTriggerExecutorId() {
+        return triggerExecutorId;
     }
 
     @Override
     public UUID getWorkflowId() {
-        return workflowTrigger.getWorkflowId();
+        return workflowId;
     }
 
     @Override

@@ -37,6 +37,7 @@ public class WorkflowTriggerJob implements Job {
             String description = jobDataMap.getString("description");
             Integer intervalSeconds = jobDataMap.getInt("intervalSeconds");
             String cronExpression = jobDataMap.getString("cronExpression");
+            String triggerExecutorId = jobDataMap.getString("triggerExecutorId");
 
             log.debug("Quartz trigger firing for workflow: {} (trigger: {})", workflowId, triggerId);
 
@@ -63,7 +64,7 @@ public class WorkflowTriggerJob implements Job {
             }
 
             // Start the workflow
-            triggerContext.startWorkflow(workflowId, payload);
+            triggerContext.startWorkflow(workflowId, UUID.fromString(triggerExecutorId), payload);
             triggerContext.markTriggered(triggerId, Instant.now());
 
         } catch (Exception e) {
