@@ -10,6 +10,10 @@ public interface WorkflowRunnerPublishableEvent {
 
     TriggerType getTriggerType();
 
+    default UUID getTriggerExecutorId() {
+        return null;
+    }
+
     UUID getWorkflowId();
 
     WorkflowRunnerRequest request();

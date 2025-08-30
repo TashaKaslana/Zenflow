@@ -57,7 +57,11 @@ public class DiscordMessageListenerHub extends ListenerAdapter {
             // Start the workflow
             TriggerContext triggerContext = discordMessageContext.triggerContext();
             triggerId = discordMessageContext.triggerId();
-            triggerContext.startWorkflow(discordMessageContext.workflowId(), payload);
+            triggerContext.startWorkflow(
+                    discordMessageContext.workflowId(),
+                    discordMessageContext.triggerExecutorId,
+                    payload
+            );
             triggerContext.markTriggered(triggerId, Instant.now());
 
             log.debug("Discord trigger fired for message: {} in channel: {}", event.getMessageId(), channelId);
@@ -92,7 +96,7 @@ public class DiscordMessageListenerHub extends ListenerAdapter {
         return payload;
     }
 
-    public record DiscordMessageContext(UUID triggerId, UUID workflowId, Map<String, Object> config,
+    public record DiscordMessageContext(UUID triggerId, UUID triggerExecutorId, UUID workflowId, Map<String, Object> config,
                                         TriggerContext triggerContext) {
     }
 }

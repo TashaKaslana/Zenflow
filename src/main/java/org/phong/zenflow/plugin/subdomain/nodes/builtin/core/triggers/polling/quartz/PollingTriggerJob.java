@@ -15,6 +15,7 @@ import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.triggers.polling.re
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContext;
 import org.phong.zenflow.workflow.subdomain.trigger.resource.DefaultTriggerResourceConfig;
 
+import java.time.Instant;
 import java.util.*;
 
 /**
@@ -41,6 +42,7 @@ public class PollingTriggerJob implements Job {
             String jsonPath = dataMap.getString("jsonPath");
             Integer timeoutSeconds = dataMap.getIntValue("timeoutSeconds");
             Boolean includeResponse = dataMap.getBooleanValue("includeResponse");
+            String triggerExecutorId = dataMap.getString("triggerExecutorId");
 
             // Get headers and request body from job data
             @SuppressWarnings("unchecked")
@@ -86,8 +88,8 @@ public class PollingTriggerJob implements Job {
                                                           dataToCompare, includeResponse);
 
                 // Trigger workflow
-                triggerContext.startWorkflow(workflowId, payload);
-                triggerContext.markTriggered(triggerId, java.time.Instant.now());
+                triggerContext.startWorkflow(workflowId, UUID.fromString(triggerExecutorId), payload);
+                triggerContext.markTriggered(triggerId, Instant.now());
 
                 log.debug("Workflow triggered for polling change: {}", triggerId);
             } else {

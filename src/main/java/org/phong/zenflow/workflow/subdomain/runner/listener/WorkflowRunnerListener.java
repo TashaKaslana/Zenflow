@@ -18,6 +18,7 @@ public class WorkflowRunnerListener {
             workflowRunnerService.runWorkflow(
                     event.getWorkflowRunId(),
                     event.getTriggerType(),
+                    event.getTriggerExecutorId(),
                     event.getWorkflowId(),
                     event.request()
             );

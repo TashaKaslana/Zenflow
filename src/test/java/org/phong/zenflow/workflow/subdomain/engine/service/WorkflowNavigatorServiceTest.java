@@ -2,6 +2,7 @@ package org.phong.zenflow.workflow.subdomain.engine.service;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerEvent;
 import org.springframework.context.ApplicationEventPublisher;
 
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
@@ -12,7 +13,6 @@ import org.phong.zenflow.workflow.subdomain.node_definition.definitions.Workflow
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
 import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
-import org.phong.zenflow.workflow.subdomain.runner.event.WorkflowRunnerPublishableEvent;
 
 import java.util.List;
 import java.util.Map;
@@ -52,7 +52,7 @@ public class WorkflowNavigatorServiceTest {
         service.onNodeCommit(new NodeCommitEvent(workflowId, runId, "B"));
         ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
         verify(publisher).publishEvent(captor.capture());
-        WorkflowRunnerPublishableEvent event = (WorkflowRunnerPublishableEvent) captor.getValue();
+        WorkflowTriggerEvent event = (WorkflowTriggerEvent) captor.getValue();
         assertEquals(runId, event.getWorkflowRunId());
         assertEquals("wait", event.request().startFromNodeKey());
     }

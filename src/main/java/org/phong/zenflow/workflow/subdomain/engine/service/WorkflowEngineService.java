@@ -6,8 +6,8 @@ import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.plugin.subdomain.execution.services.PluginNodeExecutorDispatcher;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
-import org.phong.zenflow.workflow.infrastructure.persistence.repository.WorkflowRepository;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContextKey;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContextManager;
 import org.phong.zenflow.workflow.subdomain.logging.core.LogContextManager;
@@ -34,7 +34,6 @@ import java.util.UUID;
 @AllArgsConstructor
 @Slf4j
 public class WorkflowEngineService {
-    private final WorkflowRepository workflowRepository;
     private final NodeExecutionService nodeExecutionService;
     private final WorkflowValidationService workflowValidationService;
     private final PluginNodeExecutorDispatcher executorDispatcher;
@@ -44,18 +43,14 @@ public class WorkflowEngineService {
     
 
     @Transactional
-    public WorkflowExecutionStatus runWorkflow(UUID workflowId,
+    public WorkflowExecutionStatus runWorkflow(Workflow workflow,
                                                UUID workflowRunId,
                                                String startFromNodeKey,
                                                RuntimeContext context) {
         try {
-            Workflow workflow = workflowRepository.findById(workflowId).orElseThrow(
-                    () -> new WorkflowEngineException("Workflow not found with ID: " + workflowId)
-            );
-
             WorkflowDefinition definition = workflow.getDefinition();
             if (definition == null || definition.nodes() == null) {
-                throw new WorkflowEngineException("Workflow definition or nodes are missing for workflow ID: " + workflowId);
+                throw new WorkflowEngineException("Workflow definition or nodes are missing for workflow ID: " + workflow.getId());
             }
             WorkflowNodes workflowNodes = definition.nodes();
 
@@ -66,13 +61,13 @@ public class WorkflowEngineService {
 
             NodeLogPublisher logPublisher = NodeLogPublisher.builder()
                     .publisher(publisher)
-                    .workflowId(workflowId)
+                    .workflowId(workflow.getId())
                     .runId(workflowRunId)
                     .userId(null)
                     .build();
 
             ExecutionContext execCtx = ExecutionContext.builder()
-                    .workflowId(workflowId)
+                    .workflowId(workflow.getId())
                     .workflowRunId(workflowRunId)
                     .traceId(LogContextManager.snapshot().traceId())
                     .userId(null)
@@ -80,9 +75,9 @@ public class WorkflowEngineService {
                     .logPublisher(logPublisher)
                     .build();
 
-            return getWorkflowExecutionStatus(workflowId, workflowRunId, context, workingNode, workflowNodes, execCtx);
+            return getWorkflowExecutionStatus(workflow.getId(), workflowRunId, context, workingNode, workflowNodes, execCtx);
         } catch (Exception e) {
-            log.warn("Error running workflow with ID: {}", workflowId, e);
+            log.warn("Error running workflow with ID: {}", workflow.getId(), e);
             throw new WorkflowEngineException("Workflow failed", e);
         }
     }
@@ -126,7 +121,13 @@ public class WorkflowEngineService {
         } else {
             log.warn("Output of node {} is null, skipping putting into context", workingNode.getKey());
         }
-        nodeExecutionService.resolveNodeExecution(workflowId, workflowRunId, workingNode, result);
+        nodeExecutionService.resolveNodeExecution(
+                workflowId,
+                workflowRunId,
+                workingNode,
+                result,
+                execCtx.read(ExecutionContextKey.CALLBACK_URL, String.class)
+        );
 
         if (result.getStatus() == ExecutionStatus.COMMIT) {
             publisher.publishEvent(new NodeCommitEvent(workflowId, workflowRunId, workingNode.getKey()));

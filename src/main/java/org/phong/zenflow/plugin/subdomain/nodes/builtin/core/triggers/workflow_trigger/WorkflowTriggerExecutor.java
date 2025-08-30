@@ -7,7 +7,7 @@ import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
-import org.phong.zenflow.workflow.subdomain.runner.event.WorkflowRunnerPublishableEvent;
+import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContext;
@@ -85,8 +85,8 @@ public class WorkflowTriggerExecutor implements TriggerExecutor {
 
             logs.info("Triggering workflow with ID: {} and run ID: {}", workflowId, workflowRunId);
 
-            WorkflowRunnerRequest runnerRequest = null;
-            if (startFromNodeKey != null || callbackUrl != null) {
+            WorkflowRunnerRequest runnerRequest;
+            if (startFromNodeKey != null) {
                 runnerRequest = new WorkflowRunnerRequest(
                     callbackUrl,
                     startFromNodeKey
@@ -95,30 +95,18 @@ public class WorkflowTriggerExecutor implements TriggerExecutor {
                 if (payload != null) {
                     logs.info("Payload will be available in workflow context: {}", payload);
                 }
+            } else {
+                log.warn("No start_from_node_key provided, can't start the workflow.");
+                return ExecutionResult.error("'start_from_node_key' is required to trigger the workflow.");
             }
 
-            final WorkflowRunnerRequest finalRequest = runnerRequest;
-            eventPublisher.publishEvent(new WorkflowRunnerPublishableEvent() {
-                @Override
-                public UUID getWorkflowRunId() {
-                    return workflowRunId;
-                }
-
-                @Override
-                public TriggerType getTriggerType() {
-                    return isAsync ? TriggerType.EVENT : TriggerType.MANUAL;
-                }
-
-                @Override
-                public UUID getWorkflowId() {
-                    return workflowId;
-                }
-
-                @Override
-                public WorkflowRunnerRequest request() {
-                    return finalRequest;
-                }
-            });
+            eventPublisher.publishEvent(new WorkflowTriggerEvent(
+                    workflowRunId,
+                    isAsync ? TriggerType.EVENT : TriggerType.MANUAL,
+                    null,
+                    workflowId,
+                    runnerRequest
+            ));
 
             Map<String, Object> output = new HashMap<>();
             output.put("trigger_type", "workflow");
@@ -128,9 +116,7 @@ public class WorkflowTriggerExecutor implements TriggerExecutor {
             output.put("workflow_run_id", workflowRunId.toString());
             output.put("is_async", isAsync);
 
-            if (startFromNodeKey != null) {
-                output.put("start_from_node_key", startFromNodeKey);
-            }
+            output.put("start_from_node_key", startFromNodeKey);
 
             if (callbackUrl != null) {
                 output.put("callback_url", callbackUrl);
