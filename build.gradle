@@ -24,6 +24,10 @@ configurations {
     }
 }
 
+configurations.configureEach {
+    exclude group: "com.vaadin.external.google", module: "android-json"
+}
+
 sourceSets {
     main {
         resources {
