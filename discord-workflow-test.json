@@ -1,0 +1,95 @@
+{
+    "nodes": [
+        {
+            "key": "discord-start",
+            "type": "TRIGGER",
+            "pluginNode": {
+                "pluginKey": "core",
+                "nodeKey": "discord.trigger",
+                "version": "1.0.0",
+                "executorType": "builtin"
+            },
+            "next": [
+                "process-discord-message"
+            ],
+            "config": {
+                "input": {
+                    "botToken": "{{env.DISCORD_BOT_TOKEN}}",
+                    "channelId": "123456789012345678",
+                    "eventTypes": ["message", "reaction"],
+                    "filters": {
+                        "ignoreBotsMessages": true,
+                        "allowedChannels": ["general", "notifications"]
+                    }
+                },
+                "output": null,
+                "entrypoint": null
+            }
+        },
+        {
+            "key": "process-discord-message",
+            "type": "PLUGIN",
+            "next": [
+                "send-discord-response"
+            ],
+            "config": {
+                "input": {
+                    "messageContent": "{{discord-start.output.message.content}}",
+                    "authorId": "{{discord-start.output.message.author.id}}",
+                    "channelId": "{{discord-start.output.message.channel.id}}",
+                    "processingRules": [
+                        {
+                            "pattern": "!help",
+                            "response": "Available commands: !status, !info, !ping"
+                        },
+                        {
+                            "pattern": "!ping",
+                            "response": "Pong! 🏓"
+                        }
+                    ]
+                },
+                "output": null,
+                "entrypoint": null
+            },
+            "pluginNode": {
+                "pluginKey": "core",
+                "nodeKey": "discord.message.processor",
+                "version": "1.0.0",
+                "executorType": "builtin"
+            }
+        },
+        {
+            "key": "send-discord-response",
+            "type": "PLUGIN",
+            "next": [],
+            "config": {
+                "input": {
+                    "botToken": "{{env.DISCORD_BOT_TOKEN}}",
+                    "channelId": "{{discord-start.output.message.channel.id}}",
+                    "responseMessage": "{{process-discord-message.output.processedResponse}}",
+                    "embedData": {
+                        "title": "Zenflow Bot Response",
+                        "color": 3447003,
+                        "timestamp": "{{now()}}"
+                    },
+                    "replyToMessageId": "{{discord-start.output.message.id}}"
+                },
+                "output": null,
+                "entrypoint": null
+            },
+            "pluginNode": {
+                "pluginKey": "core",
+                "nodeKey": "discord.message.send",
+                "version": "1.0.0",
+                "executorType": "builtin"
+            }
+        }
+    ],
+    "metadata": {
+        "aliases": {
+            "user-message": "{{discord-start.output.message.content}}",
+            "channel-id": "{{discord-start.output.message.channel.id}}"
+        }
+    }
+}
+
