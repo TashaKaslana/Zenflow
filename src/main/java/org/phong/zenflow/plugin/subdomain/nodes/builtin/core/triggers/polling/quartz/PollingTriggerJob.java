@@ -15,6 +15,7 @@ import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.triggers.polling.re
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContext;
 import org.phong.zenflow.workflow.subdomain.trigger.resource.DefaultTriggerResourceConfig;
 
+import java.time.Instant;
 import java.util.*;
 
 /**
@@ -35,6 +36,7 @@ public class PollingTriggerJob implements Job {
         try {
             UUID triggerId = UUID.fromString(dataMap.getString("triggerId"));
             UUID workflowId = UUID.fromString(dataMap.getString("workflowId"));
+            UUID triggerExecutorId = UUID.fromString(dataMap.getString("triggerExecutorId"));
             String url = dataMap.getString("url");
             String httpMethod = dataMap.getString("httpMethod");
             String changeDetectionStrategy = dataMap.getString("changeDetectionStrategy");
@@ -86,8 +88,8 @@ public class PollingTriggerJob implements Job {
                                                           dataToCompare, includeResponse);
 
                 // Trigger workflow
-                triggerContext.startWorkflow(workflowId, payload);
-                triggerContext.markTriggered(triggerId, java.time.Instant.now());
+                triggerContext.startWorkflow(workflowId, triggerExecutorId, payload);
+                triggerContext.markTriggered(triggerId, Instant.now());
 
                 log.debug("Workflow triggered for polling change: {}", triggerId);
             } else {

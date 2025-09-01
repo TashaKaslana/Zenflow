@@ -8,14 +8,14 @@ import org.phong.zenflow.workflow.subdomain.engine.dto.WorkflowExecutionStatus;
 import org.phong.zenflow.workflow.subdomain.engine.event.NodeCommitEvent;
 import org.phong.zenflow.workflow.subdomain.engine.exception.WorkflowEngineException;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowNodes;
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
-import org.phong.zenflow.workflow.subdomain.runner.event.WorkflowRunnerPublishableEvent;
+import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,7 +32,7 @@ public class WorkflowNavigatorService {
                                                       UUID workflowRunId,
                                                       BaseWorkflowNode workingNode,
                                                       ExecutionResult result,
-                                                      List<BaseWorkflowNode> workflowNodes,
+                                                      WorkflowNodes workflowNodes,
                                                       RuntimeContext context) {
         return switch (result.getStatus()) {
             case SUCCESS, COMMIT -> new ExecutionStepOutcome(navigatorSuccess(workflowId, workingNode, workflowNodes),
@@ -89,27 +89,12 @@ public class WorkflowNavigatorService {
                 halted.waitingNodes.put(event.nodeKey(), true);
                 if (isReady(halted.waitingNodes, halted.mode, halted.threshold)) {
                     nodes.remove(halted.nodeKey);
-                    publisher.publishEvent(new WorkflowRunnerPublishableEvent() {
-                        @Override
-                        public UUID getWorkflowRunId() {
-                            return halted.workflowRunId;
-                        }
-
-                        @Override
-                        public TriggerType getTriggerType() {
-                            return TriggerType.SCHEDULE;
-                        }
-
-                        @Override
-                        public UUID getWorkflowId() {
-                            return halted.workflowId;
-                        }
-
-                        @Override
-                        public WorkflowRunnerRequest request() {
-                            return new WorkflowRunnerRequest(null, halted.nodeKey);
-                        }
-                    });
+                    publisher.publishEvent(new WorkflowTriggerEvent(
+                            halted.workflowRunId,
+                            TriggerType.SCHEDULE,
+                            halted.workflowId,
+                            new WorkflowRunnerRequest(null, halted.nodeKey)
+                    ));
                 }
             }
         }));
@@ -129,33 +114,24 @@ public class WorkflowNavigatorService {
         };
     }
 
-    public BaseWorkflowNode findNodeByKey(List<BaseWorkflowNode> schema, String key) {
-        return schema.stream()
-                .filter(node -> node.getKey().equals(key))
-                .findFirst()
-                .orElse(null);
-    }
-
     private BaseWorkflowNode navigatorSuccess(UUID workflowId,
                                               BaseWorkflowNode workingNode,
-                                              List<BaseWorkflowNode> workflowSchema) {
+                                              WorkflowNodes workflowSchema) {
         String nextNodeKey = workingNode.getNext().isEmpty() ? null : workingNode.getNext().getFirst();
         if (nextNodeKey == null) {
             log.info("Workflow completed successfully with ID: {}", workflowId);
-            workingNode = null; // End of workflow
-        } else {
-            workingNode = findNodeByKey(workflowSchema, nextNodeKey);
+            return null; // End of workflow
         }
-        return workingNode;
+        return workflowSchema.findByInstanceKey(nextNodeKey);
     }
 
     private BaseWorkflowNode navigatorNext(UUID workflowId,
                                            ExecutionResult result,
-                                           List<BaseWorkflowNode> workflowSchema) {
+                                           WorkflowNodes workflowSchema) {
         BaseWorkflowNode workingNode;
         String nextNode = result.getNextNodeKey();
         if (nextNode != null) {
-            workingNode = findNodeByKey(workflowSchema, nextNode);
+            workingNode = workflowSchema.findByInstanceKey(nextNode);
         } else {
             log.info("Reach the end of workflow, workflow completed successfully with ID: {}", workflowId);
             workingNode = null; // End of workflow
@@ -172,7 +148,7 @@ public class WorkflowNavigatorService {
     private BaseWorkflowNode navigatorLoopNext(UUID workflowId,
                                                BaseWorkflowNode workingNode,
                                                ExecutionResult result,
-                                               List<BaseWorkflowNode> workflowNodes,
+                                               WorkflowNodes workflowNodes,
                                                RuntimeContext context) {
         // Start loop if not already started (first iteration)
         if (!context.isInLoop()) {
@@ -183,7 +159,7 @@ public class WorkflowNavigatorService {
         String nextNodeKey = result.getNextNodeKey();
         if (nextNodeKey != null) {
             log.debug("Loop proceeding to next iteration at node: {}", nextNodeKey);
-            return findNodeByKey(workflowNodes, nextNodeKey);
+            return workflowNodes.findByInstanceKey(nextNodeKey);
         } else {
             log.info("Loop next navigation has no target node, workflow completed with ID: {}", workflowId);
             return null;
@@ -193,7 +169,7 @@ public class WorkflowNavigatorService {
     private BaseWorkflowNode navigatorLoopEnd(UUID workflowId,
                                               BaseWorkflowNode workingNode,
                                               ExecutionResult result,
-                                              List<BaseWorkflowNode> workflowNodes,
+                                              WorkflowNodes workflowNodes,
                                               RuntimeContext context) {
         // End the loop
         context.endLoop(workingNode.getKey());
@@ -202,7 +178,7 @@ public class WorkflowNavigatorService {
         String nextNodeKey = result.getNextNodeKey();
         if (nextNodeKey != null) {
             log.debug("Loop ended, proceeding to node: {}", nextNodeKey);
-            return findNodeByKey(workflowNodes, nextNodeKey);
+            return workflowNodes.findByInstanceKey(nextNodeKey);
         } else {
             log.info("Loop ended with no next node, workflow completed with ID: {}", workflowId);
             return null;
@@ -217,7 +193,7 @@ public class WorkflowNavigatorService {
     private BaseWorkflowNode navigatorLoopBreak(UUID workflowId,
                                                 BaseWorkflowNode workingNode,
                                                 ExecutionResult result,
-                                                List<BaseWorkflowNode> workflowNodes,
+                                                WorkflowNodes workflowNodes,
                                                 RuntimeContext context) {
         // End the loop when breaking
         context.endLoop(workingNode.getKey());
@@ -226,7 +202,7 @@ public class WorkflowNavigatorService {
         String nextNodeKey = result.getNextNodeKey();
         if (nextNodeKey != null) {
             log.debug("Loop break - proceeding to node: {}", nextNodeKey);
-            return findNodeByKey(workflowNodes, nextNodeKey);
+            return workflowNodes.findByInstanceKey(nextNodeKey);
         } else {
             log.info("Loop break with no next node, workflow completed with ID: {}", workflowId);
             return null;

@@ -101,6 +101,7 @@ public class PollingTriggerExecutor implements TriggerExecutor {
                 .usingJobData("jsonPath", jsonPath != null ? jsonPath : "")
                 .usingJobData("timeoutSeconds", timeoutSeconds)
                 .usingJobData("includeResponse", includeResponse)
+                .usingJobData("triggerExecutorId", trigger.getTriggerExecutorId().toString())
                 .build();
 
         // Add complex objects to job data map

@@ -18,9 +18,12 @@ public class ExecutionContext {
     private String nodeKey;
 
     public <T> T read(String key, Class<T> clazz) {
-        Object o = contextManager
-                .getOrCreate(workflowRunId.toString())
-                .get(key);
+        RuntimeContext context = contextManager.getOrCreate(workflowRunId.toString());
+        if (context == null) {
+            return null;
+        }
+
+        Object o = context.get(key);
 
         if (o == null) {
             return null;
@@ -33,15 +36,17 @@ public class ExecutionContext {
     }
 
     public void write(String key, Object value) {
-        contextManager
-                .getOrCreate(workflowRunId.toString())
-                .put(key, value);
+        RuntimeContext context = contextManager.getOrCreate(workflowRunId.toString());
+        if (context != null) {
+            context.put(key, value);
+        }
     }
 
     public void remove(String key) {
-        contextManager
-                .getOrCreate(workflowRunId.toString())
-                .remove(key);
+        RuntimeContext context = contextManager.getOrCreate(workflowRunId.toString());
+        if (context != null) {
+            context.remove(key);
+        }
     }
 
     public void setNodeKey(String nodeKey) {

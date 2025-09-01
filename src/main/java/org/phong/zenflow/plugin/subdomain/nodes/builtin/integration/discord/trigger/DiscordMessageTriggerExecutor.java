@@ -79,6 +79,7 @@ public class DiscordMessageTriggerExecutor implements TriggerExecutor {
         DiscordMessageListenerHub.DiscordMessageContext context =
                 new DiscordMessageListenerHub.DiscordMessageContext(
                         trigger.getId(),
+                        trigger.getTriggerExecutorId(),
                         trigger.getWorkflowId(),
                         trigger.getConfig(),
                         ctx

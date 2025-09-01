@@ -66,8 +66,7 @@ public class WorkflowDependencyValidator {
         Map<String, String> aliases = metadata.aliases();
 
         // Create a node map for quick lookup
-        Map<String, BaseWorkflowNode> nodeMap = workflow.nodes().stream()
-                .collect(Collectors.toMap(BaseWorkflowNode::getKey, node -> node));
+        Map<String, BaseWorkflowNode> nodeMap = workflow.nodes().asMap();
 
         // Validate each dependency
         for (String dependency : dependencies) {
@@ -104,25 +103,21 @@ public class WorkflowDependencyValidator {
 
     private TopologicalOrderResult buildTopologicalOrder(WorkflowDefinition workflow) {
         List<ValidationError> errors = new ArrayList<>();
-        List<BaseWorkflowNode> nodes = workflow.nodes();
+        Map<String, BaseWorkflowNode> nodeMap = workflow.nodes().asMap();
         Map<String, String> aliases = workflow.metadata() != null ? workflow.metadata().aliases() : Collections.emptyMap();
 
-        if (nodes == null || nodes.isEmpty()) {
+        if (nodeMap == null || nodeMap.isEmpty()) {
             return new TopologicalOrderResult(new ArrayList<>(), errors);
         }
-
-        // Build a map for quick node lookup by key
-        Map<String, BaseWorkflowNode> nodeMap = nodes.stream()
-                .collect(Collectors.toMap(BaseWorkflowNode::getKey, node -> node));
 
         // Build adjacency list and in-degree map
         Map<String, List<String>> adjacencyList = new HashMap<>();
         Map<String, Integer> inDegree = new HashMap<>();
 
         // Step 1: Initialize nodes
-        for (BaseWorkflowNode node : nodes) {
-            String nodeKey = node.getKey();
-            List<String> nextKeys = node.getNext();
+        for (Map.Entry<String, BaseWorkflowNode> entry : nodeMap.entrySet()) {
+            String nodeKey = entry.getKey();
+            List<String> nextKeys = entry.getValue().getNext();
             if (nextKeys == null) {
                 nextKeys = Collections.emptyList();
             }
@@ -174,16 +169,15 @@ public class WorkflowDependencyValidator {
         // Step 3: Handle loop nodes - temporarily break their back-edges for topological sorting
         Map<String, List<String>> loopBackEdges = new HashMap<>();
 
-        for (BaseWorkflowNode node : nodes) {
-            String nodeKey = node.getKey();
+        for (Map.Entry<String, BaseWorkflowNode> entry : nodeMap.entrySet()) {
+            String nodeKey = entry.getKey();
+            BaseWorkflowNode node = entry.getValue();
             if (isLoopNode(node)) {
                 List<String> nextNodes = adjacencyList.get(nodeKey);
                 List<String> backEdges = new ArrayList<>();
 
-                // For loop nodes, check if any of their next nodes point back to them
                 for (String nextNode : new ArrayList<>(nextNodes)) {
                     if (adjacencyList.getOrDefault(nextNode, List.of()).contains(nodeKey)) {
-                        // This is a back edge - temporarily remove it
                         backEdges.add(nextNode);
                         adjacencyList.get(nextNode).remove(nodeKey);
                         inDegree.put(nodeKey, inDegree.get(nodeKey) - 1);
@@ -220,10 +214,9 @@ public class WorkflowDependencyValidator {
         }
 
         // Step 5: Check for cycle (excluding loop nodes with intentional back edges)
-        if (executionOrder.size() != nodes.size()) {
+        if (executionOrder.size() != nodeMap.size()) {
             Set<String> visited = new HashSet<>(executionOrder);
-            Set<String> cycleNodes = nodes.stream()
-                    .map(BaseWorkflowNode::getKey)
+            Set<String> cycleNodes = nodeMap.keySet().stream()
                     .filter(key -> !visited.contains(key))
                     .collect(Collectors.toSet());
 
@@ -300,9 +293,7 @@ public class WorkflowDependencyValidator {
             return errors;
         }
 
-        Set<String> allNodeKeys = workflow.nodes().stream()
-                .map(BaseWorkflowNode::getKey)
-                .collect(Collectors.toSet());
+        Set<String> allNodeKeys = workflow.nodes().keys();
 
         for (Map.Entry<String, String> aliasEntry : aliases.entrySet()) {
             String aliasName = aliasEntry.getKey();

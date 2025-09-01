@@ -9,7 +9,7 @@ import org.phong.zenflow.project.infrastructure.persistence.entity.Project;
 import org.phong.zenflow.project.infrastructure.persistence.repository.ProjectRepository;
 import org.phong.zenflow.workflow.dto.CreateWorkflowRequest;
 import org.phong.zenflow.workflow.dto.UpdateWorkflowRequest;
-import org.phong.zenflow.workflow.dto.UpsertWorkflowDefinition;
+import org.phong.zenflow.workflow.dto.WorkflowDefinitionChangeRequest;
 import org.phong.zenflow.workflow.dto.WorkflowDto;
 import org.phong.zenflow.workflow.exception.WorkflowException;
 import org.phong.zenflow.workflow.infrastructure.mapstruct.WorkflowMapper;
@@ -17,7 +17,11 @@ import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.infrastructure.persistence.repository.WorkflowRepository;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.services.WorkflowDefinitionService;
+import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
+import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerEvent;
+import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.phong.zenflow.workflow.subdomain.trigger.services.WorkflowTriggerService;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -37,6 +41,7 @@ public class WorkflowService {
     private final WorkflowMapper workflowMapper;
     private final WorkflowDefinitionService definitionService;
     private final WorkflowTriggerService triggerService;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * Create a new workflow
@@ -67,57 +72,55 @@ public class WorkflowService {
                 .toList();
     }
 
-    /**
-     * Update workflow nodes. Accepts incoming nodes, validates them, and updates the workflow definition.
-     *
-     * @param workflowId ID of the workflow to update
-     * @param incomingNodes List of nodes to add or update
-     * @return Updated workflow definition
-     */
     @Transactional
-    public WorkflowDefinition upsertNodes(UUID workflowId, UpsertWorkflowDefinition incomingNodes) {
-        Workflow workflow = workflowRepository.findById(workflowId)
-                .orElseThrow(() -> new WorkflowException("Workflow not found with id: " + workflowId));
+    @AuditLog(action = AuditAction.WORKFLOW_EXECUTE)
+    public UUID executeWorkflow(UUID workflowId, String startNodeKey) {
+        UUID workflowRunId = UUID.randomUUID();
+        String callbackUrl = "/workflow-runs/" + workflowRunId;
 
-        // Create a deep copy to avoid modifying the original
-        WorkflowDefinition existWorkflowDef = workflow.getDefinition().deepCopy();
+        eventPublisher.publishEvent(new WorkflowTriggerEvent(
+                workflowRunId,
+                TriggerType.MANUAL,
+                workflowId,
+                new WorkflowRunnerRequest(
+                        callbackUrl, startNodeKey
+                )
+        ));
 
-        WorkflowDefinition newWorkflowDef = new WorkflowDefinition(incomingNodes.nodes(), incomingNodes.metadata());
-
-        WorkflowDefinition upserted = definitionService.upsert(newWorkflowDef, existWorkflowDef);
-
-        // Force Hibernate update, save
-        workflow.setDefinition(upserted);
-        Workflow saved = workflowRepository.save(workflow);
-
-        //TODO: should make async this process because it may take time and be side affect the user experience
-        triggerService.synchronizeTrigger(workflowId, upserted);
-
-        return saved.getDefinition();
+        return workflowRunId;
     }
 
     /**
-     * Remove a node from a workflow by its key
+     * Update workflow definition by removing and upserting nodes in a single request.
      *
-     * @param workflowId ID of the workflow
-     * @param keyToRemove Key of the node to remove
+     * @param workflowId ID of the workflow to update
+     * @param request    Change request containing nodes to upsert and keys to remove
      * @return Updated workflow definition
      */
     @Transactional
-    public WorkflowDefinition removeNode(UUID workflowId, String keyToRemove) {
-        Workflow workflow = getWorkflow(workflowId);
-        WorkflowDefinition definition = workflow.getDefinition();
-        if (definition == null || definition.nodes() == null) {
-            return new WorkflowDefinition();
+    public WorkflowDefinition updateWorkflowDefinition(UUID workflowId, WorkflowDefinitionChangeRequest request) {
+        Workflow workflow = workflowRepository.findById(workflowId)
+                .orElseThrow(() -> new WorkflowException("Workflow not found with id: " + workflowId));
+
+        WorkflowDefinition currentDefinition = workflow.getDefinition() != null
+                ? workflow.getDefinition().deepCopy()
+                : new WorkflowDefinition();
+
+        if (request != null && request.remove() != null && !request.remove().isEmpty()) {
+            currentDefinition = definitionService.removeNodes(currentDefinition, request.remove());
         }
 
-        WorkflowDefinition updatedDefinition = definitionService.removeNode(definition, keyToRemove);
+        if (request != null && request.upsert() != null) {
+            WorkflowDefinition newDefinition = new WorkflowDefinition(request.upsert().nodes(), request.upsert().metadata());
+            currentDefinition = definitionService.upsert(newDefinition, currentDefinition);
+        }
 
-        workflow.setDefinition(updatedDefinition);
-        workflowRepository.save(workflow);
-        log.debug("Workflow with ID: {} has been updated by removing node with key: {}", workflowId, keyToRemove);
+        workflow.setDefinition(currentDefinition);
+        Workflow saved = workflowRepository.save(workflow);
 
-        return updatedDefinition;
+        triggerService.synchronizeTrigger(workflowId, currentDefinition);
+
+        return saved.getDefinition();
     }
 
     public WorkflowDefinition clearWorkflowDefinition(UUID workflowId) {
@@ -138,7 +141,7 @@ public class WorkflowService {
 
     public Workflow getWorkflow(UUID id) {
         return workflowRepository.findById(id)
-                .orElseThrow(() -> new WorkflowException("Workflow not found"));
+                .orElseThrow(() -> new WorkflowException("Workflow not found with id: " + id));
     }
 
     /**

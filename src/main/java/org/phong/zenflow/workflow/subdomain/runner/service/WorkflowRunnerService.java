@@ -15,6 +15,7 @@ import org.phong.zenflow.workflow.subdomain.context.RuntimeContextManager;
 import org.phong.zenflow.workflow.subdomain.engine.dto.WorkflowExecutionStatus;
 import org.phong.zenflow.workflow.subdomain.engine.service.WorkflowEngineService;
 import org.phong.zenflow.workflow.subdomain.logging.core.LogContextManager;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowNodes;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowMetadata;
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
@@ -31,6 +32,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
+
 @Slf4j
 @Service
 public class WorkflowRunnerService {
@@ -65,11 +67,15 @@ public class WorkflowRunnerService {
             description = "Run a workflow with the given ID",
             targetIdExpression = "#workflowId"
     )
-    public void runWorkflow(UUID workflowRunId, TriggerType triggerType, UUID workflowId, @Nullable WorkflowRunnerRequest request) {
+    public void runWorkflow(UUID workflowRunId,
+                            TriggerType triggerType,
+                            @Nullable UUID triggerExecutorId,
+                            UUID workflowId,
+                            @Nullable WorkflowRunnerRequest request) {
         // Initialize logging context with trace ID for this workflow run
         String traceId = UUID.randomUUID().toString();
         LogContextManager.init(workflowRunId.toString(), traceId);
-        
+
         try {
             log.info("Starting workflow with ID: {}", workflowId);
 
@@ -82,48 +88,66 @@ public class WorkflowRunnerService {
             RuntimeContext context = new RuntimeContext();
             contextManager.assign(workflowRunId.toString(), context);
 
-            try {
-                // This will create a new run if it doesn't exist or return the existing one.
-                WorkflowRun workflowRun = workflowRunService.findOrCreateWorkflowRun(workflowRunId, workflowId, triggerType);
-
-                // Extract the consumer map from the static context in the workflow definition
-                WorkflowMetadata metadata = workflow.getDefinition().metadata();
-                Map<String, Set<String>> consumers = metadata.nodeConsumers().entrySet().stream()
-                        .collect(Collectors.toMap(
-                                Map.Entry::getKey,
-                                entry -> Set.of(entry.getValue().toString())
-                        ));
-                Map<String, String> aliasMap = metadata.aliases();
-
-                initializeContext(workflowRunId, workflowId, request, workflowRun, context, consumers, aliasMap);
-
-                String startFromNodeKey = (request != null) ? request.startFromNodeKey() : null;
-                WorkflowExecutionStatus status = workflowEngineService.runWorkflow(workflowId, workflowRunId, startFromNodeKey, context);
-
-                handleWorkflowExecutionStatus(workflowRunId, workflowId, status, context);
-
-            } catch (Exception e) {
-                log.warn("Error running workflow with ID: {}", workflowId, e);
-                workflowRunService.handleWorkflowError(workflowRunId, e);
-                Object callbackUrlObj = context.get(ExecutionContextKey.CALLBACK_URL);
-                if (callbackUrlObj instanceof String callbackUrl && !callbackUrl.isEmpty()) {
-                    notifyCallbackUrl(callbackUrl, workflowRunId);
-                }
-            } finally {
-                contextManager.remove(workflowRunId.toString());
-            }
+            processWorkflowToRun(workflowRunId, triggerType, triggerExecutorId, workflowId, request, workflow, context);
         } finally {
             // Clean up the logging context when workflow execution completes
             LogContextManager.cleanup(workflowRunId.toString());
         }
     }
 
-    private void initializeContext(UUID workflowRunId, UUID workflowId, WorkflowRunnerRequest request, WorkflowRun workflowRun, RuntimeContext context, Map<String, Set<String>> consumers, Map<String, String> aliasMap) {
+    private void processWorkflowToRun(UUID workflowRunId,
+                                      TriggerType triggerType,
+                                      UUID triggerExecutorId,
+                                      UUID workflowId,
+                                      WorkflowRunnerRequest request,
+                                      Workflow workflow,
+                                      RuntimeContext context) {
+        try {
+            // This will create a new run if it doesn't exist or return the existing one.
+            WorkflowRun workflowRun = workflowRunService.findOrCreateWorkflowRun(workflowRunId, workflowId, triggerType);
+
+            // Extract the consumer map from the static context in the workflow definition
+            WorkflowMetadata metadata = workflow.getDefinition().metadata();
+            Map<String, Set<String>> consumers = metadata.nodeConsumers().entrySet().stream()
+                    .collect(Collectors.toMap(
+                            Map.Entry::getKey,
+                            entry -> Set.of(entry.getValue().toString())
+                    ));
+            Map<String, String> aliasMap = metadata.aliases();
+
+            initializeContext(workflowRunId, workflowId, request, workflowRun, context, consumers, aliasMap);
+
+            String startFromNodeKey = getStartNodeKey(workflow.getDefinition().nodes(), request, triggerExecutorId);
+            WorkflowExecutionStatus status = workflowEngineService.runWorkflow(workflow, workflowRunId, startFromNodeKey, context);
+
+            handleWorkflowExecutionStatus(workflowRunId, workflowId, status, context);
+
+        } catch (Exception e) {
+            log.warn("Error running workflow with ID: {}", workflowId, e);
+            workflowRunService.handleWorkflowError(workflowRunId, e);
+
+            Object callbackUrlObj = context.get(ExecutionContextKey.CALLBACK_URL);
+            if (callbackUrlObj instanceof String callbackUrl && !callbackUrl.isEmpty()) {
+                notifyCallbackUrl(callbackUrl, workflowRunId);
+            }
+        } finally {
+            contextManager.remove(workflowRunId.toString());
+        }
+    }
+
+    private void initializeContext(UUID workflowRunId,
+                                   UUID workflowId,
+                                   WorkflowRunnerRequest request,
+                                   WorkflowRun workflowRun,
+                                   RuntimeContext context,
+                                   Map<String, Set<String>> consumers,
+                                   Map<String, String> aliasMap) {
         if (workflowRun.getContext() == null || workflowRun.getContext().isEmpty()) {
             // First run: ensure the run is started and create a new context
             log.debug("No existing context found for workflow run ID: {}. Starting new run.", workflowRunId);
             Map<String, String> secretOfWorkflow = secretService.getSecretMapByWorkflowId(workflowId);
             Map<String, Object> initialContext = new ConcurrentHashMap<>(Map.of("secrets", secretOfWorkflow));
+
             if (request != null && request.callbackUrl() != null && !request.callbackUrl().isEmpty()) {
                 initialContext.put(ExecutionContextKey.CALLBACK_URL, request.callbackUrl());
             }
@@ -135,10 +159,14 @@ public class WorkflowRunnerService {
         }
     }
 
-    private void handleWorkflowExecutionStatus(UUID workflowRunId, UUID workflowId, WorkflowExecutionStatus status, RuntimeContext context) {
+    private void handleWorkflowExecutionStatus(UUID workflowRunId,
+                                               UUID workflowId,
+                                               WorkflowExecutionStatus status,
+                                               RuntimeContext context) {
         if (status == WorkflowExecutionStatus.COMPLETED) {
             workflowRunService.completeWorkflowRun(workflowRunId);
             log.debug("Workflow with ID: {} completed successfully", workflowId);
+
             Object callbackUrlObj = context.get(ExecutionContextKey.CALLBACK_URL);
             if (callbackUrlObj instanceof String callbackUrl && !callbackUrl.isEmpty()) {
                 notifyCallbackUrl(callbackUrl, workflowRunId);
@@ -156,6 +184,7 @@ public class WorkflowRunnerService {
                 String runId = workflowRunId.toString();
                 String traceId = UUID.randomUUID().toString();
                 LogContextManager.init(runId, traceId);
+
                 try {
                     LogContextManager.withContext(runId, () -> {
                         webClient.post()
@@ -171,6 +200,22 @@ public class WorkflowRunnerService {
                     LogContextManager.cleanup(runId);
                 }
             });
+        }
+    }
+
+    private String getStartNodeKey(WorkflowNodes nodes, WorkflowRunnerRequest request, UUID triggerExecutorId) {
+        if (triggerExecutorId != null) {
+            return nodes.findByNodeId(triggerExecutorId).getKey();
+        }
+
+        if (request == null) {
+            return null;
+        }
+
+        if (request.startFromNodeKey() != null && nodes.findByInstanceKey(request.startFromNodeKey()) == null) {
+                throw new IllegalArgumentException("Invalid startFromNodeKey: " + request.startFromNodeKey());
+        } else {
+            return request.startFromNodeKey();
         }
     }
 }

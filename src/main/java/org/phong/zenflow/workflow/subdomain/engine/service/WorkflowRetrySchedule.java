@@ -21,11 +21,16 @@ public class WorkflowRetrySchedule {
     private static final long RETRY_DELAY_MILLIS = 5000; // Default retry delay in milliseconds
     private final SharedQuartzSchedulerService scheduler;
 
-    public void scheduleRetry(UUID workflowId, UUID workflowRunId, String nodeKey, Integer attempts) {
+    public void scheduleRetry(UUID workflowId,
+                              UUID workflowRunId,
+                              String nodeKey,
+                              Integer attempts,
+                              String callbackUrl) {
         JobDataMap jobDataMap = new JobDataMap();
         jobDataMap.put("workflowId", workflowId.toString());
         jobDataMap.put("workflowRunId", workflowRunId.toString());
         jobDataMap.put("nodeKey", nodeKey);
+        jobDataMap.put("callbackUrl", callbackUrl);
 
         String jobId = workflowRunId + ":" + nodeKey;
         String triggerId = "trigger-" + jobId;

@@ -8,5 +8,9 @@ public enum NodeExecutionStatus {
     RETRYING,
     NEXT,
     LOOP_NEXT,
-    LOOP_END,
+    LOOP_END;
+
+    public boolean isFailure() {
+        return this == ERROR || this == RETRYING;
+    }
 }

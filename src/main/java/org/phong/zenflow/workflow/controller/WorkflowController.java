@@ -4,14 +4,16 @@ import lombok.RequiredArgsConstructor;
 import org.phong.zenflow.core.responses.RestApiResponse;
 import org.phong.zenflow.workflow.dto.CreateWorkflowRequest;
 import org.phong.zenflow.workflow.dto.UpdateWorkflowRequest;
-import org.phong.zenflow.workflow.dto.UpsertWorkflowDefinition;
+import org.phong.zenflow.workflow.dto.WorkflowDefinitionChangeRequest;
 import org.phong.zenflow.workflow.dto.WorkflowDto;
 import org.phong.zenflow.workflow.service.WorkflowService;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
+import org.phong.zenflow.workflow.dto.ExecuteWorkflowResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.validation.Valid;
 import java.util.List;
@@ -117,19 +119,21 @@ public class WorkflowController {
     }
 
     @PostMapping("/{id}/nodes")
-    public ResponseEntity<RestApiResponse<WorkflowDefinition>> upsertNodes(
+    @Transactional
+    public ResponseEntity<RestApiResponse<WorkflowDefinition>> updateWorkflowDefinition(
             @PathVariable UUID id,
-            @RequestBody UpsertWorkflowDefinition definition) {
-        WorkflowDefinition updatedDefinition = workflowService.upsertNodes(id, definition);
-        return RestApiResponse.success(updatedDefinition, "Workflow nodes updated successfully");
+            @RequestBody WorkflowDefinitionChangeRequest request) {
+        WorkflowDefinition updatedDefinition = workflowService.updateWorkflowDefinition(id, request);
+        return RestApiResponse.success(updatedDefinition, "Workflow definition updated successfully");
     }
 
-    @DeleteMapping("/{id}/nodes/{nodeKey}")
-    public ResponseEntity<RestApiResponse<WorkflowDefinition>> removeNode(
-            @PathVariable UUID id,
-            @PathVariable String nodeKey) {
-        WorkflowDefinition updatedDefinition = workflowService.removeNode(id, nodeKey);
-        return RestApiResponse.success(updatedDefinition, "Workflow node removed successfully");
+    @PostMapping("/{id}/nodes/{nodeKey}/execute")
+    public ResponseEntity<RestApiResponse<ExecuteWorkflowResponse>> executeWorkflow(@PathVariable UUID id, @PathVariable String nodeKey) {
+        UUID workflowRunId = workflowService.executeWorkflow(id, nodeKey);
+        return RestApiResponse.success(
+                ExecuteWorkflowResponse.of(workflowRunId),
+                "Workflow executed successfully"
+        );
     }
 
     @DeleteMapping("/{id}/nodes/clear")
