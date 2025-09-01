@@ -1,6 +1,7 @@
 package org.phong.zenflow.workflow.subdomain.trigger.services;
 
 import lombok.AllArgsConstructor;
+import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.repository.WorkflowTriggerRepository;
@@ -26,7 +27,11 @@ public class TriggerContextImpl implements TriggerContext {
                 TriggerType.EVENT,
                 triggerExecutorId,
                 workflowId,
-                null
+                new WorkflowRunnerRequest(
+                        null,
+                        null,
+                        payload
+                )
         ));
     }
 

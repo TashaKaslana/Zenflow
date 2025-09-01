@@ -63,5 +63,6 @@ public class TestSetup extends AbstractIntegrationTest {
         System.out.println("Users: " + ContextSetupHolder.get("users"));
         System.out.println("Projects: " + ContextSetupHolder.get("projects"));
         System.out.println("Workflows: " + ContextSetupHolder.get("workflows"));
+        System.out.println("UpsertNode: " + ContextSetupHolder.get("upsertedNodeCount"));
     }
 }

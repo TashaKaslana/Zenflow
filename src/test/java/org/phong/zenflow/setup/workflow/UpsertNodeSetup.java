@@ -5,12 +5,15 @@ import org.phong.zenflow.setup.ContextSetupHolder;
 import org.phong.zenflow.workflow.dto.WorkflowDefinitionChangeRequest;
 import org.phong.zenflow.workflow.service.WorkflowService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Component
 public class UpsertNodeSetup {
@@ -23,23 +26,27 @@ public class UpsertNodeSetup {
     @SuppressWarnings("unchecked")
     public void setupWorkflowDefinitions() {
         Map<String, UUID> o = (Map<String, UUID>) ContextSetupHolder.get("workflows");
+        UUID workflowId = o.get("standard-workflow");
+        AtomicInteger i = new AtomicInteger(0);
 
-        workflowService.updateWorkflowDefinition(o.get("standard-workflow"), firstWorkflowDefinition());
-    }
-
-    private WorkflowDefinitionChangeRequest firstWorkflowDefinition() {
         try {
-            InputStream inputStream = getClass().getClassLoader()
-                    .getResourceAsStream("test-data/standard-workflow-definitions-test.json");
+            PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
+            Resource[] resources = resolver.getResources("classpath:test-data/*.json");
 
-            if (inputStream == null) {
-                throw new RuntimeException("Could not find standard-workflow-definitions-test.json in test resources");
+            for (Resource resource : resources) {
+                try (InputStream inputStream = resource.getInputStream()) {
+                    WorkflowDefinitionChangeRequest request = objectMapper.readValue(inputStream, WorkflowDefinitionChangeRequest.class);
+                    workflowService.updateWorkflowDefinition(workflowId, request);
+                    i.getAndIncrement();
+                } catch (IOException e) {
+                    // Log a warning instead of throwing an exception
+                    System.err.println("Failed to process workflow definition from " + resource.getFilename() + ": " + e.getMessage());
+                }
             }
-
-            // Directly deserialize JSON into WorkflowDefinitionChangeRequest - simpler and more realistic
-            return objectMapper.readValue(inputStream, WorkflowDefinitionChangeRequest.class);
         } catch (IOException e) {
-            throw new RuntimeException("Failed to read workflow definition from JSON file", e);
+            // Log a warning if the resource path is invalid
+            System.err.println("Failed to scan for workflow definition files: " + e.getMessage());
         }
+        ContextSetupHolder.set("upsertedNodeCount", i.get());
     }
 }
