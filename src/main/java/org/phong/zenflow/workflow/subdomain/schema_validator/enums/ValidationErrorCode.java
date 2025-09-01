@@ -23,6 +23,7 @@ public enum ValidationErrorCode {
     UNREACHABLE_NODE("Node is unreachable from the start node"),
     DISCONNECTED_GRAPH("Workflow has isolated or disconnected components"),
     INVALID_INPUT_STRUCTURE("Input definition is not well-formed"),
+    INVALID_INPUT_VALUE("Input value does not match expected type or format"),
 
     // === Runtime Phase Errors ===
     RUNTIME_VALIDATION_FAILED("Runtime validation failed"),

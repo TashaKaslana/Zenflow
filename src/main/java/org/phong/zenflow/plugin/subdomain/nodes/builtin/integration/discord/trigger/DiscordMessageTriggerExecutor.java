@@ -3,11 +3,17 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.discord.tri
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.exceptions.InvalidTokenException;
+import net.dv8tion.jda.api.hooks.EventListener;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.discord.share.DiscordJdaResourceManager;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
+import org.phong.zenflow.workflow.subdomain.schema_validator.enums.ValidationErrorCode;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContext;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerExecutor;
@@ -73,7 +79,7 @@ public class DiscordMessageTriggerExecutor implements TriggerExecutor {
             log.debug("Registered DiscordMessageListenerHub for key: {}", resourceKey);
         }
 
-        jda.addEventListener((net.dv8tion.jda.api.hooks.EventListener) event ->
+        jda.addEventListener((EventListener) event ->
                 log.info("JDA event: {}", event.getClass().getSimpleName())
         );
 
@@ -110,6 +116,58 @@ public class DiscordMessageTriggerExecutor implements TriggerExecutor {
         output.put("triggered_at", System.currentTimeMillis());
 
         return ExecutionResult.success(output);
+    }
+
+    //TODO:need optimization, this is draft pre-validate key
+    @Override
+    @SuppressWarnings("unused")
+    public List<ValidationError> validateDefinition(WorkflowConfig config) {
+        List<ValidationError> errors = new ArrayList<>();
+        String botToken = config.input().get("bot_token").toString();
+        if (botToken == null || botToken.isBlank()) {
+            errors.add(ValidationError.builder()
+                    .message("bot_token is required and must be a valid Discord bot token.")
+                    .path("bot_token")
+                    .errorCode(ValidationErrorCode.MISSING_REQUIRED_FIELD)
+                    .build());
+            return errors;
+        }
+
+        JDA jda = null;
+        try {
+            jda = JDABuilder.createDefault(botToken).build();
+        } catch (InvalidTokenException e) {
+            log.debug(e.getMessage());
+            errors.add(ValidationError.builder()
+                    .message("Invalid Discord bot token provided.")
+                    .path("bot_token")
+                    .errorCode(ValidationErrorCode.INVALID_INPUT_VALUE)
+                    .build());
+        }
+
+        String channelId = (String) config.input().get("channel_id");
+        if (channelId == null || channelId.isBlank()) {
+            errors.add(ValidationError.builder()
+                    .message("channel_id is required and must be a valid Discord channel ID.")
+                    .path("channel_id")
+                    .errorCode(ValidationErrorCode.MISSING_REQUIRED_FIELD)
+                    .build());
+        } else if (jda != null) {
+            try {
+                TextChannel channel = jda.getTextChannelById(channelId);
+            } catch (Exception e) {
+                log.debug(e.getMessage());
+                errors.add(ValidationError.builder()
+                        .message("channel_id does not correspond to a valid Discord text channel.")
+                        .path("channel_id")
+                        .errorCode(ValidationErrorCode.INVALID_INPUT_VALUE)
+                        .build());
+            } finally {
+                jda.shutdownNow();
+            }
+        }
+
+        return errors;
     }
 
     /**

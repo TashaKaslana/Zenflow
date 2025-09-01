@@ -117,6 +117,7 @@ public class WorkflowTriggerService {
      */
     private void updateExistingTrigger(WorkflowTrigger trigger, BaseWorkflowNode node, TriggerType triggerType) {
         Map<String, Object> newConfig = node.getConfig().input();
+        Map<String, Object> oldConfig = trigger.getConfig();
         TriggerType oldType = trigger.getType();
 
         // Always update the config - no comparison needed, just overwrite
@@ -126,7 +127,7 @@ public class WorkflowTriggerService {
         triggerRepository.save(trigger);
 
         // Manage schedule registration
-        manageTriggerRunning(oldType, trigger);
+        manageTriggerRunning(oldConfig, newConfig, oldType, trigger);
 
         log.info("Updated existing trigger for node ID: {} with new configuration", trigger.getTriggerExecutorId());
     }
@@ -199,20 +200,22 @@ public class WorkflowTriggerService {
         WorkflowTrigger trigger = triggerRepository.findById(triggerId)
                 .orElseThrow(() -> new WorkflowTriggerException.WorkflowTriggerNotFound(triggerId.toString()));
 
+        Map<String, Object> oldConfig = trigger.getConfig();
+        Map<String, Object> newConfig = request.getConfig();
 
         triggerMapper.updateEntity(request, trigger);
         trigger = triggerRepository.save(trigger);
 
-        manageTriggerRunning(request.getType(), trigger);
+        manageTriggerRunning(oldConfig, newConfig, request.getType(), trigger);
 
         log.info("Updated workflow trigger with ID: {}", triggerId);
         return triggerMapper.toDto(trigger);
     }
 
-    private void manageTriggerRunning(TriggerType oldType, WorkflowTrigger trigger) {
+    private void manageTriggerRunning(Map<String, Object> oldConfig, Map<String, Object> newConfig, TriggerType oldType, WorkflowTrigger trigger) {
         // Handle schedule trigger changes
-        boolean typeChanged = oldType != null && oldType != trigger.getType();
-        if (!typeChanged) {
+        boolean isChange = (oldType != null && oldType != trigger.getType()) || (!oldConfig.equals(newConfig));
+        if (!isChange) {
             return; // No type change, no action needed
         }
 

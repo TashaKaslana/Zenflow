@@ -6,9 +6,7 @@ import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.repository.WorkflowTriggerRepository;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContext;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.core.task.TaskExecutor;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
