@@ -23,13 +23,14 @@ public class DiscordJdaResourceManager extends BaseTriggerResourceManager<JDA> {
             log.info("Creating new JDA instance for bot token: {}...", botToken.substring(0, 8));
 
             JDA jda = JDABuilder.createDefault(botToken)
-                    .enableIntents(GatewayIntent.MESSAGE_CONTENT)
+                    .enableIntents(
+                            GatewayIntent.GUILD_MESSAGES,
+                            GatewayIntent.MESSAGE_CONTENT,
+                            GatewayIntent.DIRECT_MESSAGES
+                    )
                     .build();
 
-            // Wait for JDA to be ready
-            jda.awaitReady();
-
-            log.info("JDA instance created and ready for token: {}...", botToken.substring(0, 8));
+            log.info("JDA instance is building for token: {}...", botToken.substring(0, 8));
             return jda;
 
         } catch (Exception e) {

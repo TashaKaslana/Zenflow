@@ -147,10 +147,5 @@ management:
 #      fasterxml:
 #        jackson:
 #          databind: DEBUG
-#    root: INFO
-#    org:
-#      phong:
-#        horizon: DEBUG
-#    com:
-#      fasterxml:
-#        jackson: DEBUG
+#    root: DEBUG
+#    org.phong.zenflow: DEBUG

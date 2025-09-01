@@ -38,16 +38,19 @@ public class DiscordMessageListenerHub extends ListenerAdapter {
     public void onMessageReceived(@NotNull MessageReceivedEvent event) {
         UUID triggerId = null;
         String channelId = event.getChannel().getId();
+        log.info("Received message in channel {}: {}", channelId, event.getMessage().getContentDisplay());
 
         try {
             DiscordMessageContext discordMessageContext = listenerMap.get(channelId);
             if (discordMessageContext == null) {
                 // No listener registered for this channel - this is normal
+                log.debug("No listener registered for channel: {}, ignoring message.", channelId);
                 return;
             }
 
             // Apply filters from config
             if (!shouldTrigger(discordMessageContext.config(), event)) {
+                log.debug("Message in channel {} did not pass filters, ignoring.", channelId);
                 return;
             }
 
@@ -72,7 +75,6 @@ public class DiscordMessageListenerHub extends ListenerAdapter {
         }
     }
 
-
     private boolean shouldTrigger(Map<String, Object> config, MessageReceivedEvent event) {
         String contentFilter = (String) config.get("content_contains");
         if (contentFilter != null && !event.getMessage().getContentDisplay().contains(contentFilter)) {
@@ -80,7 +82,8 @@ public class DiscordMessageListenerHub extends ListenerAdapter {
         }
 
         Boolean ignoreBotsConfig = (Boolean) config.get("ignore_bots");
-        return !Boolean.TRUE.equals(ignoreBotsConfig) || !event.getAuthor().isBot();
+        return !Boolean.TRUE.equals(ignoreBotsConfig) &&
+                !event.getAuthor().getId().equals(event.getJDA().getSelfUser().getId());
     }
 
     @NotNull

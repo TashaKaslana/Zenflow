@@ -60,14 +60,22 @@ public class DiscordMessageTriggerExecutor implements TriggerExecutor {
         DefaultTriggerResourceConfig config = new DefaultTriggerResourceConfig(trigger, "bot_token");
         String resourceKey = config.getResourceIdentifier();
 
-        // Get or create shared JDA instance
-        JDA jda = jdaResourceManager.getOrCreateResource(resourceKey, config);
+        JDA jda = jdaResourceManager.getOrCreateResource(resourceKey, config); // <-- capture the JDA
 
         // Register this trigger as using the resource
         jdaResourceManager.registerTriggerUsage(resourceKey, trigger.getId());
 
-        // Add hub listener to JDA if not already added (idempotent)
-        ensureHubListenerRegistered(resourceKey, jda);
+        // Attach the hub listener immediately (idempotent check)
+        boolean hubAlreadyRegistered = jda.getRegisteredListeners().stream()
+                .anyMatch(l -> l instanceof DiscordMessageListenerHub);
+        if (!hubAlreadyRegistered) {
+            jda.addEventListener(listenerHub);
+            log.debug("Registered DiscordMessageListenerHub for key: {}", resourceKey);
+        }
+
+        jda.addEventListener((net.dv8tion.jda.api.hooks.EventListener) event ->
+                log.info("JDA event: {}", event.getClass().getSimpleName())
+        );
 
         // Extract channel ID from trigger config
         String channelId = (String) trigger.getConfig().get("channel_id");
@@ -102,20 +110,6 @@ public class DiscordMessageTriggerExecutor implements TriggerExecutor {
         output.put("triggered_at", System.currentTimeMillis());
 
         return ExecutionResult.success(output);
-    }
-
-    /**
-     * Ensures the hub listener is registered with the JDA instance (idempotent operation)
-     */
-    private void ensureHubListenerRegistered(String resourceKey, JDA jda) {
-        // Check if hub is already registered as listener
-        boolean hubAlreadyRegistered = jda.getRegisteredListeners().stream()
-                .anyMatch(listener -> listener instanceof DiscordMessageListenerHub);
-
-        if (!hubAlreadyRegistered) {
-            jda.addEventListener(listenerHub);
-            log.debug("Registered DiscordMessageListenerHub with JDA instance for key: {}", resourceKey);
-        }
     }
 
     /**

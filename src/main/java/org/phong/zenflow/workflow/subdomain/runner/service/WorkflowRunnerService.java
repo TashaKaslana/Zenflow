@@ -5,6 +5,8 @@ import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.log.auditlog.annotations.AuditLog;
 import org.phong.zenflow.log.auditlog.enums.AuditAction;
+import org.phong.zenflow.core.utils.MapUtils;
+import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.secret.service.SecretService;
 import org.phong.zenflow.workflow.exception.WorkflowException;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
@@ -154,7 +156,11 @@ public class WorkflowRunnerService {
             }
 
             if (request != null && request.payload() != null && startNodeKey != null) {
-                initialContext.put(String.format("%s.output", startNodeKey), request.payload());
+                Map<String, Object> payload = ObjectConversion.convertObjectToMap(request.payload());
+                Map<String, Object> flattenedPayload = MapUtils.flattenMap(payload);
+                for (Map.Entry<String, Object> entry : flattenedPayload.entrySet()) {
+                    initialContext.put(String.format("%s.output.payload.%s", startNodeKey, entry.getKey()), entry.getValue());
+                }
             }
 
             context.initialize(initialContext, consumers, aliasMap);

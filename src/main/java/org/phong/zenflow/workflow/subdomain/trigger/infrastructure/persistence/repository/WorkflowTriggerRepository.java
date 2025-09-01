@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
@@ -23,6 +24,7 @@ public interface WorkflowTriggerRepository extends JpaRepository<WorkflowTrigger
 
     Optional<WorkflowTrigger> findByWorkflowIdAndTriggerExecutorId(UUID workflowId, UUID nodeId);
 
+    @Transactional
     @Modifying
     @Query(
             "UPDATE WorkflowTrigger t SET t.lastTriggeredAt = :now WHERE t.id = :triggerId"
