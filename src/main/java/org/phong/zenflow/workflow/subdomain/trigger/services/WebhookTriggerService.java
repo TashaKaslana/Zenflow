@@ -64,7 +64,7 @@ public class WebhookTriggerService {
                 TriggerType.WEBHOOK,
                 trigger.getTriggerExecutorId(),
                 workflowId,
-                new WorkflowRunnerRequest(callbackUrl, null)
+                new WorkflowRunnerRequest(callbackUrl, null, payload)
         ));
 
         return run.getId();

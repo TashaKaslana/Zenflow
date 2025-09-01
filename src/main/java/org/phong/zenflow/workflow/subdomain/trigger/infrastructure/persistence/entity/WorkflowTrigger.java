@@ -17,7 +17,7 @@ import org.hibernate.type.SqlTypes;
 import org.phong.zenflow.core.superbase.BaseFullAuditEntity;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
@@ -51,7 +51,7 @@ public class WorkflowTrigger extends BaseFullAuditEntity {
     private Boolean enabled = false;
 
     @Column(name = "last_triggered_at")
-    private OffsetDateTime lastTriggeredAt;
+    private Instant lastTriggeredAt;
 
     @NotNull
     @Column(name = "type", nullable = false)

@@ -115,9 +115,9 @@ public class WorkflowRunnerService {
                     ));
             Map<String, String> aliasMap = metadata.aliases();
 
-            initializeContext(workflowRunId, workflowId, request, workflowRun, context, consumers, aliasMap);
-
             String startFromNodeKey = getStartNodeKey(workflow.getDefinition().nodes(), request, triggerExecutorId);
+            initializeContext(workflowRunId, workflowId, request, workflowRun, context, consumers, aliasMap, startFromNodeKey);
+
             WorkflowExecutionStatus status = workflowEngineService.runWorkflow(workflow, workflowRunId, startFromNodeKey, context);
 
             handleWorkflowExecutionStatus(workflowRunId, workflowId, status, context);
@@ -141,7 +141,8 @@ public class WorkflowRunnerService {
                                    WorkflowRun workflowRun,
                                    RuntimeContext context,
                                    Map<String, Set<String>> consumers,
-                                   Map<String, String> aliasMap) {
+                                   Map<String, String> aliasMap,
+                                   String startNodeKey) {
         if (workflowRun.getContext() == null || workflowRun.getContext().isEmpty()) {
             // First run: ensure the run is started and create a new context
             log.debug("No existing context found for workflow run ID: {}. Starting new run.", workflowRunId);
@@ -151,6 +152,11 @@ public class WorkflowRunnerService {
             if (request != null && request.callbackUrl() != null && !request.callbackUrl().isEmpty()) {
                 initialContext.put(ExecutionContextKey.CALLBACK_URL, request.callbackUrl());
             }
+
+            if (request != null && request.payload() != null && startNodeKey != null) {
+                initialContext.put(String.format("%s.output", startNodeKey), request.payload());
+            }
+
             context.initialize(initialContext, consumers, aliasMap);
         } else {
             // Resumed run: load existing context

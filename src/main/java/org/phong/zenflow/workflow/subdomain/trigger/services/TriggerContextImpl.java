@@ -8,9 +8,9 @@ import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.r
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContext;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.UUID;
 
@@ -36,7 +36,8 @@ public class TriggerContextImpl implements TriggerContext {
     }
 
     @Override
+    @Transactional
     public void markTriggered(UUID triggerId, Instant at) {
-        repo.updateLastTriggeredAt(triggerId, OffsetDateTime.from(at));
+        repo.updateLastTriggeredAt(triggerId, at);
     }
 }

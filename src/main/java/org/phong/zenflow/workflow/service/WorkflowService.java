@@ -29,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -75,6 +76,12 @@ public class WorkflowService {
     @Transactional
     @AuditLog(action = AuditAction.WORKFLOW_EXECUTE)
     public UUID executeWorkflow(UUID workflowId, String startNodeKey) {
+        return executeWorkflow(workflowId, startNodeKey, null);
+    }
+
+    @Transactional
+    @AuditLog(action = AuditAction.WORKFLOW_EXECUTE)
+    public UUID executeWorkflow(UUID workflowId, String startNodeKey, Map<String, Object> payload) {
         UUID workflowRunId = UUID.randomUUID();
         String callbackUrl = "/workflow-runs/" + workflowRunId;
 
@@ -83,7 +90,7 @@ public class WorkflowService {
                 TriggerType.MANUAL,
                 workflowId,
                 new WorkflowRunnerRequest(
-                        callbackUrl, startNodeKey
+                        callbackUrl, startNodeKey, payload
                 )
         ));
 

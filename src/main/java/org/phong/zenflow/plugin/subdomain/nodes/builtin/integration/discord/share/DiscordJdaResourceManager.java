@@ -3,6 +3,7 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.discord.sha
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.requests.GatewayIntent;
 import org.phong.zenflow.workflow.subdomain.trigger.resource.BaseTriggerResourceManager;
 import org.phong.zenflow.workflow.subdomain.trigger.resource.TriggerResourceConfig;
 import org.springframework.stereotype.Component;
@@ -22,6 +23,7 @@ public class DiscordJdaResourceManager extends BaseTriggerResourceManager<JDA> {
             log.info("Creating new JDA instance for bot token: {}...", botToken.substring(0, 8));
 
             JDA jda = JDABuilder.createDefault(botToken)
+                    .enableIntents(GatewayIntent.MESSAGE_CONTENT)
                     .build();
 
             // Wait for JDA to be ready

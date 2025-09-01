@@ -22,7 +22,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -273,7 +273,7 @@ public class WorkflowTriggerService {
         WorkflowTrigger trigger = triggerRepository.findById(triggerId)
                 .orElseThrow(() -> new WorkflowTriggerException.WorkflowTriggerNotFound(triggerId.toString()));
 
-        trigger.setLastTriggeredAt(OffsetDateTime.now());
+        trigger.setLastTriggeredAt(Instant.now());
         return triggerRepository.save(trigger);
     }
 

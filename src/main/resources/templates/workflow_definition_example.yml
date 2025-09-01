@@ -70,4 +70,4 @@ upsert:
           - node2
         alias:
           - yahooEmail
-  delete: ["node4", "node5"]
+  remove: ["node4", "node5"]
