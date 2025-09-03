@@ -4,7 +4,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Cache for storing last polling responses for change detection.
- * Managed by PollingResponseCacheManager using BaseTriggerResourceManager pattern.
+ * Managed by {@link PollingResponseCacheManager} using the BaseNodeResourceManager pattern.
  */
 public class PollingResponseCache {
     private final ConcurrentHashMap<String, Object> cache = new ConcurrentHashMap<>();

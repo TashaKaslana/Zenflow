@@ -6,6 +6,8 @@ import org.phong.zenflow.plugin.subdomain.execution.exceptions.ExecutorException
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.dto.DbConnectionKey;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.dto.ResolvedDbConfig;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.pool.GlobalDbConnectionPool;
+import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
+import com.zaxxer.hikari.HikariDataSource;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
@@ -38,8 +40,11 @@ public class BaseDbConnection {
             if (ds == null) {
                 logPublisher.info("Creating new DataSource for connectionId: {}", connectionId);
                 DbConnectionKey key = dbConfig.toConnectionKey();
-                ds = globalPool.getOrCreate(key, dbConfig.getPassword());
+                ScopedNodeResource<HikariDataSource> handle =
+                        globalPool.acquire(key.toString(), context.getWorkflowRunId(), new GlobalDbConnectionPool.DbConfig(key, dbConfig.getPassword()));
+                ds = handle.getResource();
                 storeInContext(context, connectionId, ds);
+                context.write(buildDbKey(connectionId) + ":handle", handle);
             }
 
             dbConfig.setDataSource(ds);

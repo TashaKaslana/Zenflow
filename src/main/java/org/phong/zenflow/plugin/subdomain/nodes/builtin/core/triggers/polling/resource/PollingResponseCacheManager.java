@@ -1,20 +1,20 @@
 package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.triggers.polling.resource;
 
 import lombok.extern.slf4j.Slf4j;
-import org.phong.zenflow.workflow.subdomain.trigger.resource.BaseTriggerResourceManager;
-import org.phong.zenflow.workflow.subdomain.trigger.resource.TriggerResourceConfig;
+import org.phong.zenflow.plugin.subdomain.resource.BaseNodeResourceManager;
+import org.phong.zenflow.workflow.subdomain.trigger.resource.DefaultTriggerResourceConfig;
 import org.springframework.stereotype.Component;
 
 /**
  * Resource manager for polling trigger response caching.
- * Uses the generic BaseTriggerResourceManager pattern for consistent resource management.
+ * Uses the generic {@link BaseNodeResourceManager} pattern for consistent resource management.
  */
 @Slf4j
 @Component
-public class PollingResponseCacheManager extends BaseTriggerResourceManager<PollingResponseCache> {
+public class PollingResponseCacheManager extends BaseNodeResourceManager<PollingResponseCache, DefaultTriggerResourceConfig> {
 
     @Override
-    protected PollingResponseCache createResource(String resourceKey, TriggerResourceConfig config) {
+    protected PollingResponseCache createResource(String resourceKey, DefaultTriggerResourceConfig config) {
         log.info("Creating polling response cache for key: {}", resourceKey);
         return new PollingResponseCache();
     }
@@ -27,6 +27,7 @@ public class PollingResponseCacheManager extends BaseTriggerResourceManager<Poll
 
     @Override
     protected boolean checkResourceHealth(PollingResponseCache cache) {
-        return cache != null && !cache.isEmpty();
+        // An empty cache is still healthy; we only report unhealthy if null
+        return cache != null;
     }
 }

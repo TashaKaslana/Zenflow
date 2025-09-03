@@ -18,7 +18,8 @@ import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.e
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContext;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerExecutor;
 import org.phong.zenflow.workflow.subdomain.trigger.resource.DefaultTriggerResourceConfig;
-import org.phong.zenflow.workflow.subdomain.trigger.resource.TriggerResourceManager;
+import org.phong.zenflow.plugin.subdomain.resource.NodeResourcePool;
+import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
@@ -47,7 +48,7 @@ public class DiscordMessageTriggerExecutor implements TriggerExecutor {
     }
 
     @Override
-    public Optional<TriggerResourceManager<?>> getResourceManager() {
+    public Optional<NodeResourcePool<?, ?>> getResourceManager() {
         return Optional.of(jdaResourceManager);
     }
 
@@ -66,10 +67,8 @@ public class DiscordMessageTriggerExecutor implements TriggerExecutor {
         DefaultTriggerResourceConfig config = new DefaultTriggerResourceConfig(trigger, "bot_token");
         String resourceKey = config.getResourceIdentifier();
 
-        JDA jda = jdaResourceManager.getOrCreateResource(resourceKey, config); // <-- capture the JDA
-
-        // Register this trigger as using the resource
-        jdaResourceManager.registerTriggerUsage(resourceKey, trigger.getId());
+        ScopedNodeResource<JDA> handle = jdaResourceManager.acquire(resourceKey, trigger.getId(), config);
+        JDA jda = handle.getResource();
 
         // Attach the hub listener immediately (idempotent check)
         boolean hubAlreadyRegistered = jda.getRegisteredListeners().stream()
@@ -105,7 +104,7 @@ public class DiscordMessageTriggerExecutor implements TriggerExecutor {
         log.info("Discord trigger started successfully for trigger: {} on channel: {}",
                 trigger.getId(), channelId);
 
-        return new DiscordHubRunningHandle(resourceKey, channelId, trigger.getId(), jdaResourceManager, listenerHub);
+        return new DiscordHubRunningHandle(resourceKey, channelId, trigger.getId(), handle, jdaResourceManager, listenerHub);
     }
 
     @Override
@@ -177,16 +176,19 @@ public class DiscordMessageTriggerExecutor implements TriggerExecutor {
         private final String resourceKey;
         private final String channelId;
         private final UUID triggerId;
+        private final ScopedNodeResource<JDA> handle;
         private final DiscordJdaResourceManager resourceManager;
         private final DiscordMessageListenerHub listenerHub;
         private volatile boolean running = true;
 
         public DiscordHubRunningHandle(String resourceKey, String channelId, UUID triggerId,
+                                      ScopedNodeResource<JDA> handle,
                                       DiscordJdaResourceManager resourceManager,
                                       DiscordMessageListenerHub listenerHub) {
             this.resourceKey = resourceKey;
             this.channelId = channelId;
             this.triggerId = triggerId;
+            this.handle = handle;
             this.resourceManager = resourceManager;
             this.listenerHub = listenerHub;
         }
@@ -200,7 +202,7 @@ public class DiscordMessageTriggerExecutor implements TriggerExecutor {
                 listenerHub.removeListener(channelId);
 
                 // Unregister trigger usage (will cleanup JDA if no more triggers use it)
-                resourceManager.unregisterTriggerUsage(resourceKey, triggerId);
+                handle.close();
 
                 log.info("Discord trigger stopped: {} for channel: {}", triggerId, channelId);
             }

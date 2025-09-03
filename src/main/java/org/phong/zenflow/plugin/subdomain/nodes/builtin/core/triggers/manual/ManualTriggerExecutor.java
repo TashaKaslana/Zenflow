@@ -8,7 +8,7 @@ import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContext;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerExecutor;
-import org.phong.zenflow.workflow.subdomain.trigger.resource.TriggerResourceManager;
+import org.phong.zenflow.plugin.subdomain.resource.NodeResourcePool;
 import org.springframework.stereotype.Component;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
@@ -34,7 +34,7 @@ public class ManualTriggerExecutor implements TriggerExecutor {
     }
 
     @Override
-    public Optional<TriggerResourceManager<?>> getResourceManager() {
+    public Optional<NodeResourcePool<?, ?>> getResourceManager() {
         return Optional.empty(); // Manual triggers don't need resource pooling
     }
 

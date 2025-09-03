@@ -12,6 +12,7 @@ import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.discord.share.DiscordJdaResourceManager;
+import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
@@ -48,11 +49,12 @@ public class DiscordMessageExecutor implements PluginNodeExecutor {
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher logs = context.getLogPublisher();
 
+        String botToken = null;
         try {
             Map<String, Object> input = config.input();
 
             // Extract required parameters
-            String botToken = (String) input.get("bot_token");
+            botToken = (String) input.get("bot_token");
             String channelId = (String) input.get("channel_id");
             String message = (String) input.get("message");
 
@@ -69,52 +71,43 @@ public class DiscordMessageExecutor implements PluginNodeExecutor {
 
             logs.info("Sending Discord message to channel: {}", channelId);
 
-            // Get JDA instance using the resource manager
-            JDA jda = getOrCreateJdaInstance(botToken);
+            Map<String, Object> configMap = new HashMap<>();
+            configMap.put("bot_token", botToken);
+            DefaultTriggerResourceConfig resourceConfig = new DefaultTriggerResourceConfig(configMap, "bot_token");
 
-            // Get the text channel
-            TextChannel channel = jda.getTextChannelById(channelId);
-            if (channel == null) {
-                logs.error("Channel not found or bot doesn't have access: {}", channelId);
-                return ExecutionResult.error("Channel not found or bot doesn't have access to channel: " + channelId);
+            try (ScopedNodeResource<JDA> handle = jdaResourceManager.acquire(botToken, context.getWorkflowRunId(), resourceConfig)) {
+                JDA jda = handle.getResource();
+
+                // Get the text channel
+                TextChannel channel = jda.getTextChannelById(channelId);
+                if (channel == null) {
+                    logs.error("Channel not found or bot doesn't have access: {}", channelId);
+                    return ExecutionResult.error("Channel not found or bot doesn't have access to channel: " + channelId);
+                }
+
+                // Create message
+                MessageCreateData messageData = createMessage(input, message);
+
+                // Send message and get response
+                Message sentMessage = channel.sendMessage(messageData).complete();
+
+                logs.success("Message sent successfully to channel: {}", channelId);
+
+                // Return response with message details
+                Map<String, Object> output = new HashMap<>();
+                output.put("message_id", sentMessage.getId());
+                output.put("channel_id", channelId);
+                output.put("timestamp", sentMessage.getTimeCreated().toString());
+                output.put("content", sentMessage.getContentDisplay());
+
+                return ExecutionResult.success(output);
             }
-
-            // Create message
-            MessageCreateData messageData = createMessage(input, message);
-
-            // Send message and get response
-            Message sentMessage = channel.sendMessage(messageData).complete();
-
-            logs.success("Message sent successfully to channel: {}", channelId);
-
-            // Return response with message details
-            Map<String, Object> output = new HashMap<>();
-            output.put("message_id", sentMessage.getId());
-            output.put("channel_id", channelId);
-            output.put("timestamp", sentMessage.getTimeCreated().toString());
-            output.put("content", sentMessage.getContentDisplay());
-
-            return ExecutionResult.success(output);
 
         } catch (Exception e) {
             logs.withException(e).error("Failed to send Discord message: {}", e.getMessage());
             log.error("Discord message send error", e);
             return ExecutionResult.error("Failed to send Discord message: " + e.getMessage());
         }
-    }
-
-    /**
-     * Gets or creates a JDA instance using the resource manager
-     */
-    private JDA getOrCreateJdaInstance(String botToken) {
-        // Create a config map with the bot token
-        Map<String, Object> configMap = new HashMap<>();
-        configMap.put("bot_token", botToken);
-
-        // Create resource config using the map and key field
-        DefaultTriggerResourceConfig resourceConfig = new DefaultTriggerResourceConfig(configMap, "bot_token");
-
-        return jdaResourceManager.getOrCreateResource(botToken, resourceConfig);
     }
 
     /**
