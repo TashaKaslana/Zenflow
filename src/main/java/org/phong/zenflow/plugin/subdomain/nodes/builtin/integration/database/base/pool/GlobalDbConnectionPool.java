@@ -1,23 +1,34 @@
 package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.pool;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.dto.DbConnectionKey;
+import org.phong.zenflow.plugin.subdomain.resource.BaseNodeResourceManager;
 import org.springframework.stereotype.Component;
 
-import java.time.Duration;
-
+/**
+ * Global pool for database connections following the {@link BaseNodeResourceManager}
+ * pattern. Provides shared {@link HikariDataSource} instances keyed by
+ * {@link DbConnectionKey}.
+ */
 @Component
-public class GlobalDbConnectionPool {
-    private final Cache<DbConnectionKey, HikariDataSource> poolCache = Caffeine.newBuilder()
-            .maximumSize(500)
-            .expireAfterAccess(Duration.ofMinutes(10))
-            .build();
+public class GlobalDbConnectionPool extends BaseNodeResourceManager<HikariDataSource, GlobalDbConnectionPool.DbConfig> {
 
+    /**
+     * Get or create a {@link HikariDataSource} for the given connection key.
+     */
     public HikariDataSource getOrCreate(DbConnectionKey key, String password) {
-        return poolCache.get(key, k -> createDataSource(k, password));
+        return getOrCreateResource(key.toString(), new DbConfig(key, password));
+    }
+
+    @Override
+    protected HikariDataSource createResource(String resourceKey, DbConfig config) {
+        return createDataSource(config.key(), config.password());
+    }
+
+    @Override
+    protected void cleanupResource(HikariDataSource resource) {
+        resource.close();
     }
 
     private HikariDataSource createDataSource(DbConnectionKey key, String password) {
@@ -25,10 +36,7 @@ public class GlobalDbConnectionPool {
         config.setJdbcUrl("jdbc:" + key.getDatabaseSource());
         config.setUsername(key.getUsername());
         config.setPassword(password);
-
-        // Set appropriate driver class name for better performance
         config.setDriverClassName(getDriverClassName(key.getDriver()));
-
         return new HikariDataSource(config);
     }
 
@@ -41,4 +49,6 @@ public class GlobalDbConnectionPool {
             default -> null; // Let HikariCP auto-detect
         };
     }
+
+    public static record DbConfig(DbConnectionKey key, String password) {}
 }

@@ -8,6 +8,7 @@ import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContext;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerExecutor;
 import org.phong.zenflow.workflow.subdomain.trigger.registry.TriggerRegistry;
 import org.springframework.stereotype.Service;
+import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -52,15 +53,30 @@ public class TriggerOrchestrator {
                 return;
             }
 
-            // Handle resource management if the trigger needs it (following BaseDbConnection pattern)
-            handleResourceRegistration(executor, t);
-
-            // Start the trigger
-            var handle = executor.start(t, ctx);
-            running.put(t.getId(), handle);
-
-            log.info("Started trigger {} (executor: {}) for workflow {}",
-                    t.getId(), triggerExecutorId, t.getWorkflowId());
+            // Handle resource management if the trigger needs it
+            executor.getResourceManager().ifPresentOrElse(resourceManager ->
+                    executor.getResourceKey(t).ifPresent(resourceKey -> {
+                        var resourceHandle = resourceManager.acquire(resourceKey, t.getId(), null);
+                        try {
+                            var delegate = executor.start(t, ctx);
+                            running.put(t.getId(), new ResourceAwareRunningHandle(delegate, resourceHandle));
+                            log.info("Started trigger {} (executor: {}) for workflow {}",
+                                    t.getId(), triggerExecutorId, t.getWorkflowId());
+                        } catch (Exception e) {
+                            resourceHandle.close();
+                            throw new RuntimeException(e);
+                        }
+                    }),
+                    () -> {
+                        try {
+                            var handle = executor.start(t, ctx);
+                            running.put(t.getId(), handle);
+                            log.info("Started trigger {} (executor: {}) for workflow {}",
+                                    t.getId(), triggerExecutorId, t.getWorkflowId());
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
 
         } catch (Exception e) {
             log.error("Failed to start trigger {}: {}", t.getId(), e.getMessage(), e);
@@ -72,8 +88,6 @@ public class TriggerOrchestrator {
         if (handle != null) {
             try {
                 // Get the trigger from database to handle resource cleanup
-                repo.findById(triggerId).ifPresent(this::handleResourceUnregistration);
-
                 handle.stop();
                 log.info("Stopped trigger {}", triggerId);
             } catch (Exception e) {
@@ -86,8 +100,6 @@ public class TriggerOrchestrator {
         var handle = running.remove(trigger.getId());
         if (handle != null) {
             try {
-                handleResourceUnregistration(trigger);
-
                 handle.stop();
                 log.info("Stopped trigger {}:", trigger.getId());
             } catch (Exception e) {
@@ -123,57 +135,31 @@ public class TriggerOrchestrator {
         return status;
     }
 
-    /**
-     * Handle resource registration for triggers that need shared resources.
-     * This follows the same pattern as BaseDbConnection.establishConnection()
-     */
-    private void handleResourceRegistration(TriggerExecutor executor, WorkflowTrigger trigger) {
-        executor.getResourceManager().ifPresent(resourceManager ->
-                executor.getResourceKey(trigger).ifPresent(resourceKey -> {
-                    try {
-                        // Let the trigger executor handle its own resource configuration
-                        resourceManager.registerTriggerUsage(resourceKey, trigger.getId());
 
-                        log.debug("Registered trigger {} for resource key: {}", trigger.getId(), resourceKey);
-                    } catch (Exception e) {
-                        log.error("Failed to register resource usage for trigger {}: {}",
-                                trigger.getId(), e.getMessage(), e);
-                    }
-                }));
-    }
+    private static class ResourceAwareRunningHandle implements TriggerExecutor.RunningHandle {
+        private final TriggerExecutor.RunningHandle delegate;
+        private final ScopedNodeResource<?> resourceHandle;
 
-    /**
-     * Handle resource cleanup when stopping triggers.
-     * This follows the cleanup pattern similar to how DataSource connections are managed.
-     */
-    private void handleResourceUnregistration(WorkflowTrigger trigger) {
-        try {
-            UUID triggerExecutorId = trigger.getTriggerExecutorId();
-            if (triggerExecutorId == null) {
-                log.debug("No executor ID for trigger {}, skipping resource cleanup", trigger.getId());
-                return;
+        ResourceAwareRunningHandle(TriggerExecutor.RunningHandle delegate, ScopedNodeResource<?> resourceHandle) {
+            this.delegate = delegate;
+            this.resourceHandle = resourceHandle;
+        }
+
+        @Override
+        public void stop() {
+            try (resourceHandle) {
+                delegate.stop();
             }
+        }
 
-            // Get executor using the stored UUID (cast to string for flexibility)
-            TriggerExecutor executor = registry.getRegistry(triggerExecutorId.toString());
+        @Override
+        public String getStatus() {
+            return delegate.getStatus();
+        }
 
-            if (executor != null) {
-                executor.getResourceManager().ifPresent(resourceManager ->
-                        executor.getResourceKey(trigger).ifPresent(resourceKey -> {
-                            try {
-                                // Unregister usage - resource will be cleaned up automatically if no more users
-                                resourceManager.unregisterTriggerUsage(resourceKey, trigger.getId());
-                                log.debug("Unregistered trigger {} from resource key: {}",
-                                        trigger.getId(), resourceKey);
-                            } catch (Exception e) {
-                                log.error("Failed to unregister resource usage for trigger {}: {}",
-                                        trigger.getId(), e.getMessage(), e);
-                            }
-                        }));
-            }
-        } catch (Exception e) {
-            log.error("Error during resource unregistration for trigger {}: {}",
-                    trigger.getId(), e.getMessage(), e);
+        @Override
+        public boolean isRunning() {
+            return delegate.isRunning();
         }
     }
 }

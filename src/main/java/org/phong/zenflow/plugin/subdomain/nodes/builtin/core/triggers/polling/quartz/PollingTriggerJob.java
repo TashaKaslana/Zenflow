@@ -70,7 +70,6 @@ public class PollingTriggerJob implements Job {
             DefaultTriggerResourceConfig resourceConfig = new DefaultTriggerResourceConfig(cacheConfig, "triggerId");
 
             PollingResponseCache responseCache = cacheManager.getOrCreateResource(cacheKey, resourceConfig);
-            cacheManager.registerTriggerUsage(cacheKey, triggerId);
 
             // Check for changes
             Object previousData = responseCache.get("lastResponse");

@@ -12,7 +12,7 @@ import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContext;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerExecutor;
-import org.phong.zenflow.workflow.subdomain.trigger.resource.TriggerResourceManager;
+import org.phong.zenflow.plugin.subdomain.resource.NodeResourcePool;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,7 +43,7 @@ public class WorkflowTriggerExecutor implements TriggerExecutor {
     }
 
     @Override
-    public Optional<TriggerResourceManager<?>> getResourceManager() {
+    public Optional<NodeResourcePool<?, ?>> getResourceManager() {
         return Optional.empty(); // Workflow triggers don't need resource pooling
     }
 

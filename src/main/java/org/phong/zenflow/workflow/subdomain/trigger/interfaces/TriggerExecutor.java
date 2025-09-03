@@ -2,7 +2,7 @@ package org.phong.zenflow.workflow.subdomain.trigger.interfaces;
 
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
-import org.phong.zenflow.workflow.subdomain.trigger.resource.TriggerResourceManager;
+import org.phong.zenflow.plugin.subdomain.resource.NodeResourcePool;
 
 import java.util.Optional;
 
@@ -13,7 +13,7 @@ public interface TriggerExecutor extends PluginNodeExecutor {
      * Optional: Return the resource manager if this trigger needs shared resources.
      * This enables the orchestrator to manage resources efficiently.
      */
-    default Optional<TriggerResourceManager<?>> getResourceManager() {
+    default Optional<NodeResourcePool<?, ?>> getResourceManager() {
         return Optional.empty();
     }
 

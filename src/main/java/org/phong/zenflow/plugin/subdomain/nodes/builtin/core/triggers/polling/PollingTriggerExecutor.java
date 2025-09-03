@@ -13,7 +13,8 @@ import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContext;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerExecutor;
-import org.phong.zenflow.workflow.subdomain.trigger.resource.TriggerResourceManager;
+import org.phong.zenflow.plugin.subdomain.resource.NodeResourcePool;
+import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
 import org.quartz.*;
 import org.springframework.stereotype.Component;
 
@@ -45,7 +46,7 @@ public class PollingTriggerExecutor implements TriggerExecutor {
     }
 
     @Override
-    public Optional<TriggerResourceManager<?>> getResourceManager() {
+    public Optional<NodeResourcePool<?, ?>> getResourceManager() {
         return Optional.of(cacheManager);
     }
 
@@ -86,46 +87,50 @@ public class PollingTriggerExecutor implements TriggerExecutor {
         log.info("Polling trigger configured with Quartz: URL={}, interval={}s, method={}, detection={}",
                 url, intervalSeconds, httpMethod, changeDetectionStrategy);
 
-        // Register cache resource usage
+        // Register cache resource usage via scoped handle
         String cacheKey = trigger.getId().toString();
-        cacheManager.registerTriggerUsage(cacheKey, trigger.getId());
+        var cacheHandle = cacheManager.acquire(cacheKey, trigger.getId(), null);
+        try {
+            // Create Quartz job with all necessary data
+            JobDetail job = JobBuilder.newJob(PollingTriggerJob.class)
+                    .withIdentity("polling-trigger-" + trigger.getId(), "polling-triggers")
+                    .usingJobData("triggerId", trigger.getId().toString())
+                    .usingJobData("workflowId", trigger.getWorkflowId().toString())
+                    .usingJobData("url", url)
+                    .usingJobData("httpMethod", httpMethod)
+                    .usingJobData("changeDetectionStrategy", changeDetectionStrategy)
+                    .usingJobData("jsonPath", jsonPath != null ? jsonPath : "")
+                    .usingJobData("timeoutSeconds", timeoutSeconds)
+                    .usingJobData("includeResponse", includeResponse)
+                    .usingJobData("triggerExecutorId", trigger.getTriggerExecutorId().toString())
+                    .build();
 
-        // Create Quartz job with all necessary data
-        JobDetail job = JobBuilder.newJob(PollingTriggerJob.class)
-                .withIdentity("polling-trigger-" + trigger.getId(), "polling-triggers")
-                .usingJobData("triggerId", trigger.getId().toString())
-                .usingJobData("workflowId", trigger.getWorkflowId().toString())
-                .usingJobData("url", url)
-                .usingJobData("httpMethod", httpMethod)
-                .usingJobData("changeDetectionStrategy", changeDetectionStrategy)
-                .usingJobData("jsonPath", jsonPath != null ? jsonPath : "")
-                .usingJobData("timeoutSeconds", timeoutSeconds)
-                .usingJobData("includeResponse", includeResponse)
-                .usingJobData("triggerExecutorId", trigger.getTriggerExecutorId().toString())
-                .build();
+            // Add complex objects to job data map
+            job.getJobDataMap().put("headers", headers);
+            job.getJobDataMap().put("requestBody", requestBody);
+            job.getJobDataMap().put("triggerContext", ctx);
 
-        // Add complex objects to job data map
-        job.getJobDataMap().put("headers", headers);
-        job.getJobDataMap().put("requestBody", requestBody);
-        job.getJobDataMap().put("triggerContext", ctx);
+            // Create Quartz trigger for scheduling
+            Trigger quartzTrigger = TriggerBuilder.newTrigger()
+                    .withIdentity("polling-trigger-" + trigger.getId(), "polling-triggers")
+                    .startNow()
+                    .withSchedule(SimpleScheduleBuilder.simpleSchedule()
+                            .withIntervalInSeconds(intervalSeconds)
+                            .repeatForever())
+                    .build();
 
-        // Create Quartz trigger for scheduling
-        Trigger quartzTrigger = TriggerBuilder.newTrigger()
-                .withIdentity("polling-trigger-" + trigger.getId(), "polling-triggers")
-                .startNow()
-                .withSchedule(SimpleScheduleBuilder.simpleSchedule()
-                        .withIntervalInSeconds(intervalSeconds)
-                        .repeatForever())
-                .build();
+            // Schedule on the shared Quartz scheduler
+            schedulerService.scheduleJob(job, quartzTrigger);
 
-        // Schedule on the shared Quartz scheduler
-        schedulerService.scheduleJob(job, quartzTrigger);
+            log.info("Quartz polling trigger started successfully for trigger: {}", trigger.getId());
 
-        log.info("Quartz polling trigger started successfully for trigger: {}", trigger.getId());
-
-        return new QuartzPollingRunningHandle(quartzTrigger.getKey(), trigger.getId(),
-                                            url, intervalSeconds, httpMethod,
-                                            changeDetectionStrategy, schedulerService, cacheManager);
+            return new QuartzPollingRunningHandle(quartzTrigger.getKey(), trigger.getId(),
+                                                url, intervalSeconds, httpMethod,
+                                                changeDetectionStrategy, schedulerService, cacheHandle);
+        } catch (Exception e) {
+            cacheHandle.close();
+            throw e;
+        }
     }
 
     @Override
@@ -189,14 +194,14 @@ public class PollingTriggerExecutor implements TriggerExecutor {
         private final String httpMethod;
         private final String changeDetectionStrategy;
         private final SharedQuartzSchedulerService schedulerService;
-        private final PollingResponseCacheManager cacheManager;
+        private final ScopedNodeResource<?> cacheHandle;
         private volatile boolean running = true;
 
         public QuartzPollingRunningHandle(TriggerKey triggerKey, UUID triggerId, String url,
                                         Integer intervalSeconds, String httpMethod,
                                         String changeDetectionStrategy,
                                         SharedQuartzSchedulerService schedulerService,
-                                        PollingResponseCacheManager cacheManager) {
+                                        ScopedNodeResource<?> cacheHandle) {
             this.triggerKey = triggerKey;
             this.triggerId = triggerId;
             this.url = url;
@@ -204,7 +209,7 @@ public class PollingTriggerExecutor implements TriggerExecutor {
             this.httpMethod = httpMethod;
             this.changeDetectionStrategy = changeDetectionStrategy;
             this.schedulerService = schedulerService;
-            this.cacheManager = cacheManager;
+            this.cacheHandle = cacheHandle;
         }
 
         @Override
@@ -215,9 +220,10 @@ public class PollingTriggerExecutor implements TriggerExecutor {
                 // Unschedule from Quartz
                 schedulerService.unscheduleJob(triggerKey);
 
-                // Cleanup cache resource using generic resource manager
-                String cacheKey = triggerId.toString();
-                cacheManager.unregisterTriggerUsage(cacheKey, triggerId);
+                // Cleanup cache resource using scoped handle
+                try (cacheHandle) {
+                    // nothing else
+                }
 
                 log.info("Quartz polling trigger stopped: {} (URL: {}, interval: {}s, method: {}, detection: {})",
                         triggerId, url, intervalSeconds, httpMethod, changeDetectionStrategy);

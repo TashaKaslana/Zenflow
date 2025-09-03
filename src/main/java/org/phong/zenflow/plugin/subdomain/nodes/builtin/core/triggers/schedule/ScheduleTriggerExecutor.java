@@ -11,7 +11,7 @@ import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContext;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerExecutor;
 import org.phong.zenflow.workflow.subdomain.trigger.quartz.WorkflowTriggerJob;
 import org.phong.zenflow.core.services.SharedQuartzSchedulerService;
-import org.phong.zenflow.workflow.subdomain.trigger.resource.TriggerResourceManager;
+import org.phong.zenflow.plugin.subdomain.resource.NodeResourcePool;
 import org.springframework.stereotype.Component;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 import org.quartz.*;
@@ -44,7 +44,7 @@ public class ScheduleTriggerExecutor implements TriggerExecutor {
 
     // Remove resource manager - we don't need resource pooling for schedulers
     @Override
-    public Optional<TriggerResourceManager<?>> getResourceManager() {
+    public Optional<NodeResourcePool<?, ?>> getResourceManager() {
         return Optional.empty(); // No resource pooling needed
     }
 
