@@ -33,6 +33,30 @@ spring:
           auth: ${MAIL_SMTP_AUTH:true}
           starttls:
             enable: ${MAIL_SMTP_STARTTLS:true}
+  # Add Quartz configuration to fix DataSource error and enable persistence
+  quartz:
+    job-store-type: jdbc
+    jdbc:
+      initialize-schema: embedded
+    properties:
+      org:
+        quartz:
+          scheduler:
+            instanceName: ZenflowScheduler
+            instanceId: AUTO
+            skipUpdateCheck: true
+          jobStore:
+            class: org.quartz.impl.jdbcjobstore.JobStoreTX
+            driverDelegateClass: org.quartz.impl.jdbcjobstore.PostgreSQLDelegate
+            useProperties: false
+            tablePrefix: QRTZ_
+            isClustered: true
+            clusterCheckinInterval: 20000
+            acquireTriggersWithinLock: true
+          threadPool:
+            class: org.quartz.simpl.SimpleThreadPool
+            threadCount: 25
+            threadPriority: 5
 
 server:
   servlet:
@@ -123,10 +147,5 @@ management:
 #      fasterxml:
 #        jackson:
 #          databind: DEBUG
-#    root: INFO
-#    org:
-#      phong:
-#        horizon: DEBUG
-#    com:
-#      fasterxml:
-#        jackson: DEBUG
+#    root: DEBUG
+#    org.phong.zenflow: DEBUG

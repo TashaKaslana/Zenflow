@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 /**
  * Service responsible for validating workflow definitions and their runtime configurations.
@@ -100,7 +99,7 @@ public class WorkflowValidationService {
      * @param templateString Template string formats:
      *                       <ul>
      *                         <li>Built-in: <code>builtin:&#60;name&#62;</code> (e.g., <code>builtin:http-trigger</code>)</li>
-     *                         <li>Plugin: <code>&#60;nodeKey&#62;</code> (e.g., <code>123e4567-e89b-12d3-a456-426614174001</code>)</li>
+     *                         <li>Plugin: <code>&#60;nodeUuid&#62;</code> (e.g., <code>123e4567-e89b-12d3-a456-426614174001</code>)</li>
      *                       </ul>
      * @return ValidationResult containing any runtime validation errors found
      */
@@ -113,14 +112,8 @@ public class WorkflowValidationService {
                         nodeKey, resolvedConfig, templateString, nodeKey + ".config.input", "input"));
             }
 
-            PluginNodeIdentifier identifier = null;
-            try {
-                identifier = PluginNodeIdentifier.fromString(templateString);
-            } catch (Exception ignored) {
-            }
-
             // Additional runtime-specific validations
-            errors.addAll(validateRuntimeConstraints(nodeKey, resolvedConfig, identifier, context));
+            errors.addAll(validateRuntimeConstraints(nodeKey, resolvedConfig, templateString, context));
 
         } catch (Exception e) {
             errors.add(ValidationError.builder()
@@ -145,15 +138,14 @@ public class WorkflowValidationService {
     private List<ValidationError> validateNodeConfigurations(WorkflowDefinition workflow) {
         List<ValidationError> errors = new ArrayList<>();
 
-        for (BaseWorkflowNode node : workflow.nodes()) {
+        workflow.nodes().forEach((k, node) -> {
             log.debug("Processing node: {} (type: {})", node.getKey(), node.getType());
 
             validatePluginNode(node, errors);
             PluginNodeIdentifier identifier = node.getPluginNode();
-            String templateString = identifier.toCacheKey();
+            String templateString = identifier.getNodeId() != null ? identifier.getNodeId().toString() : identifier.toCacheKey();
             log.debug("Plugin node detected - templateString: {}", templateString);
 
-            // This validates the structure and static values against the schema while skipping template fields
             if (node.getConfig() != null) {
                 log.debug("Validating schema structure for node: {}", node.getKey());
                 List<ValidationError> schemaErrors = schemaValidationService.validateAgainstSchema(
@@ -162,13 +154,14 @@ public class WorkflowValidationService {
                         templateString,
                         node.getKey() + ".config.input",
                         "input",
-                        true  // Skip template fields during definition phase
+                        true
                 );
                 log.debug("Found {} schema errors for node: {} (template fields excluded)", schemaErrors.size(), node.getKey());
                 errors.addAll(schemaErrors);
             }
 
-            executorRegistry.getExecutor(identifier).ifPresent(executor -> {
+            String executorKey = identifier.getNodeId() != null ? identifier.getNodeId().toString() : identifier.toCacheKey();
+            executorRegistry.getExecutor(executorKey).ifPresent(executor -> {
                 List<ValidationError> defErrors = executor.validateDefinition(node.getConfig());
                 if (defErrors != null) {
                     defErrors.forEach(error -> {
@@ -183,7 +176,6 @@ public class WorkflowValidationService {
                 }
             });
 
-            // Validate template references in the node's configuration
             if (node.getConfig().input() != null) {
                 Set<String> templates = TemplateEngine.extractRefs(node.getConfig());
                 Map<String, OutputUsage> nodeConsumers = workflow.metadata() != null ?
@@ -202,7 +194,7 @@ public class WorkflowValidationService {
                     errors.addAll(templateErrors);
                 }
             }
-        }
+        });
 
         return errors;
     }
@@ -255,13 +247,10 @@ public class WorkflowValidationService {
     private List<ValidationError> validateNodeReferences(WorkflowDefinition workflow) {
         List<ValidationError> errors = new ArrayList<>();
 
-        Set<String> nodeKeys = workflow.nodes().stream()
-                .map(BaseWorkflowNode::getKey)
-                .collect(Collectors.toSet());
+        Set<String> nodeKeys = workflow.nodes().keys();
+        Map<String, String> aliases = workflow.metadata().aliases();
 
-        for (BaseWorkflowNode node : workflow.nodes()) {
-            errors.addAll(validateNodeExistence(node, nodeKeys, workflow.metadata().aliases()));
-        }
+        workflow.nodes().forEach((k, node) -> errors.addAll(validateNodeExistence(node, nodeKeys, aliases)));
 
         return errors;
     }
@@ -311,18 +300,18 @@ public class WorkflowValidationService {
      *
      * @param nodeKey        The key of the node being validated
      * @param resolvedConfig The resolved configuration with all templates expanded
-     * @param executorIdentifier The identifier for the plugin node executor
+     * @param executorIdentifier The UUID identifier for the plugin node executor
      * @param context        The runtime context for validation
      * @return List of validation errors found during runtime constraint validation
      */
     private List<ValidationError> validateRuntimeConstraints(String nodeKey,
                                                              WorkflowConfig resolvedConfig,
-                                                             PluginNodeIdentifier executorIdentifier,
+                                                             String executorIdentifier,
                                                              ExecutionContext context) {
         List<ValidationError> errors = new ArrayList<>();
 
         // Add specific runtime validations based on a node type
-        if (executorIdentifier != null && "core:flow.branch.condition:1.0.0".equals(executorIdentifier.toCacheKey())) {
+        if ("core:flow.branch.condition:1.0.0".equals(executorIdentifier)) {
             errors.addAll(validateConditionNodeRuntime(nodeKey, resolvedConfig));
         }
 

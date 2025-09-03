@@ -7,7 +7,7 @@ import lombok.AllArgsConstructor;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.infrastructure.persistence.repository.WorkflowRepository;
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
-import org.phong.zenflow.workflow.subdomain.runner.event.WorkflowRunnerPublishableEvent;
+import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.repository.WorkflowTriggerRepository;
@@ -59,27 +59,13 @@ public class WebhookTriggerService {
         run = runRepo.save(run);
 
         WorkflowRun finalRun = run;
-        eventPublisher.publishEvent(new WorkflowRunnerPublishableEvent() {
-            @Override
-            public UUID getWorkflowRunId() {
-                return finalRun.getId();
-            }
-
-            @Override
-            public TriggerType getTriggerType() {
-                return TriggerType.WEBHOOK;
-            }
-
-            @Override
-            public UUID getWorkflowId() {
-                return workflowId;
-            }
-
-            @Override
-            public WorkflowRunnerRequest request() {
-                return new WorkflowRunnerRequest(callbackUrl, null);
-            }
-        });
+        eventPublisher.publishEvent(new WorkflowTriggerEvent(
+                finalRun.getId(),
+                TriggerType.WEBHOOK,
+                trigger.getTriggerExecutorId(),
+                workflowId,
+                new WorkflowRunnerRequest(callbackUrl, null, payload)
+        ));
 
         return run.getId();
     }

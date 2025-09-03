@@ -2,20 +2,27 @@ package org.phong.zenflow.workflow.subdomain.node_definition.services;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.projections.PluginNodeId;
+import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.repository.PluginNodeRepository;
 import org.phong.zenflow.workflow.subdomain.context.WorkflowContextService;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowMetadata;
 import org.phong.zenflow.workflow.subdomain.node_definition.exception.WorkflowDefinitionValidationException;
 import org.phong.zenflow.workflow.subdomain.node_definition.exception.WorkflowNodeDefinitionException;
+import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
+import org.phong.zenflow.workflow.subdomain.schema_validator.enums.ValidationErrorCode;
 import org.phong.zenflow.workflow.subdomain.schema_validator.service.WorkflowValidationService;
 import org.phong.zenflow.workflow.utils.NodeKeyGenerator;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
+import java.util.Set;
+import java.util.UUID;
 
 /**
  * Service responsible for managing workflow definitions.<br>
@@ -29,24 +36,22 @@ public class WorkflowDefinitionService {
 
     private final WorkflowValidationService workflowValidationService;
     private final WorkflowContextService workflowContextService;
+    private final PluginNodeRepository pluginNodeRepository;
 
     /**
      * Updates or inserts nodes in the temporary definition based on the existing definition.
      * Preserves existing nodes and adds new ones, generating keys for nodes without them.
      *
-     * @param existingDef The existing workflow definition containing current nodes
-     * @param tempDef     The temporary workflow definition being built
+     * @param tempDef     The temporary workflow definition being built (target)
+     * @param newDef      The new workflow definition containing nodes to add (source)
      * @throws WorkflowNodeDefinitionException If any node has an empty type
      */
-    private static void upsertNodes(WorkflowDefinition existingDef, WorkflowDefinition tempDef) {
-        Map<String, BaseWorkflowNode> keyToNode = existingDef.nodes().stream()
-                .collect(Collectors.toMap(
-                        BaseWorkflowNode::getKey,
-                        Function.identity(),
-                        (existing, replacement) -> existing
-                ));
+    private void upsertNodes(WorkflowDefinition tempDef, WorkflowDefinition newDef) {
+        // Start with existing nodes from tempDef (which was created from existingDef)
+        Map<String, BaseWorkflowNode> keyToNode = new HashMap<>(tempDef.nodes().asMap());
 
-        for (BaseWorkflowNode node : tempDef.nodes()) {
+        // Add/update with new nodes from newDef
+        newDef.nodes().forEach((ignored, node) -> {
             String type = node.getType().name();
             if (type.isBlank()) {
                 throw new WorkflowNodeDefinitionException("Each node must have a 'type'");
@@ -62,10 +67,11 @@ public class WorkflowDefinitionService {
             }
 
             keyToNode.put(key, node);
-        }
+        });
 
-        existingDef.nodes().clear();
-        existingDef.nodes().addAll(keyToNode.values());
+        // Update tempDef with the merged nodes
+        tempDef.nodes().clear();
+        keyToNode.forEach((k, node) -> tempDef.nodes().put(node));
     }
 
     /**
@@ -109,19 +115,24 @@ public class WorkflowDefinitionService {
         upsertNodes(tempDef, newDef);
         upsertMetadata(tempDef.metadata(), newDef.metadata());
 
-        return constructStaticMetadataAndValidate(tempDef);
+        return constructStaticGenerationAndValidate(tempDef);
     }
 
-    private WorkflowDefinition constructStaticMetadataAndValidate(WorkflowDefinition tempDef) {
-        WorkflowDefinition workflowDefinition = updateStaticContextMetadata(tempDef);
+    private WorkflowDefinition constructStaticGenerationAndValidate(WorkflowDefinition tempDef) {
+        List<ValidationError> validationErrors = new ArrayList<>();
 
-        ValidationResult validationResult = workflowValidationService.validateDefinition(workflowDefinition);
+        resolvePluginId(tempDef, validationErrors);
+        tempDef = updateStaticContextMetadata(tempDef);
+
+        ValidationResult validationResult = workflowValidationService.validateDefinition(tempDef);
+        validationResult.addAllErrors(validationErrors);
+
         if (!validationResult.isValid()) {
             log.debug("Workflow definition validation failed: {}", validationResult.getErrors());
             throw new WorkflowDefinitionValidationException("Workflow definition validation failed!", validationResult);
         }
 
-        return workflowDefinition;
+        return tempDef;
     }
 
     private WorkflowDefinition updateStaticContextMetadata(WorkflowDefinition definition) {
@@ -129,29 +140,62 @@ public class WorkflowDefinitionService {
             definition = new WorkflowDefinition();
         }
 
-        WorkflowMetadata metadata = definition.metadata();
-        if (metadata == null) {
-            metadata = new WorkflowMetadata();
-        }
-
-        WorkflowMetadata newMetadata = workflowContextService.buildStaticContext(definition.nodes(), metadata);
+        WorkflowMetadata newMetadata = workflowContextService.buildStaticContext(definition);
 
         return new WorkflowDefinition(definition.nodes(), newMetadata);
     }
 
+    private void resolvePluginId(WorkflowDefinition workflowDefinition, List<ValidationError> validationErrors) {
+        Set<String> compositeKeys = workflowDefinition.nodes().getPluginNodeCompositeKeys();
+        if (compositeKeys.isEmpty()) {
+            return;
+        }
+
+        Set<PluginNodeId> pluginNodeIds = pluginNodeRepository.findIdsByCompositeKeys(compositeKeys);
+
+        Map<String, UUID> compositeKeyToIdMap = new HashMap<>();
+        pluginNodeIds.forEach(pluginNodeId ->
+            compositeKeyToIdMap.put(pluginNodeId.getCompositeKey(), pluginNodeId.getId()));
+
+        // Update workflow nodes with the resolved UUIDs
+        for (Map.Entry<String, BaseWorkflowNode> nodeEntry : workflowDefinition.nodes().asMap().entrySet()) {
+            BaseWorkflowNode workflowNode = nodeEntry.getValue();
+            String compositeKey = workflowNode.getPluginNode().toCacheKey();
+
+            if (compositeKeyToIdMap.containsKey(compositeKey)) {
+                workflowNode.getPluginNode().setNodeId(compositeKeyToIdMap.get(compositeKey));
+            } else {
+                validationErrors.add(
+                        ValidationError.builder()
+                                .nodeKey(nodeEntry.getKey())
+                                .errorCode(ValidationErrorCode.VALIDATION_ERROR)
+                                .errorType("definition")
+                                .path("nodes.pluginNode.nodeId")
+                                .message("Plugin Node doesn't exist with composite key: " + compositeKey)
+                                .build()
+                );
+            }
+        }
+
+    }
+
     /**
-     * Removes a node from the provided list of nodes based on its key.
+     * Removes multiple nodes from the provided workflow definition based on their keys.
      *
      * @param workflowDefinition The workflow definition containing the nodes
-     * @param keyToRemove        The key of the node to remove
-     * @return The updated workflow definition with the specified node removed
-     * @throws WorkflowNodeDefinitionException       If the node with the specified key does not exist
-     * @throws WorkflowDefinitionValidationException If the resulting workflow fails in validation
+     * @param keysToRemove       The keys of the nodes to remove
+     * @return The updated workflow definition with the specified nodes removed
      */
-    public WorkflowDefinition removeNode(WorkflowDefinition workflowDefinition, String keyToRemove) {
-        workflowDefinition.nodes()
-                .removeIf(node -> keyToRemove.equals(node.getKey()));
-        return constructStaticMetadataAndValidate(workflowDefinition);
+    public WorkflowDefinition removeNodes(WorkflowDefinition workflowDefinition, List<String> keysToRemove) {
+        if (workflowDefinition == null) {
+            return new WorkflowDefinition();
+        }
+        if (keysToRemove == null || keysToRemove.isEmpty()) {
+            return workflowDefinition;
+        }
+
+        keysToRemove.forEach(workflowDefinition.nodes()::remove);
+        return constructStaticGenerationAndValidate(workflowDefinition);
     }
 
     public WorkflowDefinition clearWorkflowDefinition(WorkflowDefinition workflowDefinition) {

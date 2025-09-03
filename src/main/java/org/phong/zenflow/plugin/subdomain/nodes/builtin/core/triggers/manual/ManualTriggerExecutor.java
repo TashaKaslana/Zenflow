@@ -2,10 +2,13 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.triggers.manual;
 
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
-import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
+import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
+import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContext;
+import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerExecutor;
+import org.phong.zenflow.workflow.subdomain.trigger.resource.TriggerResourceManager;
 import org.springframework.stereotype.Component;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
@@ -19,14 +22,36 @@ import java.util.*;
         version = "1.0.0",
         description = "Executes a manual trigger with optional payload and schedule configuration.",
         type = "trigger",
+        triggerType = "manual",
         tags = {"core", "trigger", "manual"},
         icon = "ph:play"
 )
 @Slf4j
-public class ManualTriggerExecutor implements PluginNodeExecutor {
+public class ManualTriggerExecutor implements TriggerExecutor {
     @Override
     public String key() {
         return "core:manual.trigger:1.0.0";
+    }
+
+    @Override
+    public Optional<TriggerResourceManager<?>> getResourceManager() {
+        return Optional.empty(); // Manual triggers don't need resource pooling
+    }
+
+    @Override
+    public Optional<String> getResourceKey(WorkflowTrigger trigger) {
+        return Optional.empty(); // No resource key needed
+    }
+
+    @Override
+    public RunningHandle start(WorkflowTrigger trigger, TriggerContext ctx) throws Exception {
+        log.info("Starting manual trigger for workflow: {}", trigger.getWorkflowId());
+
+        // Manual triggers are essentially always "ready" but don't actively trigger
+        // They wait for external manual execution calls
+        log.info("Manual trigger registered and ready for workflow: {}", trigger.getWorkflowId());
+
+        return new ManualRunningHandle(trigger.getId());
     }
 
     @Override
@@ -34,20 +59,16 @@ public class ManualTriggerExecutor implements PluginNodeExecutor {
         NodeLogPublisher logs = context.getLogPublisher();
         try {
             logs.info("Executing ManualTriggerExecutor with config: {}", config);
-
             logs.info("Manual trigger started at {}", OffsetDateTime.now());
 
-            // Extract optional payload from input
             Map<String, Object> input = config.input();
             Object payload = input.get("payload");
 
-            // Create output map with trigger metadata and payload
             Map<String, Object> output = new HashMap<>();
             output.put("trigger_type", "manual");
             output.put("triggered_at", OffsetDateTime.now().toString());
             output.put("trigger_source", "manual_execution");
 
-            // Include payload in output if provided
             if (payload != null) {
                 output.put("payload", payload);
                 logs.info("Payload received: {}", payload);
@@ -55,19 +76,47 @@ public class ManualTriggerExecutor implements PluginNodeExecutor {
                 logs.info("No payload provided");
             }
 
-            // Add any additional input parameters to output for flexibility
             input.forEach((key, value) -> {
-                if (!"payload".equals(key)) { // Avoid duplication
+                if (!"payload".equals(key)) {
                     output.put("input_" + key, value);
                 }
             });
 
             logs.success("Manual trigger completed successfully");
-
             return ExecutionResult.success(output);
         } catch (Exception e) {
             logs.withException(e).error("Unexpected error occurred during manual trigger execution: {}", e.getMessage());
             return ExecutionResult.error(e.getMessage());
+        }
+    }
+
+    /**
+     * Running handle for manual triggers - they're always "ready" but passive
+     */
+    private static class ManualRunningHandle implements RunningHandle {
+        private final UUID triggerId;
+        private volatile boolean running = true;
+
+        public ManualRunningHandle(UUID triggerId) {
+            this.triggerId = triggerId;
+        }
+
+        @Override
+        public void stop() {
+            if (running) {
+                running = false;
+                log.info("Manual trigger stopped: {}", triggerId);
+            }
+        }
+
+        @Override
+        public boolean isRunning() {
+            return running;
+        }
+
+        @Override
+        public String getStatus() {
+            return running ? "READY" : "STOPPED";
         }
     }
 }

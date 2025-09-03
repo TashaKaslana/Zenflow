@@ -1,9 +1,7 @@
 package org.phong.zenflow.plugin.subdomain.node.interfaces;
 
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
-
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public interface PluginNodeSchemaProvider {
 /**
@@ -12,7 +10,7 @@ public interface PluginNodeSchemaProvider {
      * @param identifier the plugin node identifier
      * @return a map representing the schema JSON
      */
-    Map<String, Object> getSchemaJson(PluginNodeIdentifier identifier);
+    Map<String, Object> getSchemaJson(String identifier);
 
     /**
      * Retrieves all schema JSONs for a list of plugin node identifiers.
@@ -20,7 +18,7 @@ public interface PluginNodeSchemaProvider {
      * @param identifiers the list of plugin node identifiers
      * @return a map where the key is the identifier and the value is the schema JSON map
      */
-    Map<String, Map<String, Object>> getAllSchemasByIdentifiers(List<PluginNodeIdentifier> identifiers);
+    Map<String, Map<String, Object>> getAllSchemasByIdentifiers(Set<String> identifiers);
 
     /**
      * Gets schema directly from a file system for better performance.
@@ -29,7 +27,7 @@ public interface PluginNodeSchemaProvider {
      * @param identifier The plugin node identifier
      * @return Schema map loaded directly from a file
      */
-    Map<String, Object> getSchemaJsonFromFile(PluginNodeIdentifier identifier);
+    Map<String, Object> getSchemaJsonFromFile(String identifier);
 
     /**
      * Gets multiple schemas directly from a file system in a batch.
@@ -37,5 +35,5 @@ public interface PluginNodeSchemaProvider {
      * @param identifiers List of plugin node identifiers
      * @return Map of an identifier cache key to schema
      */
-    Map<String, Map<String, Object>> getAllSchemasByIdentifiersFromFile(List<PluginNodeIdentifier> identifiers);
+    Map<String, Map<String, Object>> getAllSchemasByIdentifiersFromFile(Set<String> identifiers);
 }

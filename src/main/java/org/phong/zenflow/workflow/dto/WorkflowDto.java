@@ -13,7 +13,7 @@ import java.util.UUID;
  */
 public record WorkflowDto(@NotNull UUID id, @NotNull OffsetDateTime createdAt, @NotNull OffsetDateTime updatedAt,
                           UUID createdBy, UUID updatedBy, UUID projectId, @NotNull String name,
-                          WorkflowDefinition definition, String startNode, @NotNull Boolean isActive,
+                          WorkflowDefinition definition, @NotNull Boolean isActive,
                           OffsetDateTime deletedAt, String description,
                           Map<String, Object> retryPolicy) implements Serializable {
 }

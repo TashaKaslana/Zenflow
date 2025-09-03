@@ -1,11 +1,11 @@
 package org.phong.zenflow.workflow.subdomain.engine.service;
 
 import lombok.AllArgsConstructor;
+import org.phong.zenflow.core.services.SharedQuartzSchedulerService;
 import org.phong.zenflow.workflow.subdomain.engine.exception.WorkflowEngineException;
 import org.quartz.JobBuilder;
 import org.quartz.JobDataMap;
 import org.quartz.JobDetail;
-import org.quartz.Scheduler;
 import org.quartz.Trigger;
 import org.quartz.TriggerBuilder;
 import org.springframework.stereotype.Service;
@@ -19,13 +19,18 @@ import java.util.UUID;
 public class WorkflowRetrySchedule {
     public static final int MAX_RETRY_ATTEMPTS = 3;
     private static final long RETRY_DELAY_MILLIS = 5000; // Default retry delay in milliseconds
-    private final Scheduler scheduler;
+    private final SharedQuartzSchedulerService scheduler;
 
-    public void scheduleRetry(UUID workflowId, UUID workflowRunId, String nodeKey, Integer attempts) {
+    public void scheduleRetry(UUID workflowId,
+                              UUID workflowRunId,
+                              String nodeKey,
+                              Integer attempts,
+                              String callbackUrl) {
         JobDataMap jobDataMap = new JobDataMap();
         jobDataMap.put("workflowId", workflowId.toString());
         jobDataMap.put("workflowRunId", workflowRunId.toString());
         jobDataMap.put("nodeKey", nodeKey);
+        jobDataMap.put("callbackUrl", callbackUrl);
 
         String jobId = workflowRunId + ":" + nodeKey;
         String triggerId = "trigger-" + jobId;

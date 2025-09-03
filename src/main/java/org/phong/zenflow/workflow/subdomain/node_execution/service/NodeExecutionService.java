@@ -142,7 +142,11 @@ public class NodeExecutionService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void resolveNodeExecution(UUID workflowId, UUID workflowRunId, BaseWorkflowNode workingNode, ExecutionResult result) {
+    public void resolveNodeExecution(UUID workflowId,
+                                     UUID workflowRunId,
+                                     BaseWorkflowNode workingNode,
+                                     ExecutionResult result,
+                                     String callbackUrl) {
         switch (result.getStatus()) {
             case SUCCESS:
                 log.debug("Plugin node executed successfully: {}", workingNode.getKey());
@@ -154,7 +158,13 @@ public class NodeExecutionService {
                     log.warn("Plugin node execution failed, attempting retry: {} (attempt: {})",
                             workingNode.getKey(), getCurrentAttempt(workflowRunId, workingNode.getKey()) + 1);
                     NodeExecutionDto retryNode = retryNode(workflowRunId, workingNode.getKey());
-                    workflowRetrySchedule.scheduleRetry(workflowId, workflowRunId, workingNode.getKey(), retryNode.attempts());
+                    workflowRetrySchedule.scheduleRetry(
+                            workflowId,
+                            workflowRunId,
+                            workingNode.getKey(),
+                            retryNode.attempts(),
+                            callbackUrl
+                    );
                 } else {
                     log.error("Plugin node execution failed after {} attempts, marking as error: {}",
                             WorkflowRetrySchedule.MAX_RETRY_ATTEMPTS, workingNode.getKey());
@@ -168,7 +178,13 @@ public class NodeExecutionService {
             case RETRY:
                 log.debug("Plugin node execution retrying: {}", workingNode.getKey());
                 NodeExecutionDto retryNode = retryNode(workflowRunId, workingNode.getKey());
-                workflowRetrySchedule.scheduleRetry(workflowId, workflowRunId, workingNode.getKey(), retryNode.attempts());
+                workflowRetrySchedule.scheduleRetry(
+                        workflowId,
+                        workflowRunId,
+                        workingNode.getKey(),
+                        retryNode.attempts(),
+                        callbackUrl
+                );
                 break;
             case NEXT:
                 log.debug("Plugin node execution next: {}", workingNode.getKey());

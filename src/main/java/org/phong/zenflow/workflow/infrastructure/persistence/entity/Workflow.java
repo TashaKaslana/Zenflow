@@ -43,9 +43,6 @@ public class Workflow extends BaseFullAuditEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     private WorkflowDefinition definition;
 
-    @Column(name = "start_node", length = Integer.MAX_VALUE)
-    private String startNode;
-
     @NotNull
     @ColumnDefault("false")
     @Column(name = "is_active", nullable = false)
