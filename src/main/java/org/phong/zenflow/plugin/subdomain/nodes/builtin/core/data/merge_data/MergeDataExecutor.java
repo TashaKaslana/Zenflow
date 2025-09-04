@@ -29,12 +29,6 @@ import java.util.stream.Collectors;
 )
 @AllArgsConstructor
 public class MergeDataExecutor implements PluginNodeExecutor {
-
-    @Override
-    public String key() {
-        return "core:merge_data:1.0.0";
-    }
-
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher logPublisher = context.getLogPublisher();

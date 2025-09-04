@@ -30,11 +30,6 @@ import java.util.Map;
 @Slf4j
 public class WhileLoopExecutor implements PluginNodeExecutor {
     @Override
-    public String key() {
-        return "core:flow.loop.while:1.0.0";
-    }
-
-    @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher logCollector = context.getLogPublisher();
         try {

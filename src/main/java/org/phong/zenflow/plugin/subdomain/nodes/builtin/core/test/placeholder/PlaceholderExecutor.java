@@ -22,12 +22,6 @@ import java.util.Map;
         type = "data"
 )
 public class PlaceholderExecutor implements PluginNodeExecutor {
-
-    @Override
-    public String key() {
-        return "test:placeholder:1.0.0";
-    }
-
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher logCollector = context.getLogPublisher();

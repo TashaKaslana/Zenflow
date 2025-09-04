@@ -72,11 +72,6 @@ class DataTransformerExecutorTest {
     }
 
     @Test
-    void testExecutorKey() {
-        assertEquals("core:data.transformer:1.0.0", executor.key());
-    }
-
-    @Test
     void testSingleTransformExecution() {
         List<Map<String, Object>> data = List.of(
                 Map.of("value", 1),

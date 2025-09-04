@@ -27,12 +27,6 @@ import java.util.Map;
 public class RemoteNodeExecutor implements PluginNodeExecutor {
 
     private final HttpRequestExecutor httpRequestExecutor;
-
-    @Override
-    public String key() {
-        return "core:remote:1.0.0";
-    }
-
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         Map<String, Object> entrypoint = config.entrypoint();

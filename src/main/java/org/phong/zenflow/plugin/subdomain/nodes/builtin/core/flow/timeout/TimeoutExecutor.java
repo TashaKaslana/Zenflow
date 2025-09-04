@@ -26,12 +26,6 @@ import java.util.UUID;
 public class TimeoutExecutor implements PluginNodeExecutor {
 
     private final TimeoutScheduler timeoutScheduler;
-
-    @Override
-    public String key() {
-        return "core:flow.timeout:1.0.0";
-    }
-
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher logCollector = context.getLogPublisher();

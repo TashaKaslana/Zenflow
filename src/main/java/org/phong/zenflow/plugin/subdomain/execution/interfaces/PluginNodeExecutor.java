@@ -10,9 +10,6 @@ import java.util.List;
 
 
 public interface PluginNodeExecutor {
-    // e.g., "Core:HTTP Request"
-    String key();
-
     // execute the plugin node with the given configuration and context
     ExecutionResult execute(WorkflowConfig config, ExecutionContext context);
 

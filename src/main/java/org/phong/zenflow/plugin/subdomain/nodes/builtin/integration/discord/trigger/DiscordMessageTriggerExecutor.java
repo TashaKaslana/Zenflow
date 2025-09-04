@@ -42,10 +42,6 @@ public class DiscordMessageTriggerExecutor implements TriggerExecutor {
     private final DiscordJdaResourceManager jdaResourceManager;
     private final DiscordMessageListenerHub listenerHub;
 
-    @Override
-    public String key() {
-        return "integration:discord.message.trigger:1.0.0";
-    }
 
     @Override
     public Optional<NodeResourcePool<?, ?>> getResourceManager() {

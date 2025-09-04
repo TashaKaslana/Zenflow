@@ -39,17 +39,11 @@ import java.util.List;
 public class DiscordMessageExecutor implements PluginNodeExecutor {
 
     private final DiscordJdaResourceManager jdaResourceManager;
-
-    @Override
-    public String key() {
-        return "integration:discord.message.send:1.0.0";
-    }
-
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher logs = context.getLogPublisher();
 
-        String botToken = null;
+        String botToken;
         try {
             Map<String, Object> input = config.input();
 

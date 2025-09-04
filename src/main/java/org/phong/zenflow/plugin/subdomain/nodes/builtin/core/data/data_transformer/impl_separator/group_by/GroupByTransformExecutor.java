@@ -12,19 +12,12 @@ import org.springframework.stereotype.Component;
         version = "1.0.0",
         description = "Groups records and applies aggregations.",
         icon = "ph:columns",
-        tags = {"data", "group", "aggregate"},
-        type = "action"
+        tags = {"data", "group", "aggregate"}
 )
 public class GroupByTransformExecutor extends AbstractSingleTransformExecutor {
     public GroupByTransformExecutor(DataTransformerExecutor delegate) {
         super(delegate);
     }
-
-    @Override
-    public String key() {
-        return "core:data.transformer.group_by:1.0.0";
-    }
-
     @Override
     protected String transformerName() {
         return "group_by";

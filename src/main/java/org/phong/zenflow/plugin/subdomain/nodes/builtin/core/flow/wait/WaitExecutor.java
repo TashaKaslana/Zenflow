@@ -28,11 +28,6 @@ import java.util.Map;
 @AllArgsConstructor
 public class WaitExecutor implements PluginNodeExecutor {
     @Override
-    public String key() {
-        return "core:wait:1.0.0";
-    }
-
-    @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher log = context.getLogPublisher();
         try {

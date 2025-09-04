@@ -39,12 +39,6 @@ import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 public class HttpRequestExecutor implements PluginNodeExecutor {
     private static final Pattern VALID_HEADER_NAME = Pattern.compile("^[!#$%&'*+.^_`|~0-9a-zA-Z-]+$");
     private final WebClient webClient;
-
-    @Override
-    public String key() {
-        return "core:http.request:1.0.0";
-    }
-
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher logs = context.getLogPublisher();

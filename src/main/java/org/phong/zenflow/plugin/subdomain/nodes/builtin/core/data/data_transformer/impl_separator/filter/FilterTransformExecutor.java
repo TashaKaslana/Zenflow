@@ -12,19 +12,12 @@ import org.springframework.stereotype.Component;
         version = "1.0.0",
         description = "Filters a list of records using an expression.",
         icon = "ph:funnel",
-        tags = {"data", "filter"},
-        type = "action"
+        tags = {"data", "filter"}
 )
 public class FilterTransformExecutor extends AbstractSingleTransformExecutor {
     public FilterTransformExecutor(DataTransformerExecutor delegate) {
         super(delegate);
     }
-
-    @Override
-    public String key() {
-        return "core:data.transformer.filter:1.0.0";
-    }
-
     @Override
     protected String transformerName() {
         return "filter";

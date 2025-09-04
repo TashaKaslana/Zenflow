@@ -38,11 +38,6 @@ public class WorkflowTriggerExecutor implements TriggerExecutor {
     private final ApplicationEventPublisher eventPublisher;
 
     @Override
-    public String key() {
-        return "core:workflow.trigger:1.0.0";
-    }
-
-    @Override
     public Optional<NodeResourcePool<?, ?>> getResourceManager() {
         return Optional.empty(); // Workflow triggers don't need resource pooling
     }

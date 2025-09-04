@@ -39,12 +39,6 @@ public class PollingTriggerExecutor implements TriggerExecutor {
 
     private final SharedQuartzSchedulerService schedulerService;
     private final PollingResponseCacheManager cacheManager;
-
-    @Override
-    public String key() {
-        return "core:polling.trigger:1.0.0";
-    }
-
     @Override
     public Optional<NodeResourcePool<?, ?>> getResourceManager() {
         return Optional.of(cacheManager);
@@ -222,7 +216,7 @@ public class PollingTriggerExecutor implements TriggerExecutor {
 
                 // Cleanup cache resource using scoped handle
                 try (cacheHandle) {
-                    // nothing else
+                    log.debug("Closed cacheHandle for trigger: {}", triggerId);
                 }
 
                 log.info("Quartz polling trigger stopped: {} (URL: {}, interval: {}s, method: {}, detection: {})",

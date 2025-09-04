@@ -32,11 +32,6 @@ import java.util.*;
 @AllArgsConstructor
 public class WebhookTriggerExecutor implements TriggerExecutor {
     @Override
-    public String key() {
-        return "core:webhook.trigger:1.0.0";
-    }
-
-    @Override
     public Optional<NodeResourcePool<?, ?>> getResourceManager() {
         return Optional.empty(); // Webhook triggers don't need resource pooling
     }

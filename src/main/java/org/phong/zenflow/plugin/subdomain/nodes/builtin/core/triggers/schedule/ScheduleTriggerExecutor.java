@@ -36,12 +36,6 @@ import java.util.*;
 public class ScheduleTriggerExecutor implements TriggerExecutor {
 
     private final SharedQuartzSchedulerService schedulerService;
-
-    @Override
-    public String key() {
-        return "core:schedule.trigger:1.0.0";
-    }
-
     // Remove resource manager - we don't need resource pooling for schedulers
     @Override
     public Optional<NodeResourcePool<?, ?>> getResourceManager() {

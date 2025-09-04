@@ -28,12 +28,6 @@ import java.util.Map;
 )
 @Slf4j
 public class ForLoopExecutor implements PluginNodeExecutor {
-
-    @Override
-    public String key() {
-        return "core:flow.loop.for:1.0.0";
-    }
-
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher logCollector = context.getLogPublisher();

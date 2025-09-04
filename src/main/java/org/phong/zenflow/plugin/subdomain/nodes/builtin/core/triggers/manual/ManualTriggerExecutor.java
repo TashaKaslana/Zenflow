@@ -29,11 +29,6 @@ import java.util.*;
 @Slf4j
 public class ManualTriggerExecutor implements TriggerExecutor {
     @Override
-    public String key() {
-        return "core:manual.trigger:1.0.0";
-    }
-
-    @Override
     public Optional<NodeResourcePool<?, ?>> getResourceManager() {
         return Optional.empty(); // Manual triggers don't need resource pooling
     }

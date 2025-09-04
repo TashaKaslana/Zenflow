@@ -31,12 +31,6 @@ import java.util.regex.Pattern;
 @AllArgsConstructor
 public class IfNodeExecutor implements PluginNodeExecutor {
     private static final Pattern UNRESOLVED_PATTERN = Pattern.compile("\\{\\{[^}]+}}");
-
-    @Override
-    public String key() {
-        return "core:flow.branch.if:1.0.0";
-    }
-
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher logCollector = context.getLogPublisher();

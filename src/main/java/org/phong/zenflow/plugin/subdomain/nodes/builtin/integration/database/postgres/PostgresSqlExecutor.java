@@ -41,12 +41,6 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
     private final ObjectMapper objectMapper;
     private final PostgresSqlRuntimeValidator runtimeValidator;
     private final PostgresSqlDefinitionValidator definitionValidator;
-
-    @Override
-    public String key() {
-        return "integration:postgresql:1.0.0";
-    }
-
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher logPublisher = context.getLogPublisher();

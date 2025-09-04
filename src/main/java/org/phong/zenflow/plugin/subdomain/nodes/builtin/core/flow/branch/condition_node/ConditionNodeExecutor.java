@@ -33,12 +33,6 @@ import java.util.regex.Pattern;
 @AllArgsConstructor
 public class ConditionNodeExecutor implements PluginNodeExecutor {
     private static final Pattern UNRESOLVED_PATTERN = Pattern.compile("\\{\\{[^}]+}}");
-
-    @Override
-    public String key() {
-        return "core:flow.branch.condition:1.0.0";
-    }
-
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher log = context.getLogPublisher();

@@ -36,12 +36,6 @@ import java.util.Map;
 @Slf4j
 public class DataTransformerExecutor implements PluginNodeExecutor {
     private final TransformerRegistry registry;
-
-    @Override
-    public String key() {
-        return "core:data.transformer:1.0.0";
-    }
-
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher logPublisher = context.getLogPublisher();

@@ -31,12 +31,6 @@ import java.util.Properties;
 @AllArgsConstructor
 public class EmailExecutor implements PluginNodeExecutor {
     private final static int DEFAULT_PORT = 587;
-
-    @Override
-    public String key() {
-        return "integration:email:1.0.0";
-    }
-
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher logCollector = context.getLogPublisher();

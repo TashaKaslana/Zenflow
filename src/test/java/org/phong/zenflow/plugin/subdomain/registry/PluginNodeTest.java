@@ -76,11 +76,7 @@ public class PluginNodeTest {
         );
 
         var executor = executorRegistry.getExecutor(placeholderUuid).orElseThrow();
-        assertEquals(
-                placeholderCompositeKey,
-                executor.key(),
-                "Executor key should match the expected composite key format"
-        );
+        assertInstanceOf(PlaceholderExecutor.class, executor, "Executor should be a PlaceholderExecutor instance");
 
         // Test fallback to composite key if UUID not available
         assertTrue(

@@ -61,7 +61,6 @@ class PlaceholderExecutorRegistrationTest {
         var executor = registry.getExecutor(placeholderUuid).orElseThrow();
         var result = executor.execute(config, context);
 
-        assertEquals("test:placeholder:1.0.0", executor.key());
         assertNotNull(result);
         assertEquals(inputData, result.getOutput());
     }

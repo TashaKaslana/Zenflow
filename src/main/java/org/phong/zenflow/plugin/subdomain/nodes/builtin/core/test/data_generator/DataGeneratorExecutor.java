@@ -18,12 +18,6 @@ import java.util.Map;
         version = "1.0.0"
 )
 public class DataGeneratorExecutor implements PluginNodeExecutor {
-    
-    @Override
-    public String key() {
-        return "test:data.generate:1.0.0";
-    }
-
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher logCollector = context.getLogPublisher();
