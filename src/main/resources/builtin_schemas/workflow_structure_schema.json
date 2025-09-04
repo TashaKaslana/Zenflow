@@ -46,6 +46,19 @@
               }
             }
           }
+        },
+        "profiles": {
+          "type": "array",
+          "minItems": 0,
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string" },
+              "required": { "type": "boolean", "default": true },
+              "description": { "type": "string" }
+            }
+          }
         }
       }
     },

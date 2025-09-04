@@ -198,6 +198,31 @@ public class SecretService {
                 ));
     }
 
+    /**
+     * Retrieves all secrets for a workflow grouped by their profile name.
+     *
+     * @param workflowId the workflow identifier
+     * @return map keyed by profile name, each containing a map of secret key to decrypted value
+     */
+    public Map<String, Map<String, String>> getProfileSecretMapByWorkflowId(UUID workflowId) {
+        return secretRepository.findByWorkflowId(workflowId)
+                .stream()
+                .collect(Collectors.groupingBy(
+                        Secret::getGroupName,
+                        Collectors.toMap(
+                                Secret::getKey,
+                                secret -> {
+                                    try {
+                                        return aesUtil.decrypt(secret.getEncryptedValue());
+                                    } catch (Exception e) {
+                                        throw new SecretDomainException("Can't encrypted value for workflowId: " + workflowId, e);
+                                    }
+                                },
+                                (existing, replacement) -> replacement
+                        )
+                ));
+    }
+
     private SecretDto mapToDto(Secret secret) {
         try {
             SecretDto dto = secretMapper.toDto(secret);

@@ -149,7 +149,13 @@ public class WorkflowRunnerService {
             // First run: ensure the run is started and create a new context
             log.debug("No existing context found for workflow run ID: {}. Starting new run.", workflowRunId);
             Map<String, String> secretOfWorkflow = secretService.getSecretMapByWorkflowId(workflowId);
-            Map<String, Object> initialContext = new ConcurrentHashMap<>(Map.of("secrets", secretOfWorkflow));
+            Map<String, Map<String, String>> profileSecrets = secretService.getProfileSecretMapByWorkflowId(workflowId);
+            Map<String, Object> initialContext = new ConcurrentHashMap<>(
+                    Map.of(
+                            "secrets", secretOfWorkflow,
+                            "profiles", profileSecrets
+                    )
+            );
 
             if (request != null && request.callbackUrl() != null && !request.callbackUrl().isEmpty()) {
                 initialContext.put(ExecutionContextKey.CALLBACK_URL, request.callbackUrl());
