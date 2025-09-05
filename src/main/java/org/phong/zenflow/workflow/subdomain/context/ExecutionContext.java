@@ -9,7 +9,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.phong.zenflow.core.utils.ObjectConversion;
-import org.phong.zenflow.workflow.subdomain.execution.services.TemplateService;
+import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 
@@ -77,7 +77,7 @@ public class ExecutionContext {
 
     /**
      * Returns the shared, immutable evaluator preconfigured with global
-     * functions. Callers must {@link org.phong.zenflow.workflow.subdomain.execution.services.TemplateService.ImmutableEvaluator#cloneInstance() clone}
+     * functions. Callers must {@link org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService.ImmutableEvaluator#cloneInstance() clone}
      * this instance before registering any custom functions to avoid
      * mutating the shared configuration.
      */
@@ -91,7 +91,7 @@ public class ExecutionContext {
      * Executors should use {@link #read(String, Class)} instead to ensure templates are resolved
      * and values are type-checked. This method still performs consumer tracking using the
      * currently set {@code nodeKey} and is primarily intended for internal usage by
-     * {@link org.phong.zenflow.workflow.subdomain.execution.services.TemplateService}.
+     * {@link org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService}.
      */
     public Object get(String key) {
         RuntimeContext context = contextManager.getOrCreate(workflowRunId.toString());

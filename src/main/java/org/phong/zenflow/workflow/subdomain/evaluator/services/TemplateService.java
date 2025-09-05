@@ -1,4 +1,4 @@
-package org.phong.zenflow.workflow.subdomain.execution.services;
+package org.phong.zenflow.workflow.subdomain.evaluator.services;
 
 import com.googlecode.aviator.AviatorEvaluator;
 import com.googlecode.aviator.AviatorEvaluatorInstance;
@@ -6,8 +6,8 @@ import com.googlecode.aviator.Expression;
 import lombok.Getter;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.execution.PrefixFunctionEvaluator;
-import org.phong.zenflow.workflow.subdomain.execution.functions.AviatorFunctionRegistry;
+import org.phong.zenflow.workflow.subdomain.evaluator.PrefixFunctionEvaluator;
+import org.phong.zenflow.workflow.subdomain.evaluator.functions.AviatorFunctionRegistry;
 import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashSet;
@@ -180,7 +180,7 @@ public class TemplateService {
         }
 
         public Expression compile(String expression, boolean cached) {
-            return baseEvaluator.compile(stripFunctionPrefix(expression), cached);
+            return baseEvaluator.compile(PrefixFunctionEvaluator.stripPrefix(expression), cached);
         }
 
         /**
@@ -191,13 +191,5 @@ public class TemplateService {
         public AviatorEvaluatorInstance cloneInstance() {
             return newChildEvaluator();
         }
-    }
-
-    private String stripFunctionPrefix(String expression) {
-        // Allow callers to reference custom functions with an optional "fn:" prefix
-        // to distinguish them from workflow data keys. The underlying evaluator
-        // still registers functions without the prefix, so we strip it before
-        // compilation.
-        return expression != null ? expression.replace("fn:", "") : null;
     }
 }

@@ -10,9 +10,9 @@ import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.branch.switch_
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.branch.switch_node.SwitchNodeExecutor;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.loop.for_loop.ForLoopExecutor;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.test.placeholder.PlaceholderExecutor;
-import org.phong.zenflow.workflow.subdomain.execution.services.TemplateService;
-import org.phong.zenflow.workflow.subdomain.execution.functions.AviatorFunctionRegistry;
-import org.phong.zenflow.workflow.subdomain.execution.functions.StringContainsFunction;
+import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
+import org.phong.zenflow.workflow.subdomain.evaluator.functions.AviatorFunctionRegistry;
+import org.phong.zenflow.workflow.subdomain.evaluator.functions.string.StringContainsFunction;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.TestExecutionContextUtils;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;

@@ -1,9 +1,10 @@
-package org.phong.zenflow.workflow.subdomain.execution.functions;
+package org.phong.zenflow.workflow.subdomain.evaluator.functions.string;
 
 import com.googlecode.aviator.runtime.function.AbstractFunction;
 import com.googlecode.aviator.runtime.function.FunctionUtils;
 import com.googlecode.aviator.runtime.type.AviatorObject;
 import com.googlecode.aviator.runtime.type.AviatorRuntimeJavaType;
+import org.phong.zenflow.workflow.subdomain.evaluator.functions.AviatorBooleanFunction;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;

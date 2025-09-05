@@ -14,7 +14,7 @@ import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
 import org.phong.zenflow.workflow.subdomain.schema_validator.enums.ValidationErrorCode;
 import org.springframework.stereotype.Service;
-import org.phong.zenflow.workflow.subdomain.execution.services.TemplateService;
+import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 
 import java.util.ArrayList;
 import java.util.List;

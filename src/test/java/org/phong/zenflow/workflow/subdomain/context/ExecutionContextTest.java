@@ -1,9 +1,9 @@
 package org.phong.zenflow.workflow.subdomain.context;
 
 import org.junit.jupiter.api.Test;
-import org.phong.zenflow.workflow.subdomain.execution.functions.AviatorFunctionRegistry;
-import org.phong.zenflow.workflow.subdomain.execution.functions.StringContainsFunction;
-import org.phong.zenflow.workflow.subdomain.execution.services.TemplateService;
+import org.phong.zenflow.workflow.subdomain.evaluator.functions.AviatorFunctionRegistry;
+import org.phong.zenflow.workflow.subdomain.evaluator.functions.string.StringContainsFunction;
+import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.logging.core.LogEntry;
 

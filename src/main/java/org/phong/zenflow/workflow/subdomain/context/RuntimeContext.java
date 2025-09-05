@@ -94,7 +94,7 @@ public class RuntimeContext {
             }
 
             // Check if this output key has any consumers using the existing consumers map
-            if (!hasConsumers(currentOutputKey)) {
+            if (isConsumersEmpty(currentOutputKey)) {
                 log.debug("Skipping storage of '{}' as it has no registered consumers", currentOutputKey);
                 continue;
             }
@@ -223,9 +223,9 @@ public class RuntimeContext {
     /**
      * Check if a key has any remaining consumers
      */
-    public boolean hasConsumers(String key) {
+    public boolean isConsumersEmpty(String key) {
         Set<String> keyConsumers = consumers.get(key);
-        return keyConsumers != null && !keyConsumers.isEmpty();
+        return keyConsumers == null || keyConsumers.isEmpty();
     }
 
     /**
@@ -243,7 +243,7 @@ public class RuntimeContext {
         List<String> keysToRemove = new ArrayList<>();
 
         for (String key : context.keySet()) {
-            if (!hasConsumers(key)) {
+            if (isConsumersEmpty(key)) {
                 keysToRemove.add(key);
             }
         }
@@ -340,7 +340,7 @@ public class RuntimeContext {
                 }
 
                 // Perform garbage collection for this key
-                if (!hasConsumers(key)) {
+                if (isConsumersEmpty(key)) {
                     Object removedValue = context.remove(key);
                     if (removedValue != null) {
                         cleanedCount++;

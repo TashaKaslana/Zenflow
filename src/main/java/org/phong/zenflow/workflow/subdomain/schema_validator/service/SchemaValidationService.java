@@ -12,7 +12,7 @@ import org.json.JSONPointer;
 import org.phong.zenflow.plugin.subdomain.schema.services.SchemaRegistry;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
 import org.phong.zenflow.workflow.subdomain.schema_validator.enums.ValidationErrorCode;
-import org.phong.zenflow.workflow.subdomain.execution.services.TemplateService;
+import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 
