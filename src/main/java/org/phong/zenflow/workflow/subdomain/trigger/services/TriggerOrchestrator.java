@@ -8,7 +8,6 @@ import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContext;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerExecutor;
 import org.phong.zenflow.workflow.subdomain.trigger.registry.TriggerRegistry;
 import org.springframework.stereotype.Service;
-import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -53,30 +52,15 @@ public class TriggerOrchestrator {
                 return;
             }
 
-            // Handle resource management if the trigger needs it
-            executor.getResourceManager().ifPresentOrElse(resourceManager ->
-                    executor.getResourceKey(t).ifPresent(resourceKey -> {
-                        var resourceHandle = resourceManager.acquire(resourceKey, t.getId(), null);
-                        try {
-                            var delegate = executor.start(t, ctx);
-                            running.put(t.getId(), new ResourceAwareRunningHandle(delegate, resourceHandle));
-                            log.info("Started trigger {} (executor: {}) for workflow {}",
-                                    t.getId(), triggerExecutorId, t.getWorkflowId());
-                        } catch (Exception e) {
-                            resourceHandle.close();
-                            throw new RuntimeException(e);
-                        }
-                    }),
-                    () -> {
-                        try {
-                            var handle = executor.start(t, ctx);
-                            running.put(t.getId(), handle);
-                            log.info("Started trigger {} (executor: {}) for workflow {}",
-                                    t.getId(), triggerExecutorId, t.getWorkflowId());
-                        } catch (Exception e) {
-                            throw new RuntimeException(e);
-                        }
-                    });
+            // Handle resource management if the trigger needs it - use manual registration for persistence
+            handleResourceRegistration(executor, t);
+
+            // Start the trigger
+            var handle = executor.start(t, ctx);
+            running.put(t.getId(), handle);
+
+            log.info("Started trigger {} (executor: {}) for workflow {}",
+                    t.getId(), triggerExecutorId, t.getWorkflowId());
 
         } catch (Exception e) {
             log.error("Failed to start trigger {}: {}", t.getId(), e.getMessage(), e);
@@ -87,7 +71,9 @@ public class TriggerOrchestrator {
         var handle = running.remove(triggerId);
         if (handle != null) {
             try {
-                // Get the trigger from database to handle resource cleanup
+                // Get the trigger from the database to handle resource cleanup
+                repo.findById(triggerId).ifPresent(this::handleResourceUnregistration);
+
                 handle.stop();
                 log.info("Stopped trigger {}", triggerId);
             } catch (Exception e) {
@@ -100,6 +86,8 @@ public class TriggerOrchestrator {
         var handle = running.remove(trigger.getId());
         if (handle != null) {
             try {
+                handleResourceUnregistration(trigger);
+
                 handle.stop();
                 log.info("Stopped trigger {}:", trigger.getId());
             } catch (Exception e) {
@@ -136,30 +124,40 @@ public class TriggerOrchestrator {
     }
 
 
-    private static class ResourceAwareRunningHandle implements TriggerExecutor.RunningHandle {
-        private final TriggerExecutor.RunningHandle delegate;
-        private final ScopedNodeResource<?> resourceHandle;
+    private void handleResourceRegistration(TriggerExecutor executor, WorkflowTrigger trigger) {
+        executor.getResourceManager().ifPresent(resourceManager ->
+                executor.getResourceKey(trigger).ifPresent(resourceKey -> {
+                    try {
+                        resourceManager.registerNodeUsage(resourceKey, trigger.getId());
+                        log.debug("Registered trigger {} for resource {})", trigger.getId(), resourceKey);
+                    } catch (Exception e) {
+                        log.error("Failed resource registration for trigger {}: {}", trigger.getId(), e.getMessage(), e);
+                    }
+                }));
+    }
 
-        ResourceAwareRunningHandle(TriggerExecutor.RunningHandle delegate, ScopedNodeResource<?> resourceHandle) {
-            this.delegate = delegate;
-            this.resourceHandle = resourceHandle;
-        }
-
-        @Override
-        public void stop() {
-            try (resourceHandle) {
-                delegate.stop();
+    private void handleResourceUnregistration(WorkflowTrigger trigger) {
+        try {
+            UUID triggerExecutorId = trigger.getTriggerExecutorId();
+            if (triggerExecutorId == null) {
+                log.debug("No executor ID for trigger {}, skipping resource cleanup", trigger.getId());
+                return;
             }
-        }
 
-        @Override
-        public String getStatus() {
-            return delegate.getStatus();
-        }
+            TriggerExecutor executor = registry.getRegistry(triggerExecutorId.toString());
+            if (executor == null) return;
 
-        @Override
-        public boolean isRunning() {
-            return delegate.isRunning();
+            executor.getResourceManager().ifPresent(resourceManager ->
+                    executor.getResourceKey(trigger).ifPresent(resourceKey -> {
+                        try {
+                            resourceManager.unregisterNodeUsage(resourceKey, trigger.getId());
+                            log.debug("Unregistered trigger {} from resource {}", trigger.getId(), resourceKey);
+                        } catch (Exception e) {
+                            log.error("Failed resource unregistration for trigger {}: {}", trigger.getId(), e.getMessage(), e);
+                        }
+                    }));
+        } catch (Exception e) {
+            log.error("Error in resource unregistration for trigger {}: {}", trigger.getId(), e.getMessage(), e);
         }
     }
 }

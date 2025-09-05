@@ -6,6 +6,7 @@ import com.googlecode.aviator.Expression;
 import lombok.Getter;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
+import org.phong.zenflow.workflow.subdomain.execution.PrefixFunctionEvaluator;
 import org.phong.zenflow.workflow.subdomain.execution.functions.AviatorFunctionRegistry;
 import org.springframework.stereotype.Service;
 
@@ -151,8 +152,22 @@ public class TemplateService {
 
     private Object evaluateExpression(String expression, ExecutionContext context) {
         try {
-            Expression compiledExp = baseEvaluator.compile(stripFunctionPrefix(expression), true);
-            return compiledExp.execute(Map.of("context", context));
+            if (expression == null || expression.isEmpty()) {
+                return null;
+            }
+
+            if (PrefixFunctionEvaluator.isFunction(expression)) {
+                expression = PrefixFunctionEvaluator.stripPrefix(expression);
+            } else {
+                expression = String.format("get(\"%s\")", expression);
+            }
+
+            Map<String, Object> actualContextMap = context.getContextManager()
+                    .getOrCreate(context.getWorkflowRunId().toString())
+                    .getContext();
+
+            Expression compiledExp = baseEvaluator.compile(expression, true);
+            return compiledExp.execute(Map.of("context", actualContextMap));
         } catch (Exception e) {
             System.err.println("Failed to evaluate expression: " + expression + " - Error: " + e.getMessage());
             return "{{" + expression + "}}";

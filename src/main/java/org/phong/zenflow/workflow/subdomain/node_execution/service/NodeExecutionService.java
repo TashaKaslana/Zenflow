@@ -155,14 +155,14 @@ public class NodeExecutionService {
             case ERROR:
                 // Implement intelligent retry logic for errors
                 if (shouldRetryOnError(workflowRunId, workingNode.getKey())) {
-                    log.warn("Plugin node execution failed, attempting retry: {} (attempt: {})",
-                            workingNode.getKey(), getCurrentAttempt(workflowRunId, workingNode.getKey()) + 1);
                     NodeExecutionDto retryNode = retryNode(workflowRunId, workingNode.getKey());
+                    log.warn("Plugin node execution failed, attempting retry: {} (attempt: {})",
+                            workingNode.getKey(), retryNode.attempts() + 1);
                     workflowRetrySchedule.scheduleRetry(
                             workflowId,
                             workflowRunId,
                             workingNode.getKey(),
-                            retryNode.attempts(),
+                            retryNode.attempts() + 1,
                             callbackUrl
                     );
                 } else {
@@ -282,12 +282,4 @@ public class NodeExecutionService {
                 .orElse(true); // If no log found, allow the first attempt
     }
 
-    /**
-     * Get the current attempt number for a node
-     */
-    private int getCurrentAttempt(UUID workflowRunId, String nodeKey) {
-        return nodeExecutionRepository.findTopByWorkflowRunIdAndNodeKeyOrderByStartedAtDesc(workflowRunId, nodeKey)
-                .map(NodeExecution::getAttempts)
-                .orElse(0);
-    }
 }

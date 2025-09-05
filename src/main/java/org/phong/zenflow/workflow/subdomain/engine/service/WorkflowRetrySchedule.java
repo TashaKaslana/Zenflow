@@ -1,6 +1,7 @@
 package org.phong.zenflow.workflow.subdomain.engine.service;
 
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.services.SharedQuartzSchedulerService;
 import org.phong.zenflow.workflow.subdomain.engine.exception.WorkflowEngineException;
 import org.quartz.JobBuilder;
@@ -14,6 +15,7 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @AllArgsConstructor
 public class WorkflowRetrySchedule {
@@ -26,6 +28,15 @@ public class WorkflowRetrySchedule {
                               String nodeKey,
                               Integer attempts,
                               String callbackUrl) {
+        if (attempts == null || attempts < 1) {
+            attempts = 1;
+        }
+
+        if (attempts > MAX_RETRY_ATTEMPTS) {
+            log.warn("Max retry attempts reached for workflowRunId: {}, nodeKey: {}. No further retries will be scheduled.", workflowRunId, nodeKey);
+            return;
+        }
+
         JobDataMap jobDataMap = new JobDataMap();
         jobDataMap.put("workflowId", workflowId.toString());
         jobDataMap.put("workflowRunId", workflowRunId.toString());
