@@ -42,6 +42,22 @@ public abstract class BaseNodeResourceManager<T, C> implements NodeResourcePool<
         return resource;
     }
 
+    /**
+     * Acquire a resource for the given key and automatically unregister
+     * usage when the returned handle is closed.
+     *
+     * @param resourceKey unique identifier for the resource
+     * @param nodeId the node acquiring the resource
+     * @param config configuration needed to create the resource
+     * @return handle wrapping the shared resource
+     */
+    @Override
+    public ScopedNodeResource<T> acquire(String resourceKey, UUID nodeId, C config) {
+        T resource = getOrCreateResource(resourceKey, config);
+        registerNodeUsage(resourceKey, nodeId);
+        return new ScopedNodeResource<>(this, resourceKey, nodeId, resource);
+    }
+
     @Override
     public void registerNodeUsage(String resourceKey, UUID nodeId) {
         resourceUsage.computeIfAbsent(resourceKey, k -> ConcurrentHashMap.newKeySet()).add(nodeId);
@@ -83,6 +99,7 @@ public abstract class BaseNodeResourceManager<T, C> implements NodeResourcePool<
         resourceCache.cleanUp();
     }
 
+
     /**
      * Snapshot of current resource usage: resource key to active node count.
      *
@@ -119,6 +136,7 @@ public abstract class BaseNodeResourceManager<T, C> implements NodeResourcePool<
             }
         }
     }
+
 
     protected abstract T createResource(String resourceKey, C config);
 

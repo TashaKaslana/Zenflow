@@ -35,11 +35,6 @@ public class GoogleDriveListExecutor implements PluginNodeExecutor {
     private final GoogleDriveServiceManager driveServiceManager;
 
     @Override
-    public String key() {
-        return "google-drive:files.list:1.0.0";
-    }
-
-    @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher logCollector = context.getLogPublisher();
         try {
@@ -49,10 +44,10 @@ public class GoogleDriveListExecutor implements PluginNodeExecutor {
 
             @SuppressWarnings("unchecked")
             Map<String, Map<String, String>> secretMap = context.read("secrets", Map.class);
-            Map<String, String> creds = secretMap.get(profile);
-            String clientId = creds.get("CLIENT_ID");
-            String clientSecret = creds.get("CLIENT_SECRET");
-            String refreshToken = creds.get("REFRESH_TOKEN");
+            Map<String, String> credentials = secretMap.get(profile);
+            String clientId = credentials.get("CLIENT_ID");
+            String clientSecret = credentials.get("CLIENT_SECRET");
+            String refreshToken = credentials.get("REFRESH_TOKEN");
 
             Map<String, Object> cfg = new HashMap<>();
             cfg.put("clientId", clientId);

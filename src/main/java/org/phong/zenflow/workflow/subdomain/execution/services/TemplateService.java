@@ -3,6 +3,7 @@ package org.phong.zenflow.workflow.subdomain.execution.services;
 import com.googlecode.aviator.AviatorEvaluator;
 import com.googlecode.aviator.AviatorEvaluatorInstance;
 import com.googlecode.aviator.Expression;
+import lombok.Getter;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.execution.functions.AviatorFunctionRegistry;
@@ -27,6 +28,15 @@ public class TemplateService {
     private static final Pattern REF_WITH_DEFAULT_PATTERN = Pattern.compile("^([a-zA-Z0-9_.\\-]+)(?::(.*))?$");
 
     private final AviatorEvaluatorInstance baseEvaluator;
+
+    /**
+     * -- GETTER --
+     *  Exposes the shared evaluator as an immutable proxy. Callers must invoke
+     * <p>
+     *  to get a mutable copy before
+     *  registering custom functions.
+     */
+    @Getter
     private final ImmutableEvaluator evaluator;
     private final AviatorFunctionRegistry functionRegistry;
 
@@ -46,15 +56,6 @@ public class TemplateService {
         AviatorEvaluatorInstance instance = AviatorEvaluator.newInstance();
         functionRegistry.registerAll(instance);
         return instance;
-    }
-
-    /**
-     * Exposes the shared evaluator as an immutable proxy. Callers must invoke
-     * {@link ImmutableEvaluator#clone()} to obtain a mutable copy before
-     * registering custom functions.
-     */
-    public ImmutableEvaluator getEvaluator() {
-        return evaluator;
     }
 
     public boolean isTemplate(String value) {
@@ -161,7 +162,7 @@ public class TemplateService {
     /**
      * Read-only view of the shared evaluator. Mutation operations such as
      * {@code addFunction} are intentionally omitted. Consumers should call
-     * {@link #clone()} to obtain a writable copy for custom functions.
+     * {@link #cloneInstance()} to get a writable copy for custom functions.
      */
     public class ImmutableEvaluator {
         private ImmutableEvaluator() {
@@ -176,7 +177,7 @@ public class TemplateService {
          * The returned evaluator can be safely mutated by callers without
          * affecting other executions.
          */
-        public AviatorEvaluatorInstance clone() {
+        public AviatorEvaluatorInstance cloneInstance() {
             return newChildEvaluator();
         }
     }

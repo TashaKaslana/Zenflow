@@ -36,7 +36,7 @@ public class WhileLoopExecutor implements PluginNodeExecutor {
         try {
             Map<String, Object> input = config.input();
 
-            AviatorEvaluatorInstance evaluator = context.getEvaluator().clone();
+            AviatorEvaluatorInstance evaluator = context.getEvaluator().cloneInstance();
 
             boolean shouldContinue = evalCondition(input.get("condition"), input, context, logCollector, evaluator);
             logCollector.info("While loop condition evaluated to [{}]", shouldContinue);

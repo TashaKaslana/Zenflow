@@ -13,14 +13,6 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class GlobalDbConnectionPool extends BaseNodeResourceManager<HikariDataSource, GlobalDbConnectionPool.DbConfig> {
-
-    /**
-     * Get or create a {@link HikariDataSource} for the given connection key.
-     */
-    public HikariDataSource getOrCreate(DbConnectionKey key, String password) {
-        return getOrCreateResource(key.toString(), new DbConfig(key, password));
-    }
-
     @Override
     protected HikariDataSource createResource(String resourceKey, DbConfig config) {
         return createDataSource(config.key(), config.password());
@@ -50,5 +42,5 @@ public class GlobalDbConnectionPool extends BaseNodeResourceManager<HikariDataSo
         };
     }
 
-    public static record DbConfig(DbConnectionKey key, String password) {}
+    public record DbConfig(DbConnectionKey key, String password) {}
 }

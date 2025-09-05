@@ -42,18 +42,5 @@ public interface NodeResourcePool<T, C> {
      */
     void cleanupUnusedResources();
 
-    /**
-     * Acquire a resource for the given key and automatically unregister
-     * usage when the returned handle is closed.
-     *
-     * @param resourceKey unique identifier for the resource
-     * @param nodeId the node acquiring the resource
-     * @param config configuration needed to create the resource
-     * @return handle wrapping the shared resource
-     */
-    default ScopedNodeResource<T> acquire(String resourceKey, UUID nodeId, C config) {
-        T resource = getOrCreateResource(resourceKey, config);
-        registerNodeUsage(resourceKey, nodeId);
-        return new ScopedNodeResource<>(this, resourceKey, nodeId, resource);
-    }
+    ScopedNodeResource<T> acquire(String resourceKey, UUID nodeId, C config);
 }

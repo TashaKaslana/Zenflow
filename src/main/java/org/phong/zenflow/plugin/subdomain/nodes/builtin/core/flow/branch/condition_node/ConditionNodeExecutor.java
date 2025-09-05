@@ -40,7 +40,7 @@ public class ConditionNodeExecutor implements PluginNodeExecutor {
 
             log.info("Begin condition flow with cases: {}", cases.toString());
 
-            AviatorEvaluatorInstance evaluator = context.getEvaluator().clone();
+            AviatorEvaluatorInstance evaluator = context.getEvaluator().cloneInstance();
 
             for (ConditionalCase caseDef : cases) {
                 String rawCondition = caseDef.when();

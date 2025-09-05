@@ -51,7 +51,7 @@ public class IfNodeExecutor implements PluginNodeExecutor {
 
             log.debug("Evaluating IF condition: {}", condition);
 
-            AviatorEvaluatorInstance evaluator = context.getEvaluator().clone();
+            AviatorEvaluatorInstance evaluator = context.getEvaluator().cloneInstance();
             return getExpressionExecutionResult(condition, nextTrue, logCollector, nextFalse, context, evaluator);
         } catch (Exception e) {
             logCollector.withException(e).error("Failed to process if-node: {}", e.getMessage());

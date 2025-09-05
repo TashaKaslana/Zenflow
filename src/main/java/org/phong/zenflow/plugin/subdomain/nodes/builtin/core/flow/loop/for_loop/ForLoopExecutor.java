@@ -39,7 +39,7 @@ public class ForLoopExecutor implements PluginNodeExecutor {
             // Create output that includes ALL necessary data for next iteration
             Map<String, Object> output = new HashMap<>(input);
 
-            AviatorEvaluatorInstance evaluator = context.getEvaluator().clone();
+            AviatorEvaluatorInstance evaluator = context.getEvaluator().cloneInstance();
 
             if (isLoopComplete(input, output, logCollector, context, evaluator)) {
                 List<String> loopEnd = ObjectConversion.safeConvert(input.get("loopEnd"), new TypeReference<>() {});

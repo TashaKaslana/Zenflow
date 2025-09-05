@@ -38,7 +38,7 @@ public class ForEachLoopExecutor implements PluginNodeExecutor {
             List<Object> items = ObjectConversion.safeConvert(input.get("items"), new TypeReference<>() {});
             int index = (int) input.getOrDefault("index", 0);
 
-            AviatorEvaluatorInstance evaluator = context.getEvaluator().clone();
+            AviatorEvaluatorInstance evaluator = context.getEvaluator().cloneInstance();
 
             if (index >= items.size()) {
                 List<String> loopEnd = ObjectConversion.safeConvert(input.get("loopEnd"), new TypeReference<>() {});

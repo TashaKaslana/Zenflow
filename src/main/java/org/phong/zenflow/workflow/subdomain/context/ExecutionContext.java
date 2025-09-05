@@ -75,7 +75,7 @@ public class ExecutionContext {
 
     /**
      * Returns the shared, immutable evaluator preconfigured with global
-     * functions. Callers must {@link org.phong.zenflow.workflow.subdomain.execution.services.TemplateService.ImmutableEvaluator#clone() clone}
+     * functions. Callers must {@link org.phong.zenflow.workflow.subdomain.execution.services.TemplateService.ImmutableEvaluator#cloneInstance() clone}
      * this instance before registering any custom functions to avoid
      * mutating the shared configuration.
      */
