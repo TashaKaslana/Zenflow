@@ -55,6 +55,9 @@ public class Plugin extends BaseEntity {
     @Column(name = "icon", length = Integer.MAX_VALUE)
     private String icon;
 
+    @Column(name = "organization", length = Integer.MAX_VALUE)
+    private String organization;
+
     @NotNull
     @Column(name = "key", nullable = false, length = Integer.MAX_VALUE)
     private String key;

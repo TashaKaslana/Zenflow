@@ -11,5 +11,5 @@ import java.util.UUID;
  */
 public record CreatePluginRequest(UUID publisherId, @NotNull String name, @NotNull String version, String registryUrl,
                                   @NotNull Boolean verified, String description, List<String> tags, String icon,
-                                  String key) implements Serializable {
+                                  String key, String organization) implements Serializable {
 }

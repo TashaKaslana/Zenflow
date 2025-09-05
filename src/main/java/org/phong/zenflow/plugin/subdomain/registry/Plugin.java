@@ -41,6 +41,11 @@ public @interface Plugin {
     String[] tags() default {};
 
     /**
+     * Organization key for grouping related plugins under a vendor (e.g., "google").
+     */
+    String organization() default "";
+
+    /**
      * The icon identifier for this plugin (e.g., "ph:core").
      */
     String icon() default "";
