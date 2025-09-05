@@ -4,12 +4,12 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONArray;
 import org.json.JSONObject;
-import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
 import org.phong.zenflow.plugin.subdomain.schema.services.SchemaRegistry;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.OutputUsage;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowMetadata;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
 import org.phong.zenflow.workflow.subdomain.schema_validator.enums.ValidationErrorCode;
+import org.phong.zenflow.workflow.subdomain.execution.services.TemplateService;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -23,6 +23,7 @@ import java.util.Set;
 public class SchemaTemplateValidationService {
     private final SchemaRegistry schemaRegistry;
     private final SchemaTypeResolver schemaTypeResolver;
+    private final TemplateService templateService;
 
     /**
      * Validates template types against schema at compile time for known types,
@@ -194,7 +195,7 @@ public class SchemaTemplateValidationService {
         }
 
         // Extract all templates from the field value
-        Set<String> allTemplates = TemplateEngine.extractRefs(fieldValue);
+        Set<String> allTemplates = templateService.extractRefs(fieldValue);
 
         // If there's more than one template, it's definitely composite
         if (allTemplates.size() > 1) {
@@ -237,14 +238,14 @@ public class SchemaTemplateValidationService {
                                 (JSONObject) arrayItem, template, fieldPath + "[" + i + "]", topLevel);
                         if (result != null) return result;
                     } else if (arrayItem instanceof String) {
-                        Set<String> templatesInValue = TemplateEngine.extractRefs(arrayItem.toString());
+                        Set<String> templatesInValue = templateService.extractRefs(arrayItem.toString());
                         if (templatesInValue.contains(template)) {
                             return new FieldLocation(fieldPath, topLevel);
                         }
                     }
                 }
             } else if (value instanceof String) {
-                Set<String> templatesInValue = TemplateEngine.extractRefs(value.toString());
+                Set<String> templatesInValue = templateService.extractRefs(value.toString());
                 if (templatesInValue.contains(template)) {
                     return new FieldLocation(fieldPath, topLevel);
                 }
@@ -274,7 +275,7 @@ public class SchemaTemplateValidationService {
             log.debug("Found alias mapping: {} -> {}", template, aliasValue);
 
             // Extract the actual template from alias value (e.g., "{{data-generator.output.user_age}}" -> "data-generator.output.user_age")
-            Set<String> aliasRefs = TemplateEngine.extractRefs(aliasValue);
+            Set<String> aliasRefs = templateService.extractRefs(aliasValue);
             if (!aliasRefs.isEmpty()) {
                 String resolvedTemplate = aliasRefs.iterator().next();
                 OutputUsage resolvedConsumer = nodeConsumers.get(resolvedTemplate);

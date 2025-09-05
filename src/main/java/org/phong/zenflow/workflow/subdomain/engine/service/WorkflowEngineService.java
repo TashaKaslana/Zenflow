@@ -10,6 +10,7 @@ import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContextKey;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContextManager;
+import org.phong.zenflow.workflow.subdomain.execution.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.logging.core.LogContextManager;
 import org.phong.zenflow.workflow.subdomain.logging.core.LogContext;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
@@ -40,6 +41,7 @@ public class WorkflowEngineService {
     private final WorkflowNavigatorService workflowNavigatorService;
     private final ApplicationEventPublisher publisher;
     private final RuntimeContextManager contextManager;
+    private final TemplateService templateService;
     
 
     @Transactional
@@ -73,6 +75,7 @@ public class WorkflowEngineService {
                     .userId(null)
                     .contextManager(contextManager)
                     .logPublisher(logPublisher)
+                    .templateService(templateService)
                     .build();
 
             return getWorkflowExecutionStatus(workflow.getId(), workflowRunId, context, workingNode, workflowNodes, execCtx);
@@ -110,8 +113,9 @@ public class WorkflowEngineService {
         ExecutionResult result;
         nodeExecutionService.startNode(workflowRunId, workingNode.getKey());
 
+        execCtx.setNodeKey(workingNode.getKey());
         WorkflowConfig config = workingNode.getConfig() != null ? workingNode.getConfig() : new WorkflowConfig();
-        WorkflowConfig resolvedConfig = context.resolveConfig(workingNode.getKey(), config);
+        WorkflowConfig resolvedConfig = execCtx.resolveConfig(workingNode.getKey(), config);
 
         result = executeWorkingNode(workingNode, resolvedConfig, execCtx);
 

@@ -9,10 +9,10 @@ import org.everit.json.schema.loader.SchemaLoader;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONPointer;
-import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
 import org.phong.zenflow.plugin.subdomain.schema.services.SchemaRegistry;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
 import org.phong.zenflow.workflow.subdomain.schema_validator.enums.ValidationErrorCode;
+import org.phong.zenflow.workflow.subdomain.execution.services.TemplateService;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 
@@ -32,6 +32,7 @@ public class SchemaValidationService {
     private final SchemaRegistry schemaRegistry;
     private final ObjectMapper objectMapper;
     private final SchemaTypeResolver schemaTypeResolver;
+    private final TemplateService templateService;
 
     /**
      * Validates the supplied data against the JSON-Schema identified by {@code templateString}.
@@ -222,10 +223,10 @@ public class SchemaValidationService {
     public List<ValidationError> validateTemplates(String nodeKey, Object data, String basePath) {
         List<ValidationError> errors = new ArrayList<>();
 
-        Set<String> templates = TemplateEngine.extractRefs(data);
+        Set<String> templates = templateService.extractRefs(data);
         for (String template : templates) {
             String fullTemplate = "{{" + template + "}}";
-            if (!TemplateEngine.isTemplate(fullTemplate)) {
+            if (!templateService.isTemplate(fullTemplate)) {
                 errors.add(ValidationError.builder()
                         .nodeKey(nodeKey)
                         .errorType("definition")
@@ -329,7 +330,7 @@ public class SchemaValidationService {
                             // For array items, we can't easily determine the schema, so pass null
                             JSONObject processedItem = replaceTemplateFieldsWithPlaceholders((JSONObject) arrayItem, null);
                             processedArray.put(processedItem);
-                        } else if (arrayItem instanceof String && TemplateEngine.isTemplate((String) arrayItem)) {
+                        } else if (arrayItem instanceof String && templateService.isTemplate((String) arrayItem)) {
                             // Replace template strings in arrays with string placeholders
                             processedArray.put("__TEMPLATE_PLACEHOLDER__");
                         } else {
@@ -339,7 +340,7 @@ public class SchemaValidationService {
 
                     processedObject.put(key, processedArray);
                 }
-                case String s when TemplateEngine.isTemplate(s) -> {
+                case String s when templateService.isTemplate(s) -> {
                     // Replace template strings with appropriate type placeholders based on schema
                     Object placeholder = getPlaceholderForSchemaField(key, schemaProperties);
                     processedObject.put(key, placeholder);
@@ -424,7 +425,7 @@ public class SchemaValidationService {
                 Object instanceValue = instance.get(instanceKey);
 
                 // Skip template strings - they'll be validated at runtime
-                if (instanceValue instanceof String && TemplateEngine.isTemplate((String) instanceValue)) {
+                if (instanceValue instanceof String && templateService.isTemplate((String) instanceValue)) {
                     continue;
                 }
 

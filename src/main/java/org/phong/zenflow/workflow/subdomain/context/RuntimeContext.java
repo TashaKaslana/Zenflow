@@ -3,8 +3,6 @@ package org.phong.zenflow.workflow.subdomain.context;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
-import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -119,13 +117,10 @@ public class RuntimeContext {
      * @return The resolved value from the context, or null if not found
      */
     public Object getAndClean(String nodeKey, String key) {
-        // If this is a template, extract the reference and resolve it
-        if (TemplateEngine.isTemplate(key)) {
-            return resolveSingleTemplate(nodeKey, key);
-        }
-
-        // This path handles cases where a non-template key might be an aliases
         String resolvedKey = resolveAlias(key);
+        if (isInLoop()) {
+            return getAndMarkConsumedInLoop(nodeKey, resolvedKey);
+        }
         return getAndMarkConsumed(nodeKey, resolvedKey);
     }
 
@@ -154,6 +149,30 @@ public class RuntimeContext {
     }
 
     /**
+     * Gets a value from the context during a loop. Consumer cleanup is deferred
+     * until the loop ends to allow multiple iterations to access the same value.
+     *
+     * @param nodeKey The consuming node
+     * @param key     The key to access
+     * @return The value, or null if not found
+     */
+    private Object getAndMarkConsumedInLoop(String nodeKey, String key) {
+        if (!context.containsKey(key)) {
+            return null;
+        }
+
+        Object value = context.get(key);
+        String activeLoop = getActiveLoop();
+        if (activeLoop != null) {
+            pendingLoopCleanup
+                    .computeIfAbsent(activeLoop, k -> new ConcurrentHashMap<>())
+                    .computeIfAbsent(key, k -> new HashSet<>())
+                    .add(nodeKey);
+        }
+        return value;
+    }
+
+    /**
      * Resolves a possible aliases to its actual reference key
      *
      * @param key The key that might be an aliases
@@ -167,122 +186,6 @@ public class RuntimeContext {
         } else {
             return key;
         }
-    }
-
-    /**
-     * Resolve a configuration object using the RuntimeContext.
-     * Replaces all template references with their actual values in input.
-     *
-     * @param nodeKey The key of the node using this configuration
-     * @param config  The configuration object with templates
-     * @return A new configuration object with resolved values
-     */
-    public WorkflowConfig resolveConfig(String nodeKey, WorkflowConfig config) {
-        if (config == null || config.input() == null) {
-            return config;
-        }
-
-        Map<String, Object> resolvedInput = resolve(nodeKey, config.input());
-        return new WorkflowConfig(resolvedInput, config.output());
-    }
-
-    private Map<String, Object> resolve(String nodeKey, Map<String, Object> config) {
-        Map<String, Object> result = new HashMap<>();
-        for (Map.Entry<String, Object> entry : config.entrySet()) {
-            result.put(entry.getKey(), resolveValue(nodeKey, entry.getValue()));
-        }
-        return result;
-    }
-
-    private Object resolveValue(String nodeKey, Object value) {
-        if (value == null) {
-            return null;
-        }
-
-        return switch (value) {
-            case String str -> {
-                if (!TemplateEngine.isTemplate(str)) {
-                    yield str;
-                }
-
-                // For single-reference templates like "{{ref}}", "{{ref:defaultValue}}", or "{{func()}}"
-                // This ensures the resolved value maintains its original type (e.g., Integer, Boolean)
-                Set<String> fullRefs = TemplateEngine.extractFullRefs(str);
-                if (fullRefs.size() == 1) {
-                    String fullExpr = fullRefs.iterator().next();
-                    if (str.trim().equals("{{" + fullExpr + "}}")) {
-                        // It's a single, standalone template expression
-                        yield resolveSingleTemplate(nodeKey, str);
-                    }
-                }
-
-                // For complex templates with multiple references or surrounding text, e.g., "Hello {{user.name}}"
-                // This will always resolve to a String.
-                yield resolveComplexTemplate(nodeKey, str);
-            }
-            case Map<?, ?> map ->
-                // To be safe, we assume the map is Map<String, Object>
-                    resolve(nodeKey, ObjectConversion.convertObjectToMap(map));
-            case List<?> list -> list.stream()
-                    .map(item -> resolveValue(nodeKey, item))
-                    .toList();
-            default -> value;
-        };
-    }
-
-    private Object resolveSingleTemplate(String nodeKey, String template) {
-        String activeLoop = getActiveLoop();
-        if (activeLoop != null) {
-            return getAndCleanInLoop(nodeKey, template, activeLoop);
-        }
-
-        // --- Start of self-contained logic for non-looping context ---
-        String resolvedKey;
-        if (TemplateEngine.isTemplate(template)) {
-            String fullExpr = TemplateEngine.extractFullRefs(template).stream().findFirst().orElse(null);
-            if (fullExpr == null) return null; // Malformed template
-
-            if (fullExpr.matches("^[a-zA-Z0-9_.-]+\\([^()]*\\)$")) {
-                return TemplateEngine.evaluateFunction(fullExpr);
-            }
-
-            String refKey = TemplateEngine.extractRefs(template).stream().findFirst().orElse(null);
-            if (refKey == null) return null; // Malformed template
-
-            resolvedKey = resolveAlias(refKey);
-        } else {
-            resolvedKey = resolveAlias(template);
-        }
-
-        Object value = getAndMarkConsumed(nodeKey, resolvedKey);
-
-        if (value == null && TemplateEngine.isTemplate(template)) {
-            Object defaultValue = TemplateEngine.extractDefaultValue(template);
-            if (defaultValue != null) {
-                log.debug("Reference in '{}' resolved to null, using default value: {}", template, defaultValue);
-                return defaultValue;
-            }
-        }
-
-        return value;
-    }
-
-    private String resolveComplexTemplate(String nodeKey, String template) {
-        String result = template;
-        Set<String> fullRefs = TemplateEngine.extractFullRefs(template);
-
-        for (String fullRef : fullRefs) {
-            String templateRef = "{{" + fullRef + "}}";
-            Object resolvedValue = resolveSingleTemplate(nodeKey, templateRef);
-
-            if (resolvedValue != null) {
-                result = result.replace(templateRef, resolvedValue.toString());
-            } else {
-                log.warn("Reference '{}' in complex template resolved to null with no default. Returning original template.", fullRef);
-                return template;
-            }
-        }
-        return result;
     }
 
     /**
@@ -452,68 +355,6 @@ public class RuntimeContext {
         }
 
         log.debug("Ended loop context for node: {}", loopNodeKey);
-    }
-
-    /**
-     * Get a value from context within a loop context. This version defers cleanup
-     * until the loop completes, allowing multiple iterations to access the same values.
-     * Supports default values using syntax like {{ref:defaultValue}}
-     *
-     * @param nodeKey The key of the node consuming this value
-     * @param key The key or template to retrieve from the context
-     * @param loopNodeKey The identifier of the active loop
-     * @return The resolved value from the context, or null if not found
-     */
-    public Object getAndCleanInLoop(String nodeKey, String key, String loopNodeKey) {
-        // If no active loop, fall back to regular getAndClean
-        if (!activeLoops.contains(loopNodeKey)) {
-            return getAndClean(nodeKey, key);
-        }
-
-        // Resolve the key similar to getAndClean
-        String resolvedKey;
-        if (TemplateEngine.isTemplate(key)) {
-            // Extract the full expression, e.g., "user.name:Guest"
-            String fullExpr = TemplateEngine.extractFullRefs(key).stream().findFirst().orElse(null);
-            if (fullExpr == null) return null; // Malformed template
-
-            // Check for function calls like uuid()
-            if (fullExpr.matches("^[a-zA-Z0-9_.-]+\\([^()]*\\)$")) {
-                return TemplateEngine.evaluateFunction(fullExpr);
-            }
-
-            // Extract the actual reference, e.g., "user.name"
-            String refKey = TemplateEngine.extractRefs(key).stream().findFirst().orElse(null);
-            if (refKey == null) return null; // Malformed template
-
-            resolvedKey = resolveAlias(refKey);
-
-        } else {
-            resolvedKey = resolveAlias(key);
-        }
-
-        Object value = context.get(resolvedKey);
-
-        // If value is null, we must check for a default value in the template
-        if (value == null && TemplateEngine.isTemplate(key)) {
-            Object defaultValue = TemplateEngine.extractDefaultValue(key);
-            if (defaultValue != null) {
-                log.debug("Using default value '{}' for template '{}' in loop node '{}' consumer '{}'",
-                        defaultValue, key, loopNodeKey, nodeKey);
-                return defaultValue;
-            }
-        }
-
-        // Defer cleanup for the resolved key
-        if (value != null) {
-            Map<String, Set<String>> loopPendingCleanup = pendingLoopCleanup.get(loopNodeKey);
-            if (loopPendingCleanup != null) {
-                loopPendingCleanup.computeIfAbsent(resolvedKey, k -> new HashSet<>()).add(nodeKey);
-                log.debug("Deferred cleanup for key '{}' consumer '{}' in loop '{}'", resolvedKey, nodeKey, loopNodeKey);
-            }
-        }
-
-        return value;
     }
 
     /**

@@ -1,7 +1,8 @@
 package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.loop.for_each;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.googlecode.aviator.AviatorEvaluator;
+import com.googlecode.aviator.AviatorEvaluatorInstance;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
@@ -27,6 +28,7 @@ import java.util.Map;
         icon = "ph:repeat"
 )
 @Slf4j
+@AllArgsConstructor
 public class ForEachLoopExecutor implements PluginNodeExecutor {
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
@@ -35,6 +37,8 @@ public class ForEachLoopExecutor implements PluginNodeExecutor {
             Map<String, Object> input = config.input();
             List<Object> items = ObjectConversion.safeConvert(input.get("items"), new TypeReference<>() {});
             int index = (int) input.getOrDefault("index", 0);
+
+            AviatorEvaluatorInstance evaluator = context.getEvaluator().clone();
 
             if (index >= items.size()) {
                 List<String> loopEnd = ObjectConversion.safeConvert(input.get("loopEnd"), new TypeReference<>() {});
@@ -60,7 +64,7 @@ public class ForEachLoopExecutor implements PluginNodeExecutor {
             output.put("item", currentItem);
             output.put("index", index);
 
-            if (evalCondition(input.get("breakCondition"), output, logCollector)) {
+            if (evalCondition(input.get("breakCondition"), output, context, logCollector, evaluator)) {
                 List<String> loopEnd = ObjectConversion.safeConvert(input.get("loopEnd"), new TypeReference<>() {});
                 logCollector.info("Break condition met at index {}, exiting loop", index);
                 if (loopEnd.isEmpty()) {
@@ -70,7 +74,7 @@ public class ForEachLoopExecutor implements PluginNodeExecutor {
                 return ExecutionResult.loopBreak(loopEnd.getFirst(), output);
             }
 
-            if (evalCondition(input.get("continueCondition"), output, logCollector)) {
+            if (evalCondition(input.get("continueCondition"), output, context, logCollector, evaluator)) {
                 output.put("index", index + 1);
                 logCollector.info("Continue condition met at index {}, skipping to next", index);
                 return ExecutionResult.loopContinue(output);
@@ -92,10 +96,12 @@ public class ForEachLoopExecutor implements PluginNodeExecutor {
         }
     }
 
-    private boolean evalCondition(Object rawExpr, Map<String, Object> context, NodeLogPublisher logCollector) {
+    private boolean evalCondition(Object rawExpr, Map<String, Object> context, ExecutionContext execCtx, NodeLogPublisher logCollector, AviatorEvaluatorInstance evaluator) {
         if (rawExpr instanceof String expr && !expr.isBlank()) {
             try {
-                Object result = AviatorEvaluator.execute(expr, context);
+                Map<String, Object> env = new HashMap<>(context);
+                env.put("context", execCtx);
+                Object result = evaluator.execute(expr, env);
                 return Boolean.TRUE.equals(result);
             } catch (Exception e) {
                 log.warn("Failed to evaluate condition '{}': {}", rawExpr, e.getMessage());

@@ -4,6 +4,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.data.data_transformer.exception.DataTransformerExecutorException;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.data.data_transformer.impl.aggregation.FilterTransformer;
+import org.phong.zenflow.workflow.subdomain.execution.functions.AviatorFunctionRegistry;
+import org.phong.zenflow.workflow.subdomain.execution.functions.StringContainsFunction;
+import org.phong.zenflow.workflow.subdomain.execution.services.TemplateService;
 
 import java.util.*;
 
@@ -15,7 +18,7 @@ class FilterTransformerTest {
 
     @BeforeEach
     void setUp() {
-        filterTransformer = new FilterTransformer();
+        filterTransformer = new FilterTransformer(new TemplateService(new AviatorFunctionRegistry(List.of(new StringContainsFunction()))));
     }
 
     @Test

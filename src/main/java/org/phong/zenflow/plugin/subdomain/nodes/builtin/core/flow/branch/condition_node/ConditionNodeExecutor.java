@@ -1,7 +1,7 @@
 package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.branch.condition_node;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.googlecode.aviator.AviatorEvaluator;
+import com.googlecode.aviator.AviatorEvaluatorInstance;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
@@ -15,7 +15,6 @@ import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 
 @Component
 @PluginNode(
@@ -32,7 +31,6 @@ import java.util.regex.Pattern;
 @Slf4j
 @AllArgsConstructor
 public class ConditionNodeExecutor implements PluginNodeExecutor {
-    private static final Pattern UNRESOLVED_PATTERN = Pattern.compile("\\{\\{[^}]+}}");
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher log = context.getLogPublisher();
@@ -42,21 +40,18 @@ public class ConditionNodeExecutor implements PluginNodeExecutor {
 
             log.info("Begin condition flow with cases: {}", cases.toString());
 
+            AviatorEvaluatorInstance evaluator = context.getEvaluator().clone();
+
             for (ConditionalCase caseDef : cases) {
                 String rawCondition = caseDef.when();
                 if (rawCondition == null || rawCondition.isBlank()) {
                     throw new IllegalArgumentException("Node condition is null or blank.");
                 }
 
-                if (UNRESOLVED_PATTERN.matcher(rawCondition).find()) {
-                    log.warning("Skipping condition due to unresolved placeholder: " + rawCondition);
-                    continue;
-                }
-
                 log.debug("Evaluating condition: {}", rawCondition);
 
                 try {
-                    Object result = AviatorEvaluator.execute(rawCondition);
+                    Object result = evaluator.execute(rawCondition, Map.of("context", context));
                     Boolean isMatch = (Boolean) result;
                     if (Boolean.TRUE.equals(isMatch)) {
                         log.info("Condition matched: {} than next to {}", rawCondition, caseDef.then());

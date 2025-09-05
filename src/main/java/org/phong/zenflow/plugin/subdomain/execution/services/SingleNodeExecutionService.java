@@ -7,6 +7,7 @@ import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.entity
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContextManager;
+import org.phong.zenflow.workflow.subdomain.execution.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.logging.core.LogContextManager;
 import org.phong.zenflow.workflow.subdomain.logging.core.LogContext;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
@@ -36,6 +37,7 @@ public class SingleNodeExecutionService {
     private final WorkflowValidationService workflowValidationService;
     private final RuntimeContextManager contextManager;
     private final ApplicationEventPublisher publisher;
+    private final TemplateService templateService;
 
     /**
      * Execute a pluginNode node with the provided configuration.
@@ -65,11 +67,13 @@ public class SingleNodeExecutionService {
                 .userId(null)
                 .contextManager(contextManager)
                 .logPublisher(logPublisher)
+                .templateService(templateService)
                 .build();
 
+        execCtx.setNodeKey(pluginNode.getCompositeKey());
         WorkflowConfig config = node.getConfig();
         WorkflowConfig safeConfig = (config != null) ? config : new WorkflowConfig();
-        WorkflowConfig resolvedConfig = context.resolveConfig(pluginNode.getCompositeKey(), safeConfig);
+        WorkflowConfig resolvedConfig = execCtx.resolveConfig(pluginNode.getCompositeKey(), safeConfig);
 
         return LogContextManager.withComponent(pluginNode.getCompositeKey(), () -> {
             LogContext ctx = LogContextManager.snapshot();
