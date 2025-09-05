@@ -5,8 +5,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
 import org.phong.zenflow.core.utils.ObjectConversion;
-import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
 import org.phong.zenflow.plugin.subdomain.schema.services.SchemaRegistry;
+import org.phong.zenflow.workflow.subdomain.execution.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowNodes;
@@ -36,11 +36,12 @@ import java.util.stream.Collectors;
 public class WorkflowContextService {
     private final SchemaRegistry schemaRegistry;
     private final SchemaTypeResolver schemaTypeResolver;
+    private final TemplateService templateService;
 
-    private static void generateAliasLinkBackToConsumers(WorkflowMetadata ctx) {
+    private void generateAliasLinkBackToConsumers(WorkflowMetadata ctx) {
         for (Map.Entry<String, String> aliasEntry : ctx.aliases().entrySet()) {
             String aliasName = aliasEntry.getKey();
-            TemplateEngine.extractRefs(aliasEntry.getValue()).stream().findFirst().ifPresent(originalRef -> ctx.nodeConsumers()
+            templateService.extractRefs(aliasEntry.getValue()).stream().findFirst().ifPresent(originalRef -> ctx.nodeConsumers()
                     .computeIfAbsent(originalRef, k -> new OutputUsage())
                     .getAliases()
                     .add(aliasName));
@@ -77,7 +78,7 @@ public class WorkflowContextService {
                     continue;
                 }
 
-                Set<String> referenced = TemplateEngine.extractRefs(inputValue.toString());
+                Set<String> referenced = templateService.extractRefs(inputValue.toString());
 
                 for (String ref : referenced) {
                     String resolvedRef = resolveAlias(ref, ctx.aliases());
@@ -173,7 +174,7 @@ public class WorkflowContextService {
 
     private String resolveAlias(String ref, Map<String, String> aliases) {
         if (aliases.containsKey(ref)) {
-            return TemplateEngine.extractRefs(aliases.get(ref)).stream().findFirst().orElse(ref);
+            return templateService.extractRefs(aliases.get(ref)).stream().findFirst().orElse(ref);
         }
         return ref;
     }

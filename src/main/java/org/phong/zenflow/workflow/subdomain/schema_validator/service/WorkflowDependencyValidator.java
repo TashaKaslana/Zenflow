@@ -2,13 +2,13 @@ package org.phong.zenflow.workflow.subdomain.schema_validator.service;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowMetadata;
 import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
 import org.phong.zenflow.workflow.subdomain.schema_validator.enums.ValidationErrorCode;
+import org.phong.zenflow.workflow.subdomain.execution.services.TemplateService;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -26,6 +26,7 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 @Slf4j
 public class WorkflowDependencyValidator {
+    private final TemplateService templateService;
 
     public List<ValidationError> validateNodeDependencyLoops(WorkflowDefinition workflow) {
 
@@ -70,7 +71,7 @@ public class WorkflowDependencyValidator {
 
         // Validate each dependency
         for (String dependency : dependencies) {
-            String sourceNode = TemplateEngine.getReferencedNode(dependency, aliases);
+            String sourceNode = templateService.getReferencedNode(dependency, aliases);
 
             if (sourceNode != null && !availableNodes.contains(sourceNode)) {
                 // Check if this is a loop node and the dependency is a self-reference
@@ -157,7 +158,7 @@ public class WorkflowDependencyValidator {
                 Set<String> dependencies = entry.getValue();
 
                 for (String dependency : dependencies) {
-                    String referencedNode = TemplateEngine.getReferencedNode(dependency, aliases);
+                    String referencedNode = templateService.getReferencedNode(dependency, aliases);
                     if (referencedNode != null && !referencedNode.equals(nodeKey) && inDegree.containsKey(referencedNode)) {
                         adjacencyList.get(referencedNode).add(nodeKey);
                         inDegree.put(nodeKey, inDegree.get(nodeKey) + 1);
@@ -300,7 +301,7 @@ public class WorkflowDependencyValidator {
             String aliasValue = aliasEntry.getValue(); // e.g., "{{node1.output.email}}"
 
             // Extract template references from aliases value
-            Set<String> aliasRefs = TemplateEngine.extractRefs(aliasValue);
+            Set<String> aliasRefs = templateService.extractRefs(aliasValue);
 
             for (String ref : aliasRefs) {
                 // For aliases validation, we don't pass aliases to avoid circular resolution

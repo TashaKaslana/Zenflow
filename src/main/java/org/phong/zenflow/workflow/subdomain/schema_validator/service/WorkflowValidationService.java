@@ -4,7 +4,6 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
-import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
@@ -15,6 +14,7 @@ import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
 import org.phong.zenflow.workflow.subdomain.schema_validator.enums.ValidationErrorCode;
 import org.springframework.stereotype.Service;
+import org.phong.zenflow.workflow.subdomain.execution.services.TemplateService;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,6 +40,7 @@ public class WorkflowValidationService {
     private final WorkflowDependencyValidator workflowDependencyValidator;
     private final SchemaTemplateValidationService schemaTemplateValidationService;
     private final PluginNodeExecutorRegistry executorRegistry;
+    private final TemplateService templateService;
 
     /**
      * Phase 1: Validates a workflow definition against schema requirements.
@@ -177,7 +178,7 @@ public class WorkflowValidationService {
             });
 
             if (node.getConfig().input() != null) {
-                Set<String> templates = TemplateEngine.extractRefs(node.getConfig());
+                Set<String> templates = templateService.extractRefs(node.getConfig());
                 Map<String, OutputUsage> nodeConsumers = workflow.metadata() != null ?
                         workflow.metadata().nodeConsumers() : null;
 
@@ -269,10 +270,10 @@ public class WorkflowValidationService {
         List<ValidationError> errors = new ArrayList<>();
 
         if (node.getConfig() != null) {
-            Set<String> templates = TemplateEngine.extractRefs(node.getConfig());
+            Set<String> templates = templateService.extractRefs(node.getConfig());
 
             for (String template : templates) {
-                String referencedNode = TemplateEngine.getReferencedNode(template, aliases);
+                String referencedNode = templateService.getReferencedNode(template, aliases);
 
                 // Only validate existence - dependency direction is handled by WorkflowDependencyValidator
                 if (referencedNode != null && !nodeKeys.contains(referencedNode)) {

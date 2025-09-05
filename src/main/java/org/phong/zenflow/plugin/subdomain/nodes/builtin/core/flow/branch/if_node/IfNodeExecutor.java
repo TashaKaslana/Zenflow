@@ -1,7 +1,7 @@
 package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.branch.if_node;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.googlecode.aviator.AviatorEvaluator;
+import com.googlecode.aviator.AviatorEvaluatorInstance;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
@@ -15,7 +15,6 @@ import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 
 @Component
 @PluginNode(
@@ -30,7 +29,6 @@ import java.util.regex.Pattern;
 @Slf4j
 @AllArgsConstructor
 public class IfNodeExecutor implements PluginNodeExecutor {
-    private static final Pattern UNRESOLVED_PATTERN = Pattern.compile("\\{\\{[^}]+}}");
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher logCollector = context.getLogPublisher();
@@ -51,23 +49,19 @@ public class IfNodeExecutor implements PluginNodeExecutor {
                 throw new IllegalArgumentException(errorMsg);
             }
 
-            if (UNRESOLVED_PATTERN.matcher(condition).find()) {
-                logCollector.warning("Skipping condition due to unresolved placeholder: {}", condition);
-                return ExecutionResult.nextNode(getFirstOrNull(nextFalse));
-            }
-
             log.debug("Evaluating IF condition: {}", condition);
 
-            return getExpressionExecutionResult(condition, nextTrue, logCollector, nextFalse);
+            AviatorEvaluatorInstance evaluator = context.getEvaluator().clone();
+            return getExpressionExecutionResult(condition, nextTrue, logCollector, nextFalse, context, evaluator);
         } catch (Exception e) {
             logCollector.withException(e).error("Failed to process if-node: {}", e.getMessage());
             return ExecutionResult.error("Failed to process if-node: " + e.getMessage());
         }
     }
 
-    private ExecutionResult getExpressionExecutionResult(String condition, List<String> nextTrue, NodeLogPublisher logCollector, List<String> nextFalse) {
+    private ExecutionResult getExpressionExecutionResult(String condition, List<String> nextTrue, NodeLogPublisher logCollector, List<String> nextFalse, ExecutionContext context, AviatorEvaluatorInstance evaluator) {
         try {
-            Object result = AviatorEvaluator.execute(condition);
+            Object result = evaluator.execute(condition, Map.of("context", context));
             Boolean isMatch = (Boolean) result;
 
             String next;

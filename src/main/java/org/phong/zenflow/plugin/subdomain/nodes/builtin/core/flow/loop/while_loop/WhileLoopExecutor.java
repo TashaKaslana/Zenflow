@@ -1,7 +1,7 @@
 package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.loop.while_loop;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.googlecode.aviator.AviatorEvaluator;
+import com.googlecode.aviator.AviatorEvaluatorInstance;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
@@ -13,6 +13,7 @@ import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -35,7 +36,9 @@ public class WhileLoopExecutor implements PluginNodeExecutor {
         try {
             Map<String, Object> input = config.input();
 
-            boolean shouldContinue = evalCondition(input.get("condition"), input, logCollector);
+            AviatorEvaluatorInstance evaluator = context.getEvaluator().clone();
+
+            boolean shouldContinue = evalCondition(input.get("condition"), input, context, logCollector, evaluator);
             logCollector.info("While loop condition evaluated to [{}]", shouldContinue);
 
             if (!shouldContinue) {
@@ -48,7 +51,7 @@ public class WhileLoopExecutor implements PluginNodeExecutor {
                 return ExecutionResult.loopEnd(loopEnd.getFirst(), input);
             }
 
-            if (evalCondition(input.get("breakCondition"), input, logCollector)) {
+            if (evalCondition(input.get("breakCondition"), input, context, logCollector, evaluator)) {
                 List<String> loopEnd = ObjectConversion.safeConvert(input.get("loopEnd"), new TypeReference<>() {});
                 logCollector.info("Break condition met, exiting while loop.");
                 if (loopEnd.isEmpty()) {
@@ -58,7 +61,7 @@ public class WhileLoopExecutor implements PluginNodeExecutor {
                 return ExecutionResult.loopBreak(loopEnd.getFirst(), input);
             }
 
-            if (evalCondition(input.get("continueCondition"), input, logCollector)) {
+            if (evalCondition(input.get("continueCondition"), input, context, logCollector, evaluator)) {
                 logCollector.info("Continue condition met, skipping to next iteration.");
                 return ExecutionResult.loopContinue(input);
             }
@@ -77,10 +80,12 @@ public class WhileLoopExecutor implements PluginNodeExecutor {
         }
     }
 
-    private boolean evalCondition(Object rawExpr, Map<String, Object> context, NodeLogPublisher logCollector) {
+    private boolean evalCondition(Object rawExpr, Map<String, Object> context, ExecutionContext execCtx, NodeLogPublisher logCollector, AviatorEvaluatorInstance evaluator) {
         if (rawExpr instanceof String expr && !expr.isBlank()) {
             try {
-                Object result = AviatorEvaluator.execute(expr, context);
+                Map<String, Object> env = new HashMap<>(context);
+                env.put("context", execCtx);
+                Object result = evaluator.execute(expr, env);
                 return Boolean.TRUE.equals(result);
             } catch (Exception e) {
                 log.warn("Failed to evaluate condition '{}': {}", rawExpr, e.getMessage());

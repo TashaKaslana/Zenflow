@@ -1,15 +1,19 @@
 package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.data.data_transformer.impl.aggregation;
 
-import com.googlecode.aviator.AviatorEvaluator;
+import com.googlecode.aviator.AviatorEvaluatorInstance;
+import lombok.AllArgsConstructor;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.data.data_transformer.exception.DataTransformerExecutorException;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.data.data_transformer.interfaces.DataTransformer;
+import org.phong.zenflow.workflow.subdomain.execution.services.TemplateService;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Component
+@AllArgsConstructor
 public class FilterTransformer implements DataTransformer {
+    private final TemplateService templateService;
 
     @Override
     public String getName() {
@@ -29,13 +33,15 @@ public class FilterTransformer implements DataTransformer {
         String expression = (String) params.get("expression");
         String mode = (String) params.getOrDefault("mode", "include");
 
+        AviatorEvaluatorInstance evaluator = templateService.newChildEvaluator();
+
         return list.stream()
-                .filter(item -> evaluateFilter(item, expression, mode))
+                .filter(item -> evaluateFilter(item, expression, mode, evaluator))
                 .collect(Collectors.toList());
     }
 
     @SuppressWarnings("unchecked")
-    private boolean evaluateFilter(Object item, String expression, String mode) {
+    private boolean evaluateFilter(Object item, String expression, String mode, AviatorEvaluatorInstance evaluator) {
         try {
             Map<String, Object> context = new HashMap<>();
 
@@ -50,7 +56,7 @@ public class FilterTransformer implements DataTransformer {
             // Add common utility variables
             context.put("item", item);
 
-            Object result = AviatorEvaluator.execute(expression, context);
+            Object result = evaluator.execute(expression, context);
             boolean matches = convertToBoolean(result);
 
             // Include mode: return items that match

@@ -1,7 +1,8 @@
 package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.loop.for_loop;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.googlecode.aviator.AviatorEvaluator;
+import com.googlecode.aviator.AviatorEvaluatorInstance;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
@@ -27,6 +28,7 @@ import java.util.Map;
         icon = "ph:repeat"
 )
 @Slf4j
+@AllArgsConstructor
 public class ForLoopExecutor implements PluginNodeExecutor {
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
@@ -37,7 +39,9 @@ public class ForLoopExecutor implements PluginNodeExecutor {
             // Create output that includes ALL necessary data for next iteration
             Map<String, Object> output = new HashMap<>(input);
 
-            if (isLoopComplete(input, output, logCollector)) {
+            AviatorEvaluatorInstance evaluator = context.getEvaluator().clone();
+
+            if (isLoopComplete(input, output, logCollector, context, evaluator)) {
                 List<String> loopEnd = ObjectConversion.safeConvert(input.get("loopEnd"), new TypeReference<>() {});
                 logCollector.info("Loop finished. Proceeding to loopEnd.");
                 if (loopEnd.isEmpty()) {
@@ -47,7 +51,7 @@ public class ForLoopExecutor implements PluginNodeExecutor {
                 return ExecutionResult.loopEnd(loopEnd.getFirst(), output);
             }
 
-            if (evalCondition(input.get("breakCondition"), output, logCollector)) {
+            if (evalCondition(input.get("breakCondition"), output, context, logCollector, evaluator)) {
                 List<String> loopEnd = ObjectConversion.safeConvert(input.get("loopEnd"), new TypeReference<>() {});
                 logCollector.info("Loop exited due to break condition at index {}", output.get("index"));
                 if (loopEnd.isEmpty()) {
@@ -57,15 +61,15 @@ public class ForLoopExecutor implements PluginNodeExecutor {
                 return ExecutionResult.loopBreak(loopEnd.getFirst(), output);
             }
 
-            if (evalCondition(input.get("continueCondition"), output, logCollector)) {
-                int newIndex = getNewIndex(input, output, logCollector);
+            if (evalCondition(input.get("continueCondition"), output, context, logCollector, evaluator)) {
+                int newIndex = getNewIndex(input, output, context, logCollector, evaluator);
                 output.put("index", newIndex);
                 logCollector.info("Loop continued to next iteration due to continue condition.");
                 return ExecutionResult.loopContinue(output);
             }
 
             List<String> next = ObjectConversion.safeConvert(input.get("next"), new TypeReference<>() {});
-            int newIndex = getNewIndex(input, output, logCollector);
+            int newIndex = getNewIndex(input, output, context, logCollector, evaluator);
             output.put("index", newIndex);
 
             logCollector.info("Proceeding to loop body for index {}. New index is {}", input.get("index"), newIndex);
@@ -81,9 +85,9 @@ public class ForLoopExecutor implements PluginNodeExecutor {
         }
     }
 
-    private boolean isLoopComplete(Map<String, Object> input, Map<String, Object> context, NodeLogPublisher logCollector) {
+    private boolean isLoopComplete(Map<String, Object> input, Map<String, Object> context, NodeLogPublisher logCollector, ExecutionContext execCtx, AviatorEvaluatorInstance evaluator) {
         if (input.containsKey("endCondition")) {
-            boolean end = evalCondition(input.get("endCondition"), context, logCollector);
+            boolean end = evalCondition(input.get("endCondition"), context, execCtx, logCollector, evaluator);
             if (end) {
                 logCollector.info("Loop ended due to endCondition being met.");
             }
@@ -103,10 +107,12 @@ public class ForLoopExecutor implements PluginNodeExecutor {
         return false; // Should not be reached if validation passes
     }
 
-    private int getNewIndex(Map<String, Object> input, Map<String, Object> context, NodeLogPublisher logCollector) {
+    private int getNewIndex(Map<String, Object> input, Map<String, Object> context, ExecutionContext execCtx, NodeLogPublisher logCollector, AviatorEvaluatorInstance evaluator) {
         String updateExpression = (String) input.get("updateExpression");
         try {
-            Object newIndex = AviatorEvaluator.execute(updateExpression, context);
+            Map<String, Object> env = new HashMap<>(context);
+            env.put("context", execCtx);
+            Object newIndex = evaluator.execute(updateExpression, env);
             return ((Number) newIndex).intValue();
         } catch (Exception e) {
             log.error("Failed to evaluate updateExpression '{}': {}", updateExpression, e.getMessage());
@@ -115,10 +121,12 @@ public class ForLoopExecutor implements PluginNodeExecutor {
         }
     }
 
-    private boolean evalCondition(Object rawExpr, Map<String, Object> context, NodeLogPublisher logCollector) {
+    private boolean evalCondition(Object rawExpr, Map<String, Object> context, ExecutionContext execCtx, NodeLogPublisher logCollector, AviatorEvaluatorInstance evaluator) {
         if (rawExpr instanceof String expr && !expr.isBlank()) {
             try {
-                Object result = AviatorEvaluator.execute(expr, context);
+                Map<String, Object> env = new HashMap<>(context);
+                env.put("context", execCtx);
+                Object result = evaluator.execute(expr, env);
                 return Boolean.TRUE.equals(result);
             } catch (Exception e) {
                 log.warn("Failed to evaluate condition '{}': {}", rawExpr, e.getMessage());

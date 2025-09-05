@@ -3,6 +3,7 @@ package org.phong.zenflow.setup;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Disabled;
 import org.phong.zenflow.setup.workflow.UpsertNodeSetup;
 import org.phong.zenflow.setup.workflow.WorkflowRunSetup;
 import org.phong.zenflow.setup.workflow.WorkflowSetup;
@@ -10,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+@Disabled("Requires containerized services")
 @Testcontainers
 @SpringBootTest
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)

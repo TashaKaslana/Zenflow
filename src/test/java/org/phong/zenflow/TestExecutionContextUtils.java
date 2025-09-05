@@ -3,10 +3,14 @@ package org.phong.zenflow;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContextManager;
+import org.phong.zenflow.workflow.subdomain.execution.functions.AviatorFunctionRegistry;
+import org.phong.zenflow.workflow.subdomain.execution.functions.StringContainsFunction;
+import org.phong.zenflow.workflow.subdomain.execution.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.UUID;
+import java.util.List;
 
 public class TestExecutionContextUtils {
     public static ExecutionContext createExecutionContext() {
@@ -31,6 +35,7 @@ public class TestExecutionContextUtils {
                         .runId(runId)
                         .userId(null)
                         .build())
+                .templateService(new TemplateService(new AviatorFunctionRegistry(List.of(new StringContainsFunction()))))
                 .build();
     }
 }

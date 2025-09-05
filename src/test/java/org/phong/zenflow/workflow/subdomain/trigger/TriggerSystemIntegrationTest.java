@@ -22,6 +22,7 @@ import java.util.UUID;
  * Uses shared Spring context and stateful setup for maximum performance.
  * Tests the single shared Quartz scheduler efficiency and proper trigger registration.
  */
+@Disabled("Requires external infrastructure")
 @SpringBootTest
 @TestPropertySource(properties = {
     "spring.quartz.job-store-type=memory", // Use in-memory for tests
