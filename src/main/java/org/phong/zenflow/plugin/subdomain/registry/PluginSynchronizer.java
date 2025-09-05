@@ -58,6 +58,7 @@ public class PluginSynchronizer implements ApplicationRunner {
             entity.setDescription(annotation.description());
             entity.setTags(Arrays.asList(annotation.tags()));
             entity.setIcon(annotation.icon());
+            entity.setOrganization(annotation.organization().isEmpty() ? null : annotation.organization());
             entity.setRegistryUrl(annotation.registryUrl().isEmpty() ? null : annotation.registryUrl());
             entity.setVerified(annotation.verified());
             entity.setPublisherId(UUID.fromString(annotation.publisherId()));
