@@ -162,12 +162,8 @@ public class TemplateService {
                 expression = String.format("get(\"%s\")", expression);
             }
 
-            Map<String, Object> actualContextMap = context.getContextManager()
-                    .getOrCreate(context.getWorkflowRunId().toString())
-                    .getContext();
-
             Expression compiledExp = baseEvaluator.compile(expression, true);
-            return compiledExp.execute(Map.of("context", actualContextMap));
+            return compiledExp.execute(Map.of("context", context));
         } catch (Exception e) {
             System.err.println("Failed to evaluate expression: " + expression + " - Error: " + e.getMessage());
             return "{{" + expression + "}}";

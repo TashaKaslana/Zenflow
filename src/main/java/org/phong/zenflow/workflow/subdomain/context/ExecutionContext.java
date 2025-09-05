@@ -6,6 +6,8 @@ import lombok.Getter;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
+
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.workflow.subdomain.execution.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
@@ -112,7 +114,7 @@ public class ExecutionContext {
 
     private Map<String, Object> resolveMap(Map<String, Object> map) {
         return map.entrySet().stream()
-                .collect(java.util.stream.Collectors.toMap(Map.Entry::getKey, e -> resolveValue(e.getValue())));
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> resolveValue(e.getValue())));
     }
 
     private Object resolveValue(Object value) {

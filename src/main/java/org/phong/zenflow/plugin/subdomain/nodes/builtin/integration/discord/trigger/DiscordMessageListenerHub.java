@@ -38,7 +38,7 @@ public class DiscordMessageListenerHub extends ListenerAdapter {
     public void onMessageReceived(@NotNull MessageReceivedEvent event) {
         UUID triggerId = null;
         String channelId = event.getChannel().getId();
-        log.info("Received message in channel {}: {}", channelId, event.getMessage().getContentDisplay());
+        log.info("Received message in channel {} in listener hub: {}", channelId, event.getMessage().getContentDisplay());
 
         try {
             DiscordMessageContext discordMessageContext = listenerMap.get(channelId);

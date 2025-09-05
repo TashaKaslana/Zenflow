@@ -5,6 +5,7 @@ import com.googlecode.aviator.runtime.function.AbstractFunction;
 import com.googlecode.aviator.runtime.function.FunctionUtils;
 import com.googlecode.aviator.runtime.type.AviatorObject;
 import com.googlecode.aviator.runtime.type.AviatorRuntimeJavaType;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -53,17 +54,13 @@ public class AviatorFunctionRegistry {
 
         @Override
         public AviatorObject call(Map<String, Object> env, AviatorObject arg1) {
-            Object ctx = env.get("context");
+            ExecutionContext ctx = (ExecutionContext) env.get("context");
             if (ctx == null) {
                 return AviatorRuntimeJavaType.valueOf(null);
             }
             String key = FunctionUtils.getStringValue(arg1, env);
-            try {
-                Object value = ctx.getClass().getMethod("get", String.class).invoke(ctx, key);
-                return AviatorRuntimeJavaType.valueOf(value);
-            } catch (ReflectiveOperationException e) {
-                return AviatorRuntimeJavaType.valueOf(null);
-            }
+            Object value = ctx.get(key);
+            return AviatorRuntimeJavaType.valueOf(value);
         }
     }
 
