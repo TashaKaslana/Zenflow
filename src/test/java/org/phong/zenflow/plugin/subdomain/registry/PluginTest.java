@@ -8,6 +8,7 @@ import org.phong.zenflow.plugin.subdomain.registry.definitions.CorePlugin;
 import org.phong.zenflow.plugin.subdomain.registry.definitions.IntegrationPlugin;
 import org.phong.zenflow.plugin.subdomain.registry.definitions.TestPlugin;
 import org.phong.zenflow.plugin.subdomain.registry.definitions.GoogleDrivePlugin;
+import org.phong.zenflow.plugin.subdomain.registry.definitions.GoogleDocsPlugin;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
@@ -25,6 +26,7 @@ import static org.mockito.Mockito.*;
         IntegrationPlugin.class,
         TestPlugin.class,
         GoogleDrivePlugin.class,
+        GoogleDocsPlugin.class,
         PluginSynchronizer.class,
         ObjectMapper.class
 })
@@ -154,14 +156,15 @@ public class PluginTest {
         assertDoesNotThrow(() -> pluginSynchronizer.run(null),
                 "Plugin synchronization should not throw any exceptions");
 
-        // Verify that all four plugins were saved
-        verify(pluginRepository, times(4)).save(any(Plugin.class));
+        // Verify that all five plugins were saved
+        verify(pluginRepository, times(5)).save(any(Plugin.class));
 
         // Verify each plugin key was searched for
         verify(pluginRepository).findByKey("core");
         verify(pluginRepository).findByKey("integration");
         verify(pluginRepository).findByKey("test");
         verify(pluginRepository).findByKey("google-drive");
+        verify(pluginRepository).findByKey("google-docs");
     }
 
     @Test
