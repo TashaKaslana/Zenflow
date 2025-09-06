@@ -1,7 +1,7 @@
-package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.drive.list_file;
+package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.drive.files.trash;
 
 import com.google.api.services.drive.Drive;
-import com.google.api.services.drive.model.FileList;
+import com.google.api.services.drive.model.File;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
@@ -22,15 +22,15 @@ import java.util.Map;
 @Component
 @RequiredArgsConstructor
 @PluginNode(
-        key = "google-drive:files.list",
-        name = "Google Drive - List Files",
+        key = "google-drive:files.trash",
+        name = "Google Drive - Trash File",
         version = "1.0.0",
-        description = "Lists files from Google Drive using OAuth2 credentials.",
+        description = "Moves a file to the trash in Google Drive.",
         icon = "googleDrive",
         type = "integration.storage",
-        tags = {"google", "drive", "list", "storage"}
+        tags = {"google", "drive", "trash", "storage"}
 )
-public class GoogleDriveListExecutor implements PluginNodeExecutor {
+public class GoogleDriveTrashExecutor implements PluginNodeExecutor {
 
     private final GoogleDriveServiceManager driveServiceManager;
 
@@ -40,7 +40,7 @@ public class GoogleDriveListExecutor implements PluginNodeExecutor {
         try {
             Map<String, Object> input = config.input();
             String profile = (String) input.get("profile");
-            String query = (String) input.getOrDefault("query", "trashed=false");
+            String fileId = (String) input.get("fileId");
 
             @SuppressWarnings("unchecked")
             Map<String, Map<String, String>> secretMap = context.read("secrets", Map.class);
@@ -58,19 +58,19 @@ public class GoogleDriveListExecutor implements PluginNodeExecutor {
             try (ScopedNodeResource<Drive> handle = driveServiceManager.acquire(refreshToken, context.getWorkflowRunId(), resourceConfig)) {
                 Drive drive = handle.getResource();
 
-                FileList result = drive.files().list()
-                        .setQ(query)
-                        .setPageSize(10)
-                        .setFields("files(id, name)")
+                File file = drive.files()
+                        .update(fileId, new File().setTrashed(true))
+                        .setFields("id, name, trashed")
                         .execute();
 
                 Map<String, Object> output = new HashMap<>();
-                output.put("files", result.getFiles());
+                output.put("file", file);
                 return ExecutionResult.success(output);
             }
         } catch (Exception e) {
-            logCollector.withException(e).error("Google Drive list failed: {}", e.getMessage());
+            logCollector.withException(e).error("Google Drive trash failed: {}", e.getMessage());
             return ExecutionResult.error(e.getMessage());
         }
     }
 }
+
