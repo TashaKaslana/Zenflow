@@ -202,6 +202,8 @@ public class PluginTest {
         CorePlugin corePlugin = new CorePlugin();
         IntegrationPlugin integrationPlugin = new IntegrationPlugin();
         TestPlugin testPlugin = new TestPlugin();
+        GoogleDrivePlugin googleDrivePlugin = new GoogleDrivePlugin();
+        GoogleDocsPlugin googleDocsPlugin = new GoogleDocsPlugin();
 
         // Verify that the classes have the @Plugin annotation
         assertTrue(CorePlugin.class.isAnnotationPresent(
@@ -215,6 +217,14 @@ public class PluginTest {
         assertTrue(TestPlugin.class.isAnnotationPresent(
                 org.phong.zenflow.plugin.subdomain.registry.Plugin.class),
                 "TestPlugin should have @Plugin annotation");
+
+        assertTrue(GoogleDrivePlugin.class.isAnnotationPresent(
+                org.phong.zenflow.plugin.subdomain.registry.Plugin.class),
+                "GoogleDrivePlugin should have @Plugin annotation");
+
+        assertTrue(GoogleDocsPlugin.class.isAnnotationPresent(
+                org.phong.zenflow.plugin.subdomain.registry.Plugin.class),
+                "GoogleDocsPlugin should have @Plugin annotation");
 
         // Verify annotation values for CorePlugin
         org.phong.zenflow.plugin.subdomain.registry.Plugin coreAnnotation =
@@ -249,6 +259,28 @@ public class PluginTest {
         assertFalse(testAnnotation.description().isEmpty(), "Test plugin should have a description");
         assertTrue(testAnnotation.tags().length > 0, "Test plugin should have tags");
         assertEquals("ph:test-tube", testAnnotation.icon(), "Test plugin should have correct icon");
+
+        // Verify annotation values for GoogleDrivePlugin
+        org.phong.zenflow.plugin.subdomain.registry.Plugin driveAnnotation =
+                GoogleDrivePlugin.class.getAnnotation(org.phong.zenflow.plugin.subdomain.registry.Plugin.class);
+
+        assertEquals("google-drive", driveAnnotation.key(), "Drive plugin key should be 'google-drive'");
+        assertEquals("Google Drive Plugin", driveAnnotation.name(), "Drive plugin name should be 'Google Drive Plugin'");
+        assertEquals("1.0.0", driveAnnotation.version(), "Drive plugin version should be '1.0.0'");
+        assertFalse(driveAnnotation.description().isEmpty(), "Drive plugin should have a description");
+        assertTrue(driveAnnotation.tags().length > 0, "Drive plugin should have tags");
+        assertEquals("simple-icons:googledrive", driveAnnotation.icon(), "Drive plugin should have correct icon");
+
+        // Verify annotation values for GoogleDocsPlugin
+        org.phong.zenflow.plugin.subdomain.registry.Plugin docsAnnotation =
+                GoogleDocsPlugin.class.getAnnotation(org.phong.zenflow.plugin.subdomain.registry.Plugin.class);
+
+        assertEquals("google-docs", docsAnnotation.key(), "Docs plugin key should be 'google-docs'");
+        assertEquals("Google Docs Plugin", docsAnnotation.name(), "Docs plugin name should be 'Google Docs Plugin'");
+        assertEquals("1.0.0", docsAnnotation.version(), "Docs plugin version should be '1.0.0'");
+        assertFalse(docsAnnotation.description().isEmpty(), "Docs plugin should have a description");
+        assertTrue(docsAnnotation.tags().length > 0, "Docs plugin should have tags");
+        assertEquals("simple-icons:googledocs", docsAnnotation.icon(), "Docs plugin should have correct icon");
     }
 
     @Test
