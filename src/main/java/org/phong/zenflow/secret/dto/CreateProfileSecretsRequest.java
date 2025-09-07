@@ -6,11 +6,14 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.util.UUID;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 public class CreateProfileSecretsRequest {
+    private UUID pluginNodeId;
+
     @NotNull
     private String groupName;
 

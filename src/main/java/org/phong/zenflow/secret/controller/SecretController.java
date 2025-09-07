@@ -5,7 +5,7 @@ import org.phong.zenflow.core.responses.RestApiResponse;
 import org.phong.zenflow.secret.dto.CreateProfileSecretsRequest;
 import org.phong.zenflow.secret.dto.CreateSecretBatchRequest;
 import org.phong.zenflow.secret.dto.CreateSecretRequest;
-import org.phong.zenflow.secret.dto.ProfileSecretDto;
+import org.phong.zenflow.secret.dto.ProfileSecretListDto;
 import org.phong.zenflow.secret.dto.SecretDto;
 import org.phong.zenflow.secret.dto.UpdateSecretRequest;
 import org.phong.zenflow.secret.service.SecretService;
@@ -96,13 +96,13 @@ public class SecretController {
     }
 
     @GetMapping("/workflows/{workflowId}/profile")
-    public ResponseEntity<RestApiResponse<ProfileSecretDto>> getProfileSecretsByWorkflowId(@PathVariable UUID workflowId) {
+    public ResponseEntity<RestApiResponse<ProfileSecretListDto>> getProfileSecretsByWorkflowId(@PathVariable UUID workflowId) {
         var secrets = secretService.getProfileSecretMapByWorkflowId(workflowId);
         return RestApiResponse.success(secrets);
     }
 
     @PostMapping("/workflows/{workflowId}/profile")
-    public ResponseEntity<RestApiResponse<ProfileSecretDto>> createProfileSecretsForWorkflow(@PathVariable UUID workflowId, @RequestBody CreateProfileSecretsRequest secrets) {
+    public ResponseEntity<RestApiResponse<ProfileSecretListDto>> createProfileSecretsForWorkflow(@PathVariable UUID workflowId, @RequestBody CreateProfileSecretsRequest secrets) {
         var profileSecrets = secretService.createProfileSecrets(workflowId, secrets);
         return RestApiResponse.created(profileSecrets);
     }

@@ -29,12 +29,22 @@
         "inject_as": {
           "type": "string",
           "title": "Inject As",
-          "enum": ["header", "query", "body"],
+          "enum": [
+            "header",
+            "query",
+            "body"
+          ],
           "default": "header",
           "description": "How to inject the secret into the request."
+        },
+        "value": {
+          "type": "string",
+          "description": "Actual secret value provided at runtime"
         }
       },
-      "required": ["key"],
+      "required": [
+        "key"
+      ],
       "additionalProperties": false
     }
   },
@@ -52,7 +62,9 @@
       "title": "Secrets",
       "description": "Secrets to inject into the HTTP request.",
       "minItems": 0,
-      "items": { "$ref": "#/definitions/secret" }
+      "items": {
+        "$ref": "#/definitions/secret"
+      }
     },
     "profiles": {
       "type": "array",
@@ -84,14 +96,22 @@
             "title": "Profile Items",
             "description": "Secrets included in this profile.",
             "minItems": 1,
-            "items": { "$ref": "#/definitions/secret" }
+            "items": {
+              "$ref": "#/definitions/secret"
+            }
           }
         },
-        "required": ["name"],
+        "required": [
+          "name"
+        ],
         "additionalProperties": false
       }
     }
   },
-  "required": ["input", "output", "secrets"],
+  "required": [
+    "input",
+    "output",
+    "secrets"
+  ],
   "additionalProperties": false
 }

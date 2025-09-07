@@ -7,7 +7,7 @@ import org.phong.zenflow.log.auditlog.annotations.AuditLog;
 import org.phong.zenflow.log.auditlog.enums.AuditAction;
 import org.phong.zenflow.core.utils.MapUtils;
 import org.phong.zenflow.core.utils.ObjectConversion;
-import org.phong.zenflow.secret.dto.ProfileSecretDto;
+import org.phong.zenflow.secret.dto.ProfileSecretListDto;
 import org.phong.zenflow.secret.service.SecretService;
 import org.phong.zenflow.workflow.exception.WorkflowException;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
@@ -150,7 +150,7 @@ public class WorkflowRunnerService {
             // First run: ensure the run is started and create a new context
             log.debug("No existing context found for workflow run ID: {}. Starting new run.", workflowRunId);
             Map<String, String> secretOfWorkflow = secretService.getSecretMapByWorkflowId(workflowId);
-            ProfileSecretDto profileSecrets = secretService.getProfileSecretMapByWorkflowId(workflowId);
+            ProfileSecretListDto profileSecrets = secretService.getProfileSecretMapByWorkflowId(workflowId);
             Map<String, Object> initialContext = new ConcurrentHashMap<>(
                     Map.of(
                             "secrets", secretOfWorkflow,

@@ -97,4 +97,7 @@ public class Secret extends BaseEntityWithUpdatedBy {
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     private SecretScope scope;
+
+    @Column(name = "plugin_node_id")
+    private UUID pluginNodeId;
 }

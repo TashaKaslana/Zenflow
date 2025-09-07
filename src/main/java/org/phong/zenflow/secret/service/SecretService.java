@@ -10,7 +10,7 @@ import org.phong.zenflow.project.service.ProjectService;
 import org.phong.zenflow.secret.dto.CreateProfileSecretsRequest;
 import org.phong.zenflow.secret.dto.CreateSecretBatchRequest;
 import org.phong.zenflow.secret.dto.CreateSecretRequest;
-import org.phong.zenflow.secret.dto.ProfileSecretDto;
+import org.phong.zenflow.secret.dto.ProfileSecretListDto;
 import org.phong.zenflow.secret.dto.SecretDto;
 import org.phong.zenflow.secret.dto.UpdateSecretRequest;
 import org.phong.zenflow.secret.exception.SecretDomainException;
@@ -44,6 +44,7 @@ public class SecretService {
     private final WorkflowService workflowService;
     private final ProjectService projectService;
     private final AuthService authService;
+    private final SecretProfileSchemaValidator validator;
 
     @Transactional(readOnly = true)
     public List<SecretDto> getAllSecrets() {
@@ -239,7 +240,7 @@ public class SecretService {
      * @param workflowId the workflow identifier
      * @return map keyed by profile name, each containing a map of secret key to decrypted value
      */
-    public ProfileSecretDto getProfileSecretMapByWorkflowId(UUID workflowId) {
+    public ProfileSecretListDto getProfileSecretMapByWorkflowId(UUID workflowId) {
         Map<String, Map<String, String>> collect = secretRepository.findByWorkflowId(workflowId)
                 .stream()
                 .collect(Collectors.groupingBy(
@@ -257,10 +258,10 @@ public class SecretService {
                         )
                 ));
 
-        return new ProfileSecretDto(collect);
+        return new ProfileSecretListDto(collect);
     }
 
-    public ProfileSecretDto createProfileSecrets(UUID workflowId, CreateProfileSecretsRequest request) {
+    public ProfileSecretListDto createProfileSecrets(UUID workflowId, CreateProfileSecretsRequest request) {
         List<Secret> secrets = request.getSecrets().stream()
                 .map(entry -> {
                     Secret secret = new Secret();
@@ -278,6 +279,11 @@ public class SecretService {
                     return secret;
                 })
                 .collect(Collectors.toList());
+
+        boolean isValid = validator.validate(request.getPluginNodeId(), request.getSecrets());
+        if (isValid) {
+            throw new SecretDomainException("Secrets do not conform to the required schema!");
+        }
 
         List<Secret> savedSecrets = secretRepository.saveAll(secrets);
 
@@ -297,7 +303,7 @@ public class SecretService {
                         )
                 ));
 
-        return new ProfileSecretDto(profileMap);
+        return new ProfileSecretListDto(profileMap);
     }
 
     private SecretDto mapToDto(Secret secret) {
