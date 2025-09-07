@@ -2,10 +2,15 @@ package org.phong.zenflow.secret.service;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
+import org.phong.zenflow.core.services.AuthService;
 import org.phong.zenflow.log.auditlog.annotations.AuditLog;
 import org.phong.zenflow.log.auditlog.enums.AuditAction;
 import org.phong.zenflow.project.service.ProjectService;
+import org.phong.zenflow.secret.dto.CreateProfileSecretsRequest;
+import org.phong.zenflow.secret.dto.CreateSecretBatchRequest;
 import org.phong.zenflow.secret.dto.CreateSecretRequest;
+import org.phong.zenflow.secret.dto.ProfileSecretDto;
 import org.phong.zenflow.secret.dto.SecretDto;
 import org.phong.zenflow.secret.dto.UpdateSecretRequest;
 import org.phong.zenflow.secret.exception.SecretDomainException;
@@ -38,6 +43,7 @@ public class SecretService {
     private final UserService userService;
     private final WorkflowService workflowService;
     private final ProjectService projectService;
+    private final AuthService authService;
 
     @Transactional(readOnly = true)
     public List<SecretDto> getAllSecrets() {
@@ -72,12 +78,7 @@ public class SecretService {
     public SecretDto createSecret(CreateSecretRequest request) {
         log.info("Creating new secret with groupName: {} and key: {}", request.groupName(), request.key());
         try {
-            Secret secret = secretMapper.toEntity(request);
-
-            secret.setUser(userService.getReferenceById(request.userId()));
-            secret.setProject(request.projectId() != null ? projectService.getReferenceById(request.projectId()) : null);
-            secret.setWorkflow(request.workflowId() != null ? workflowService.getReferenceById(request.workflowId()) : null);
-            secret.setEncryptedValue(aesUtil.encrypt(request.value()));
+            Secret secret = getSecretFromRequest(request);
 
             Secret savedSecret = secretRepository.save(secret);
             return mapToDto(savedSecret);
@@ -85,6 +86,40 @@ public class SecretService {
             log.error("Failed to create secret: {}", e.getMessage(), e);
             throw new SecretDomainException("Failed to create secret", e);
         }
+    }
+
+    @AuditLog(
+            action = AuditAction.SECRET_CREATE,
+            targetIdExpression = "#result.id",
+            description = "Create batch of secrets"
+    )
+    public List<SecretDto> createSecretsBatch(CreateSecretBatchRequest request) {
+        log.info("Creating batch of secrets, count: {}", request.secrets().size());
+        try {
+            List<Secret> secrets = request.secrets().stream()
+                    .map(this::getSecretFromRequest)
+                    .collect(Collectors.toList());
+
+            List<Secret> savedSecrets = secretRepository.saveAll(secrets);
+            return savedSecrets.stream().map(this::mapToDto).collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("Failed to create secrets batch: {}", e.getMessage(), e);
+            throw new SecretDomainException("Failed to create secrets batch", e);
+        }
+    }
+
+    @NotNull
+    private Secret getSecretFromRequest(CreateSecretRequest req) {
+        Secret secret = secretMapper.toEntity(req);
+        secret.setUser(userService.getReferenceById(req.userId()));
+        secret.setProject(req.projectId() != null ? projectService.getReferenceById(req.projectId()) : null);
+        secret.setWorkflow(req.workflowId() != null ? workflowService.getReferenceById(req.workflowId()) : null);
+        try {
+            secret.setEncryptedValue(aesUtil.encrypt(req.value()));
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        return secret;
     }
 
     @AuditLog(
@@ -204,8 +239,8 @@ public class SecretService {
      * @param workflowId the workflow identifier
      * @return map keyed by profile name, each containing a map of secret key to decrypted value
      */
-    public Map<String, Map<String, String>> getProfileSecretMapByWorkflowId(UUID workflowId) {
-        return secretRepository.findByWorkflowId(workflowId)
+    public ProfileSecretDto getProfileSecretMapByWorkflowId(UUID workflowId) {
+        Map<String, Map<String, String>> collect = secretRepository.findByWorkflowId(workflowId)
                 .stream()
                 .collect(Collectors.groupingBy(
                         Secret::getGroupName,
@@ -221,6 +256,48 @@ public class SecretService {
                                 (existing, replacement) -> replacement
                         )
                 ));
+
+        return new ProfileSecretDto(collect);
+    }
+
+    public ProfileSecretDto createProfileSecrets(UUID workflowId, CreateProfileSecretsRequest request) {
+        List<Secret> secrets = request.getSecrets().stream()
+                .map(entry -> {
+                    Secret secret = new Secret();
+                    secret.setWorkflow(workflowService.getReferenceById(workflowId));
+                    secret.setGroupName(request.getGroupName());
+                    secret.setKey(entry.getKey());
+                    try {
+                        secret.setEncryptedValue(aesUtil.encrypt(entry.getValue()));
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                    secret.setDescription(entry.getDescription());
+                    secret.setTags(entry.getTags());
+                    secret.setUser(authService.getReferenceCurrentUser());
+                    return secret;
+                })
+                .collect(Collectors.toList());
+
+        List<Secret> savedSecrets = secretRepository.saveAll(secrets);
+
+        Map<String, Map<String, String>> profileMap = savedSecrets.stream()
+                .collect(Collectors.groupingBy(
+                        Secret::getGroupName,
+                        Collectors.toMap(
+                                Secret::getKey,
+                                secret -> {
+                                    try {
+                                        return aesUtil.decrypt(secret.getEncryptedValue());
+                                    } catch (Exception e) {
+                                        throw new SecretDomainException("Can't encrypted value for workflowId: " + workflowId, e);
+                                    }
+                                },
+                                (existing, replacement) -> replacement
+                        )
+                ));
+
+        return new ProfileSecretDto(profileMap);
     }
 
     private SecretDto mapToDto(Secret secret) {

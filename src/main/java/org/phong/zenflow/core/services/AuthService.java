@@ -1,12 +1,10 @@
 package org.phong.zenflow.core.services;
 
 import lombok.extern.slf4j.Slf4j;
-import org.phong.zenflow.user.exception.UserNotFoundException;
 import org.phong.zenflow.user.infrastructure.persistence.entities.User;
 import org.phong.zenflow.user.infrastructure.persistence.repositories.UserRepository;
 import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
@@ -39,14 +37,12 @@ public class AuthService {
     }
 
     @Transactional
-    public User getUser() {
-//        return userRepository.findByAuth0Id(getAuth0Id())
-//                .orElseThrow(() -> {
-//                    log.error("UserNotFoundException for Auth0 ID: {}", getAuth0Id());
-//                    return new UserNotFoundException(UserErrorEnums.USER_NOT_FOUND.getMessage());
-//                });
+    public User getCurrentUser() {
+        return userRepository.findById(getUserIdFromContext()).orElse(null);
+    }
 
-        return null; // Placeholder for actual implementation
+    public User getReferenceCurrentUser() {
+        return userRepository.getReferenceById(getUserIdFromContext());
     }
 
     public UUID getUserIdFromContext() {

@@ -2,7 +2,10 @@ package org.phong.zenflow.secret.controller;
 
 import lombok.AllArgsConstructor;
 import org.phong.zenflow.core.responses.RestApiResponse;
+import org.phong.zenflow.secret.dto.CreateProfileSecretsRequest;
+import org.phong.zenflow.secret.dto.CreateSecretBatchRequest;
 import org.phong.zenflow.secret.dto.CreateSecretRequest;
+import org.phong.zenflow.secret.dto.ProfileSecretDto;
 import org.phong.zenflow.secret.dto.SecretDto;
 import org.phong.zenflow.secret.dto.UpdateSecretRequest;
 import org.phong.zenflow.secret.service.SecretService;
@@ -24,6 +27,12 @@ public class SecretController {
     public ResponseEntity<RestApiResponse<SecretDto>> createSecret(@RequestBody CreateSecretRequest request) {
         SecretDto secretDto = secretService.createSecret(request);
         return RestApiResponse.created(secretDto);
+    }
+
+    @PostMapping("/batch")
+    public ResponseEntity<RestApiResponse<List<SecretDto>>> createSecretsBatch(@RequestBody CreateSecretBatchRequest request) {
+        List<SecretDto> secretsBatch = secretService.createSecretsBatch(request);
+        return RestApiResponse.created(secretsBatch);
     }
 
     @GetMapping
@@ -84,5 +93,17 @@ public class SecretController {
     public ResponseEntity<RestApiResponse<List<SecretDto>>> getSecretsByWorkflowId(@PathVariable UUID workflowId) {
         List<SecretDto> secrets = secretService.getSecretsByWorkflowId(workflowId);
         return RestApiResponse.success(secrets);
+    }
+
+    @GetMapping("/workflows/{workflowId}/profile")
+    public ResponseEntity<RestApiResponse<ProfileSecretDto>> getProfileSecretsByWorkflowId(@PathVariable UUID workflowId) {
+        var secrets = secretService.getProfileSecretMapByWorkflowId(workflowId);
+        return RestApiResponse.success(secrets);
+    }
+
+    @PostMapping("/workflows/{workflowId}/profile")
+    public ResponseEntity<RestApiResponse<ProfileSecretDto>> createProfileSecretsForWorkflow(@PathVariable UUID workflowId, @RequestBody CreateProfileSecretsRequest secrets) {
+        var profileSecrets = secretService.createProfileSecrets(workflowId, secrets);
+        return RestApiResponse.created(profileSecrets);
     }
 }
