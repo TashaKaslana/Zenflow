@@ -13,6 +13,7 @@ import org.phong.zenflow.secret.dto.CreateSecretRequest;
 import org.phong.zenflow.secret.dto.ProfileSecretListDto;
 import org.phong.zenflow.secret.dto.SecretDto;
 import org.phong.zenflow.secret.dto.UpdateSecretRequest;
+import org.phong.zenflow.secret.enums.SecretScope;
 import org.phong.zenflow.secret.exception.SecretDomainException;
 import org.phong.zenflow.secret.exception.SecretNotFoundException;
 import org.phong.zenflow.secret.infrastructure.mapstruct.SecretMapper;
@@ -262,12 +263,26 @@ public class SecretService {
     }
 
     public ProfileSecretListDto createProfileSecrets(UUID workflowId, CreateProfileSecretsRequest request) {
+        if (request.isDuplicated()) {
+            throw new SecretDomainException("Duplicate keys found in the request.");
+        }
+
+        boolean isGroupNameExists = secretRepository.existsByGroupNameAndWorkflow_Id(
+                request.getGroupName(),
+                workflowId
+        );
+        if (isGroupNameExists) {
+            throw new SecretDomainException("Profile with name '" + request.getGroupName() + "' already exists for this workflow.");
+        }
+
         List<Secret> secrets = request.getSecrets().stream()
                 .map(entry -> {
                     Secret secret = new Secret();
                     secret.setWorkflow(workflowService.getReferenceById(workflowId));
                     secret.setGroupName(request.getGroupName());
                     secret.setKey(entry.getKey());
+                    secret.setScope(SecretScope.WORKFLOW);
+
                     try {
                         secret.setEncryptedValue(aesUtil.encrypt(entry.getValue()));
                     } catch (Exception e) {

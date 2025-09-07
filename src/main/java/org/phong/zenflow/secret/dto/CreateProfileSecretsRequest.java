@@ -19,6 +19,17 @@ public class CreateProfileSecretsRequest {
 
     private List<SecretEntry> secrets;
 
+    public boolean isDuplicated() {
+        if (secrets == null || secrets.size() <= 1) {
+            return false;
+        }
+        long uniqueCount = secrets.stream()
+                .map(SecretEntry::getKey)
+                .distinct()
+                .count();
+        return uniqueCount < secrets.size();
+    }
+
     @Data
     public static class SecretEntry {
         @NotNull
