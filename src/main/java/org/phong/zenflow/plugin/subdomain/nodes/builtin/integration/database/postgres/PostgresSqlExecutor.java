@@ -9,7 +9,7 @@ import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.bas
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.BaseSqlExecutor;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.dto.ResolvedDbConfig;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;

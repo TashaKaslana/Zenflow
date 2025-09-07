@@ -3,9 +3,8 @@ package org.phong.zenflow.plugin.subdomain.executors.builtin.test_executor_dev;
 import org.junit.jupiter.api.Test;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.test.text_processor.TextProcessorExecutor;
-import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.TestExecutionContextUtils;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 
 import java.util.Map;
 

@@ -9,4 +9,6 @@ public class ExecutionContextKey {
     public static final String NODE_KEY = "__zenflow_node_key";
     public static final String TRIGGER_ID = "__zenflow_trigger_id";
     public static final String TRIGGER_EXECUTOR_ID = "__zenflow_trigger_executor_id";
+    public static final String PARENT_WORKFLOW_ID = "__zenflow_parent_workflow_id";
+    public static final String ENTRYPOINT_LIST_KEY = "__zenflow_entrypoint_list";
 }

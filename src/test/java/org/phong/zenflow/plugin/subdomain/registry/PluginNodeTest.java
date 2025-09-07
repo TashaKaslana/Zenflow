@@ -15,7 +15,7 @@ import org.phong.zenflow.plugin.subdomain.node.interfaces.PluginNodeSchemaProvid
 import org.phong.zenflow.plugin.subdomain.schema.services.SchemaRegistry;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.TestExecutionContextUtils;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 
 import java.util.Map;
 

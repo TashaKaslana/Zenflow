@@ -5,7 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
 import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
@@ -78,7 +78,7 @@ public class BaseWorkflowNode {
         return new WorkflowConfig(
             config.input() != null ? deepCopyMap(config.input()) : null,
             config.output() != null ? deepCopyMap(config.output()) : null,
-            config.entrypoint() != null ? deepCopyMap(config.entrypoint()) : null
+            config.profile() != null ? deepCopyMap(config.profile()) : null
         );
     }
 

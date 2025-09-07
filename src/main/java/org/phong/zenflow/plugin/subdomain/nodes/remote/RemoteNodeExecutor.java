@@ -9,7 +9,7 @@ import org.phong.zenflow.plugin.subdomain.execution.exceptions.ExecutorException
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.http.executor.HttpRequestExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.springframework.stereotype.Component;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
@@ -29,7 +29,7 @@ public class RemoteNodeExecutor implements PluginNodeExecutor {
     private final HttpRequestExecutor httpRequestExecutor;
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
-        Map<String, Object> entrypoint = config.entrypoint();
+        Map<String, Object> entrypoint = context.getCurrentNodeEntrypoint();
         Map<String, Object> input = config.input();
 
         assert entrypoint != null;

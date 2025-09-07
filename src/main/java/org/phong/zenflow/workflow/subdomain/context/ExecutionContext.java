@@ -11,7 +11,7 @@ import java.util.stream.Collectors;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 
 @Getter
 @Builder
@@ -32,10 +32,8 @@ public class ExecutionContext {
      * expressions and performs type-safe casting.
      */
     public <T> T read(String key, Class<T> clazz) {
-        RuntimeContext context = contextManager.getOrCreate(workflowRunId.toString());
-        if (context == null) {
-            return null;
-        }
+        RuntimeContext context = getContext();
+        if (context == null) return null;
 
         Object o;
         if (templateService != null && templateService.isTemplate(key)) {
@@ -54,15 +52,19 @@ public class ExecutionContext {
         }
     }
 
+    private RuntimeContext getContext() {
+        return contextManager.getOrCreate(workflowRunId.toString());
+    }
+
     public void write(String key, Object value) {
-        RuntimeContext context = contextManager.getOrCreate(workflowRunId.toString());
+        RuntimeContext context = getContext();
         if (context != null) {
             context.put(key, value);
         }
     }
 
     public void remove(String key) {
-        RuntimeContext context = contextManager.getOrCreate(workflowRunId.toString());
+        RuntimeContext context = getContext();
         if (context != null) {
             context.remove(key);
         }
@@ -94,10 +96,8 @@ public class ExecutionContext {
      * {@link org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService}.
      */
     public Object get(String key) {
-        RuntimeContext context = contextManager.getOrCreate(workflowRunId.toString());
-        if (context == null) {
-            return null;
-        }
+        RuntimeContext context = getContext();
+        if (context == null) return null;
         return context.getAndClean(nodeKey, key);
     }
 
@@ -109,7 +109,7 @@ public class ExecutionContext {
         this.nodeKey = nodeKey;
         Map<String, Object> resolvedInput = resolveMap(config.input());
         this.nodeKey = previous;
-        return new WorkflowConfig(resolvedInput, config.output(), config.entrypoint());
+        return new WorkflowConfig(resolvedInput, config.output(), config.profile());
     }
 
     private Map<String, Object> resolveMap(Map<String, Object> map) {
@@ -129,5 +129,11 @@ public class ExecutionContext {
             return list.stream().map(this::resolveValue).toList();
         }
         return value;
+    }
+
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> getCurrentNodeEntrypoint() {
+        RuntimeContext context = getContext();
+        return (Map<String, Object>) context.get(ExecutionContextKey.ENTRYPOINT_LIST_KEY + nodeKey);
     }
 }
