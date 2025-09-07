@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Google Docs Delete Text Schema",
+  "properties": {
+    "input": {
+      "type": "object",
+      "title": "Input Schema",
+      "properties": {
+        "profile": {
+          "type": "string",
+          "description": "Secret profile group name containing OAuth credentials"
+        },
+        "documentId": {
+          "type": "string",
+          "description": "ID of the document to modify"
+        },
+        "startIndex": {
+          "type": "integer",
+          "description": "Start index of the range to delete"
+        },
+        "endIndex": {
+          "type": "integer",
+          "description": "End index of the range to delete"
+        }
+      },
+      "required": ["profile", "documentId", "startIndex", "endIndex"],
+      "additionalProperties": false
+    },
+    "output": {
+      "type": "object",
+      "title": "Output Schema"
+    },
+    "profiles": {
+      "type": "array",
+      "title": "Credential Profiles",
+      "description": "Secret groups with required Google OAuth keys",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "title": "Profile Definition",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Profile name referencing a stored secret group"
+          },
+          "keys": {
+            "type": "object",
+            "description": "Required secret keys for this profile",
+            "properties": {
+              "CLIENT_ID": { "type": "string" },
+              "CLIENT_SECRET": { "type": "string" },
+              "REFRESH_TOKEN": { "type": "string" }
+            },
+            "required": ["CLIENT_ID", "CLIENT_SECRET", "REFRESH_TOKEN"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["name", "keys"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["input", "output", "profiles"],
+  "additionalProperties": false
+}

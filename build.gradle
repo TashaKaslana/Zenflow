@@ -71,6 +71,7 @@ dependencies {
     implementation 'com.google.api-client:google-api-client:2.8.1'
     implementation 'com.google.auth:google-auth-library-oauth2-http:1.38.0'
     implementation 'com.google.apis:google-api-services-drive:v3-rev20250829-2.0.0'
+    implementation 'com.google.apis:google-api-services-docs:v1-rev20250325-2.0.0'
     implementation 'com.google.http-client:google-http-client-jackson2:2.0.0'
 
     testImplementation 'org.testcontainers:junit-jupiter'
