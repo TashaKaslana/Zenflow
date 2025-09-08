@@ -18,11 +18,15 @@ import java.util.UUID;
 public class SecretProfileSchemaValidator {
     private final SchemaRegistry schemaRegistry;
 
-    public boolean validate(UUID pluginNodeId, List<CreateProfileSecretsRequest.SecretEntry> secrets) {
+    public boolean validate(UUID pluginId, UUID pluginNodeId, List<CreateProfileSecretsRequest.SecretEntry> secrets) {
         try {
-            JSONObject schemaObject = schemaRegistry.getSchemaByTemplateString(
-                    pluginNodeId.toString()
-            );
+            JSONObject schemaObject = null;
+            if (pluginId != null) {
+                schemaObject = schemaRegistry.getSchemaByTemplateString(pluginId.toString());
+            }
+            if (schemaObject == null && pluginNodeId != null) {
+                schemaObject = schemaRegistry.getSchemaByTemplateString(pluginNodeId.toString());
+            }
 
             if (schemaObject == null) {
                 return false;

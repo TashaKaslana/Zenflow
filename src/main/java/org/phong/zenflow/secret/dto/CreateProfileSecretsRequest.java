@@ -12,10 +12,13 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor
 public class CreateProfileSecretsRequest {
+    @NotNull
+    private UUID pluginId;
+
     private UUID pluginNodeId;
 
     @NotNull
-    private String groupName;
+    private String name;
 
     private List<SecretEntry> secrets;
 

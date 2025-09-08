@@ -1,6 +1,5 @@
 package org.phong.zenflow.secret.infrastructure.persistence.repository;
 
-import jakarta.validation.constraints.NotNull;
 import org.phong.zenflow.secret.infrastructure.persistence.entity.Secret;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -19,6 +18,4 @@ public interface SecretRepository extends JpaRepository<Secret, UUID> {
 
     @Query("SELECT s FROM Secret s WHERE s.workflow.id = :workflowId AND s.deletedAt IS NULL")
     List<Secret> findByWorkflowId(@Param("workflowId") UUID workflowId);
-
-    boolean existsByGroupNameAndWorkflow_Id(@NotNull String groupName, @NotNull UUID workflow_id);
 }

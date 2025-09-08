@@ -18,10 +18,14 @@ import org.phong.zenflow.secret.exception.SecretDomainException;
 import org.phong.zenflow.secret.exception.SecretNotFoundException;
 import org.phong.zenflow.secret.infrastructure.mapstruct.SecretMapper;
 import org.phong.zenflow.secret.infrastructure.persistence.entity.Secret;
+import org.phong.zenflow.secret.infrastructure.persistence.entity.SecretProfile;
+import org.phong.zenflow.secret.infrastructure.persistence.repository.SecretProfileRepository;
 import org.phong.zenflow.secret.infrastructure.persistence.repository.SecretRepository;
 import org.phong.zenflow.secret.util.AESUtil;
 import org.phong.zenflow.user.service.UserService;
 import org.phong.zenflow.workflow.service.WorkflowService;
+import org.phong.zenflow.plugin.subdomain.node.service.PluginNodeService;
+import org.phong.zenflow.plugin.services.PluginService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -39,6 +43,7 @@ import java.util.stream.Collectors;
 @Transactional
 public class SecretService {
     private final SecretRepository secretRepository;
+    private final SecretProfileRepository secretProfileRepository;
     private final SecretMapper secretMapper;
     private final AESUtil aesUtil;
     private final UserService userService;
@@ -46,6 +51,8 @@ public class SecretService {
     private final ProjectService projectService;
     private final AuthService authService;
     private final SecretProfileSchemaValidator validator;
+    private final PluginNodeService pluginNodeService;
+    private final PluginService pluginService;
 
     @Transactional(readOnly = true)
     public List<SecretDto> getAllSecrets() {
@@ -78,7 +85,7 @@ public class SecretService {
             targetIdExpression = "#result.id"
     )
     public SecretDto createSecret(CreateSecretRequest request) {
-        log.info("Creating new secret with groupName: {} and key: {}", request.groupName(), request.key());
+        log.info("Creating new secret with profileId: {} and key: {}", request.profileId(), request.key());
         try {
             Secret secret = getSecretFromRequest(request);
 
@@ -116,6 +123,7 @@ public class SecretService {
         secret.setUser(userService.getReferenceById(req.userId()));
         secret.setProject(req.projectId() != null ? projectService.getReferenceById(req.projectId()) : null);
         secret.setWorkflow(req.workflowId() != null ? workflowService.getReferenceById(req.workflowId()) : null);
+        secret.setProfile(secretProfileRepository.getReferenceById(req.profileId()));
         try {
             secret.setEncryptedValue(aesUtil.encrypt(req.value()));
         } catch (Exception e) {
@@ -133,6 +141,11 @@ public class SecretService {
                 .map(secret -> {
                     try {
                         secretMapper.updateEntityFromDto(request, secret);
+
+                        if (request.profileId() != null) {
+                            SecretProfile profile = secretProfileRepository.getReferenceById(request.profileId());
+                            secret.setProfile(profile);
+                        }
 
                         secret.setEncryptedValue(aesUtil.encrypt(request.value()));
 
@@ -224,7 +237,7 @@ public class SecretService {
         return secretRepository.findByWorkflowId(workflowId)
                 .stream()
                 .collect(Collectors.toMap(
-                        secret -> secret.getGroupName() + "." + secret.getKey(),
+                        secret -> secret.getProfile().getName() + "." + secret.getKey(),
                         secret -> {
                             try {
                                 return aesUtil.decrypt(secret.getEncryptedValue());
@@ -245,7 +258,7 @@ public class SecretService {
         Map<String, Map<String, String>> collect = secretRepository.findByWorkflowId(workflowId)
                 .stream()
                 .collect(Collectors.groupingBy(
-                        Secret::getGroupName,
+                        secret -> secret.getProfile().getName(),
                         Collectors.toMap(
                                 Secret::getKey,
                                 secret -> {
@@ -267,19 +280,29 @@ public class SecretService {
             throw new SecretDomainException("Duplicate keys found in the request.");
         }
 
-        boolean isGroupNameExists = secretRepository.existsByGroupNameAndWorkflow_Id(
-                request.getGroupName(),
-                workflowId
-        );
-        if (isGroupNameExists) {
-            throw new SecretDomainException("Profile with name '" + request.getGroupName() + "' already exists for this workflow.");
+        boolean exists = secretProfileRepository.existsByNameAndWorkflowIdAndPluginId(
+                request.getName(), workflowId, request.getPluginId());
+        if (exists) {
+            throw new SecretDomainException("Profile with name '" + request.getName() + "' already exists for this workflow.");
         }
 
+        SecretProfile profile = new SecretProfile();
+        profile.setWorkflow(workflowService.getReferenceById(workflowId));
+        profile.setName(request.getName());
+        profile.setScope(SecretScope.WORKFLOW);
+        profile.setUser(authService.getReferenceCurrentUser());
+        profile.setPlugin(pluginService.findPluginById(request.getPluginId()));
+        if (request.getPluginNodeId() != null) {
+            profile.setPluginNode(pluginNodeService.findById(request.getPluginNodeId()));
+        }
+        profile = secretProfileRepository.save(profile);
+
+        SecretProfile finalProfile = profile;
         List<Secret> secrets = request.getSecrets().stream()
                 .map(entry -> {
                     Secret secret = new Secret();
-                    secret.setWorkflow(workflowService.getReferenceById(workflowId));
-                    secret.setGroupName(request.getGroupName());
+                    secret.setWorkflow(finalProfile.getWorkflow());
+                    secret.setProfile(finalProfile);
                     secret.setKey(entry.getKey());
                     secret.setScope(SecretScope.WORKFLOW);
 
@@ -295,8 +318,8 @@ public class SecretService {
                 })
                 .collect(Collectors.toList());
 
-        boolean isValid = validator.validate(request.getPluginNodeId(), request.getSecrets());
-        if (isValid) {
+        boolean isValid = validator.validate(request.getPluginId(), request.getPluginNodeId(), request.getSecrets());
+        if (!isValid) {
             throw new SecretDomainException("Secrets do not conform to the required schema!");
         }
 
@@ -304,7 +327,7 @@ public class SecretService {
 
         Map<String, Map<String, String>> profileMap = savedSecrets.stream()
                 .collect(Collectors.groupingBy(
-                        Secret::getGroupName,
+                        s -> s.getProfile().getName(),
                         Collectors.toMap(
                                 Secret::getKey,
                                 secret -> {

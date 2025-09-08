@@ -9,7 +9,7 @@ import java.util.UUID;
 /**
  * DTO for updating {@link org.phong.zenflow.secret.infrastructure.persistence.entity.Secret}
  */
-public record UpdateSecretRequest(String groupName, String key, String value,
+public record UpdateSecretRequest(UUID profileId, String key, String value,
                                   String description, List<String> tags, SecretScope scope,
                                   UUID projectId, UUID workflowId, Boolean isActive) implements Serializable {
 }

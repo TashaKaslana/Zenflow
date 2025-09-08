@@ -11,29 +11,24 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
-import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.annotations.OnDelete;
-import org.hibernate.annotations.OnDeleteAction;
 import org.hibernate.type.SqlTypes;
 import org.phong.zenflow.core.superbase.BaseEntityWithUpdatedBy;
+import org.phong.zenflow.plugin.infrastructure.persistence.entity.Plugin;
+import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.entity.PluginNode;
 import org.phong.zenflow.project.infrastructure.persistence.entity.Project;
 import org.phong.zenflow.secret.enums.SecretScope;
 import org.phong.zenflow.user.infrastructure.persistence.entities.User;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 
-import java.time.OffsetDateTime;
-import java.util.List;
-import java.util.UUID;
-
 @Getter
 @Setter
 @Entity
-@Table(name = "secrets", uniqueConstraints = {
-        @UniqueConstraint(name = "secrets_profile_id_key_key", columnNames = {"profile_id", "key"})
+@Table(name = "secret_profiles", uniqueConstraints = {
+        @UniqueConstraint(name = "secret_profiles_scope_project_workflow_plugin_name_key",
+                columnNames = {"scope", "project_id", "workflow_id", "plugin_id", "name"})
 })
 @AttributeOverrides({
         @AttributeOverride(name = "id", column = @Column(name = "id", nullable = false)),
@@ -41,60 +36,32 @@ import java.util.UUID;
         @AttributeOverride(name = "updatedAt", column = @Column(name = "updated_at", nullable = false)),
         @AttributeOverride(name = "updatedBy", column = @Column(name = "updated_by"))
 })
-public class Secret extends BaseEntityWithUpdatedBy {
-    @NotNull
+public class SecretProfile extends BaseEntityWithUpdatedBy {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @OnDelete(action = OnDeleteAction.CASCADE)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @OnDelete(action = OnDeleteAction.CASCADE)
     @JoinColumn(name = "project_id")
     private Project project;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @OnDelete(action = OnDeleteAction.CASCADE)
     @JoinColumn(name = "workflow_id")
     private Workflow workflow;
 
-    @NotNull
-    @Column(name = "key", nullable = false, length = Integer.MAX_VALUE)
-    private String key;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "plugin_id", nullable = false)
+    private Plugin plugin;
 
-    @NotNull
-    @Column(name = "encrypted_value", nullable = false, length = Integer.MAX_VALUE)
-    private String encryptedValue;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "plugin_node_id")
+    private PluginNode pluginNode;
 
-    @Column(name = "description", length = Integer.MAX_VALUE)
-    private String description;
+    @Column(name = "name", nullable = false)
+    private String name;
 
-    @Column(name = "tags")
-    private List<String> tags;
-
-    @NotNull
-    @ColumnDefault("1")
-    @Column(name = "version")
-    private Integer version = 1;
-
-    @NotNull
-    @ColumnDefault("true")
-    @Column(name = "is_active")
-    private Boolean isActive = true;
-
-    @Column(name = "updated_by")
-    private UUID updatedBy;
-
-    @Column(name = "deleted_at")
-    private OffsetDateTime deletedAt;
-
-    @NotNull
-    @Column(name = "scope")
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "scope", nullable = false)
     private SecretScope scope;
-
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "profile_id", nullable = false)
-    private SecretProfile profile;
 }
