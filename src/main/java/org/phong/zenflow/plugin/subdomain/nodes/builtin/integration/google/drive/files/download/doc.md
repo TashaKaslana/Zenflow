@@ -22,4 +22,4 @@ Downloads a file from Google Drive and returns its content as a Base64 encoded s
 - `data` (string): Base64 encoded file content.
 
 ## Credentials
-Use the same credential profile structure as the List Files node.
+Use the plugin-level OAuth profile referenced by the `profile` input field. Configure this profile once with `CLIENT_ID`, `CLIENT_SECRET`, and `REFRESH_TOKEN`.

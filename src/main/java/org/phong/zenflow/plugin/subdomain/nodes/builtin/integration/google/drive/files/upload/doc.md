@@ -21,4 +21,4 @@ Uploads a file to Google Drive from Base64 encoded data.
 - `file` (object): Metadata of the uploaded file.
 
 ## Credentials
-Use the same credential profile structure as the List Files node.
+Use the plugin-level OAuth profile referenced by the `profile` input field. Configure this profile once with `CLIENT_ID`, `CLIENT_SECRET`, and `REFRESH_TOKEN`.

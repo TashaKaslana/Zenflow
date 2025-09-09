@@ -21,7 +21,9 @@ import java.util.List;
 /**
  * Resource manager for Google Docs {@link Docs} clients.
  * Uses the generic {@link BaseNodeResourceManager} infrastructure for
- * sharing Docs instances across nodes.
+ * sharing Docs instances across nodes. Credentials are sourced from
+ * the plugin-level OAuth profile referenced by each node's {@code profile}
+ * input.
  */
 @Slf4j
 @Component

@@ -21,7 +21,9 @@ import java.util.List;
 /**
  * Resource manager for Google Drive {@link Drive} clients.
  * Uses the generic {@link BaseNodeResourceManager} infrastructure for
- * sharing Drive instances across nodes.
+ * sharing Drive instances across nodes. Credentials are sourced from
+ * the plugin-level OAuth profile referenced by each node's {@code profile}
+ * input.
  */
 @Slf4j
 @Component

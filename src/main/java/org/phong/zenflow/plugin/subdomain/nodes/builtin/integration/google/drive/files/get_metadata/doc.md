@@ -19,4 +19,4 @@ Retrieves metadata for a single Google Drive file using the Google Drive API v3.
 - `file` (object): Metadata of the requested file.
 
 ## Credentials
-Use the same credential profile structure as the List Files node.
+Use the plugin-level OAuth profile referenced by the `profile` input field. Configure this profile once with `CLIENT_ID`, `CLIENT_SECRET`, and `REFRESH_TOKEN`.

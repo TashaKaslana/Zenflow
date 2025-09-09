@@ -43,8 +43,8 @@ public class GoogleDriveListExecutor implements PluginNodeExecutor {
             String query = (String) input.getOrDefault("query", "trashed=false");
 
             @SuppressWarnings("unchecked")
-            Map<String, Map<String, String>> secretMap = context.read("secrets", Map.class);
-            Map<String, String> credentials = secretMap.get(profile);
+            Map<String, Map<String, String>> profileMap = context.read("profiles", Map.class);
+            Map<String, String> credentials = profileMap.get(profile);
             String clientId = credentials.get("CLIENT_ID");
             String clientSecret = credentials.get("CLIENT_SECRET");
             String refreshToken = credentials.get("REFRESH_TOKEN");
