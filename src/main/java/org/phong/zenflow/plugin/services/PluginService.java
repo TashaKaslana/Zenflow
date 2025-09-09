@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @AllArgsConstructor
@@ -53,6 +54,12 @@ public class PluginService {
         return pluginRepository.findById(id)
                 .map(pluginMapper::toDto)
                 .orElseThrow(() -> new PluginException("Plugin not found with id: " + id));
+    }
+
+    public Map<String, Object> getPluginSchemaByKey(String key) {
+        return pluginRepository.findByKey(key)
+                .map(Plugin::getPluginSchema)
+                .orElseThrow(() -> new PluginException("Plugin not found with key: " + key));
     }
 
     @Transactional

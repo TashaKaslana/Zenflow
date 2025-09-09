@@ -1,5 +1,7 @@
 package org.phong.zenflow.plugin.subdomain.registry;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.infrastructure.persistence.entity.Plugin;
@@ -11,7 +13,12 @@ import org.springframework.core.annotation.Order;
 import org.springframework.core.type.filter.AnnotationTypeFilter;
 import org.springframework.stereotype.Component;
 
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -27,6 +34,7 @@ import java.util.UUID;
 public class PluginSynchronizer implements ApplicationRunner {
 
     private final PluginRepository pluginRepository;
+    private final ObjectMapper objectMapper;
 
     @Override
     public void run(ApplicationArguments args) {
@@ -62,11 +70,63 @@ public class PluginSynchronizer implements ApplicationRunner {
             entity.setRegistryUrl(annotation.registryUrl().isEmpty() ? null : annotation.registryUrl());
             entity.setVerified(annotation.verified());
             entity.setPublisherId(UUID.fromString(annotation.publisherId()));
+            String schemaPath = annotation.schemaPath().trim();
+            Map<String, Object> pluginSchema = schemaPath.isEmpty()
+                    ? null
+                    : loadSchema(clazz, schemaPath);
+            entity.setPluginSchema(pluginSchema);
 
             pluginRepository.save(entity);
             log.info("Synchronized plugin: {} v{}", annotation.key(), annotation.version());
         } catch (Exception e) {
             log.error("Failed to synchronize plugin for class {}", className, e);
         }
+    }
+
+    private Map<String, Object> loadSchema(Class<?> clazz, String customPath) {
+        String resourcePath = extractPath(clazz, customPath);
+        String classpathResource = "/" + resourcePath;
+
+        InputStream classpathStream = clazz.getResourceAsStream(classpathResource);
+        if (classpathStream != null) {
+            try (InputStream is = classpathStream) {
+                Map<String, Object> schema = objectMapper.readValue(is, new TypeReference<>() {});
+                return schema.isEmpty() ? null : schema;
+            } catch (Exception e) {
+                throw new IllegalStateException("Failed to load plugin schema from classpath for " + clazz.getName(), e);
+            }
+        }
+
+        Path filePath = Paths.get(resourcePath);
+        if (Files.exists(filePath)) {
+            try (InputStream is = Files.newInputStream(filePath)) {
+                Map<String, Object> schema = objectMapper.readValue(is, new TypeReference<>() {});
+                return schema.isEmpty() ? null : schema;
+            } catch (Exception e) {
+                throw new IllegalStateException("Failed to load plugin schema from filesystem for " + clazz.getName(), e);
+            }
+        }
+
+        log.warn("No plugin schema found for {} at {}", clazz.getName(), resourcePath);
+        return null;
+    }
+
+    private String extractPath(Class<?> clazz, String customPath) {
+        Path basePath = Paths.get(clazz.getPackageName().replace('.', '/'));
+
+        Path resultPath;
+        if (customPath.isEmpty()) {
+            resultPath = basePath.resolve("plugin.schema.json");
+        } else if (customPath.startsWith("/")) {
+            resultPath = basePath.resolve(customPath.substring(1));
+        } else if (customPath.startsWith("./")) {
+            resultPath = basePath.resolve(customPath.substring(2));
+        } else if (customPath.startsWith("../")) {
+            resultPath = basePath.resolve(customPath).normalize();
+        } else {
+            resultPath = basePath.resolve(customPath);
+        }
+
+        return resultPath.toString().replace("\\", "/");
     }
 }

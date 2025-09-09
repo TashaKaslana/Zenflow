@@ -2,6 +2,7 @@ package org.phong.zenflow.plugin.dto;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -9,5 +10,5 @@ import java.util.UUID;
  */
 public record UpdatePluginRequest(UUID publisherId, String name, String version, String registryUrl,
                                   Boolean verified, String description, List<String> tags, String icon, String key,
-                                  String organization) implements Serializable {
+                                  String organization, Map<String, Object> pluginSchema) implements Serializable {
 }

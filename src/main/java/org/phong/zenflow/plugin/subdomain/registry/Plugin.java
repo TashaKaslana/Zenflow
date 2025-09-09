@@ -65,4 +65,10 @@ public @interface Plugin {
      * The publisher ID. For built-in plugins, this defaults to the system publisher.
      */
     String publisherId() default "00000000-0000-0000-0000-000000000000";
+
+    /**
+     * Custom path to the plugin schema for this plugin.
+     * This schema can define sections like profile credentials or settings.
+     */
+    String schemaPath() default "";
 }

@@ -10,9 +10,12 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.phong.zenflow.core.superbase.BaseEntity;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Getter
@@ -61,4 +64,8 @@ public class Plugin extends BaseEntity {
     @NotNull
     @Column(name = "key", nullable = false, length = Integer.MAX_VALUE)
     private String key;
+
+    @Column(name = "plugin_schema")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private Map<String, Object> pluginSchema;
 }
