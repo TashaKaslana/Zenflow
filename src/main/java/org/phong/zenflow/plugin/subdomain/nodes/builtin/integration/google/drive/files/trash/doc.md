@@ -19,4 +19,4 @@ Moves a file to the trash in Google Drive.
 - `file` (object): Updated file metadata including the `trashed` state.
 
 ## Credentials
-Use the same credential profile structure as the List Files node.
+Use the plugin-level OAuth profile referenced by the `profile` input field. Configure this profile once with `CLIENT_ID`, `CLIENT_SECRET`, and `REFRESH_TOKEN`.

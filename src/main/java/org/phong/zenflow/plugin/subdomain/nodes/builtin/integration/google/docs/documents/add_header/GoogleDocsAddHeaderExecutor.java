@@ -50,8 +50,8 @@ public class GoogleDocsAddHeaderExecutor implements PluginNodeExecutor {
             String text = (String) input.getOrDefault("text", "");
 
             @SuppressWarnings("unchecked")
-            Map<String, Map<String, String>> secretMap = context.read("secrets", Map.class);
-            Map<String, String> credentials = secretMap.get(profile);
+            Map<String, Map<String, String>> profileMap = context.read("profiles", Map.class);
+            Map<String, String> credentials = profileMap.get(profile);
             String clientId = credentials.get("CLIENT_ID");
             String clientSecret = credentials.get("CLIENT_SECRET");
             String refreshToken = credentials.get("REFRESH_TOKEN");

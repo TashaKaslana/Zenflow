@@ -19,13 +19,13 @@ The Google Drive plugin provides a collection of workflow nodes that interact wi
 
 ## Credentials
 
-All nodes require an OAuth2 credential profile containing the following keys:
+All nodes use a plugin-level OAuth profile containing the following keys:
 
 - `CLIENT_ID`
 - `CLIENT_SECRET`
 - `REFRESH_TOKEN`
 
-Define profiles as secret groups and reference them through the `profile` property in node inputs.
+Configure this profile once for the plugin and reference it via the `profile` property in node inputs.
 
 ## Notes
 

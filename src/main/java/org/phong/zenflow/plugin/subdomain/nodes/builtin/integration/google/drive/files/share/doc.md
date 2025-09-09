@@ -22,4 +22,4 @@ Adds a permission to a file in Google Drive, allowing it to be shared with a use
 - `permission` (object): Permission resource created for the file.
 
 ## Credentials
-Use the same credential profile structure as the List Files node.
+Use the plugin-level OAuth profile referenced by the `profile` input field. Configure this profile once with `CLIENT_ID`, `CLIENT_SECRET`, and `REFRESH_TOKEN`.
