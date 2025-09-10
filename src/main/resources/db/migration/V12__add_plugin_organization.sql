@@ -3,5 +3,5 @@ ALTER TABLE plugins
 
 COMMENT ON COLUMN plugins.organization IS 'Organization key for categorizing plugins (e.g., google, discord).';
 
-ALTER TABLE secrets
-    ADD COLUMN plugin_node_id UUID;
+ALTER TABLE plugins
+    ADD COLUMN plugin_schema JSONB;

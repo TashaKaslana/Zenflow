@@ -62,6 +62,11 @@ public class PluginService {
                 .orElseThrow(() -> new PluginException("Plugin not found with key: " + key));
     }
 
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> getProfileSchemaById(String key) {
+        return (Map<String, Object>) getPluginSchemaByKey(key).get("profile");
+    }
+
     @Transactional
     public PluginDto updatePlugin(UUID id, UpdatePluginRequest updatePluginRequest) {
         Plugin existingPlugin = pluginRepository.findById(id)

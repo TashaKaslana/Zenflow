@@ -78,4 +78,10 @@ public class PluginController {
           Map<String, Object> schema = pluginService.getPluginSchemaByKey(key);
           return RestApiResponse.success(schema, "Plugin schema retrieved successfully");
       }
+
+      @GetMapping("/{key}/profile-schema")
+      public ResponseEntity<RestApiResponse<Map<String, Object>>> getPluginProfileSchema(@PathVariable String key) {
+          Map<String, Object> schema = pluginService.getProfileSchemaById(key);
+          return RestApiResponse.success(schema, "Plugin profile schema retrieved successfully");
+      }
   }
