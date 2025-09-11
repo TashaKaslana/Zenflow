@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.phong.zenflow.plugin.services.PluginService;
 import org.phong.zenflow.plugin.subdomain.node.interfaces.PluginNodeSchemaProvider;
 import org.phong.zenflow.plugin.subdomain.schema.exception.NodeSchemaMissingException;
 
@@ -23,6 +24,9 @@ class SchemaRegistryUuidIntegrationTest {
     @Mock
     private PluginNodeSchemaProvider pluginProvider;
 
+    @Mock
+    private PluginService pluginService;
+
     private SchemaRegistry schemaRegistry;
 
     private final String testNodeId1 = "123e4567-e89b-12d3-a456-426614174001";
@@ -31,7 +35,7 @@ class SchemaRegistryUuidIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        schemaRegistry = new SchemaRegistry(pluginProvider, 3600, true);
+        schemaRegistry = new SchemaRegistry(pluginProvider, pluginService, 3600, true);
 
         // Mock schema responses
         Map<String, Object> emailSchema = createMockSchema("email", "send");
@@ -177,7 +181,7 @@ class SchemaRegistryUuidIntegrationTest {
     @DisplayName("Should handle database fallback when file-based loading is disabled")
     void shouldHandleDatabaseFallbackWhenFileBasedLoadingDisabled() {
         // Arrange - Create registry with file-based loading disabled
-        SchemaRegistry dbRegistry = new SchemaRegistry(pluginProvider, 3600, false);
+        SchemaRegistry dbRegistry = new SchemaRegistry(pluginProvider, pluginService, 3600, false);
 
         // Act
         JSONObject schema = dbRegistry.getSchemaByTemplateString(testNodeId1);

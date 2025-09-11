@@ -6,10 +6,9 @@ import org.everit.json.schema.Schema;
 import org.everit.json.schema.loader.SchemaLoader;
 import org.json.JSONObject;
 import org.phong.zenflow.plugin.subdomain.schema.services.SchemaRegistry;
-import org.phong.zenflow.secret.dto.CreateProfileSecretsRequest;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Component
@@ -18,11 +17,11 @@ import java.util.UUID;
 public class SecretProfileSchemaValidator {
     private final SchemaRegistry schemaRegistry;
 
-    public boolean validate(UUID pluginId, UUID pluginNodeId, List<CreateProfileSecretsRequest.SecretEntry> secrets) {
+    public boolean validate(UUID pluginId, UUID pluginNodeId, Map<String, String> secrets) {
         try {
             JSONObject schemaObject = null;
             if (pluginId != null) {
-                schemaObject = schemaRegistry.getSchemaByTemplateString(pluginId.toString());
+                schemaObject = schemaRegistry.getSchemaByTemplateString("plugin:" + pluginId);
             }
             if (schemaObject == null && pluginNodeId != null) {
                 schemaObject = schemaRegistry.getSchemaByTemplateString(pluginNodeId.toString());
@@ -32,7 +31,13 @@ public class SecretProfileSchemaValidator {
                 return false;
             }
 
-            JSONObject secretsJson = new JSONObject(getProfileItemsDefinition(schemaObject));
+            JSONObject secretsJson = getProfileItemsDefinition(schemaObject);
+            if (secretsJson == null) {
+                log.warn("Could not extract profile items definition from schema");
+                return false;
+            }
+
+            JSONObject subject = new JSONObject(secrets);
 
             Schema schema = SchemaLoader.builder()
                     .schemaJson(secretsJson)
@@ -42,7 +47,7 @@ public class SecretProfileSchemaValidator {
                     .load()
                     .build();
 
-            schema.validate(secrets);
+            schema.validate(subject);
 
             return true;
         } catch (Exception e) {
@@ -54,9 +59,7 @@ public class SecretProfileSchemaValidator {
     public JSONObject getProfileItemsDefinition(JSONObject schema) {
         try {
             return schema.getJSONObject("properties")
-                    .getJSONObject("profiles")
-                    .getJSONObject("properties")
-                    .getJSONObject("items");
+                    .getJSONObject("profile");
         } catch (Exception e) {
             return null;
         }

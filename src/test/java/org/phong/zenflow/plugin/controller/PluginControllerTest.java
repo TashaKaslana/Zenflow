@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.HashMap;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -23,7 +24,19 @@ public class PluginControllerTest {
         PluginService service = new PluginService(mapper, repo);
         PluginController controller = new PluginController(service);
 
+        // Create a plugin with proper schema data
         Plugin plugin = new Plugin();
+
+        // Set up the plugin schema with a profile section
+        Map<String, Object> pluginSchema = new HashMap<>();
+        Map<String, Object> profileSchema = new HashMap<>();
+        profileSchema.put("title", "Test Profile");
+        profileSchema.put("type", "object");
+        profileSchema.put("properties", new HashMap<>());
+
+        pluginSchema.put("profile", profileSchema);
+        plugin.setPluginSchema(pluginSchema);
+
         when(repo.findByKey("test")).thenReturn(Optional.of(plugin));
 
         ResponseEntity<RestApiResponse<Map<String, Object>>> response = controller.getPluginProfileSchema("test");

@@ -9,6 +9,7 @@ import org.phong.zenflow.plugin.subdomain.node.interfaces.PluginNodeSchemaProvid
 import org.phong.zenflow.plugin.subdomain.schema.exception.NodeSchemaException;
 import org.phong.zenflow.plugin.subdomain.schema.exception.NodeSchemaMissingException;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
+import org.phong.zenflow.plugin.services.PluginService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -21,6 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,18 +32,22 @@ public class SchemaRegistry {
     private static final String BUILTIN_PATH = "/builtin_schemas/";
 
     private final PluginNodeSchemaProvider pluginProvider;
+    private final PluginService pluginService;
 
     private final Cache<String, JSONObject> builtinCache;
     private final Cache<String, JSONObject> pluginCache;
+    private final Cache<String, JSONObject> pluginSchemaCache;
 
     // Performance optimization: use file-based loading by default
     private final boolean useFileBasedLoading;
 
     public SchemaRegistry(
             PluginNodeSchemaProvider pluginProvider,
+            PluginService pluginService,
             @Value("${zenflow.schema.cache-ttl-seconds:3600}") long cacheTtlSeconds,
             @Value("${zenflow.schema.use-file-based-loading:true}") boolean useFileBasedLoading) {
         this.pluginProvider = pluginProvider;
+        this.pluginService = pluginService;
         this.useFileBasedLoading = useFileBasedLoading;
         Duration ttl = Duration.ofSeconds(cacheTtlSeconds);
         this.builtinCache = Caffeine.newBuilder()
@@ -52,19 +58,24 @@ public class SchemaRegistry {
                 .expireAfterWrite(ttl)
                 .recordStats()
                 .build();
+        this.pluginSchemaCache = Caffeine.newBuilder()
+                .expireAfterWrite(ttl)
+                .recordStats()
+                .build();
     }
 
     /**
-     * Retrieves a schema by template string, supporting both built-in and plugin schemas.
+     * Retrieves a schema by template string, supporting built-in, plugin, and plugin node schemas.
      * <p>
      * Template string formats:
      * <ul>
      *   <li>Built-in: <code>builtin:&#60;name&#62;</code> (e.g., <code>builtin:http-trigger</code>)</li>
-     *   <li>Plugin: <code>&#60;nodeId&#62;</code> (UUID string)</li>
+     *   <li>Plugin: <code>plugin:&#60;id&#62;</code> (e.g., <code>plugin:123e4567-e89b-12d3-a456-426614174000</code>)</li>
+     *   <li>Plugin Node: <code>&#60;nodeId&#62;</code> (UUID string)</li>
      * </ul>
      * This unified naming convention allows easy differentiation and retrieval of schemas.
      *
-     * @param templateString the schema identifier, either built-in name or plugin node UUID
+     * @param templateString the schema identifier, either built-in name, plugin ID, or plugin node UUID
      * @return JSONObject containing the schema
      */
     public JSONObject getSchemaByTemplateString(String templateString) {
@@ -73,7 +84,12 @@ public class SchemaRegistry {
             return getBuiltinSchema(templateString.substring(8));
         }
 
-        // Otherwise, treat it as a plugin schema with UUID
+        // Check if the schema is a plugin-level schema
+        if (templateString.startsWith("plugin:")) {
+            return getPluginLevelSchema(templateString.substring(7));
+        }
+
+        // Otherwise, treat it as a plugin node schema with UUID
         return getPluginSchema(templateString);
     }
 
@@ -85,14 +101,25 @@ public class SchemaRegistry {
                 .map(name -> name.substring(8))
                 .toList();
 
+        List<String> pluginIds = templateStrings.stream()
+                .filter(name -> name.startsWith("plugin:"))
+                .map(name -> name.substring(7))
+                .toList();
+
         Set<String> pluginNodeIds = templateStrings.stream()
-                .filter(name -> !name.startsWith("builtin:"))
+                .filter(name -> !name.startsWith("builtin:") && !name.startsWith("plugin:"))
                 .collect(Collectors.toSet());
 
         if (!builtinNames.isEmpty()) {
             Map<String, JSONObject> builtinSchemas = getBuiltinSchemas(builtinNames);
             for (String name : builtinNames) {
                 result.put("builtin:" + name, builtinSchemas.get(name));
+            }
+        }
+
+        if (!pluginIds.isEmpty()) {
+            for (String pluginId : pluginIds) {
+                result.put("plugin:" + pluginId, getPluginLevelSchema(pluginId));
             }
         }
 
@@ -156,6 +183,34 @@ public class SchemaRegistry {
         JSONObject json = new JSONObject(schema);
         pluginCache.put(id, json);
         return json;
+    }
+
+    /**
+     * Get plugin-level schema by plugin ID
+     * @param id The plugin ID (as string UUID)
+     * @return JSONObject containing the plugin schema
+     */
+    private JSONObject getPluginLevelSchema(String id) {
+        JSONObject cached = pluginSchemaCache.getIfPresent(id);
+        if (cached != null) {
+            log.debug("Plugin-level schema cache hit for {}", id);
+            return cached;
+        }
+        log.debug("Plugin-level schema cache miss for {}", id);
+
+        try {
+            // Convert string to UUID and load plugin schema from PluginService
+            UUID pluginId = UUID.fromString(id);
+            Map<String, Object> schema = pluginService.findPluginById(pluginId).getPluginSchema();
+            if (schema == null || schema.isEmpty()) {
+                throw new NodeSchemaMissingException("No schema found for plugin: " + id, List.of(id));
+            }
+            JSONObject json = new JSONObject(schema);
+            pluginSchemaCache.put(id, json);
+            return json;
+        } catch (IllegalArgumentException e) {
+            throw new NodeSchemaException("Invalid UUID format for plugin ID: " + id, e);
+        }
     }
 
     /**
@@ -289,6 +344,15 @@ public class SchemaRegistry {
     }
 
     /**
+     * Invalidate a plugin-level schema entry from cache using plugin ID.
+     *
+     * @param pluginId the plugin UUID
+     */
+    public void invalidatePluginLevelSchema(String pluginId) {
+        pluginSchemaCache.invalidate(pluginId);
+    }
+
+    /**
      * Invalidate a plugin schema entry from cache.
      *
      * @deprecated Use invalidatePluginSchema(String nodeId) instead
@@ -303,11 +367,15 @@ public class SchemaRegistry {
     /**
      * Invalidate a schema entry using the template string format used in {@link #getSchemaByTemplateString}.
      *
-     * @param templateString schema identifier, either built-in or plugin UUID
+     * @param templateString schema identifier, either built-in, plugin-level, or plugin node UUID
      */
     public void invalidateByTemplateString(String templateString) {
         if (templateString.startsWith("builtin:")) {
             invalidateBuiltinSchema(templateString.substring(8));
+            return;
+        }
+        if (templateString.startsWith("plugin:")) {
+            invalidatePluginLevelSchema(templateString.substring(7));
             return;
         }
         // Treat as plugin node UUID
@@ -323,6 +391,10 @@ public class SchemaRegistry {
 
     public CacheStats pluginCacheStats() {
         return pluginCache.stats();
+    }
+
+    public CacheStats pluginSchemaCacheStats() {
+        return pluginSchemaCache.stats();
     }
 
     private JSONObject loadBuiltinSchemaFromFile(String name) {

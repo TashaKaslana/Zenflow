@@ -15,6 +15,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+import org.phong.zenflow.core.superbase.BaseEntity;
 import org.phong.zenflow.core.superbase.BaseEntityWithUpdatedBy;
 import org.phong.zenflow.plugin.infrastructure.persistence.entity.Plugin;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.entity.PluginNode;
@@ -32,11 +33,8 @@ import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 })
 @AttributeOverrides({
         @AttributeOverride(name = "id", column = @Column(name = "id", nullable = false)),
-        @AttributeOverride(name = "createdAt", column = @Column(name = "created_at", nullable = false)),
-        @AttributeOverride(name = "updatedAt", column = @Column(name = "updated_at", nullable = false)),
-        @AttributeOverride(name = "updatedBy", column = @Column(name = "updated_by"))
 })
-public class SecretProfile extends BaseEntityWithUpdatedBy {
+public class SecretProfile extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;

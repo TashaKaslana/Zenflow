@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.phong.zenflow.plugin.services.PluginService;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
@@ -30,6 +31,9 @@ public class PluginNodeTest {
     @Mock
     private PluginNodeSchemaProvider schemaProvider;
 
+    @Mock
+    private PluginService pluginService;
+
     private PluginNodeExecutorRegistry executorRegistry;
     private SchemaRegistry schemaRegistry;
     private PluginNodeExecutorDispatcher dispatcher;
@@ -43,7 +47,7 @@ public class PluginNodeTest {
         // Initialize test components
         executorRegistry = new PluginNodeExecutorRegistry();
         placeholderExecutor = new PlaceholderExecutor();
-        schemaRegistry = new SchemaRegistry(schemaProvider, 3600L, true);
+        schemaRegistry = new SchemaRegistry(schemaProvider, pluginService, 3600L, true);
         dispatcher = new PluginNodeExecutorDispatcher(executorRegistry);
 
         // Manually register the placeholder executor for testing

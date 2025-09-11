@@ -5,14 +5,13 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 public class CreateProfileSecretsRequest {
-    @NotNull
     private UUID pluginId;
 
     private UUID pluginNodeId;
@@ -20,29 +19,22 @@ public class CreateProfileSecretsRequest {
     @NotNull
     private String name;
 
-    private List<SecretEntry> secrets;
+    /**
+     * Secrets represented as key:value pairs
+     * Example:
+     * {
+     *   "CLIENT_ID": "123456",
+     *   "CLIENT_SECRET": "secret"
+     * }
+     */
+    @NotNull
+    private Map<String, String> secrets;
 
     public boolean isDuplicated() {
-        if (secrets == null || secrets.size() <= 1) {
+        if (secrets == null) {
             return false;
         }
-        long uniqueCount = secrets.stream()
-                .map(SecretEntry::getKey)
-                .distinct()
-                .count();
+        long uniqueCount = secrets.keySet().stream().distinct().count();
         return uniqueCount < secrets.size();
-    }
-
-    @Data
-    public static class SecretEntry {
-        @NotNull
-        private String key;
-
-        @NotNull
-        private String value;
-
-        private String description;
-
-        private List<String> tags;
     }
 }

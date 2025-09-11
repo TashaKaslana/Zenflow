@@ -1,18 +1,16 @@
 {
-  "profile": {
-    "$schema": "http://json-schema.org/draft-07/schema#",
-    "title": "Google OAuth Profile",
-    "type": "object",
-    "properties": {
-      "clientId": {
-        "type": "string",
-        "title": "Client ID"
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "General Google Plugin Schema",
+  "properties": {
+    "profile": {
+      "title": "Google OAuth Profile (single or multiple)",
+      "type": "object",
+      "properties": {
+        "CLIENT_ID": { "type": "string" },
+        "CLIENT_SECRET": { "type": "string" }
       },
-      "clientSecret": {
-        "type": "string",
-        "title": "Client Secret"
-      }
-    },
-    "required": ["clientId", "clientSecret"]
+      "required": ["CLIENT_ID", "CLIENT_SECRET"]
+    }
   }
 }

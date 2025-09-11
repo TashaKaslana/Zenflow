@@ -298,7 +298,7 @@ public class SecretService {
         profile = secretProfileRepository.save(profile);
 
         SecretProfile finalProfile = profile;
-        List<Secret> secrets = request.getSecrets().stream()
+        List<Secret> secrets = request.getSecrets().entrySet().stream()
                 .map(entry -> {
                     Secret secret = new Secret();
                     secret.setWorkflow(finalProfile.getWorkflow());
@@ -311,8 +311,6 @@ public class SecretService {
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
-                    secret.setDescription(entry.getDescription());
-                    secret.setTags(entry.getTags());
                     secret.setUser(authService.getReferenceCurrentUser());
                     return secret;
                 })
