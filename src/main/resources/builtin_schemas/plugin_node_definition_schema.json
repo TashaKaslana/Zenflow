@@ -49,69 +49,21 @@
     }
   },
   "properties": {
-    "input": {
+    "properties": {
       "type": "object",
-      "title": "Input Schema"
-    },
-    "output": {
-      "type": "object",
-      "title": "Output Schema"
-    },
-    "secrets": {
-      "type": "array",
-      "title": "Secrets",
-      "description": "Secrets to inject into the HTTP request.",
-      "minItems": 0,
-      "items": {
-        "$ref": "#/definitions/secret"
-      }
-    },
-    "profiles": {
-      "type": "array",
-      "title": "Profiles",
-      "description": "Groups of secrets that can be reused across nodes.",
-      "minItems": 0,
-      "items": {
-        "type": "object",
-        "title": "Profile Definition",
-        "properties": {
-          "name": {
-            "type": "string",
-            "title": "Profile Name",
-            "description": "Name of the secret profile."
-          },
-          "required": {
-            "type": "boolean",
-            "title": "Is Required",
-            "default": true,
-            "description": "Whether this profile must be provided."
-          },
-          "description": {
-            "type": "string",
-            "title": "Profile Description",
-            "description": "Explanation of what this profile is used for."
-          },
-          "items": {
-            "type": "array",
-            "title": "Profile Items",
-            "description": "Secrets included in this profile.",
-            "minItems": 1,
-            "items": {
-              "$ref": "#/definitions/secret"
-            }
-          }
+      "properties": {
+        "input": {
+          "$ref": "http://json-schema.org/draft-07/schema#"
         },
-        "required": [
-          "name"
-        ],
-        "additionalProperties": false
-      }
+        "output": {
+          "$ref": "http://json-schema.org/draft-07/schema#"
+        }
+      },
+      "required": ["input"]
     }
   },
   "required": [
-    "input",
-    "output",
-    "secrets"
+    "properties"
   ],
-  "additionalProperties": false
+  "additionalProperties": true
 }

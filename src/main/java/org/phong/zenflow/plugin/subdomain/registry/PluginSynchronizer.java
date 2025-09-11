@@ -4,8 +4,10 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.json.JSONObject;
 import org.phong.zenflow.plugin.infrastructure.persistence.entity.Plugin;
 import org.phong.zenflow.plugin.infrastructure.persistence.repository.PluginRepository;
+import org.phong.zenflow.plugin.subdomain.schema.services.SchemaValidator;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
@@ -32,9 +34,12 @@ import java.util.UUID;
 @Slf4j
 @Order(10) // Run before PluginNodeSynchronizer (order 20)
 public class PluginSynchronizer implements ApplicationRunner {
+    private final static String BUILTIN_SCHEMA_PREFIX = "builtin:";
+    private final static String BASE_SCHEMA_NAME = "base_plugin_schema_definition";
 
     private final PluginRepository pluginRepository;
     private final ObjectMapper objectMapper;
+    private final SchemaValidator schemaValidator;
 
     @Override
     public void run(ApplicationArguments args) {
@@ -71,9 +76,16 @@ public class PluginSynchronizer implements ApplicationRunner {
             entity.setVerified(annotation.verified());
             entity.setPublisherId(UUID.fromString(annotation.publisherId()));
             String schemaPath = annotation.schemaPath().trim();
+
             Map<String, Object> pluginSchema = schemaPath.isEmpty()
                     ? null
                     : loadSchema(clazz, schemaPath);
+            if (pluginSchema != null && !schemaValidator.validate(
+                    BUILTIN_SCHEMA_PREFIX + BASE_SCHEMA_NAME, new JSONObject(pluginSchema)
+            )) {
+                throw new IllegalStateException("Invalid plugin schema for " + className);
+            }
+
             entity.setPluginSchema(pluginSchema);
 
             pluginRepository.save(entity);

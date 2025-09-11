@@ -8,9 +8,10 @@
       "type": "object",
       "properties": {
         "CLIENT_ID": { "type": "string" },
-        "CLIENT_SECRET": { "type": "string" }
+        "CLIENT_SECRET": { "type": "string" },
+        "CLIENT_REFRESH_TOKEN": { "type": "string" }
       },
-      "required": ["CLIENT_ID", "CLIENT_SECRET"]
+      "required": ["CLIENT_ID", "CLIENT_SECRET", "CLIENT_REFRESH"]
     }
   }
 }
