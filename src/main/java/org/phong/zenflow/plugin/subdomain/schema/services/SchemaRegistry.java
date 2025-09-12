@@ -155,7 +155,7 @@ public class SchemaRegistry {
 
     /**
      * Get plugin node schema using PluginNodeIdentifier.
-     * It first attempts to load from the file-based index, and falls back to the database if not found.
+     * It first attempts to load from the file-based index (if enabled), and falls back to the database if not found or disabled.
      * @param id The plugin node id
      * @return JSONObject containing the schema
      */
@@ -169,18 +169,20 @@ public class SchemaRegistry {
 
         Map<String, Object> schema = new HashMap<>();
 
-        // Try loading from file-based index first
-        SchemaIndexRegistry.SchemaLocation location = schemaIndexRegistry.getSchemaLocation(id);
-        if (location != null) {
-            try {
-                schema = LoadSchemaHelper.loadSchema(location.clazz(), location.schemaPath(), "schema.json");
-                log.debug("Loaded schema from file index for {}", id);
-            } catch (Exception e) {
-                log.warn("Failed to load schema from file index for {}: {}. Falling back to database.", id, e.getMessage());
+        // Try loading from file-based index first if enabled
+        if (useFileBasedLoading) {
+            SchemaIndexRegistry.SchemaLocation location = schemaIndexRegistry.getSchemaLocation(id);
+            if (location != null) {
+                try {
+                    schema = LoadSchemaHelper.loadSchema(location.clazz(), location.schemaPath(), "schema.json");
+                    log.debug("Loaded schema from file index for {}", id);
+                } catch (Exception e) {
+                    log.warn("Failed to load schema from file index for {}: {}. Falling back to database.", id, e.getMessage());
+                }
             }
         }
 
-        // Fallback to database if not found in index or failed to load
+        // Fallback to database if not found in index, failed to load, or file-based loading is disabled
         if (schema.isEmpty()) {
             log.debug("Schema for {} not found in file index or failed to load, falling back to database.", id);
             schema = pluginProvider.getSchemaJson(id);
@@ -210,18 +212,20 @@ public class SchemaRegistry {
 
         Map<String, Object> schema = new HashMap<>();
 
-        // 1. Try loading from file-based index first
-        SchemaIndexRegistry.SchemaLocation location = schemaIndexRegistry.getSchemaLocation(id);
-        if (location != null) {
-            try {
-                schema = LoadSchemaHelper.loadSchema(location.clazz(), location.schemaPath(), "schema.json");
-                log.debug("Loaded plugin-level schema from file index for {}", id);
-            } catch (Exception e) {
-                log.warn("Failed to load plugin-level schema from file index for {}: {}. Falling back to database.", id, e.getMessage());
+        // 1. Try loading from file-based index first if enabled
+        if (useFileBasedLoading) {
+            SchemaIndexRegistry.SchemaLocation location = schemaIndexRegistry.getSchemaLocation(id);
+            if (location != null) {
+                try {
+                    schema = LoadSchemaHelper.loadSchema(location.clazz(), location.schemaPath(), "schema.json");
+                    log.debug("Loaded plugin-level schema from file index for {}", id);
+                } catch (Exception e) {
+                    log.warn("Failed to load plugin-level schema from file index for {}: {}. Falling back to database.", id, e.getMessage());
+                }
             }
         }
 
-        // 2. Fallback to database if not found in index or failed to load
+        // 2. Fallback to database if not found in index, failed to load, or file-based loading is disabled
         if (schema.isEmpty()) {
             log.debug("Plugin-level schema for {} not found in file index, falling back to database.", id);
             try {
@@ -288,7 +292,28 @@ public class SchemaRegistry {
 
         Set<String> identifiersForDbFetch = new HashSet<>();
 
-        // 1. Try to load from file index
+        // 1. Try to load from file index if enabled
+        if (useFileBasedLoading) {
+            loadAndResolveSchemaAdding(uncachedIdentifiers, identifiersForDbFetch);
+        } else {
+            // If file-based loading is disabled, all go to DB
+            identifiersForDbFetch.addAll(uncachedIdentifiers);
+        }
+
+        // 2. Fallback to database for remaining identifiers
+        if (!identifiersForDbFetch.isEmpty()) {
+            log.debug("Fetching {} schemas from database as fallback.", identifiersForDbFetch.size());
+            Map<String, Map<String, Object>> schemas = pluginProvider.getAllSchemasByIdentifiers(identifiersForDbFetch);
+            schemas.forEach((key, schemaMap) -> {
+                if (schemaMap == null) {
+                    throw new NodeSchemaException("Null schema for plugin node identifier: " + key);
+                }
+                pluginCache.put(key, new JSONObject(schemaMap));
+            });
+        }
+    }
+
+    private void loadAndResolveSchemaAdding(Set<String> uncachedIdentifiers, Set<String> identifiersForDbFetch) {
         for (String id : uncachedIdentifiers) {
             SchemaIndexRegistry.SchemaLocation location = schemaIndexRegistry.getSchemaLocation(id);
             if (location != null) {
@@ -308,18 +333,6 @@ public class SchemaRegistry {
                 // Not in index, must fetch from DB
                 identifiersForDbFetch.add(id);
             }
-        }
-
-        // 2. Fallback to database for remaining identifiers
-        if (!identifiersForDbFetch.isEmpty()) {
-            log.debug("Fetching {} schemas from database as fallback.", identifiersForDbFetch.size());
-            Map<String, Map<String, Object>> schemas = pluginProvider.getAllSchemasByIdentifiers(identifiersForDbFetch);
-            schemas.forEach((key, schemaMap) -> {
-                if (schemaMap == null) {
-                    throw new NodeSchemaException("Null schema for plugin node identifier: " + key);
-                }
-                pluginCache.put(key, new JSONObject(schemaMap));
-            });
         }
     }
 

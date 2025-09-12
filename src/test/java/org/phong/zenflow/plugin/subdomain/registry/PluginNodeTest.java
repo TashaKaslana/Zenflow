@@ -13,6 +13,7 @@ import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorR
 import org.phong.zenflow.plugin.subdomain.execution.services.PluginNodeExecutorDispatcher;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.test.placeholder.PlaceholderExecutor;
 import org.phong.zenflow.plugin.subdomain.node.interfaces.PluginNodeSchemaProvider;
+import org.phong.zenflow.plugin.subdomain.schema.registry.SchemaIndexRegistry;
 import org.phong.zenflow.plugin.subdomain.schema.services.SchemaRegistry;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.TestExecutionContextUtils;
@@ -23,7 +24,6 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 public class PluginNodeTest {
@@ -38,6 +38,8 @@ public class PluginNodeTest {
     private SchemaRegistry schemaRegistry;
     private PluginNodeExecutorDispatcher dispatcher;
     private PlaceholderExecutor placeholderExecutor;
+    @Mock
+    private SchemaIndexRegistry schemaIndexRegistry;
 
     private final String placeholderUuid = "123e4567-e89b-12d3-a456-426614174001";
     private final String placeholderCompositeKey = "test:placeholder:1.0.0";
@@ -47,12 +49,17 @@ public class PluginNodeTest {
         // Initialize test components
         executorRegistry = new PluginNodeExecutorRegistry();
         placeholderExecutor = new PlaceholderExecutor();
-        schemaRegistry = new SchemaRegistry(schemaProvider, pluginService, 3600L, true);
+        schemaRegistry = new SchemaRegistry(schemaProvider, pluginService, schemaIndexRegistry, 3600L, true);
         dispatcher = new PluginNodeExecutorDispatcher(executorRegistry);
 
         // Manually register the placeholder executor for testing
         executorRegistry.register(placeholderUuid, () -> placeholderExecutor);
         executorRegistry.register(placeholderCompositeKey, () -> placeholderExecutor);
+
+        // Mock schema index registry for UUID-based lookups
+        lenient().when(schemaIndexRegistry.hasSchemaLocation(anyString())).thenReturn(true);
+        lenient().when(schemaIndexRegistry.getSchemaLocation(anyString()))
+                .thenReturn(new SchemaIndexRegistry.SchemaLocation(PlaceholderExecutor.class, "schema.json"));
     }
 
     private void setupSchemaProviderMock() {
@@ -66,7 +73,7 @@ public class PluginNodeTest {
                 "required", new String[]{"input"}
         );
 
-        when(schemaProvider.getSchemaJsonFromFile(anyString())).thenReturn(testSchema);
+        lenient().when(schemaProvider.getSchemaJsonFromFile(anyString())).thenReturn(testSchema);
         lenient().when(schemaProvider.getSchemaJson(anyString())).thenReturn(testSchema);
     }
 
