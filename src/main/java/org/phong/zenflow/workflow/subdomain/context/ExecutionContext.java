@@ -9,6 +9,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.phong.zenflow.core.utils.ObjectConversion;
+import org.phong.zenflow.secret.exception.SecretDomainException;
 import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
@@ -16,6 +17,8 @@ import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.W
 @Getter
 @Builder
 public class ExecutionContext {
+    private final static String PROHIBITED_KEY_PREFIX = "__zenflow_";
+
     private final UUID workflowId;
     private final UUID workflowRunId;
     private final String traceId;
@@ -32,6 +35,10 @@ public class ExecutionContext {
      * expressions and performs type-safe casting.
      */
     public <T> T read(String key, Class<T> clazz) {
+        if (key.startsWith(PROHIBITED_KEY_PREFIX)) {
+            throw new IllegalArgumentException("Access to reserved context keys is prohibited: " + key);
+        }
+
         RuntimeContext context = getContext();
         if (context == null) return null;
 
@@ -96,7 +103,12 @@ public class ExecutionContext {
      * {@link org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService}.
      */
     public Object get(String key) {
+        if (key.startsWith(PROHIBITED_KEY_PREFIX)) {
+            throw new IllegalArgumentException("Access to reserved context keys is prohibited: " + key);
+        }
+
         RuntimeContext context = getContext();
+
         if (context == null) return null;
         return context.getAndClean(nodeKey, key);
     }
@@ -135,5 +147,41 @@ public class ExecutionContext {
     public Map<String, Object> getCurrentNodeEntrypoint() {
         RuntimeContext context = getContext();
         return (Map<String, Object>) context.get(ExecutionContextKey.ENTRYPOINT_LIST_KEY + nodeKey);
+    }
+
+    @SuppressWarnings("unchecked")
+    public Object getProfileSecret(String key) {
+        RuntimeContext context = getContext();
+        Map<String, Object> profiles = (Map<String, Object>) context.get(ExecutionContextKey.PROFILE_KEY);
+        Map<String, Object> nodeProfile = (Map<String, Object>) profiles.get(nodeKey);
+
+        if (nodeProfile == null) {
+            String nodeKey = this.nodeKey != null ? this.nodeKey : "unknown";
+            throw new SecretDomainException("No profiles found in context for node: " + nodeKey);
+        }
+
+        Map<String, Object> secrets = (Map<String, Object>) nodeProfile.get("secrets");
+        if (secrets != null) {
+            return secrets.get(key);
+        }
+
+        return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    public Object getSecret(String key) {
+        RuntimeContext context = getContext();
+        Map<String, Object> secretsList = (Map<String, Object>) context.get(ExecutionContextKey.SECRET_KEY);
+
+        if (secretsList == null) {
+            throw new SecretDomainException("No profiles found in context");
+        }
+
+        Map<String, Object> secrets = (Map<String, Object>) secretsList.get(nodeKey);
+        if (secrets != null) {
+            return secrets.get(key);
+        }
+
+        return null;
     }
 }
