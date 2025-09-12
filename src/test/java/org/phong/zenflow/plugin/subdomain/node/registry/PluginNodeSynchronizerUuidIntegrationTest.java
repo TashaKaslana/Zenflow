@@ -18,6 +18,7 @@ import org.phong.zenflow.workflow.subdomain.trigger.registry.TriggerRegistry;
 import org.springframework.context.ApplicationContext;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -26,10 +27,6 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 @DisplayName("PluginNodeSynchronizer - UUID Integration Tests")
 class PluginNodeSynchronizerUuidIntegrationTest {
-
-    @Mock
-    private PluginNodeRepository pluginNodeRepository;
-
     @Mock
     private PluginRepository pluginRepository;
 
@@ -71,7 +68,7 @@ class PluginNodeSynchronizerUuidIntegrationTest {
         lenient().when(applicationContext.getBean(any(Class.class))).thenReturn(mockExecutor);
 
         // Mock SchemaIndexRegistry behavior
-        final java.util.concurrent.ConcurrentHashMap<String, SchemaIndexRegistry.SchemaLocation> schemaIndex = new java.util.concurrent.ConcurrentHashMap<>();
+        final ConcurrentHashMap<String, SchemaIndexRegistry.SchemaLocation> schemaIndex = new java.util.concurrent.ConcurrentHashMap<>();
         lenient().when(schemaIndexRegistry.getSchemaIndex()).thenReturn(schemaIndex);
         lenient().when(schemaIndexRegistry.getSchemaIndexSize()).thenAnswer(i -> schemaIndex.size());
         lenient().when(schemaIndexRegistry.hasSchemaLocation(anyString())).thenAnswer(i -> schemaIndex.containsKey(i.getArgument(0)));

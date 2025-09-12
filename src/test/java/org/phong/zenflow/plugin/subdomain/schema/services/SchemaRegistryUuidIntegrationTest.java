@@ -49,7 +49,6 @@ class SchemaRegistryUuidIntegrationTest {
 
         // Mock schema responses
         Map<String, Object> emailSchema = createMockSchema("email", "send");
-        Map<String, Object> slackSchema = createMockSchema("slack", "message");
 
         // Use lenient stubbing since not all tests use all mock methods
         lenient().when(pluginProvider.getSchemaJson(anyString())).thenReturn(emailSchema); // Broad stubbing for database calls
