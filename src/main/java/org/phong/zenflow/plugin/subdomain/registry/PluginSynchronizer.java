@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
 import org.phong.zenflow.plugin.infrastructure.persistence.entity.Plugin;
 import org.phong.zenflow.plugin.infrastructure.persistence.repository.PluginRepository;
+import org.phong.zenflow.plugin.subdomain.schema.registry.SchemaIndexRegistry;
 import org.phong.zenflow.plugin.subdomain.schema.services.SchemaValidator;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
@@ -40,6 +41,7 @@ public class PluginSynchronizer implements ApplicationRunner {
     private final PluginRepository pluginRepository;
     private final ObjectMapper objectMapper;
     private final SchemaValidator schemaValidator;
+    private final SchemaIndexRegistry schemaIndexRegistry;
 
     @Override
     public void run(ApplicationArguments args) {
@@ -88,10 +90,35 @@ public class PluginSynchronizer implements ApplicationRunner {
 
             entity.setPluginSchema(pluginSchema);
 
-            pluginRepository.save(entity);
+            Plugin savedEntity = pluginRepository.save(entity);
             log.info("Synchronized plugin: {} v{}", annotation.key(), annotation.version());
+
+            indexSchema(savedEntity, clazz, schemaPath);
+
         } catch (Exception e) {
             log.error("Failed to synchronize plugin for class {}", className, e);
+        }
+    }
+
+    private void indexSchema(Plugin plugin, Class<?> clazz, String schemaPath) {
+        if (schemaPath == null || schemaPath.trim().isEmpty()) {
+            return; // Nothing to index
+        }
+        if (plugin.getId() == null) {
+            log.warn("Cannot index schema for plugin {} because it has no ID.", plugin.getKey());
+            return;
+        }
+
+        try {
+            String pluginId = plugin.getId().toString();
+            SchemaIndexRegistry.SchemaLocation location =
+                    new SchemaIndexRegistry.SchemaLocation(clazz, schemaPath.trim());
+
+            if (schemaIndexRegistry.addSchemaLocation(pluginId, location)) {
+                log.debug("Indexed schema location for plugin ID {}", pluginId);
+            }
+        } catch (Exception e) {
+            log.error("Failed to index schema for plugin class {}: {}", clazz.getName(), e.getMessage());
         }
     }
 

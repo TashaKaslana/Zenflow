@@ -59,4 +59,8 @@ public class LoadSchemaHelper {
 
         return resultPath.toString().replace("\\", "/");
     }
+
+    public static String extractPath(Class<?> clazz, String customPath) {
+        return extractPath(clazz, customPath, "schema.json");
+    }
 }

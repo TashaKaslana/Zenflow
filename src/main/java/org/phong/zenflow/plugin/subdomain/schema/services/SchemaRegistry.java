@@ -5,11 +5,13 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
+import org.phong.zenflow.core.utils.LoadSchemaHelper;
+import org.phong.zenflow.plugin.services.PluginService;
 import org.phong.zenflow.plugin.subdomain.node.interfaces.PluginNodeSchemaProvider;
 import org.phong.zenflow.plugin.subdomain.schema.exception.NodeSchemaException;
 import org.phong.zenflow.plugin.subdomain.schema.exception.NodeSchemaMissingException;
+import org.phong.zenflow.plugin.subdomain.schema.registry.SchemaIndexRegistry;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
-import org.phong.zenflow.plugin.services.PluginService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -18,11 +20,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -33,6 +31,7 @@ public class SchemaRegistry {
 
     private final PluginNodeSchemaProvider pluginProvider;
     private final PluginService pluginService;
+    private final SchemaIndexRegistry schemaIndexRegistry;
 
     private final Cache<String, JSONObject> builtinCache;
     private final Cache<String, JSONObject> pluginCache;
@@ -44,10 +43,12 @@ public class SchemaRegistry {
     public SchemaRegistry(
             PluginNodeSchemaProvider pluginProvider,
             PluginService pluginService,
+            SchemaIndexRegistry schemaIndexRegistry,
             @Value("${zenflow.schema.cache-ttl-seconds:3600}") long cacheTtlSeconds,
             @Value("${zenflow.schema.use-file-based-loading:true}") boolean useFileBasedLoading) {
         this.pluginProvider = pluginProvider;
         this.pluginService = pluginService;
+        this.schemaIndexRegistry = schemaIndexRegistry;
         this.useFileBasedLoading = useFileBasedLoading;
         Duration ttl = Duration.ofSeconds(cacheTtlSeconds);
         this.builtinCache = Caffeine.newBuilder()
@@ -69,9 +70,9 @@ public class SchemaRegistry {
      * <p>
      * Template string formats:
      * <ul>
-     *   <li>Built-in: <code>builtin:&#60;name&#62;</code> (e.g., <code>builtin:http-trigger</code>)</li>
-     *   <li>Plugin: <code>plugin:&#60;id&#62;</code> (e.g., <code>plugin:123e4567-e89b-12d3-a456-426614174000</code>)</li>
-     *   <li>Plugin Node: <code>&#60;nodeId&#62;</code> (UUID string)</li>
+     *   <li>Built-in: <code>builtin:&lt;name&gt;</code> (e.g., <code>builtin:http-trigger</code>)</li>
+     *   <li>Plugin: <code>plugin:&lt;id&gt;</code> (e.g., <code>plugin:123e4567-e89b-12d3-a456-426614174000</code>)</li>
+     *   <li>Plugin Node: <code>&lt;nodeId&gt;</code> (UUID string)</li>
      * </ul>
      * This unified naming convention allows easy differentiation and retrieval of schemas.
      *
@@ -153,8 +154,8 @@ public class SchemaRegistry {
     }
 
     /**
-     * Get plugin node schema using PluginNodeIdentifier
-     * Uses file-based loading for better performance when enabled
+     * Get plugin node schema using PluginNodeIdentifier.
+     * It first attempts to load from the file-based index, and falls back to the database if not found.
      * @param id The plugin node id
      * @return JSONObject containing the schema
      */
@@ -166,13 +167,22 @@ public class SchemaRegistry {
         }
         log.debug("Plugin schema cache miss for {}", id);
 
-        Map<String, Object> schema;
-        if (useFileBasedLoading) {
-            // Use direct file access for better performance
-            schema = pluginProvider.getSchemaJsonFromFile(id);
-            log.debug("Loaded schema from file for {}", id);
-        } else {
-            // Fallback to database access
+        Map<String, Object> schema = new HashMap<>();
+
+        // Try loading from file-based index first
+        SchemaIndexRegistry.SchemaLocation location = schemaIndexRegistry.getSchemaLocation(id);
+        if (location != null) {
+            try {
+                schema = LoadSchemaHelper.loadSchema(location.clazz(), location.schemaPath(), "schema.json");
+                log.debug("Loaded schema from file index for {}", id);
+            } catch (Exception e) {
+                log.warn("Failed to load schema from file index for {}: {}. Falling back to database.", id, e.getMessage());
+            }
+        }
+
+        // Fallback to database if not found in index or failed to load
+        if (schema.isEmpty()) {
+            log.debug("Schema for {} not found in file index or failed to load, falling back to database.", id);
             schema = pluginProvider.getSchemaJson(id);
             log.debug("Loaded schema from database for {}", id);
         }
@@ -198,19 +208,37 @@ public class SchemaRegistry {
         }
         log.debug("Plugin-level schema cache miss for {}", id);
 
-        try {
-            // Convert string to UUID and load plugin schema from PluginService
-            UUID pluginId = UUID.fromString(id);
-            Map<String, Object> schema = pluginService.findPluginById(pluginId).getPluginSchema();
-            if (schema == null || schema.isEmpty()) {
-                throw new NodeSchemaMissingException("No schema found for plugin: " + id, List.of(id));
+        Map<String, Object> schema = new HashMap<>();
+
+        // 1. Try loading from file-based index first
+        SchemaIndexRegistry.SchemaLocation location = schemaIndexRegistry.getSchemaLocation(id);
+        if (location != null) {
+            try {
+                schema = LoadSchemaHelper.loadSchema(location.clazz(), location.schemaPath(), "schema.json");
+                log.debug("Loaded plugin-level schema from file index for {}", id);
+            } catch (Exception e) {
+                log.warn("Failed to load plugin-level schema from file index for {}: {}. Falling back to database.", id, e.getMessage());
             }
-            JSONObject json = new JSONObject(schema);
-            pluginSchemaCache.put(id, json);
-            return json;
-        } catch (IllegalArgumentException e) {
-            throw new NodeSchemaException("Invalid UUID format for plugin ID: " + id, e);
         }
+
+        // 2. Fallback to database if not found in index or failed to load
+        if (schema.isEmpty()) {
+            log.debug("Plugin-level schema for {} not found in file index, falling back to database.", id);
+            try {
+                UUID pluginId = UUID.fromString(id);
+                schema = pluginService.findPluginById(pluginId).getPluginSchema();
+            } catch (IllegalArgumentException e) {
+                throw new NodeSchemaException("Invalid UUID format for plugin ID: " + id, e);
+            }
+        }
+
+        if (schema == null || schema.isEmpty()) {
+            throw new NodeSchemaMissingException("No schema found for plugin: " + id, List.of(id));
+        }
+
+        JSONObject json = new JSONObject(schema);
+        pluginSchemaCache.put(id, json);
+        return json;
     }
 
     /**
@@ -254,19 +282,38 @@ public class SchemaRegistry {
     }
 
     private void putNewSchemasForUncachedIdentifiers(Set<String> uncachedIdentifiers) {
-        if (!uncachedIdentifiers.isEmpty()) {
-            Map<String, Map<String, Object>> schemas;
+        if (uncachedIdentifiers.isEmpty()) {
+            return;
+        }
 
-            if (useFileBasedLoading) {
-                // Use direct file access for better performance
-                schemas = pluginProvider.getAllSchemasByIdentifiersFromFile(uncachedIdentifiers);
-                log.debug("Loaded {} schemas from file", schemas.size());
+        Set<String> identifiersForDbFetch = new HashSet<>();
+
+        // 1. Try to load from file index
+        for (String id : uncachedIdentifiers) {
+            SchemaIndexRegistry.SchemaLocation location = schemaIndexRegistry.getSchemaLocation(id);
+            if (location != null) {
+                try {
+                    Map<String, Object> schema = LoadSchemaHelper.loadSchema(location.clazz(), location.schemaPath(), "schema.json");
+                    if (!schema.isEmpty()) {
+                        pluginCache.put(id, new JSONObject(schema));
+                    } else {
+                        // Schema file is empty, fallback to DB
+                        identifiersForDbFetch.add(id);
+                    }
+                } catch (Exception e) {
+                    log.warn("Failed to load schema from file index for {}: {}. Will try database.", id, e.getMessage());
+                    identifiersForDbFetch.add(id);
+                }
             } else {
-                // Fallback to database access
-                schemas = pluginProvider.getAllSchemasByIdentifiers(uncachedIdentifiers);
-                log.debug("Loaded {} schemas from database", schemas.size());
+                // Not in index, must fetch from DB
+                identifiersForDbFetch.add(id);
             }
+        }
 
+        // 2. Fallback to database for remaining identifiers
+        if (!identifiersForDbFetch.isEmpty()) {
+            log.debug("Fetching {} schemas from database as fallback.", identifiersForDbFetch.size());
+            Map<String, Map<String, Object>> schemas = pluginProvider.getAllSchemasByIdentifiers(identifiersForDbFetch);
             schemas.forEach((key, schemaMap) -> {
                 if (schemaMap == null) {
                     throw new NodeSchemaException("Null schema for plugin node identifier: " + key);
@@ -318,11 +365,22 @@ public class SchemaRegistry {
      * @return JSONObject containing the schema from file
      */
     public JSONObject getPluginSchemaFromFile(String nodeId) {
-        Map<String, Object> schema = pluginProvider.getSchemaJsonFromFile(nodeId);
-        if (schema.isEmpty()) {
-            throw new NodeSchemaMissingException("No schema found in file for plugin node: " + nodeId, List.of(nodeId));
+        SchemaIndexRegistry.SchemaLocation location = schemaIndexRegistry.getSchemaLocation(nodeId);
+        if (location != null) {
+            try {
+                Map<String, Object> schema = LoadSchemaHelper.loadSchema(
+                        location.clazz(), location.schemaPath(), "schema.json"
+                );
+                if (schema.isEmpty()) {
+                    throw new NodeSchemaMissingException("Empty schema file for plugin node: " + nodeId, List.of(nodeId));
+                }
+                return new JSONObject(schema);
+            } catch (Exception e) {
+                throw new NodeSchemaException("Failed to load schema from file index for " + nodeId, e);
+            }
+        } else {
+            throw new NodeSchemaMissingException("No schema location found in index for plugin node: " + nodeId, List.of(nodeId));
         }
-        return new JSONObject(schema);
     }
 
     /**
