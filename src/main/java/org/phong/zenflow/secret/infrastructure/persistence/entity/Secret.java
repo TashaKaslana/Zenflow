@@ -10,7 +10,6 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
@@ -32,9 +31,7 @@ import java.util.UUID;
 @Getter
 @Setter
 @Entity
-@Table(name = "secrets", uniqueConstraints = {
-        @UniqueConstraint(name = "secrets_profile_id_key_key", columnNames = {"profile_id", "key"})
-})
+@Table(name = "secrets")
 @AttributeOverrides({
         @AttributeOverride(name = "id", column = @Column(name = "id", nullable = false)),
         @AttributeOverride(name = "createdAt", column = @Column(name = "created_at", nullable = false)),
@@ -94,7 +91,5 @@ public class Secret extends BaseEntityWithUpdatedBy {
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     private SecretScope scope;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "profile_id", nullable = false)
-    private SecretProfile profile;
+    // Decoupled from SecretProfile; association handled by link entity
 }

@@ -19,17 +19,14 @@ public interface SecretMapper {
     @Mapping(target = "workflowId", source = "workflow.id")
     @Mapping(target = "projectId", source = "project.id")
     @Mapping(target = "userId", source = "user.id")
-    @Mapping(target = "profileId", source = "profile.id")
     @Mapping(target = "value", source = "encryptedValue")
     SecretDto toDto(Secret secret);
 
     @Mapping(target = "encryptedValue", source = "value")
-    @Mapping(target = "profile", ignore = true)
     Secret toEntity(CreateSecretRequest createSecretRequest);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "encryptedValue", source = "value")
-    @Mapping(target = "profile", ignore = true)
     void updateEntityFromDto(UpdateSecretRequest updateSecretRequest, @MappingTarget Secret secret);
 
     @Named("decrypt")

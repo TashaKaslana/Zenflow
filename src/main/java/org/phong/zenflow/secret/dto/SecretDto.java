@@ -23,7 +23,6 @@ public final class SecretDto implements Serializable {
     private final UUID userId;
     private final UUID projectId;
     private final UUID workflowId;
-    private final @NotNull UUID profileId;
     private final @NotNull String key;
     private @NotNull String value;
     private final String description;

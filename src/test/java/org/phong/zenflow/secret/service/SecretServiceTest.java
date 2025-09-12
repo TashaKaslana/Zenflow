@@ -11,8 +11,10 @@ import org.phong.zenflow.core.services.AuthService;
 import org.phong.zenflow.project.service.ProjectService;
 import org.phong.zenflow.secret.dto.ProfileSecretListDto;
 import org.phong.zenflow.secret.infrastructure.mapstruct.SecretMapper;
+import org.phong.zenflow.secret.infrastructure.persistence.entity.ProfileSecretLink;
 import org.phong.zenflow.secret.infrastructure.persistence.entity.Secret;
 import org.phong.zenflow.secret.infrastructure.persistence.entity.SecretProfile;
+import org.phong.zenflow.secret.infrastructure.persistence.repository.ProfileSecretLinkRepository;
 import org.phong.zenflow.secret.infrastructure.persistence.repository.SecretProfileRepository;
 import org.phong.zenflow.secret.infrastructure.persistence.repository.SecretRepository;
 import org.phong.zenflow.secret.util.AESUtil;
@@ -37,6 +39,8 @@ class SecretServiceTest {
     private SecretRepository secretRepository;
     @Mock
     private SecretProfileRepository secretProfileRepository;
+    @Mock
+    private ProfileSecretLinkRepository profileSecretLinkRepository;
     @Mock
     private SecretMapper secretMapper;
     @Mock
@@ -79,17 +83,14 @@ class SecretServiceTest {
         secret1 = new Secret();
         secret1.setKey("key1");
         secret1.setEncryptedValue("encryptedValue1");
-        secret1.setProfile(profile1);
 
         secret2 = new Secret();
         secret2.setKey("key2");
         secret2.setEncryptedValue("encryptedValue2");
-        secret2.setProfile(profile1);
 
         secret3 = new Secret();
         secret3.setKey("key3");
         secret3.setEncryptedValue("encryptedValue3");
-        secret3.setProfile(profile2);
 
         when(aesUtil.decrypt("encryptedValue1")).thenReturn("decryptedValue1");
         when(aesUtil.decrypt("encryptedValue2")).thenReturn("decryptedValue2");
@@ -100,8 +101,20 @@ class SecretServiceTest {
     @DisplayName("Should retrieve secrets grouped by profile name for a workflow")
     void shouldGetProfileSecretMapByWorkflowId() {
         // Arrange
-        List<Secret> secrets = Arrays.asList(secret1, secret2, secret3);
-        when(secretRepository.findByWorkflowId(workflowId)).thenReturn(secrets);
+        var link1 = new ProfileSecretLink();
+        link1.setProfile(profile1);
+        link1.setSecret(secret1);
+
+        var link2 = new ProfileSecretLink();
+        link2.setProfile(profile1);
+        link2.setSecret(secret2);
+
+        var link3 = new ProfileSecretLink();
+        link3.setProfile(profile2);
+        link3.setSecret(secret3);
+
+        List<ProfileSecretLink> links = Arrays.asList(link1, link2, link3);
+        when(profileSecretLinkRepository.findByWorkflowId(workflowId)).thenReturn(links);
 
         // Act
         ProfileSecretListDto result = secretService.getProfileSecretMapByWorkflowId(workflowId);
