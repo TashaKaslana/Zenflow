@@ -414,7 +414,7 @@ public class SecretService {
         var ids = secretNodeLinkRepository.findByWorkflowIdAndNodeKey(workflowId, nodeKey)
                 .stream()
                 .map(link -> link.getSecret().getId())
-                .collect(java.util.stream.Collectors.toList());
+                .collect(Collectors.toList());
         return new NodeSecretLinksDto(workflowId, nodeKey, ids);
     }
 
@@ -465,28 +465,69 @@ public class SecretService {
 
     @Transactional(readOnly = true)
     public AggregatedSecretSetupDto getAggregatedSecretsProfilesAndNodeIndex(UUID workflowId) {
-        Map<String, String> secrets = getSecretsKeyMapByWorkflowId(workflowId);
+        // Secrets keyed by secretId to avoid collisions on duplicate keys
+        Map<String, String> secretsById = secretRepository.findByWorkflowId(workflowId)
+                .stream()
+                .collect(Collectors.toMap(
+                        s -> s.getId().toString(),
+                        s -> {
+                            try {
+                                return aesUtil.decrypt(s.getEncryptedValue());
+                            } catch (Exception e) {
+                                throw new SecretDomainException("Can't decrypt value for workflowId: " + workflowId, e);
+                            }
+                        },
+                        (existing, replacement) -> replacement
+                ));
 
-        Map<String, Map<String, String>> profiles = getProfilesKeyMapByWorkflowId(workflowId);
+        // Secret id -> key for reconstructing per-node key maps
+        Map<String, String> secretKeys = secretRepository.findByWorkflowId(workflowId)
+                .stream()
+                .collect(Collectors.toMap(s -> s.getId().toString(), Secret::getKey, (a, b) -> b));
 
+        // Profiles keyed by profileId, values map secretKey -> decrypted value for that profile
+        Map<String, Map<String, String>> profilesById = profileSecretLinkRepository.findByWorkflowId(workflowId)
+                .stream()
+                .collect(Collectors.groupingBy(
+                        link -> link.getProfile().getId().toString(),
+                        Collectors.toMap(
+                                link -> link.getSecret().getKey(),
+                                link -> {
+                                    try {
+                                        return aesUtil.decrypt(link.getSecret().getEncryptedValue());
+                                    } catch (Exception e) {
+                                        throw new SecretDomainException("Can't decrypt value for workflowId: " + workflowId, e);
+                                    }
+                                },
+                                (existing, replacement) -> replacement
+                        )
+                ));
+
+        // Map nodeKey -> profileId (stable)
         Map<String, String> nodeProfiles = secretProfileNodeLinkRepository.findAllByWorkflowId(workflowId)
                 .stream()
                 .collect(Collectors.toMap(
                         SecretProfileNodeLink::getNodeKey,
-                        link -> link.getProfile().getName(),
+                        link -> link.getProfile().getId().toString(),
                         (a, b) -> b
                 ));
 
+        // Map nodeKey -> [secretId] to reference stable identifiers
         Map<String, List<String>> nodeSecrets = secretNodeLinkRepository.findByWorkflowId(workflowId)
                 .stream()
                 .collect(Collectors.groupingBy(
                         SecretNodeLink::getNodeKey,
                         Collectors.mapping(
-                                link -> link.getSecret().getId() + "." + link.getSecret().getKey(),
+                                link -> link.getSecret().getId().toString(),
                                 Collectors.toList()
                         )
                 ));
 
-        return new AggregatedSecretSetupDto(secrets, profiles, nodeProfiles, nodeSecrets);
+        // Also expose profileId -> profileName for display purposes
+        Map<String, String> profileNames = secretProfileRepository.findAll().stream()
+                .filter(p -> p.getWorkflow() != null && workflowId.equals(p.getWorkflow().getId()))
+                .collect(Collectors.toMap(p -> p.getId().toString(), SecretProfile::getName, (a, b) -> b));
+
+        return new AggregatedSecretSetupDto(secretsById, profilesById, nodeProfiles, nodeSecrets, profileNames, secretKeys);
     }
 }

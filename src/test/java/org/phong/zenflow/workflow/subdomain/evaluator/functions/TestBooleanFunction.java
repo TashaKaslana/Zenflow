@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 import java.util.Map;
 
 @Component
-@AviatorBooleanFunction
+@AviatorFunction
 public class TestBooleanFunction extends AbstractFunction {
     @Override
     public String getName() {
