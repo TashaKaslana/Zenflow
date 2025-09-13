@@ -33,6 +33,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Slf4j
 public class WorkflowDefinitionService {
+    private final static List<String> PROHIBITED_KEY_PREFIXES = List.of("__zenflow", "secrets", "profiles");
 
     private final WorkflowValidationService workflowValidationService;
     private final WorkflowContextService workflowContextService;
@@ -42,13 +43,15 @@ public class WorkflowDefinitionService {
      * Updates or inserts nodes in the temporary definition based on the existing definition.
      * Preserves existing nodes and adds new ones, generating keys for nodes without them.
      *
-     * @param tempDef     The temporary workflow definition being built (target)
-     * @param newDef      The new workflow definition containing nodes to add (source)
+     * @param tempDef The temporary workflow definition being built (target)
+     * @param newDef  The new workflow definition containing nodes to add (source)
      * @throws WorkflowNodeDefinitionException If any node has an empty type
      */
-    private void upsertNodes(WorkflowDefinition tempDef, WorkflowDefinition newDef) {
+    private List<ValidationError> upsertNodes(WorkflowDefinition tempDef, WorkflowDefinition newDef) {
         // Start with existing nodes from tempDef (which was created from existingDef)
         Map<String, BaseWorkflowNode> keyToNode = new HashMap<>(tempDef.nodes().asMap());
+
+        List<ValidationError> validationErrors = new ArrayList<>();
 
         // Add/update with new nodes from newDef
         newDef.nodes().forEach((ignored, node) -> {
@@ -58,6 +61,21 @@ public class WorkflowDefinitionService {
             }
 
             String key = node.getKey();
+            if (PROHIBITED_KEY_PREFIXES.contains(key)) {
+                validationErrors.add(
+                        ValidationError.builder()
+                                .nodeKey(key)
+                                .errorCode(ValidationErrorCode.VALIDATION_ERROR)
+                                .errorType("definition")
+                                .path("nodes.key")
+                                .message(String.format("Node key cannot start with reserved prefixes: %s - found: %s",
+                                                PROHIBITED_KEY_PREFIXES, key
+                                        ))
+                                .build()
+                );
+            }
+
+
             if (key == null || key.isBlank()) {
                 key = NodeKeyGenerator.generateKey(type);
                 node = new BaseWorkflowNode(
@@ -72,6 +90,8 @@ public class WorkflowDefinitionService {
         // Update tempDef with the merged nodes
         tempDef.nodes().clear();
         keyToNode.forEach((k, node) -> tempDef.nodes().put(node));
+
+        return validationErrors;
     }
 
     /**
@@ -112,13 +132,20 @@ public class WorkflowDefinitionService {
 
         WorkflowDefinition tempDef = new WorkflowDefinition(existingDef);
 
-        upsertNodes(tempDef, newDef);
+        List<ValidationError> upsertedNodesErr = upsertNodes(tempDef, newDef);
         upsertMetadata(tempDef.metadata(), newDef.metadata());
 
-        return constructStaticGenerationAndValidate(tempDef);
+        ValidationResult validationResult = constructStaticGenerationAndValidate(tempDef);
+        validationResult.addAllErrors(upsertedNodesErr);
+
+        if (!validationResult.isValid()) {
+            log.debug("Workflow definition validation failed: {}", validationResult.getErrors());
+            throw new WorkflowDefinitionValidationException("Workflow definition validation failed!", validationResult);
+        }
+        return tempDef;
     }
 
-    private WorkflowDefinition constructStaticGenerationAndValidate(WorkflowDefinition tempDef) {
+    private ValidationResult constructStaticGenerationAndValidate(WorkflowDefinition tempDef) {
         List<ValidationError> validationErrors = new ArrayList<>();
 
         resolvePluginId(tempDef, validationErrors);
@@ -127,12 +154,7 @@ public class WorkflowDefinitionService {
         ValidationResult validationResult = workflowValidationService.validateDefinition(tempDef);
         validationResult.addAllErrors(validationErrors);
 
-        if (!validationResult.isValid()) {
-            log.debug("Workflow definition validation failed: {}", validationResult.getErrors());
-            throw new WorkflowDefinitionValidationException("Workflow definition validation failed!", validationResult);
-        }
-
-        return tempDef;
+        return validationResult;
     }
 
     private WorkflowDefinition updateStaticContextMetadata(WorkflowDefinition definition) {
@@ -195,7 +217,12 @@ public class WorkflowDefinitionService {
         }
 
         keysToRemove.forEach(workflowDefinition.nodes()::remove);
-        return constructStaticGenerationAndValidate(workflowDefinition);
+        ValidationResult validationResult = constructStaticGenerationAndValidate(workflowDefinition);
+        if (!validationResult.isValid()) {
+            log.debug("Workflow definition validation failed after node removal: {}", validationResult.getErrors());
+            throw new WorkflowDefinitionValidationException("Workflow definition validation failed after node removal!", validationResult);
+        }
+        return workflowDefinition;
     }
 
     public WorkflowDefinition clearWorkflowDefinition(WorkflowDefinition workflowDefinition) {

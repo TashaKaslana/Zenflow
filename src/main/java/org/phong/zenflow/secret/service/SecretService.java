@@ -241,22 +241,6 @@ public class SecretService {
                 .collect(Collectors.toList());
     }
 
-    public Map<String, String> getSecretMapByWorkflowId(UUID workflowId) {
-        return profileSecretLinkRepository.findByWorkflowId(workflowId)
-                .stream()
-                .collect(Collectors.toMap(
-                        link -> link.getProfile().getName() + "." + link.getSecret().getKey(),
-                        link -> {
-                            try {
-                                return aesUtil.decrypt(link.getSecret().getEncryptedValue());
-                            } catch (Exception e) {
-                                throw new SecretDomainException("Can't decrypt value for workflowId: " + workflowId, e);
-                            }
-                        },
-                        (existing, replacement) -> replacement
-                ));
-    }
-
     /**
      * Retrieves all secrets for a workflow grouped by their profile name.
      *
@@ -264,23 +248,7 @@ public class SecretService {
      * @return map keyed by profile name, each containing a map of secret key to decrypted value
      */
     public ProfileSecretListDto getProfileSecretMapByWorkflowId(UUID workflowId) {
-        Map<String, Map<String, String>> collect = profileSecretLinkRepository.findByWorkflowId(workflowId)
-                .stream()
-                .collect(Collectors.groupingBy(
-                        link -> link.getProfile().getName(),
-                        Collectors.toMap(
-                                link -> link.getSecret().getKey(),
-                                link -> {
-                                    try {
-                                        return aesUtil.decrypt(link.getSecret().getEncryptedValue());
-                                    } catch (Exception e) {
-                                        throw new SecretDomainException("Can't decrypt value for workflowId: " + workflowId, e);
-                                    }
-                                },
-                                (existing, replacement) -> replacement
-                        )
-                ));
-
+        Map<String, Map<String, String>> collect = getProfilesKeyMapByWorkflowId(workflowId);
         return new ProfileSecretListDto(collect);
     }
 

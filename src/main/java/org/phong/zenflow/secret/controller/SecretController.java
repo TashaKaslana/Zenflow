@@ -17,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -101,6 +102,18 @@ public class SecretController {
     public ResponseEntity<RestApiResponse<ProfileSecretListDto>> getProfileSecretsByWorkflowId(@PathVariable UUID workflowId) {
         var secrets = secretService.getProfileSecretMapByWorkflowId(workflowId);
         return RestApiResponse.success(secrets);
+    }
+
+    @GetMapping("/workflows/{workflowId}/map/secrets-by-key")
+    public ResponseEntity<RestApiResponse<Map<String, String>>> getSecretsKeyMap(@PathVariable UUID workflowId) {
+        Map<String, String> map = secretService.getSecretsKeyMapByWorkflowId(workflowId);
+        return RestApiResponse.success(map);
+    }
+
+    @GetMapping("/workflows/{workflowId}/map/profiles-by-name")
+    public ResponseEntity<RestApiResponse<Map<String, Map<String, String>>>> getProfilesKeyMap(@PathVariable UUID workflowId) {
+        Map<String, Map<String, String>> map = secretService.getProfilesKeyMapByWorkflowId(workflowId);
+        return RestApiResponse.success(map);
     }
 
     @PostMapping("/workflows/{workflowId}/profile")

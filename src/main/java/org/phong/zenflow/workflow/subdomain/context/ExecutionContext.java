@@ -29,10 +29,15 @@ public class ExecutionContext {
     private String nodeKey;
 
     /**
-     * Read a value from the runtime context with template resolution and consumer cleanup.
+     * Reads a value from the runtime context with template resolution and type-safe casting.
      * <p>
-     * This should be preferred over {@link #get(String)} within executors as it resolves template
-     * expressions and performs type-safe casting.
+     * This method resolves template expressions if applicable and ensures the returned value matches the specified type.
+     *
+     * @param key   the key to retrieve the value from the runtime context
+     * @param clazz the expected class type of the value
+     * @return the value associated with the key, or null if not found
+     * @throws IllegalArgumentException if the key starts with a prohibited prefix
+     * @throws ClassCastException       if the value cannot be cast to the specified type
      */
     public <T> T read(String key, Class<T> clazz) {
         if (key.startsWith(PROHIBITED_KEY_PREFIX)) {
@@ -92,25 +97,6 @@ public class ExecutionContext {
      */
     public TemplateService.ImmutableEvaluator getEvaluator() {
         return templateService != null ? templateService.getEvaluator() : null;
-    }
-
-    /**
-     * Low-level access to the underlying runtime context for template evaluation.
-     * <p>
-     * Executors should use {@link #read(String, Class)} instead to ensure templates are resolved
-     * and values are type-checked. This method still performs consumer tracking using the
-     * currently set {@code nodeKey} and is primarily intended for internal usage by
-     * {@link org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService}.
-     */
-    public Object get(String key) {
-        if (key.startsWith(PROHIBITED_KEY_PREFIX)) {
-            throw new IllegalArgumentException("Access to reserved context keys is prohibited: " + key);
-        }
-
-        RuntimeContext context = getContext();
-
-        if (context == null) return null;
-        return context.getAndClean(nodeKey, key);
     }
 
     public WorkflowConfig resolveConfig(String nodeKey, WorkflowConfig config) {
