@@ -36,6 +36,7 @@ import org.phong.zenflow.secret.util.AESUtil;
 import org.phong.zenflow.user.service.UserService;
 import org.phong.zenflow.workflow.service.WorkflowService;
 import org.phong.zenflow.plugin.subdomain.node.service.PluginNodeService;
+import org.phong.zenflow.plugin.infrastructure.persistence.repository.PluginRepository;
 import org.phong.zenflow.plugin.services.PluginService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -67,6 +68,7 @@ public class SecretService {
     private final SecretProfileSchemaValidator validator;
     private final PluginNodeService pluginNodeService;
     private final PluginService pluginService;
+    private final PluginRepository pluginRepository;
 
     @Transactional(readOnly = true)
     public List<SecretDto> getAllSecrets() {
@@ -497,5 +499,19 @@ public class SecretService {
                 .collect(Collectors.toMap(p -> p.getId().toString(), SecretProfile::getName, (a, b) -> b));
 
         return new AggregatedSecretSetupDto(secretsById, profilesById, nodeProfiles, nodeSecrets, profileNames, secretKeys);
+    }
+
+    /**
+     * Checks whether a profile with the given name exists for a workflow and plugin key.
+     * This is used by validators to verify reference existence without exposing repository details.
+     */
+    @Transactional(readOnly = true)
+    public boolean profileExists(UUID workflowId, String pluginKey, String profileName) {
+        if (workflowId == null || pluginKey == null || profileName == null || profileName.isBlank()) {
+            return false;
+        }
+        return pluginRepository.findByKey(pluginKey)
+                .map(plugin -> secretProfileRepository.existsByNameAndWorkflowIdAndPluginId(profileName, workflowId, plugin.getId()))
+                .orElse(false);
     }
 }

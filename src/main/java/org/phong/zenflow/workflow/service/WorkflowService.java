@@ -18,6 +18,8 @@ import org.phong.zenflow.workflow.infrastructure.persistence.repository.Workflow
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.services.WorkflowDefinitionService;
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
+import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
+import org.phong.zenflow.workflow.subdomain.schema_validator.service.WorkflowValidationService;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.phong.zenflow.workflow.subdomain.trigger.services.WorkflowTriggerService;
@@ -43,6 +45,7 @@ public class WorkflowService {
     private final WorkflowDefinitionService definitionService;
     private final WorkflowTriggerService triggerService;
     private final ApplicationEventPublisher eventPublisher;
+    private final WorkflowValidationService validationService;
 
     /**
      * Create a new workflow
@@ -105,7 +108,7 @@ public class WorkflowService {
      * @return Updated workflow definition
      */
     @Transactional
-    public WorkflowDefinition updateWorkflowDefinition(UUID workflowId, WorkflowDefinitionChangeRequest request) {
+    public WorkflowDefinition updateWorkflowDefinition(UUID workflowId, WorkflowDefinitionChangeRequest request, boolean publishAttempt) {
         Workflow workflow = workflowRepository.findById(workflowId)
                 .orElseThrow(() -> new WorkflowException("Workflow not found with id: " + workflowId));
 
@@ -123,11 +126,27 @@ public class WorkflowService {
         }
 
         workflow.setDefinition(currentDefinition);
+
+        // If client requests a publish attempt, validate strictly and toggle isActive accordingly
+        if (publishAttempt) {
+            ValidationResult vr = validationService.validateDefinition(workflowId, currentDefinition, true);
+            boolean publishable = vr.isValid();
+            workflow.setIsActive(publishable);
+        }
+
         Workflow saved = workflowRepository.save(workflow);
 
         triggerService.synchronizeTrigger(workflowId, currentDefinition);
 
         return saved.getDefinition();
+    }
+
+    /**
+     * Backward-compatible overload without publish flag. Keeps existing activation state.
+     */
+    @Transactional
+    public WorkflowDefinition updateWorkflowDefinition(UUID workflowId, WorkflowDefinitionChangeRequest request) {
+        return updateWorkflowDefinition(workflowId, request, false);
     }
 
     public WorkflowDefinition clearWorkflowDefinition(UUID workflowId) {

@@ -35,6 +35,19 @@ public class PluginTest {
     @MockitoBean
     private PluginRepository pluginRepository;
 
+    // Provide required collaborators for PluginSynchronizer
+    @MockitoBean
+    private org.phong.zenflow.plugin.subdomain.schema.services.SchemaValidator schemaValidator;
+
+    @MockitoBean
+    private org.phong.zenflow.plugin.subdomain.schema.registry.SchemaIndexRegistry schemaIndexRegistry;
+
+    @org.junit.jupiter.api.BeforeEach
+    void setup() {
+        // Default to validating schemas successfully for tests
+        when(schemaValidator.validate(anyString(), any(org.json.JSONObject.class))).thenReturn(true);
+    }
+
     @Autowired
     private PluginSynchronizer pluginSynchronizer;
 

@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
+import org.phong.zenflow.secret.service.SecretService;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
@@ -20,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 /**
@@ -41,6 +43,7 @@ public class WorkflowValidationService {
     private final SchemaTemplateValidationService schemaTemplateValidationService;
     private final PluginNodeExecutorRegistry executorRegistry;
     private final TemplateService templateService;
+    private final SecretService secretService;
 
     /**
      * Phase 1: Validates a workflow definition against schema requirements.
@@ -68,6 +71,40 @@ public class WorkflowValidationService {
         errors.addAll(validateAliasKeys(workflow));
 
         return new ValidationResult("definition", errors);
+    }
+
+    /**
+     * Definition-time validation with optional reference existence checks against a workflow ID.
+     * When strictRefs is true, missing external references (e.g., profiles) are returned as errors; otherwise as warnings.
+     */
+    public ValidationResult validateDefinition(UUID workflowId, WorkflowDefinition workflow, boolean strictRefs) {
+        ValidationResult base = validateDefinition(workflow);
+        List<ValidationError> extra = new ArrayList<>();
+
+        if (workflow != null && workflow.nodes() != null) {
+            workflow.nodes().forEach((key, node) -> {
+                if (node == null || node.getConfig() == null) return;
+                Map<String, Object> input = node.getConfig().input();
+                if (input != null && input.get("profile") instanceof String profileName) {
+                    String pluginKey = node.getPluginNode() != null ? node.getPluginNode().getPluginKey() : null;
+                    boolean exists = secretService.profileExists(workflowId, pluginKey, profileName);
+                    if (!exists) {
+                        extra.add(ValidationError.builder()
+                                .nodeKey(node.getKey())
+                                .errorType(strictRefs ? "definition" : "definition-warning")
+                                .errorCode(ValidationErrorCode.INVALID_REFERENCE)
+                                .path(node.getKey() + ".config.input.profile")
+                                .message("Profile '" + profileName + "' not found for plugin '" + pluginKey + "' in this workflow")
+                                .value(profileName)
+                                .expectedType("existing_profile_name")
+                                .build());
+                    }
+                }
+            });
+        }
+
+        base.addAllErrors(extra);
+        return base;
     }
 
     private List<ValidationError> validateAliasKeys(WorkflowDefinition workflow) {

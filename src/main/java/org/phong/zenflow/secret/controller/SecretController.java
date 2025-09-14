@@ -5,6 +5,8 @@ import org.phong.zenflow.core.responses.RestApiResponse;
 import org.phong.zenflow.secret.dto.CreateProfileSecretsRequest;
 import org.phong.zenflow.secret.dto.CreateSecretBatchRequest;
 import org.phong.zenflow.secret.dto.CreateSecretRequest;
+import org.phong.zenflow.secret.dto.NodeProfileLinkDto;
+import org.phong.zenflow.secret.dto.NodeSecretLinksDto;
 import org.phong.zenflow.secret.dto.ProfileSecretListDto;
 import org.phong.zenflow.secret.dto.LinkProfileToNodeRequest;
 import org.phong.zenflow.secret.dto.LinkSecretToNodeRequest;
@@ -128,7 +130,7 @@ public class SecretController {
         return RestApiResponse.noContent();
     }
     @GetMapping("/workflows/{workflowId}/profile/link/{nodeKey}")
-    public ResponseEntity<RestApiResponse<org.phong.zenflow.secret.dto.NodeProfileLinkDto>> getProfileLink(@PathVariable UUID workflowId, @PathVariable String nodeKey) {
+    public ResponseEntity<RestApiResponse<NodeProfileLinkDto>> getProfileLink(@PathVariable UUID workflowId, @PathVariable String nodeKey) {
         var dto = secretService.getProfileLink(workflowId, nodeKey);
         return RestApiResponse.success(dto);
     }
@@ -144,7 +146,7 @@ public class SecretController {
         return RestApiResponse.noContent();
     }
     @GetMapping("/workflows/{workflowId}/secret/link/{nodeKey}")
-    public ResponseEntity<RestApiResponse<org.phong.zenflow.secret.dto.NodeSecretLinksDto>> getSecretLinks(@PathVariable UUID workflowId, @PathVariable String nodeKey) {
+    public ResponseEntity<RestApiResponse<NodeSecretLinksDto>> getSecretLinks(@PathVariable UUID workflowId, @PathVariable String nodeKey) {
         var dto = secretService.getSecretLinks(workflowId, nodeKey);
         return RestApiResponse.success(dto);
     }

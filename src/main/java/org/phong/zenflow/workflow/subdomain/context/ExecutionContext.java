@@ -40,7 +40,10 @@ public class ExecutionContext {
      * @throws ClassCastException       if the value cannot be cast to the specified type
      */
     public <T> T read(String key, Class<T> clazz) {
-        if (key.startsWith(PROHIBITED_KEY_PREFIX)) {
+        // Allow internal reads for whitelisted reserved keys used by the engine
+        boolean isReserved = key.startsWith(PROHIBITED_KEY_PREFIX);
+        boolean isWhitelisted = ExecutionContextKey.CALLBACK_URL.equals(key);
+        if (isReserved && !isWhitelisted) {
             throw new IllegalArgumentException("Access to reserved context keys is prohibited: " + key);
         }
 
