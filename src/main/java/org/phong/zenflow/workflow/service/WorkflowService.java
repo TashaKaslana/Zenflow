@@ -7,6 +7,7 @@ import org.phong.zenflow.log.auditlog.enums.AuditAction;
 import org.phong.zenflow.project.exception.ProjectNotFoundException;
 import org.phong.zenflow.project.infrastructure.persistence.entity.Project;
 import org.phong.zenflow.project.infrastructure.persistence.repository.ProjectRepository;
+import org.phong.zenflow.secret.service.SecretLinkSyncService;
 import org.phong.zenflow.workflow.dto.CreateWorkflowRequest;
 import org.phong.zenflow.workflow.dto.UpdateWorkflowRequest;
 import org.phong.zenflow.workflow.dto.WorkflowDefinitionChangeRequest;
@@ -46,6 +47,7 @@ public class WorkflowService {
     private final WorkflowTriggerService triggerService;
     private final ApplicationEventPublisher eventPublisher;
     private final WorkflowValidationService validationService;
+    private final SecretLinkSyncService linkSyncService;
 
     /**
      * Create a new workflow
@@ -123,6 +125,9 @@ public class WorkflowService {
         if (request != null && request.upsert() != null) {
             WorkflowDefinition newDefinition = new WorkflowDefinition(request.upsert().nodes(), request.upsert().metadata());
             currentDefinition = definitionService.upsert(newDefinition, currentDefinition);
+
+            // Centralized sync based on metadata (secrets + profiles)
+            linkSyncService.syncLinksFromMetadata(workflowId, newDefinition);
         }
 
         workflow.setDefinition(currentDefinition);
@@ -135,6 +140,8 @@ public class WorkflowService {
         }
 
         Workflow saved = workflowRepository.save(workflow);
+
+        // Note: Profiles and explicit secret links are managed via metadata syncing and SecretService link APIs.
 
         triggerService.synchronizeTrigger(workflowId, currentDefinition);
 

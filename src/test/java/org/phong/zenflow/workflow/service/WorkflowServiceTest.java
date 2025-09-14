@@ -2,7 +2,6 @@ package org.phong.zenflow.workflow.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.phong.zenflow.project.infrastructure.persistence.entity.Project;
@@ -31,6 +30,8 @@ class WorkflowServiceTest {
     @Mock private WorkflowTriggerService triggerService;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private WorkflowValidationService validationService;
+    @Mock private org.phong.zenflow.secret.service.SecretService secretService;
+    @Mock private org.phong.zenflow.secret.service.SecretLinkSyncService linkSyncService;
 
     private WorkflowService service;
 
@@ -44,7 +45,8 @@ class WorkflowServiceTest {
                 definitionService,
                 triggerService,
                 eventPublisher,
-                validationService
+                validationService,
+                linkSyncService
         );
     }
 

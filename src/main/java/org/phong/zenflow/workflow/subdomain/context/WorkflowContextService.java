@@ -16,7 +16,9 @@ import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.Work
 import org.phong.zenflow.workflow.subdomain.schema_validator.service.SchemaTypeResolver;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -58,15 +60,37 @@ public class WorkflowContextService {
             }));
         }
 
-        generateDependenciesAndConsumers(wf.nodes(), ctx);
+        // Preserve existing profiles mapping if provided by client/editor
+        if (existingMetadata != null && existingMetadata.profiles() != null) {
+            existingMetadata.profiles().forEach((k, v) -> ctx.profiles().put(k, new ArrayList<>(v)));
+        }
+
+        generateIndexPopulationMap(wf.nodes(), ctx);
         generateAliasLinkBackToConsumers(ctx);
         generateTypeForConsumerFields(wf, ctx);
 
-        return new WorkflowMetadata(ctx.aliases(), ctx.nodeDependencies(), ctx.nodeConsumers());
+        return new WorkflowMetadata(
+                ctx.aliases(),
+                ctx.nodeDependencies(),
+                ctx.nodeConsumers(),
+                ctx.secrets(),
+                ctx.profiles(),
+                ctx.profileRequiredNodes()
+        );
     }
 
-    private void generateDependenciesAndConsumers(WorkflowNodes nodes, WorkflowMetadata ctx) {
+    private void generateIndexPopulationMap(WorkflowNodes nodes, WorkflowMetadata ctx) {
+        LinkedHashSet<String> profileRequired = new LinkedHashSet<>();
+
         nodes.forEach((nodeKey, node) -> {
+            if (node.getConfig() == null) {
+                return;
+            }
+
+            if (node.getConfig().profile() != null && !node.getConfig().profile().isEmpty()) {
+                profileRequired.add(nodeKey);
+            }
+
             Map<String, Object> input = node.getConfig().input();
             if (input == null || input.isEmpty()) {
                 return;
@@ -81,6 +105,14 @@ public class WorkflowContextService {
                 Set<String> referenced = templateService.extractRefs(inputValue.toString());
 
                 for (String ref : referenced) {
+                    // Secrets usage tracking
+                    if (ref.startsWith("secrets.")) {
+                        String key = ref.substring("secrets.".length());
+                        if (!key.isBlank()) {
+                            ctx.secrets().computeIfAbsent(key, k -> new ArrayList<>()).add(nodeKey);
+                        }
+                    }
+
                     String resolvedRef = resolveAlias(ref, ctx.aliases());
 
                     ctx.nodeDependencies()
@@ -94,6 +126,8 @@ public class WorkflowContextService {
                 }
             }
         });
+
+        ctx.profileRequiredNodes().addAll(profileRequired);
     }
 
     private void generateTypeForConsumerFields(WorkflowDefinition wf, WorkflowMetadata ctx) {
@@ -174,7 +208,10 @@ public class WorkflowContextService {
 
     private String resolveAlias(String ref, Map<String, String> aliases) {
         if (aliases.containsKey(ref)) {
-            return templateService.extractRefs(aliases.get(ref)).stream().findFirst().orElse(ref);
+            return templateService.extractRefs(aliases.get(ref))
+                    .stream()
+                    .findFirst()
+                    .orElse(ref);
         }
         return ref;
     }

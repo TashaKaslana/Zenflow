@@ -13,7 +13,6 @@ import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.W
 import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -56,13 +55,14 @@ class WorkflowValidationServiceTest {
         when(templateService.extractRefs(any())).thenReturn(Set.of());
     }
 
-    private WorkflowDefinition buildDefinitionWithProfile(String pluginKey, String profileName) {
+    private WorkflowDefinition buildDefinitionWithProfile(String pluginKey) {
         BaseWorkflowNode n = new BaseWorkflowNode();
         n.setKey("n1");
         n.setType(NodeType.PLUGIN);
         n.setPluginNode(new PluginNodeIdentifier(pluginKey, "node", "1.0.0", "executor"));
         n.setNext(List.of());
-        n.setConfig(new WorkflowConfig(Map.of("profile", profileName)));
+        // Include a non-empty profile section to indicate this node requires a profile
+        n.setConfig(new WorkflowConfig(Map.of(), Map.of("CLIENT_ID", "")));
         n.setMetadata(null);
         n.setPolicy(null);
         return new WorkflowDefinition(new WorkflowNodes(List.of(n)), new org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowMetadata());
@@ -71,9 +71,9 @@ class WorkflowValidationServiceTest {
     @Test
     void validateDefinition_profileMissing_warnsInDefinition_errorsInPublish() {
         UUID workflowId = UUID.randomUUID();
-        WorkflowDefinition def = buildDefinitionWithProfile("pluginA", "missing");
+        WorkflowDefinition def = buildDefinitionWithProfile("pluginA");
 
-        when(secretService.profileExists(eq(workflowId), eq("pluginA"), eq("missing"))).thenReturn(false);
+        when(secretService.isProfileLinked(eq(workflowId), eq("n1"))).thenReturn(false);
 
         ValidationResult defRes = service.validateDefinition(workflowId, def, false);
         ValidationResult pubRes = service.validateDefinition(workflowId, def, true);
@@ -88,8 +88,8 @@ class WorkflowValidationServiceTest {
     @Test
     void validateDefinition_profileExists_passesBoth() {
         UUID workflowId = UUID.randomUUID();
-        WorkflowDefinition def = buildDefinitionWithProfile("pluginA", "exists");
-        when(secretService.profileExists(eq(workflowId), eq("pluginA"), eq("exists"))).thenReturn(true);
+        WorkflowDefinition def = buildDefinitionWithProfile("pluginA");
+        when(secretService.isProfileLinked(eq(workflowId), eq("n1"))).thenReturn(true);
 
         ValidationResult defRes = service.validateDefinition(workflowId, def, false);
         ValidationResult pubRes = service.validateDefinition(workflowId, def, true);
@@ -98,4 +98,3 @@ class WorkflowValidationServiceTest {
         assertThat(pubRes.isValid()).isTrue();
     }
 }
-

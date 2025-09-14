@@ -365,6 +365,11 @@ public class SecretService {
     }
 
     @Transactional(readOnly = true)
+    public boolean isProfileLinked(UUID workflowId, String nodeKey) {
+        return secretProfileNodeLinkRepository.findByWorkflowIdAndNodeKey(workflowId, nodeKey).isPresent();
+    }
+
+    @Transactional(readOnly = true)
     public NodeProfileLinkDto getProfileLink(UUID workflowId, String nodeKey) {
         return secretProfileNodeLinkRepository.findByWorkflowIdAndNodeKey(workflowId, nodeKey)
                 .map(link -> new NodeProfileLinkDto(
@@ -394,6 +399,50 @@ public class SecretService {
 
     public void unlinkAllSecretsFromNode(UUID workflowId, String nodeKey) {
         secretNodeLinkRepository.deleteByWorkflowIdAndNodeKey(workflowId, nodeKey);
+    }
+
+    @Transactional(readOnly = true)
+    public List<UUID> getMissingSecretLinks(UUID workflowId, String nodeKey, List<UUID> expectedSecretIds) {
+        if (workflowId == null || nodeKey == null || expectedSecretIds == null || expectedSecretIds.isEmpty()) {
+            return List.of();
+        }
+        var linkedIds = secretNodeLinkRepository.findByWorkflowIdAndNodeKey(workflowId, nodeKey)
+                .stream()
+                .map(link -> link.getSecret().getId())
+                .collect(Collectors.toSet());
+
+        return expectedSecretIds.stream()
+                .filter(id -> id != null && !linkedIds.contains(id))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public boolean areSecretsLinked(UUID workflowId, String nodeKey, List<UUID> requiredSecretIds) {
+        return getMissingSecretLinks(workflowId, nodeKey, requiredSecretIds).isEmpty();
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, List<UUID>> getSecretIdsByKey(UUID workflowId) {
+        return secretRepository.findByWorkflowId(workflowId)
+                .stream()
+                .collect(Collectors.groupingBy(
+                        Secret::getKey,
+                        Collectors.mapping(Secret::getId, Collectors.toList())
+                ));
+    }
+
+    @Transactional(readOnly = true)
+    public List<UUID> resolveSecretIds(UUID workflowId, String key) {
+        Map<String, List<UUID>> map = getSecretIdsByKey(workflowId);
+        return map.getOrDefault(key, List.of());
+    }
+
+    @Transactional(readOnly = true)
+    public List<UUID> getLinkedSecretIds(UUID workflowId, String nodeKey) {
+        return secretNodeLinkRepository.findByWorkflowIdAndNodeKey(workflowId, nodeKey)
+                .stream()
+                .map(link -> link.getSecret().getId())
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
@@ -513,5 +562,27 @@ public class SecretService {
         return pluginRepository.findByKey(pluginKey)
                 .map(plugin -> secretProfileRepository.existsByNameAndWorkflowIdAndPluginId(profileName, workflowId, plugin.getId()))
                 .orElse(false);
+    }
+
+    @Transactional(readOnly = true)
+    public UUID resolveProfileId(UUID workflowId, String pluginKey, String profileName) {
+        if (workflowId == null || pluginKey == null || profileName == null || profileName.isBlank()) {
+            return null;
+        }
+        return pluginRepository.findByKey(pluginKey)
+                .flatMap(plugin -> secretProfileRepository.findByNameAndWorkflowIdAndPluginId(profileName, workflowId, plugin.getId()))
+                .map(SecretProfile::getId)
+                .orElse(null);
+    }
+
+    public void linkProfileIfExists(UUID workflowId, String nodeKey, String pluginKey, String profileName) {
+        try {
+            UUID profileId = resolveProfileId(workflowId, pluginKey, profileName);
+            if (profileId != null) {
+                linkProfileToNode(workflowId, new LinkProfileToNodeRequest(profileId, nodeKey));
+            }
+        } catch (Exception e) {
+            log.warn("Failed to link profile '{}' for node '{}' in workflow {}: {}", profileName, nodeKey, workflowId, e.getMessage());
+        }
     }
 }
