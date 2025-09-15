@@ -136,7 +136,7 @@ public class SecretService {
     @NotNull
     private Secret getSecretFromRequest(CreateSecretRequest req) {
         Secret secret = secretMapper.toEntity(req);
-        secret.setUser(userService.getReferenceById(req.userId()));
+        secret.setUser(userService.getReferenceById(authService.getUserIdFromContext()));
         secret.setProject(req.projectId() != null ? projectService.getReferenceById(req.projectId()) : null);
         secret.setWorkflow(req.workflowId() != null ? workflowRepository.getReferenceById(req.workflowId()) : null);
         try {

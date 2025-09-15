@@ -1,4 +1,4 @@
-package org.phong.zenflow.workflow.subdomain.schema_validator.service;
+package org.phong.zenflow.workflow.subdomain.schema_validator.service.schema;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
@@ -6,7 +6,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.everit.json.schema.Schema;
 import org.everit.json.schema.ValidationException;
 import org.everit.json.schema.loader.SchemaLoader;
-import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONPointer;
 import org.phong.zenflow.plugin.subdomain.schema.services.SchemaRegistry;
@@ -33,6 +32,7 @@ public class SchemaValidationService {
     private final ObjectMapper objectMapper;
     private final SchemaTypeResolver schemaTypeResolver;
     private final TemplateService templateService;
+    private final SchemaPlaceholderService schemaPlaceholderService;
 
     /**
      * Validates the supplied data against the JSON-Schema identified by {@code templateString}.
@@ -91,7 +91,7 @@ public class SchemaValidationService {
                         errors.addAll(validateWrongKeys(nodeKey, originalInstance, schemaJsonToUse.getJSONObject("properties"), basePath));
                     }
 
-                    instanceToValidate = replaceTemplateFieldsWithPlaceholders(originalInstance,
+                    instanceToValidate = schemaPlaceholderService.replaceTemplateFieldsWithPlaceholders(originalInstance,
                             schemaJsonToUse.has("properties") ? schemaJsonToUse.getJSONObject("properties") : null);
                     log.debug("Replaced template fields with placeholders for definition-phase validation");
                 } else {
@@ -291,88 +291,6 @@ public class SchemaValidationService {
         }
 
         return basePath + "." + cleanPointer;
-    }
-
-    /**
-     * Replaces template fields with type-appropriate placeholder values instead of removing them.
-     * This prevents "required key not found" errors during definition-phase validation.
-     *
-     * @param jsonObject The JSON object to process
-     * @param schemaProperties The schema properties to determine appropriate placeholder types
-     * @return A new JSON object with template fields replaced by type-appropriate placeholders
-     */
-    private JSONObject replaceTemplateFieldsWithPlaceholders(JSONObject jsonObject, JSONObject schemaProperties) {
-        JSONObject processedObject = new JSONObject();
-
-        for (String key : jsonObject.keySet()) {
-            Object value = jsonObject.get(key);
-
-            switch (value) {
-                case JSONObject object -> {
-                    // Get nested schema if available
-                    JSONObject nestedSchema = null;
-                    if (schemaProperties != null && schemaProperties.has(key) &&
-                            schemaProperties.getJSONObject(key).has("properties")) {
-                        nestedSchema = schemaProperties.getJSONObject(key).getJSONObject("properties");
-                    }
-
-                    // Recursively process nested objects
-                    JSONObject processedNested = replaceTemplateFieldsWithPlaceholders(object, nestedSchema);
-                    processedObject.put(key, processedNested);
-                }
-                case JSONArray array -> {
-                    // Process arrays - replace template values with appropriate placeholders
-                    JSONArray processedArray = new JSONArray();
-
-                    for (int i = 0; i < array.length(); i++) {
-                        Object arrayItem = array.get(i);
-                        if (arrayItem instanceof JSONObject) {
-                            // For array items, we can't easily determine the schema, so pass null
-                            JSONObject processedItem = replaceTemplateFieldsWithPlaceholders((JSONObject) arrayItem, null);
-                            processedArray.put(processedItem);
-                        } else if (arrayItem instanceof String && templateService.isTemplate((String) arrayItem)) {
-                            // Replace template strings in arrays with string placeholders
-                            processedArray.put("__TEMPLATE_PLACEHOLDER__");
-                        } else {
-                            processedArray.put(arrayItem);
-                        }
-                    }
-
-                    processedObject.put(key, processedArray);
-                }
-                case String s when templateService.isTemplate(s) -> {
-                    // Replace template strings with appropriate type placeholders based on schema
-                    Object placeholder = getPlaceholderForSchemaField(key, schemaProperties);
-                    processedObject.put(key, placeholder);
-                }
-                case null, default ->
-                    // Keep non-template values as-is
-                        processedObject.put(key, value);
-            }
-        }
-
-        return processedObject;
-    }
-
-    /**
-     * Gets an appropriate placeholder value for a schema field based on its expected type
-     */
-    private Object getPlaceholderForSchemaField(String fieldName, JSONObject schemaProperties) {
-        if (schemaProperties == null || !schemaProperties.has(fieldName)) {
-            return "__TEMPLATE_PLACEHOLDER__"; // Default string placeholder
-        }
-
-        JSONObject fieldSchema = schemaProperties.getJSONObject(fieldName);
-        String expectedType = schemaTypeResolver.getSchemaType(fieldSchema);
-
-        return switch (expectedType) {
-            case "integer" -> 0;
-            case "number" -> 0.0;
-            case "boolean" -> false;
-            case "array" -> new JSONArray();
-            case "object" -> new JSONObject();
-            default -> "__TEMPLATE_PLACEHOLDER__";
-        };
     }
 
     /**

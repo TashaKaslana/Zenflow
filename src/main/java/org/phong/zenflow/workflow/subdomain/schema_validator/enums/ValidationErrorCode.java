@@ -54,7 +54,8 @@ public enum ValidationErrorCode {
     INVALID_REFERENCE("Invalid reference"),
     INVALID_ALIAS_FORMAT("Invalid alias format in the key"),
     FUTURE_NODE_REFERENCE("Node reference points to a future node"),
-    FUTURE_NODE_REFERENCE_IN_ALIAS("Alias contains a future node reference");
+    FUTURE_NODE_REFERENCE_IN_ALIAS("Alias contains a future node reference"),
+    RESERVED_KEY("Alias uses a reserved keyword"),;
 
     private final String defaultMessage;
 }

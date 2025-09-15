@@ -1,4 +1,4 @@
-package org.phong.zenflow.workflow.subdomain.schema_validator.service;
+package org.phong.zenflow.workflow.subdomain.schema_validator.service.schema;
 
 import org.json.JSONArray;
 import org.json.JSONObject;

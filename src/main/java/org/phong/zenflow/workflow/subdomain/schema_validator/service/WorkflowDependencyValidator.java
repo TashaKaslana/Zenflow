@@ -2,6 +2,7 @@ package org.phong.zenflow.workflow.subdomain.schema_validator.service;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.phong.zenflow.workflow.subdomain.node_definition.WorkflowConstraints;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowMetadata;
@@ -71,9 +72,16 @@ public class WorkflowDependencyValidator {
 
         // Validate each dependency
         for (String dependency : dependencies) {
+            if (WorkflowConstraints.isReservedKey(dependency)) {
+                continue;
+            }
             String sourceNode = templateService.getReferencedNode(dependency, aliases);
 
-            if (sourceNode != null && !availableNodes.contains(sourceNode)) {
+            if (sourceNode == null) {
+                continue;
+            }
+
+            if (!availableNodes.contains(sourceNode)) {
                 // Check if this is a loop node and the dependency is a self-reference
                 boolean isSelfReference = sourceNode.equals(nodeKey);
                 boolean isLoopNode = isLoopNode(nodeKey, nodeMap);

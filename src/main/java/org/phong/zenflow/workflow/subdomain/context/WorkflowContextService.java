@@ -13,7 +13,7 @@ import org.phong.zenflow.workflow.subdomain.node_definition.definitions.Workflow
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.OutputUsage;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowMetadata;
 
-import org.phong.zenflow.workflow.subdomain.schema_validator.service.SchemaTypeResolver;
+import org.phong.zenflow.workflow.subdomain.schema_validator.service.schema.SchemaTypeResolver;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;

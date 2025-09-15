@@ -10,7 +10,7 @@ import java.util.UUID;
 /**
  * DTO for {@link org.phong.zenflow.secret.infrastructure.persistence.entity.Secret}
  */
-public record CreateSecretRequest(UUID userId, UUID projectId, UUID workflowId,
+public record CreateSecretRequest(UUID projectId, UUID workflowId,
                                   @NotNull String key, @NotNull String value, String description,
                                   List<String> tags, @NotNull SecretScope scope) implements Serializable {
 }

@@ -4,7 +4,6 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
-import org.phong.zenflow.secret.service.SecretService;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
@@ -14,6 +13,8 @@ import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.P
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
 import org.phong.zenflow.workflow.subdomain.schema_validator.enums.ValidationErrorCode;
+import org.phong.zenflow.workflow.subdomain.schema_validator.service.schema.SchemaTemplateValidationService;
+import org.phong.zenflow.workflow.subdomain.schema_validator.service.schema.SchemaValidationService;
 import org.springframework.stereotype.Service;
 import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 
@@ -43,7 +44,7 @@ public class WorkflowValidationService {
     private final SchemaTemplateValidationService schemaTemplateValidationService;
     private final PluginNodeExecutorRegistry executorRegistry;
     private final TemplateService templateService;
-    private final SecretService secretService;
+    private final WorkflowExistenceValidation workflowExistenceValidation;
 
     /**
      * Phase 1: Validates a workflow definition against schema requirements.
@@ -64,7 +65,7 @@ public class WorkflowValidationService {
         errors.addAll(validateNodeConfigurations(workflow));
 
         // Validate node references
-        errors.addAll(validateNodeReferences(workflow));
+        errors.addAll(workflowExistenceValidation.validateExistence(workflow));
 
         errors.addAll(workflowDependencyValidator.validateNodeDependencyLoops(workflow));
 
@@ -79,146 +80,12 @@ public class WorkflowValidationService {
      */
     public ValidationResult validateDefinition(UUID workflowId, WorkflowDefinition workflow, boolean strictRefs) {
         ValidationResult base = validateDefinition(workflow);
-        List<ValidationError> extra = new ArrayList<>();
-
-        if (workflow != null && workflow.nodes() != null) {
-            workflow.nodes().forEach((key, node) -> {
-                if (node == null || node.getConfig() == null) return;
-
-                // If the node declares a profile section in its config, we expect a profile link in DB.
-                Map<String, Object> profileSection = node.getConfig().profile();
-                boolean requiresProfile = profileSection != null && !profileSection.isEmpty();
-
-                if (requiresProfile) {
-                    boolean linked = secretService.isProfileLinked(workflowId, node.getKey());
-                    if (!linked) {
-                        extra.add(ValidationError.builder()
-                                .nodeKey(node.getKey())
-                                .errorType(strictRefs ? "definition" : "definition-warning")
-                                .errorCode(ValidationErrorCode.INVALID_REFERENCE)
-                                .path(node.getKey() + ".config.profile")
-                                .message("Node requires a profile but none is linked. Link a profile to node '" + node.getKey() + "'.")
-                                .expectedType("linked_profile")
-                                .build());
-                    }
-                }
-
-                // No more input.secretIds; all secret usage is tracked via metadata.secrets
-            });
-        }
-
-        // Validate metadata.secrets mapping: ensure secret keys exist and links present for listed nodes
-        if (workflow != null && workflow.nodes() != null && workflow.metadata() != null && workflow.metadata().secrets() != null) {
-            Map<String, List<String>> secretsUsage = workflow.metadata().secrets();
-            Map<String, BaseWorkflowNode> nodeMap = workflow.nodes().asMap();
-
-            secretsUsage.forEach((secretKey, nodeKeys) -> {
-                // Resolve secret IDs by key
-                List<UUID> ids = secretService.resolveSecretIds(workflowId, secretKey);
-                if (ids == null || ids.isEmpty()) {
-                    extra.add(ValidationError.builder()
-                            .nodeKey("metadata")
-                            .errorType(strictRefs ? "definition" : "definition-warning")
-                            .errorCode(ValidationErrorCode.INVALID_REFERENCE)
-                            .path("metadata.secrets." + secretKey)
-                            .message("Secret key '" + secretKey + "' does not exist in this workflow")
-                            .value(secretKey)
-                            .expectedType("existing_secret_key")
-                            .build());
-                    return;
-                }
-
-                if (nodeKeys != null) {
-                    for (String nk : nodeKeys) {
-                        // Skip if node doesn't exist; node reference validation handles it elsewhere
-                        if (!nodeMap.containsKey(nk)) {
-                            continue;
-                        }
-                        List<UUID> missing = secretService.getMissingSecretLinks(workflowId, nk, ids);
-                        if (!missing.isEmpty()) {
-                            String errorType = strictRefs ? "definition" : "definition-warning";
-                            extra.add(ValidationError.builder()
-                                    .nodeKey(nk)
-                                    .errorType(errorType)
-                                    .errorCode(ValidationErrorCode.INVALID_REFERENCE)
-                                    .path("metadata.secrets." + secretKey)
-                                    .message("Secret key '" + secretKey + "' is not linked to node '" + nk + "'")
-                                    .expectedType("linked_secret")
-                                    .build());
-                        }
-                    }
-                }
-            });
-        }
-
-        // Validate metadata.profiles mapping: ensure profiles exist and correct links are set
-        if (workflow != null && workflow.nodes() != null && workflow.metadata() != null && workflow.metadata().profiles() != null) {
-            Map<String, List<String>> profileUsage = workflow.metadata().profiles();
-            Map<String, BaseWorkflowNode> nodeMap = workflow.nodes().asMap();
-
-            profileUsage.forEach((profileName, nodeKeys) -> {
-                if (nodeKeys == null) return;
-                for (String nk : nodeKeys) {
-                    BaseWorkflowNode node = nodeMap.get(nk);
-                    if (node == null || node.getPluginNode() == null) {
-                        continue; // node existence validated elsewhere
-                    }
-                    String pluginKey = node.getPluginNode().getPluginKey();
-                    UUID profileId = secretService.resolveProfileId(workflowId, pluginKey, profileName);
-                    if (profileId == null) {
-                        extra.add(ValidationError.builder()
-                                .nodeKey(nk)
-                                .errorType(strictRefs ? "definition" : "definition-warning")
-                                .errorCode(ValidationErrorCode.INVALID_REFERENCE)
-                                .path("metadata.profiles." + profileName)
-                                .message("Profile '" + profileName + "' does not exist for plugin '" + pluginKey + "'")
-                                .value(profileName)
-                                .expectedType("existing_profile_name")
-                                .build());
-                        continue;
-                    }
-
-                    var existing = secretService.getProfileLink(workflowId, nk);
-                    if (existing == null || !profileId.equals(existing.profileId())) {
-                        String errorType = strictRefs ? "definition" : "definition-warning";
-                        extra.add(ValidationError.builder()
-                                .nodeKey(nk)
-                                .errorType(errorType)
-                                .errorCode(ValidationErrorCode.INVALID_REFERENCE)
-                                .path("metadata.profiles." + profileName)
-                                .message("Node '" + nk + "' is not linked to profile '" + profileName + "'")
-                                .expectedType("linked_profile")
-                                .build());
-                    }
-                }
-            });
-
-            // Warn if a node appears under multiple profiles (duplicate assignment)
-            Map<String, List<String>> profilesByNode = new java.util.HashMap<>();
-            profileUsage.forEach((profileName, nodeKeys) -> {
-                if (nodeKeys == null) return;
-                for (String nk : nodeKeys) {
-                    profilesByNode.computeIfAbsent(nk, k -> new java.util.ArrayList<>()).add(profileName);
-                }
-            });
-            profilesByNode.forEach((nk, pnames) -> {
-                if (pnames != null && pnames.size() > 1) {
-                    extra.add(ValidationError.builder()
-                            .nodeKey(nk)
-                            .errorType("definition-warning")
-                            .errorCode(ValidationErrorCode.INVALID_VALUE)
-                            .path("metadata.profiles")
-                            .message("Node '" + nk + "' is listed under multiple profiles: " + pnames)
-                            .value(String.join(",", pnames))
-                            .expectedType("single_profile_assignment")
-                            .build());
-                }
-            });
-        }
-
+        List<ValidationError> extra = workflowExistenceValidation.validateSecretAndProfileExistence(workflowId, workflow, strictRefs);
         base.addAllErrors(extra);
         return base;
     }
+
+
 
     private List<ValidationError> validateAliasKeys(WorkflowDefinition workflow) {
         List<ValidationError> errors = new ArrayList<>();
@@ -386,63 +253,6 @@ public class WorkflowValidationService {
                         node.getKey(), node.getConfig(), node.getKey() + ".config.input"
                 )
         );
-    }
-
-    /**
-     * Validates that node references within the workflow point to existing nodes.
-     * Checks both template references and explicit 'next' references.
-     *
-     * @param workflow The workflow definition to check for valid node references
-     * @return List of validation errors for invalid node references
-     */
-    private List<ValidationError> validateNodeReferences(WorkflowDefinition workflow) {
-        List<ValidationError> errors = new ArrayList<>();
-
-        Set<String> nodeKeys = workflow.nodes().keys();
-        Map<String, String> aliases = workflow.metadata().aliases();
-
-        workflow.nodes().forEach((k, node) -> errors.addAll(validateNodeExistence(node, nodeKeys, aliases)));
-
-        return errors;
-    }
-
-    /**
-     * Validates that the node's configuration does not reference non-existent nodes.
-     * Checks both template references and explicit 'next' references.
-     *
-     * @param node     The workflow node to validate
-     * @param nodeKeys Set of all existing node keys in the workflow
-     * @param aliases  Map of aliases defined in the workflow metadata
-     * @return List of validation errors for missing node references
-     */
-    private List<ValidationError> validateNodeExistence(BaseWorkflowNode node, Set<String> nodeKeys,
-                                                        Map<String, String> aliases) {
-        List<ValidationError> errors = new ArrayList<>();
-
-        if (node.getConfig() != null) {
-            Set<String> templates = templateService.extractRefs(node.getConfig());
-
-            for (String template : templates) {
-                String referencedNode = templateService.getReferencedNode(template, aliases);
-
-                // Only validate existence - dependency direction is handled by WorkflowDependencyValidator
-                if (referencedNode != null && !nodeKeys.contains(referencedNode)) {
-                    errors.add(ValidationError.builder()
-                            .nodeKey(node.getKey())
-                            .errorType("definition")
-                            .errorCode(ValidationErrorCode.MISSING_NODE_REFERENCE)
-                            .path(node.getKey() + ".config")
-                            .message("Referenced node '" + referencedNode + "' does not exist in workflow")
-                            .template("{{" + template + "}}")
-                            .value(referencedNode)
-                            .expectedType("existing_node_key")
-                            .schemaPath("$.nodes[?(@.key=='" + node.getKey() + "')].config")
-                            .build());
-                }
-            }
-        }
-
-        return errors;
     }
 
     /**

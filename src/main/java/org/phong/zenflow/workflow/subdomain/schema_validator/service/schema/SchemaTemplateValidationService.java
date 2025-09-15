@@ -1,4 +1,4 @@
-package org.phong.zenflow.workflow.subdomain.schema_validator.service;
+package org.phong.zenflow.workflow.subdomain.schema_validator.service.schema;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -6,6 +6,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
 import org.phong.zenflow.secret.service.SecretService;
+import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowNodes;
@@ -13,6 +14,8 @@ import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.W
 import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
+import org.phong.zenflow.workflow.subdomain.schema_validator.service.schema.SchemaTemplateValidationService;
+import org.phong.zenflow.workflow.subdomain.schema_validator.service.schema.SchemaValidationService;
 
 import java.util.List;
 import java.util.Map;
@@ -29,8 +32,9 @@ class WorkflowValidationServiceTest {
     @Mock private WorkflowDependencyValidator workflowDependencyValidator;
     @Mock private SchemaTemplateValidationService schemaTemplateValidationService;
     @Mock private PluginNodeExecutorRegistry executorRegistry;
-    @Mock private org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService templateService;
+    @Mock private TemplateService templateService;
     @Mock private SecretService secretService;
+    @Mock private WorkflowExistenceValidation workflowExistenceValidation;
 
     private WorkflowValidationService service;
 
@@ -43,7 +47,7 @@ class WorkflowValidationServiceTest {
                 schemaTemplateValidationService,
                 executorRegistry,
                 templateService,
-                secretService
+                workflowExistenceValidation
         );
 
         // Default: no structural/template/dependency errors
