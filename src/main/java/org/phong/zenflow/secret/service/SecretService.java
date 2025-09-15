@@ -34,7 +34,7 @@ import org.phong.zenflow.secret.infrastructure.persistence.repository.SecretNode
 import org.phong.zenflow.secret.infrastructure.persistence.repository.SecretRepository;
 import org.phong.zenflow.secret.util.AESUtil;
 import org.phong.zenflow.user.service.UserService;
-import org.phong.zenflow.workflow.service.WorkflowService;
+import org.phong.zenflow.workflow.infrastructure.persistence.repository.WorkflowRepository;
 import org.phong.zenflow.plugin.subdomain.node.service.PluginNodeService;
 import org.phong.zenflow.plugin.infrastructure.persistence.repository.PluginRepository;
 import org.phong.zenflow.plugin.services.PluginService;
@@ -62,7 +62,7 @@ public class SecretService {
     private final SecretMapper secretMapper;
     private final AESUtil aesUtil;
     private final UserService userService;
-    private final WorkflowService workflowService;
+    private final WorkflowRepository workflowRepository;
     private final ProjectService projectService;
     private final AuthService authService;
     private final SecretProfileSchemaValidator validator;
@@ -138,7 +138,7 @@ public class SecretService {
         Secret secret = secretMapper.toEntity(req);
         secret.setUser(userService.getReferenceById(req.userId()));
         secret.setProject(req.projectId() != null ? projectService.getReferenceById(req.projectId()) : null);
-        secret.setWorkflow(req.workflowId() != null ? workflowService.getReferenceById(req.workflowId()) : null);
+        secret.setWorkflow(req.workflowId() != null ? workflowRepository.getReferenceById(req.workflowId()) : null);
         try {
             secret.setEncryptedValue(aesUtil.encrypt(req.value()));
         } catch (Exception e) {
@@ -266,7 +266,7 @@ public class SecretService {
         }
 
         SecretProfile profile = new SecretProfile();
-        profile.setWorkflow(workflowService.getReferenceById(workflowId));
+        profile.setWorkflow(workflowRepository.getReferenceById(workflowId));
         profile.setName(request.getName());
         profile.setScope(SecretScope.WORKFLOW);
         profile.setUser(authService.getReferenceCurrentUser());
@@ -345,7 +345,7 @@ public class SecretService {
         var link = secretProfileNodeLinkRepository.findByWorkflowIdAndNodeKey(workflowId, request.nodeKey())
                 .orElseGet(SecretProfileNodeLink::new);
 
-        link.setWorkflow(workflowService.getReferenceById(workflowId));
+        link.setWorkflow(workflowRepository.getReferenceById(workflowId));
         link.setNodeKey(request.nodeKey());
         link.setProfile(profile);
         secretProfileNodeLinkRepository.save(link);
@@ -358,7 +358,7 @@ public class SecretService {
             return; // already linked
         }
         var link = new SecretNodeLink();
-        link.setWorkflow(workflowService.getReferenceById(workflowId));
+        link.setWorkflow(workflowRepository.getReferenceById(workflowId));
         link.setNodeKey(request.nodeKey());
         link.setSecret(secret);
         secretNodeLinkRepository.save(link);

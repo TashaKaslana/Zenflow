@@ -4,8 +4,10 @@ import com.googlecode.aviator.runtime.function.AbstractFunction;
 import com.googlecode.aviator.runtime.function.FunctionUtils;
 import com.googlecode.aviator.runtime.type.AviatorObject;
 import com.googlecode.aviator.runtime.type.AviatorRuntimeJavaType;
+import lombok.AllArgsConstructor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.RuntimeContextManager;
 import org.phong.zenflow.workflow.subdomain.evaluator.functions.AviatorFunction;
 import org.springframework.stereotype.Component;
 
@@ -19,8 +21,10 @@ import java.util.Map;
  */
 @Component
 @AviatorFunction
+@AllArgsConstructor
 public class ContextGetFunction extends AbstractFunction {
     private final static String PROHIBITED_KEY_PREFIX = "__zenflow_";
+    private final RuntimeContextManager contextManager;
 
     @Override
     public String getName() {
@@ -54,8 +58,7 @@ public class ContextGetFunction extends AbstractFunction {
     }
 
     public Object get(ExecutionContext ctx, String key) {
-        RuntimeContext context = (RuntimeContext) ctx.getContextManager()
-                .get(ctx.getWorkflowRunId().toString());
+        RuntimeContext context = contextManager.getOrCreate(ctx.getWorkflowRunId().toString());
 
         if (context == null) return null;
         return context.getAndClean(ctx.getNodeKey(), key);

@@ -14,19 +14,30 @@ import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 
-@Getter
 @Builder
 public class ExecutionContext {
     private final static String PROHIBITED_KEY_PREFIX = "__zenflow_";
 
+    @Getter
     private final UUID workflowId;
+
+    @Getter
     private final UUID workflowRunId;
+
+    @Getter
     private final String traceId;
+
+    @Getter
     private final UUID userId;
-    private final RuntimeContextManager contextManager;
+
+    @Getter
     private final NodeLogPublisher logPublisher;
-    private final TemplateService templateService;
+
+    @Getter
     private String nodeKey;
+
+    private final TemplateService templateService;
+    private final RuntimeContextManager contextManager;
 
     /**
      * Reads a value from the runtime context with template resolution and type-safe casting.
@@ -40,7 +51,7 @@ public class ExecutionContext {
      * @throws ClassCastException       if the value cannot be cast to the specified type
      */
     public <T> T read(String key, Class<T> clazz) {
-        // Allow internal reads for whitelisted reserved keys used by the engine
+        // Allow internal reads for allowlisted reserved keys used by the engine
         boolean isReserved = key.startsWith(PROHIBITED_KEY_PREFIX);
         boolean isWhitelisted = ExecutionContextKey.CALLBACK_URL.equals(key);
         if (isReserved && !isWhitelisted) {
@@ -110,6 +121,7 @@ public class ExecutionContext {
         this.nodeKey = nodeKey;
         Map<String, Object> resolvedInput = resolveMap(config.input());
         this.nodeKey = previous;
+
         return new WorkflowConfig(resolvedInput, config.output(), config.profile());
     }
 
@@ -129,6 +141,7 @@ public class ExecutionContext {
         } else if (value instanceof List<?> list) {
             return list.stream().map(this::resolveValue).toList();
         }
+
         return value;
     }
 

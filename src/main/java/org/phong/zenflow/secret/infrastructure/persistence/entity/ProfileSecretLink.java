@@ -13,7 +13,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
-import org.phong.zenflow.core.superbase.BaseEntity;
+import org.phong.zenflow.core.superbase.BaseIdEntity;
 
 @Getter
 @Setter
@@ -24,7 +24,7 @@ import org.phong.zenflow.core.superbase.BaseEntity;
 @AttributeOverrides({
         @AttributeOverride(name = "id", column = @Column(name = "id", nullable = false))
 })
-public class ProfileSecretLink extends BaseEntity {
+public class ProfileSecretLink extends BaseIdEntity {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @OnDelete(action = OnDeleteAction.CASCADE)

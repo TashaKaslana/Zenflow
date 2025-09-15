@@ -13,7 +13,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
-import org.phong.zenflow.core.superbase.BaseEntity;
+import org.phong.zenflow.core.superbase.BaseIdEntity;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 
 @Getter
@@ -25,7 +25,7 @@ import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 @AttributeOverrides({
         @AttributeOverride(name = "id", column = @Column(name = "id", nullable = false))
 })
-public class SecretProfileNodeLink extends BaseEntity {
+public class SecretProfileNodeLink extends BaseIdEntity {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @OnDelete(action = OnDeleteAction.CASCADE)

@@ -8,6 +8,13 @@ import org.springframework.stereotype.Component;
 public class RuntimeContextManager {
     private final Cache<String, RuntimeContext> cache = Caffeine.newBuilder().build();
 
+    /**
+     * Retrieves the {@link RuntimeContext} associated with the given key from the cache.
+     * If no context exists for the key, a new {@link RuntimeContext} is created, stored, and returned.
+     *
+     * @param key the cache key
+     * @return the existing or newly created {@link RuntimeContext}
+     */
     public RuntimeContext getOrCreate(String key) {
         return cache.get(key, k -> new RuntimeContext());
     }
@@ -29,6 +36,11 @@ public class RuntimeContextManager {
         return cache.asMap().remove(key);
     }
 
+
+    /**
+     * Retrieves a value from the {@link RuntimeContext} associated with the given key.
+     * Returns the value stored in the context, or null if not present.
+     */
     public Object get(String key) {
         RuntimeContext context = cache.getIfPresent(key);
         return context != null ? context.get(key) : null;
