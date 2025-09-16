@@ -15,6 +15,12 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import org.phong.zenflow.workflow.infrastructure.persistence.repository.WorkflowRepository;
+import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.context.ResolveConfigService;
 
 @Slf4j
 @Service
@@ -25,6 +31,8 @@ public class TriggerOrchestrator {
     private final Map<UUID, TriggerExecutor.RunningHandle> running = new ConcurrentHashMap<>();
     private final TriggerContext ctx;
     private final TriggerRegistry registry;
+    private final WorkflowRepository workflowRepository;
+    private final ResolveConfigService resolveConfigService;
 
     public void startAllEnabled() {
         repo.findByEnabledTrue().forEach(this::start);
@@ -55,8 +63,11 @@ public class TriggerOrchestrator {
             // Handle resource management if the trigger needs it - use manual registration for persistence
             handleResourceRegistration(executor, t);
 
+            // Resolve reserved config dynamically (secrets/profiles) while keeping templates in DB
+            WorkflowTrigger effectiveTrigger = buildEffectiveTrigger(t);
+
             // Start the trigger
-            var handle = executor.start(t, ctx);
+            var handle = executor.start(effectiveTrigger, ctx);
             running.put(t.getId(), handle);
 
             log.info("Started trigger {} (executor: {}) for workflow {}",
@@ -64,6 +75,51 @@ public class TriggerOrchestrator {
 
         } catch (Exception e) {
             log.error("Failed to start trigger {}: {}", t.getId(), e.getMessage(), e);
+        }
+    }
+
+    private WorkflowTrigger buildEffectiveTrigger(WorkflowTrigger t) {
+        try {
+            if (t.getConfig() == null || t.getWorkflowId() == null || t.getTriggerExecutorId() == null) {
+                return t; // nothing to resolve
+            }
+
+            // Find nodeKey from definition using triggerExecutorId (nodeId)
+            String nodeKey = null;
+            Workflow wf = workflowRepository.findById(t.getWorkflowId()).orElse(null);
+            if (wf != null && wf.getDefinition() != null && wf.getDefinition().nodes() != null) {
+                WorkflowDefinition def = wf.getDefinition();
+                BaseWorkflowNode node = def.nodes().findByNodeId(t.getTriggerExecutorId());
+                if (node != null) {
+                    nodeKey = node.getKey();
+                }
+            }
+
+            if (nodeKey == null) {
+                log.debug("Node key not found for trigger {} (nodeId: {}). Using raw config.", t.getId(), t.getTriggerExecutorId());
+                return t;
+            }
+
+            // Resolve reserved values using definition-phase resolver
+            Map<String, Object> resolved = resolveConfigService
+                    .resolveConfig(new WorkflowConfig(t.getConfig(), null, null), t.getWorkflowId(), nodeKey)
+                    .input();
+
+            // Create a detached copy with resolved config to avoid persisting values
+            WorkflowTrigger copy = new WorkflowTrigger();
+            copy.setId(t.getId());
+            copy.setWorkflowId(t.getWorkflowId());
+            copy.setType(t.getType());
+            copy.setTriggerExecutorId(t.getTriggerExecutorId());
+            copy.setEnabled(t.getEnabled());
+            copy.setLastTriggeredAt(t.getLastTriggeredAt());
+            copy.setCreatedAt(t.getCreatedAt());
+            copy.setUpdatedAt(t.getUpdatedAt());
+            copy.setConfig(resolved);
+            return copy;
+        } catch (Exception e) {
+            log.warn("Failed to build effective trigger for {}. Using raw config.", t.getId(), e);
+            return t;
         }
     }
 

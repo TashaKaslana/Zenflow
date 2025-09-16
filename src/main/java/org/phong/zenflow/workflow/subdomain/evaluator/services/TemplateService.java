@@ -4,6 +4,7 @@ import com.googlecode.aviator.AviatorEvaluator;
 import com.googlecode.aviator.AviatorEvaluatorInstance;
 import com.googlecode.aviator.Expression;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.evaluator.PrefixFunctionEvaluator;
@@ -14,14 +15,21 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Resolves templated expressions using Aviator. Custom functions are exposed
- * with the {@code fn:} prefix to avoid name collisions with workflow data.
+ * Resolves templated expressions using Aviator.<br>
+ *
+ * - Runtime resolution uses an {@link ExecutionContext} and shared functions exposed with
+ *   the {@code fn:} prefix to avoid collisions with user data.
+ * - Definition-phase resolution resolves only reserved references (e.g., {@code zenflow.secrets.*},
+ *   {@code zenflow.profiles.*}) via a typed {@link ReservedValueResolver}; this is ideal for
+ *   preparing trigger configurations without requiring an {@code ExecutionContext}.
  */
 @Service
+@Slf4j
 public class TemplateService {
 
     private static final Pattern EXPRESSION_PATTERN = Pattern.compile("\\{\\{(.*?)}}");
@@ -165,10 +173,115 @@ public class TemplateService {
             Expression compiledExp = baseEvaluator.compile(expression, true);
             return compiledExp.execute(Map.of("context", context));
         } catch (Exception e) {
-            System.err.println("Failed to evaluate expression: " + expression + " - Error: " + e.getMessage());
+            log.error("Failed to evaluate expression: {} - Error: {}", expression, e.getMessage());
             return "{{" + expression + "}}";
         }
     }
+
+    /**
+     * Resolves templates during definition phase for reserved keys like {@code zenflow.secrets.*}
+     * and {@code zenflow.profiles.*}. Uses a typed {@link ReservedValueResolver} so call sites are
+     * explicit and better to debug.<br>
+     *
+     * - Only reserved references are resolved; non-reserved expressions remain as-is.
+     * - Does not require an {@code ExecutionContext}.
+     *
+     * @param template   The template string to resolve
+     * @param workflowId The workflow ID to resolve against
+     * @param nodeKey    The node key for profile scoping
+     * @param resolver   Typed resolver for secrets and profiles
+     * @return The resolved value or the original template if it cannot be resolved
+     */
+    public Object resolveDefinitionPhase(String template, UUID workflowId, String nodeKey, ReservedValueResolver resolver) {
+        // Step 1: Ignore blank templates
+        if (template == null || template.trim().isEmpty()) {
+            return template;
+        }
+
+        Matcher matcher = EXPRESSION_PATTERN.matcher(template.trim());
+
+        // Step 2: If the whole string is a single expression, keep the result type intact
+        if (matcher.matches()) {
+            String expression = matcher.group(1).trim();
+            return evaluateDefinitionPhaseExpression(expression, workflowId, nodeKey, resolver);
+        }
+
+        // Step 3: Otherwise, resolve each embedded expression and build a final string
+        StringBuilder sb = new StringBuilder();
+        matcher.reset();
+        while (matcher.find()) {
+            String expression = matcher.group(1).trim();
+            Object result = evaluateDefinitionPhaseExpression(expression, workflowId, nodeKey, resolver);
+            matcher.appendReplacement(sb, result != null ? Matcher.quoteReplacement(result.toString()) : "null");
+        }
+        matcher.appendTail(sb);
+        return sb.toString();
+    }
+
+    /**
+     * Evaluates a single definition-phase expression. Only reserved keys are handled; any
+     * non-reserved expression is returned unreplaced (re-inserted as a template token).
+     */
+    private Object evaluateDefinitionPhaseExpression(String expression, UUID workflowId, String nodeKey, ReservedValueResolver resolver) {
+        try {
+            if (expression == null || expression.isEmpty()) {
+                return null;
+            }
+
+            // Handle zenflow.secrets.* expressions
+            if (expression.startsWith("zenflow.secrets.")) {
+                return resolveSecretExpression(expression, workflowId, resolver);
+            }
+
+            // Handle zenflow.profiles.* expressions
+            if (expression.startsWith("zenflow.profiles.")) {
+                return resolveProfileExpression(expression, workflowId, nodeKey, resolver);
+            }
+
+            // For non-reserved expressions, return the original template
+            return "{{" + expression + "}}";
+
+        } catch (Exception e) {
+            log.warn("Failed to evaluate definition-phase expression: {}", expression, e);
+            return "{{" + expression + "}}";
+        }
+    }
+
+    /**
+     * Resolves {@code zenflow.secrets.*} expressions using the provided {@link ReservedValueResolver}.
+     */
+    private Object resolveSecretExpression(String expression, UUID workflowId, ReservedValueResolver resolver) {
+        try {
+            // Extract secret key from expression like "zenflow.secrets.mySecretKey"
+            String secretKey = expression.substring("zenflow.secrets.".length());
+
+            Object result = resolver.resolveSecretValue(workflowId, secretKey);
+
+            return result != null ? result : "{{" + expression + "}}";
+
+        } catch (Exception e) {
+            log.warn("Failed to resolve secret expression: {}", expression, e);
+            return "{{" + expression + "}}";
+        }
+    }
+
+    /**
+     * Resolves {@code zenflow.profiles.*} expressions using the provided {@link ReservedValueResolver}.
+     */
+    private Object resolveProfileExpression(String expression, UUID workflowId, String nodeKey, ReservedValueResolver resolver) {
+        try {
+            // Extract profile field from expression like "zenflow.profiles.fieldName"
+            String profileField = expression.substring("zenflow.profiles.".length());
+
+            Object result = resolver.resolveProfileValue(workflowId, nodeKey, profileField);
+
+            return result != null ? result : "{{" + expression + "}}";
+
+        } catch (Exception e) {
+            log.warn("Failed to resolve profile expression: {}", expression, e);
+            return "{{" + expression + "}}";
+        }
+}
 
     /**
      * Read-only view of the shared evaluator. Mutation operations such as
@@ -191,5 +304,15 @@ public class TemplateService {
         public AviatorEvaluatorInstance cloneInstance() {
             return newChildEvaluator();
         }
+    }
+
+    /**
+     * Typed resolver for definition-phase reserved lookups. This replaces
+     * reflection-based calls with a clearer, debuggable contract.
+     */
+    public interface ReservedValueResolver {
+        Object resolveSecretValue(UUID workflowId, String secretKey);
+
+        Object resolveProfileValue(UUID workflowId, String nodeKey, String profileField);
     }
 }
