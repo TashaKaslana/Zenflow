@@ -10,12 +10,13 @@ import org.phong.zenflow.workflow.subdomain.trigger.dto.UpdateWorkflowTriggerReq
 import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerDto;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
+import org.phong.zenflow.workflow.subdomain.trigger.events.WorkflowTriggerRestartEvent;
+import org.phong.zenflow.workflow.subdomain.trigger.events.WorkflowTriggerStartEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.exception.WorkflowTriggerException;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.mapstruct.WorkflowTriggerMapper;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.repository.WorkflowTriggerRepository;
 import org.phong.zenflow.workflow.subdomain.trigger.registry.TriggerRegistry;
-import org.quartz.*;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -123,6 +124,7 @@ public class WorkflowTriggerService {
         // Always update the config - no comparison needed, just overwrite
         trigger.setConfig(newConfig);
         trigger.setType(triggerType);
+        trigger.setNodeKey(node.getKey());
 
         triggerRepository.save(trigger);
 
@@ -143,7 +145,14 @@ public class WorkflowTriggerService {
         request.setEnabled(true);
         request.setTriggerExecutorId(nodeId);
 
-        createTrigger(request);
+        WorkflowTrigger created = triggerMapper.toEntity(request);
+        created.setNodeKey(node.getKey());
+        created = triggerRepository.save(created);
+
+        // Start only after commit to avoid dangling runners
+        if (Boolean.TRUE.equals(created.getEnabled())) {
+            scheduleStartAfterCommit(created);
+        }
         log.info("Created new trigger for node ID: {} (type: {})", nodeId, triggerType.getType());
     }
 
@@ -219,10 +228,15 @@ public class WorkflowTriggerService {
             return; // No type change, no action needed
         }
 
-        triggerOrchestrator.stop(trigger);
-        if (trigger.getEnabled()) {
-            triggerOrchestrator.start(trigger);
-        }
+        scheduleRestartAfterCommit(trigger);
+    }
+
+    private void scheduleStartAfterCommit(WorkflowTrigger trigger) {
+        publisher.publishEvent(new WorkflowTriggerStartEvent(this, trigger));
+    }
+
+    private void scheduleRestartAfterCommit(WorkflowTrigger trigger) {
+        publisher.publishEvent(new WorkflowTriggerRestartEvent(this, trigger));
     }
 
     @Transactional

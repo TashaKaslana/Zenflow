@@ -15,10 +15,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import org.phong.zenflow.workflow.infrastructure.persistence.repository.WorkflowRepository;
-import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.context.ResolveConfigService;
 
@@ -31,7 +27,6 @@ public class TriggerOrchestrator {
     private final Map<UUID, TriggerExecutor.RunningHandle> running = new ConcurrentHashMap<>();
     private final TriggerContext ctx;
     private final TriggerRegistry registry;
-    private final WorkflowRepository workflowRepository;
     private final ResolveConfigService resolveConfigService;
 
     public void startAllEnabled() {
@@ -80,23 +75,13 @@ public class TriggerOrchestrator {
 
     private WorkflowTrigger buildEffectiveTrigger(WorkflowTrigger t) {
         try {
-            if (t.getConfig() == null || t.getWorkflowId() == null || t.getTriggerExecutorId() == null) {
+            if (t.getConfig() == null || t.getWorkflowId() == null) {
                 return t; // nothing to resolve
             }
 
-            // Find nodeKey from definition using triggerExecutorId (nodeId)
-            String nodeKey = null;
-            Workflow wf = workflowRepository.findById(t.getWorkflowId()).orElse(null);
-            if (wf != null && wf.getDefinition() != null && wf.getDefinition().nodes() != null) {
-                WorkflowDefinition def = wf.getDefinition();
-                BaseWorkflowNode node = def.nodes().findByNodeId(t.getTriggerExecutorId());
-                if (node != null) {
-                    nodeKey = node.getKey();
-                }
-            }
-
-            if (nodeKey == null) {
-                log.debug("Node key not found for trigger {} (nodeId: {}). Using raw config.", t.getId(), t.getTriggerExecutorId());
+            String nodeKey = t.getNodeKey();
+            if (nodeKey == null || nodeKey.isBlank()) {
+                log.debug("Node key missing for trigger {}. Using raw config.", t.getId());
                 return t;
             }
 

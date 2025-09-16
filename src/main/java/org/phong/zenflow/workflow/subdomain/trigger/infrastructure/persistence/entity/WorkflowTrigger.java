@@ -26,7 +26,8 @@ import java.util.UUID;
 @Entity
 @Table(name = "workflow_triggers", indexes = {
         @Index(name = "idx_workflow_triggers_workflow_id", columnList = "workflow_id"),
-        @Index(name = "idx_workflow_triggers_executor_id", columnList = "trigger_executor_id")
+        @Index(name = "idx_workflow_triggers_executor_id", columnList = "trigger_executor_id"),
+        @Index(name = "idx_workflow_triggers_node_key", columnList = "node_key")
 })
 @AttributeOverrides({
         @AttributeOverride(name = "id", column = @Column(name = "id", nullable = false)),
@@ -61,4 +62,7 @@ public class WorkflowTrigger extends BaseFullAuditEntity {
 
     @Column(name = "trigger_executor_id")
     private UUID triggerExecutorId;
+
+    @Column(name = "node_key")
+    private String nodeKey;
 }

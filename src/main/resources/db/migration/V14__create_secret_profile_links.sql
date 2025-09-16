@@ -39,3 +39,6 @@ CREATE TABLE IF NOT EXISTS secret_node_links (
 );
 CREATE INDEX IF NOT EXISTS idx_snl_workflow_node ON secret_node_links(workflow_id, node_key);
 CREATE INDEX IF NOT EXISTS idx_snl_secret_id ON secret_node_links(secret_id);
+
+ALTER TABLE workflow_triggers
+ ADD COLUMN IF NOT EXISTS node_key TEXT;
