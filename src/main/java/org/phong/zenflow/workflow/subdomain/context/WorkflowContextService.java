@@ -7,6 +7,7 @@ import org.json.JSONObject;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.schema.services.SchemaRegistry;
 import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
+import org.phong.zenflow.workflow.subdomain.node_definition.constraints.WorkflowConstraints;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowNodes;
@@ -50,33 +51,43 @@ public class WorkflowContextService {
         }
     }
 
-    public WorkflowMetadata buildStaticContext(WorkflowDefinition wf) {
-        WorkflowMetadata ctx = new WorkflowMetadata();
-        WorkflowMetadata existingMetadata = wf.metadata();
+    public void buildStaticContext(WorkflowDefinition wf) {
+        WorkflowMetadata metadata = wf.metadata();
+        if (metadata == null) {
+            return;
+        }
+
+        WorkflowMetadata snapshot = new WorkflowMetadata();
 
         // Preserve existing aliases from metadata
-        if (existingMetadata != null && existingMetadata.aliases() != null) {
-            ctx.aliases().putAll(ObjectConversion.safeConvert(existingMetadata.aliases(), new TypeReference<>() {
+        if (metadata.aliases() != null) {
+            snapshot.aliases().putAll(ObjectConversion.safeConvert(metadata.aliases(), new TypeReference<>() {
             }));
         }
 
         // Preserve existing profiles mapping if provided by client/editor
-        if (existingMetadata != null && existingMetadata.profiles() != null) {
-            existingMetadata.profiles().forEach((k, v) -> ctx.profiles().put(k, new ArrayList<>(v)));
+        if (metadata.profiles() != null) {
+            metadata.profiles().forEach((k, v) -> snapshot.profiles().put(k, new ArrayList<>(v)));
         }
 
-        generateIndexPopulationMap(wf.nodes(), ctx);
-        generateAliasLinkBackToConsumers(ctx);
-        generateTypeForConsumerFields(wf, ctx);
+        metadata.nodeDependencies().clear();
+        metadata.nodeConsumers().clear();
+        metadata.secrets().clear();
+        metadata.profileRequiredNodes().clear();
 
-        return new WorkflowMetadata(
-                ctx.aliases(),
-                ctx.nodeDependencies(),
-                ctx.nodeConsumers(),
-                ctx.secrets(),
-                ctx.profiles(),
-                ctx.profileRequiredNodes()
-        );
+        if (metadata.profiles() != null) {
+            metadata.profiles().clear();
+            metadata.profiles().putAll(snapshot.profiles());
+        }
+
+        if (metadata.aliases() != null) {
+            metadata.aliases().clear();
+            metadata.aliases().putAll(snapshot.aliases());
+        }
+
+        generateIndexPopulationMap(wf.nodes(), metadata);
+        generateAliasLinkBackToConsumers(metadata);
+        generateTypeForConsumerFields(wf, metadata);
     }
 
     private void generateIndexPopulationMap(WorkflowNodes nodes, WorkflowMetadata ctx) {
@@ -106,8 +117,8 @@ public class WorkflowContextService {
 
                 for (String ref : referenced) {
                     // Secrets usage tracking
-                    if (ref.startsWith("secrets.")) {
-                        String key = ref.substring("secrets.".length());
+                    if (ref.startsWith(WorkflowConstraints.RESERVED_SECRETS_PREFIX)) {
+                        String key = ref.substring(WorkflowConstraints.RESERVED_SECRETS_PREFIX.length());
                         if (!key.isBlank()) {
                             ctx.secrets().computeIfAbsent(key, k -> new ArrayList<>()).add(nodeKey);
                         }
@@ -216,3 +227,4 @@ public class WorkflowContextService {
         return ref;
     }
 }
+

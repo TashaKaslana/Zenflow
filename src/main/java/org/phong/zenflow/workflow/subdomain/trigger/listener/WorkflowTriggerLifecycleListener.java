@@ -5,6 +5,7 @@ import org.phong.zenflow.workflow.subdomain.trigger.events.WorkflowTriggerRestar
 import org.phong.zenflow.workflow.subdomain.trigger.events.WorkflowTriggerStartEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
 import org.phong.zenflow.workflow.subdomain.trigger.services.TriggerOrchestrator;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionalEventListener;
 
@@ -15,6 +16,7 @@ public class WorkflowTriggerLifecycleListener {
     private final TriggerOrchestrator triggerOrchestrator;
 
     @TransactionalEventListener
+    @Async
     public void handleWorkflowTriggerStart(WorkflowTriggerStartEvent event) {
         try {
             triggerOrchestrator.start(event.getTrigger());
@@ -22,6 +24,7 @@ public class WorkflowTriggerLifecycleListener {
     }
 
     @TransactionalEventListener
+    @Async
     public void handleWorkflowTriggerRestart(WorkflowTriggerRestartEvent event) {
         WorkflowTrigger trigger = event.getTrigger();
         try {

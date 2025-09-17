@@ -48,6 +48,7 @@ public class WorkflowService {
     private final ApplicationEventPublisher eventPublisher;
     private final WorkflowValidationService validationService;
     private final SecretLinkSyncService linkSyncService;
+    private final ApplicationEventPublisher publisher;
 
     /**
      * Create a new workflow

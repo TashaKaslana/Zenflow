@@ -2,7 +2,7 @@ package org.phong.zenflow.workflow.subdomain.schema_validator.service;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.phong.zenflow.workflow.subdomain.node_definition.WorkflowConstraints;
+import org.phong.zenflow.workflow.subdomain.node_definition.constraints.WorkflowConstraints;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowMetadata;

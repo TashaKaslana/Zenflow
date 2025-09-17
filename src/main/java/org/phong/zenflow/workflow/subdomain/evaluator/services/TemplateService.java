@@ -9,6 +9,7 @@ import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.evaluator.PrefixFunctionEvaluator;
 import org.phong.zenflow.workflow.subdomain.evaluator.functions.AviatorFunctionRegistry;
+import org.phong.zenflow.workflow.subdomain.node_definition.constraints.WorkflowConstraints;
 import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashSet;
@@ -229,12 +230,12 @@ public class TemplateService {
             }
 
             // Handle zenflow.secrets.* expressions
-            if (expression.startsWith("zenflow.secrets.")) {
+            if (expression.startsWith(WorkflowConstraints.RESERVED_SECRETS_PREFIX)) {
                 return resolveSecretExpression(expression, workflowId, resolver);
             }
 
             // Handle zenflow.profiles.* expressions
-            if (expression.startsWith("zenflow.profiles.")) {
+            if (expression.startsWith(WorkflowConstraints.RESERVED_PROFILES_PREFIX)) {
                 return resolveProfileExpression(expression, workflowId, nodeKey, resolver);
             }
 
@@ -253,7 +254,7 @@ public class TemplateService {
     private Object resolveSecretExpression(String expression, UUID workflowId, ReservedValueResolver resolver) {
         try {
             // Extract secret key from expression like "zenflow.secrets.mySecretKey"
-            String secretKey = expression.substring("zenflow.secrets.".length());
+            String secretKey = expression.substring(WorkflowConstraints.RESERVED_SECRETS_PREFIX.length());
 
             Object result = resolver.resolveSecretValue(workflowId, secretKey);
 
@@ -271,7 +272,7 @@ public class TemplateService {
     private Object resolveProfileExpression(String expression, UUID workflowId, String nodeKey, ReservedValueResolver resolver) {
         try {
             // Extract profile field from expression like "zenflow.profiles.fieldName"
-            String profileField = expression.substring("zenflow.profiles.".length());
+            String profileField = expression.substring(WorkflowConstraints.RESERVED_PROFILES_PREFIX.length());
 
             Object result = resolver.resolveProfileValue(workflowId, nodeKey, profileField);
 

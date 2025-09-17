@@ -3,7 +3,7 @@ package org.phong.zenflow.workflow.subdomain.schema_validator.service;
 import lombok.AllArgsConstructor;
 import org.phong.zenflow.secret.service.SecretService;
 import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
-import org.phong.zenflow.workflow.subdomain.node_definition.WorkflowConstraints;
+import org.phong.zenflow.workflow.subdomain.node_definition.constraints.WorkflowConstraints;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;

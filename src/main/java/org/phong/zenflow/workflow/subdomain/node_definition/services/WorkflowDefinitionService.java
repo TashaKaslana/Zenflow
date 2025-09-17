@@ -112,6 +112,12 @@ public class WorkflowDefinitionService {
             metadata.aliases().putAll(updates.aliases() != null ? updates.aliases() : Map.of());
             metadata.nodeDependencies().putAll(updates.nodeDependencies() != null ? updates.nodeDependencies() : Map.of());
             metadata.nodeConsumers().putAll(updates.nodeConsumers() != null ? updates.nodeConsumers() : Map.of());
+            metadata.secrets().putAll(updates.secrets() != null ? updates.secrets() : Map.of());
+            metadata.profiles().putAll(updates.profiles() != null ? updates.profiles() : Map.of());
+            if (updates.profileRequiredNodes() != null) {
+                metadata.profileRequiredNodes().clear();
+                metadata.profileRequiredNodes().addAll(updates.profileRequiredNodes());
+            }
         }
     }
 
@@ -127,44 +133,31 @@ public class WorkflowDefinitionService {
     public WorkflowDefinition upsert(WorkflowDefinition newDef, WorkflowDefinition existingDef) {
         if (newDef == null) {
             throw new WorkflowNodeDefinitionException("Workflow definition cannot be null");
-
         }
 
-        WorkflowDefinition tempDef = new WorkflowDefinition(existingDef);
+        List<ValidationError> upsertedNodesErr = upsertNodes(existingDef, newDef);
+        upsertMetadata(existingDef.metadata(), newDef.metadata());
 
-        List<ValidationError> upsertedNodesErr = upsertNodes(tempDef, newDef);
-        upsertMetadata(tempDef.metadata(), newDef.metadata());
-
-        ValidationResult validationResult = constructStaticGenerationAndValidate(tempDef);
+        ValidationResult validationResult = constructStaticGenerationAndValidate(existingDef);
         validationResult.addAllErrors(upsertedNodesErr);
 
         if (!validationResult.isValid()) {
             log.debug("Workflow definition validation failed: {}", validationResult.getErrors());
             throw new WorkflowDefinitionValidationException("Workflow definition validation failed!", validationResult);
         }
-        return tempDef;
+        return existingDef;
     }
 
     private ValidationResult constructStaticGenerationAndValidate(WorkflowDefinition tempDef) {
         List<ValidationError> validationErrors = new ArrayList<>();
 
         resolvePluginId(tempDef, validationErrors);
-        tempDef = updateStaticContextMetadata(tempDef);
+        workflowContextService.buildStaticContext(tempDef);
 
         ValidationResult validationResult = workflowValidationService.validateDefinition(tempDef);
         validationResult.addAllErrors(validationErrors);
 
         return validationResult;
-    }
-
-    private WorkflowDefinition updateStaticContextMetadata(WorkflowDefinition definition) {
-        if (definition == null) {
-            definition = new WorkflowDefinition();
-        }
-
-        WorkflowMetadata newMetadata = workflowContextService.buildStaticContext(definition);
-
-        return new WorkflowDefinition(definition.nodes(), newMetadata);
     }
 
     private void resolvePluginId(WorkflowDefinition workflowDefinition, List<ValidationError> validationErrors) {

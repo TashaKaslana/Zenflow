@@ -1,6 +1,5 @@
 package org.phong.zenflow.plugin.subdomain.node.registry;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
@@ -34,7 +33,6 @@ public class PluginNodeSynchronizer implements ApplicationRunner {
 
     private final PluginNodeRepository pluginNodeRepository;
     private final PluginRepository pluginRepository;
-    private final ObjectMapper objectMapper;
     private final TriggerRegistry triggerRegistry;
     private final PluginNodeExecutorRegistry registry;
     private final SchemaValidator schemaValidator;
