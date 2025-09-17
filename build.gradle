@@ -68,6 +68,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-mail'
     implementation "com.github.ben-manes.caffeine:caffeine:3.2.2"
 
+    implementation 'net.datafaker:datafaker:2.5.0'
+
     //integration
     implementation("net.dv8tion:JDA:5.6.1")
     implementation 'com.google.api-client:google-api-client:2.8.1'
