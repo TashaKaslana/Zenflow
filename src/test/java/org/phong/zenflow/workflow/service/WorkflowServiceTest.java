@@ -30,8 +30,6 @@ class WorkflowServiceTest {
     @Mock private WorkflowTriggerService triggerService;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private WorkflowValidationService validationService;
-    @Mock private org.phong.zenflow.secret.service.SecretService secretService;
-    @Mock private org.phong.zenflow.secret.service.SecretLinkSyncService linkSyncService;
 
     private WorkflowService service;
 
@@ -43,10 +41,8 @@ class WorkflowServiceTest {
                 projectRepository,
                 workflowMapper,
                 definitionService,
-                triggerService,
                 eventPublisher,
-                validationService,
-                linkSyncService
+                validationService
         );
     }
 

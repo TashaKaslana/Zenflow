@@ -9,6 +9,7 @@ import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContextManager;
 import org.phong.zenflow.workflow.subdomain.evaluator.functions.AviatorFunction;
+import org.phong.zenflow.workflow.subdomain.node_definition.constraints.WorkflowConstraints;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -44,17 +45,40 @@ public class ContextGetFunction extends AbstractFunction {
         }
 
         Object value;
-        if (key.startsWith("secrets.")) {
-            String resolvedKey = key.substring("secrets.".length());
-            value = ctx.getSecret(resolvedKey);
-        } else if ( key.startsWith("profiles.")) {
-            String resolvedKey = key.substring("profiles.".length());
-            value = ctx.getProfileSecret(resolvedKey);
+        String secretKey = stripReservedPrefix(key, WorkflowConstraints.RESERVED_SECRETS_PREFIX);
+        if (secretKey != null) {
+            value = ctx.getSecret(secretKey);
         } else {
-            value = get(ctx, key);
+            String profileKey = stripReservedPrefix(key, WorkflowConstraints.RESERVED_PROFILES_PREFIX);
+            if (profileKey != null) {
+                value = ctx.getProfileSecret(profileKey);
+            } else {
+                value = get(ctx, key);
+            }
         }
 
         return AviatorRuntimeJavaType.valueOf(value);
+    }
+
+    private String stripReservedPrefix(String key, WorkflowConstraints constraint) {
+        if (key == null) {
+            return null;
+        }
+
+        String fullPrefix = constraint.key();
+        if (key.startsWith(fullPrefix)) {
+            return key.substring(fullPrefix.length());
+        }
+
+        String zenflowNamespace = WorkflowConstraints.ZENFLOW_PREFIX.key() + ".";
+        if (fullPrefix.startsWith(zenflowNamespace)) {
+            String aliasPrefix = fullPrefix.substring(zenflowNamespace.length());
+            if (key.startsWith(aliasPrefix)) {
+                return key.substring(aliasPrefix.length());
+            }
+        }
+
+        return null;
     }
 
     public Object get(ExecutionContext ctx, String key) {

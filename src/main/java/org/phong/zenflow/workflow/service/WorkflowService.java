@@ -7,7 +7,6 @@ import org.phong.zenflow.log.auditlog.enums.AuditAction;
 import org.phong.zenflow.project.exception.ProjectNotFoundException;
 import org.phong.zenflow.project.infrastructure.persistence.entity.Project;
 import org.phong.zenflow.project.infrastructure.persistence.repository.ProjectRepository;
-import org.phong.zenflow.secret.service.SecretLinkSyncService;
 import org.phong.zenflow.workflow.dto.CreateWorkflowRequest;
 import org.phong.zenflow.workflow.dto.UpdateWorkflowRequest;
 import org.phong.zenflow.workflow.dto.WorkflowDefinitionChangeRequest;
@@ -22,8 +21,8 @@ import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
 import org.phong.zenflow.workflow.subdomain.schema_validator.service.WorkflowValidationService;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerEvent;
+import org.phong.zenflow.workflow.service.event.WorkflowDefinitionUpdatedEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
-import org.phong.zenflow.workflow.subdomain.trigger.services.WorkflowTriggerService;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -44,11 +43,8 @@ public class WorkflowService {
     private final ProjectRepository projectRepository;
     private final WorkflowMapper workflowMapper;
     private final WorkflowDefinitionService definitionService;
-    private final WorkflowTriggerService triggerService;
     private final ApplicationEventPublisher eventPublisher;
     private final WorkflowValidationService validationService;
-    private final SecretLinkSyncService linkSyncService;
-    private final ApplicationEventPublisher publisher;
 
     /**
      * Create a new workflow
@@ -126,9 +122,6 @@ public class WorkflowService {
         if (request != null && request.upsert() != null) {
             WorkflowDefinition newDefinition = new WorkflowDefinition(request.upsert().nodes(), request.upsert().metadata());
             currentDefinition = definitionService.upsert(newDefinition, currentDefinition);
-
-            // Centralized sync based on metadata (secrets + profiles)
-            linkSyncService.syncLinksFromMetadata(workflowId, newDefinition);
         }
 
         workflow.setDefinition(currentDefinition);
@@ -142,9 +135,10 @@ public class WorkflowService {
 
         Workflow saved = workflowRepository.save(workflow);
 
-        // Note: Profiles and explicit secret links are managed via metadata syncing and SecretService link APIs.
-
-        triggerService.synchronizeTrigger(workflowId, currentDefinition);
+        WorkflowDefinition definitionForEvent = saved.getDefinition() != null
+                ? saved.getDefinition().deepCopy()
+                : new WorkflowDefinition();
+        eventPublisher.publishEvent(new WorkflowDefinitionUpdatedEvent(workflowId, definitionForEvent));
 
         return saved.getDefinition();
     }

@@ -53,7 +53,7 @@ public class ExecutionContext {
     public <T> T read(String key, Class<T> clazz) {
         // Allow internal reads for allowlisted reserved keys used by the engine
         boolean isReserved = key.startsWith(PROHIBITED_KEY_PREFIX);
-        boolean isWhitelisted = ExecutionContextKey.CALLBACK_URL.equals(key);
+        boolean isWhitelisted = ExecutionContextKey.CALLBACK_URL.matches(key);
         if (isReserved && !isWhitelisted) {
             throw new IllegalArgumentException("Access to reserved context keys is prohibited: " + key);
         }
@@ -126,6 +126,10 @@ public class ExecutionContext {
     }
 
     private Map<String, Object> resolveMap(Map<String, Object> map) {
+        if (map == null || map.isEmpty()) {
+            return map;
+        }
+
         return map.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> resolveValue(e.getValue())));
     }
@@ -154,7 +158,7 @@ public class ExecutionContext {
     @SuppressWarnings("unchecked")
     public Object getProfileSecret(String key) {
         RuntimeContext context = getContext();
-        Map<String, Object> profiles = (Map<String, Object>) context.get(ExecutionContextKey.PROFILE_KEY);
+        Map<String, Object> profiles = (Map<String, Object>) context.get(ExecutionContextKey.PROFILE_KEY.key());
         Map<String, Object> nodeProfile = (Map<String, Object>) profiles.get(nodeKey);
 
         if (nodeProfile == null) {
@@ -173,7 +177,7 @@ public class ExecutionContext {
     @SuppressWarnings("unchecked")
     public Object getSecret(String key) {
         RuntimeContext context = getContext();
-        Map<String, Object> secretsList = (Map<String, Object>) context.get(ExecutionContextKey.SECRET_KEY);
+        Map<String, Object> secretsList = (Map<String, Object>) context.get(ExecutionContextKey.SECRET_KEY.key());
 
         if (secretsList == null) {
             throw new SecretDomainException("No profiles found in context");

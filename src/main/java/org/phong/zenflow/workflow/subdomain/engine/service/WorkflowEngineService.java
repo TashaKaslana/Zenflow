@@ -130,7 +130,7 @@ public class WorkflowEngineService {
                 workflowRunId,
                 workingNode,
                 result,
-                execCtx.read(ExecutionContextKey.CALLBACK_URL, String.class)
+                execCtx.read(ExecutionContextKey.CALLBACK_URL.key(), String.class)
         );
 
         if (result.getStatus() == ExecutionStatus.COMMIT) {

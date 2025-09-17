@@ -117,8 +117,8 @@ public class WorkflowContextService {
 
                 for (String ref : referenced) {
                     // Secrets usage tracking
-                    if (ref.startsWith(WorkflowConstraints.RESERVED_SECRETS_PREFIX)) {
-                        String key = ref.substring(WorkflowConstraints.RESERVED_SECRETS_PREFIX.length());
+                    if (ref.startsWith(WorkflowConstraints.RESERVED_SECRETS_PREFIX.key())) {
+                        String key = ref.substring(WorkflowConstraints.RESERVED_SECRETS_PREFIX.key().length());
                         if (!key.isBlank()) {
                             ctx.secrets().computeIfAbsent(key, k -> new ArrayList<>()).add(nodeKey);
                         }

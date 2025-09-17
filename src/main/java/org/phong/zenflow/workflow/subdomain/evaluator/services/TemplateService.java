@@ -230,12 +230,12 @@ public class TemplateService {
             }
 
             // Handle zenflow.secrets.* expressions
-            if (expression.startsWith(WorkflowConstraints.RESERVED_SECRETS_PREFIX)) {
+            if (expression.startsWith(WorkflowConstraints.RESERVED_SECRETS_PREFIX.key())) {
                 return resolveSecretExpression(expression, workflowId, resolver);
             }
 
             // Handle zenflow.profiles.* expressions
-            if (expression.startsWith(WorkflowConstraints.RESERVED_PROFILES_PREFIX)) {
+            if (expression.startsWith(WorkflowConstraints.RESERVED_PROFILES_PREFIX.key())) {
                 return resolveProfileExpression(expression, workflowId, nodeKey, resolver);
             }
 
@@ -254,7 +254,7 @@ public class TemplateService {
     private Object resolveSecretExpression(String expression, UUID workflowId, ReservedValueResolver resolver) {
         try {
             // Extract secret key from expression like "zenflow.secrets.mySecretKey"
-            String secretKey = expression.substring(WorkflowConstraints.RESERVED_SECRETS_PREFIX.length());
+            String secretKey = expression.substring(WorkflowConstraints.RESERVED_SECRETS_PREFIX.key().length());
 
             Object result = resolver.resolveSecretValue(workflowId, secretKey);
 
@@ -272,7 +272,7 @@ public class TemplateService {
     private Object resolveProfileExpression(String expression, UUID workflowId, String nodeKey, ReservedValueResolver resolver) {
         try {
             // Extract profile field from expression like "zenflow.profiles.fieldName"
-            String profileField = expression.substring(WorkflowConstraints.RESERVED_PROFILES_PREFIX.length());
+            String profileField = expression.substring(WorkflowConstraints.RESERVED_PROFILES_PREFIX.key().length());
 
             Object result = resolver.resolveProfileValue(workflowId, nodeKey, profileField);
 

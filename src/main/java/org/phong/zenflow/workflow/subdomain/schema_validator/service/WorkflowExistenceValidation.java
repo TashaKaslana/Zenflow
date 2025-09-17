@@ -35,9 +35,20 @@ public class WorkflowExistenceValidation {
             return errors;
         }
 
+        String zenflowAlias = WorkflowConstraints.ZENFLOW_PREFIX.key();
+        String secretsAlias = WorkflowConstraints.RESERVED_SECRETS_PREFIX.key();
+        if (secretsAlias.endsWith(".")) {
+            secretsAlias = secretsAlias.substring(0, secretsAlias.length() - 1);
+        }
+        String profilesAlias = WorkflowConstraints.RESERVED_PROFILES_PREFIX.key();
+        if (profilesAlias.endsWith(".")) {
+            profilesAlias = profilesAlias.substring(0, profilesAlias.length() - 1);
+        }
+
         for (String aliasName : workflow.metadata().aliases().keySet()) {
-            if ("zenflow".equalsIgnoreCase(aliasName) || "zenflow.secrets".equalsIgnoreCase(aliasName)
-                    || "zenflow.profiles".equalsIgnoreCase(aliasName)) {
+            if (zenflowAlias.equalsIgnoreCase(aliasName)
+                    || secretsAlias.equalsIgnoreCase(aliasName)
+                    || profilesAlias.equalsIgnoreCase(aliasName)) {
                 errors.add(ValidationError.builder()
                         .nodeKey("aliases") // Alias is not tied to a specific node
                         .errorType("definition")
@@ -50,7 +61,7 @@ public class WorkflowExistenceValidation {
         }
 
         for (String nodeKey : workflow.nodes().keys()) {
-            if (WorkflowConstraints.RESERVED_KEYS.contains(nodeKey)) {
+            if (WorkflowConstraints.isReservedKey(nodeKey)) {
                 errors.add(ValidationError.builder()
                         .nodeKey(nodeKey)
                         .errorType("definition")

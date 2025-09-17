@@ -129,7 +129,7 @@ public class WorkflowRunnerService {
             log.warn("Error running workflow with ID: {}", workflowId, e);
             workflowRunService.handleWorkflowError(workflowRunId, e);
 
-            Object callbackUrlObj = context.get(ExecutionContextKey.CALLBACK_URL);
+            Object callbackUrlObj = context.get(ExecutionContextKey.CALLBACK_URL.key());
             if (callbackUrlObj instanceof String callbackUrl && !callbackUrl.isEmpty()) {
                 notifyCallbackUrl(callbackUrl, workflowRunId);
             }
@@ -182,11 +182,11 @@ public class WorkflowRunnerService {
                     ));
 
             Map<String, Object> initialContext = new ConcurrentHashMap<>();
-            initialContext.put(ExecutionContextKey.SECRET_KEY, secretsByNodeKey);
-            initialContext.put(ExecutionContextKey.PROFILE_KEY, profilesByNodeKey);
+            initialContext.put(ExecutionContextKey.SECRET_KEY.key(), secretsByNodeKey);
+            initialContext.put(ExecutionContextKey.PROFILE_KEY.key(), profilesByNodeKey);
 
             if (request != null && request.callbackUrl() != null && !request.callbackUrl().isEmpty()) {
-                initialContext.put(ExecutionContextKey.CALLBACK_URL, request.callbackUrl());
+                initialContext.put(ExecutionContextKey.CALLBACK_URL.key(), request.callbackUrl());
             }
 
             if (request != null && request.payload() != null && startNodeKey != null) {
@@ -213,7 +213,7 @@ public class WorkflowRunnerService {
             workflowRunService.completeWorkflowRun(workflowRunId);
             log.debug("Workflow with ID: {} completed successfully", workflowId);
 
-            Object callbackUrlObj = context.get(ExecutionContextKey.CALLBACK_URL);
+            Object callbackUrlObj = context.get(ExecutionContextKey.CALLBACK_URL.key());
             if (callbackUrlObj instanceof String callbackUrl && !callbackUrl.isEmpty()) {
                 notifyCallbackUrl(callbackUrl, workflowRunId);
             }

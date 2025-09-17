@@ -24,8 +24,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -56,6 +58,7 @@ public class WorkflowTriggerService {
         return triggerMapper.toDto(trigger);
     }
 
+    @Transactional
     public void synchronizeTrigger(UUID workflowId, WorkflowDefinition wf) {
         Set<UUID> pluginNodeIds = wf.nodes().getPluginNodeIds();
         Set<String> triggerNodeIdSet = triggerRegistry.getAllTriggerKeys();
@@ -117,19 +120,19 @@ public class WorkflowTriggerService {
      * Update existing trigger with new configuration
      */
     private void updateExistingTrigger(WorkflowTrigger trigger, BaseWorkflowNode node, TriggerType triggerType) {
-        Map<String, Object> newConfig = node.getConfig().input();
-        Map<String, Object> oldConfig = trigger.getConfig();
+        Map<String, Object> newConfig = node.getConfig() != null ? node.getConfig().input() : null;
+        Map<String, Object> oldConfigSnapshot = trigger.getConfig() != null ? new HashMap<>(trigger.getConfig()) : null;
         TriggerType oldType = trigger.getType();
 
-        // Always update the config - no comparison needed, just overwrite
-        trigger.setConfig(newConfig);
+        Map<String, Object> storedConfig = newConfig != null ? new HashMap<>(newConfig) : null;
+        trigger.setConfig(storedConfig);
         trigger.setType(triggerType);
         trigger.setNodeKey(node.getKey());
 
         triggerRepository.save(trigger);
 
         // Manage schedule registration
-        manageTriggerRunning(oldConfig, newConfig, oldType, trigger);
+        manageTriggerRunning(oldConfigSnapshot, storedConfig, oldType, trigger);
 
         log.info("Updated existing trigger for node ID: {} with new configuration", trigger.getTriggerExecutorId());
     }
@@ -222,13 +225,16 @@ public class WorkflowTriggerService {
     }
 
     private void manageTriggerRunning(Map<String, Object> oldConfig, Map<String, Object> newConfig, TriggerType oldType, WorkflowTrigger trigger) {
-        // Handle schedule trigger changes
-        boolean isChange = (oldType != null && oldType != trigger.getType()) || (!oldConfig.equals(newConfig));
-        if (!isChange) {
-            return; // No type change, no action needed
-        }
+        boolean typeChanged = oldType != null && oldType != trigger.getType();
+        boolean configChanged = !Objects.equals(oldConfig, newConfig);
 
-        scheduleRestartAfterCommit(trigger);
+        if (typeChanged || configChanged) {
+            log.info("Trigger {} configuration updated (typeChanged={}, configChanged={}), scheduling restart.",
+                    trigger.getId(), typeChanged, configChanged);
+            scheduleRestartAfterCommit(trigger);
+        } else {
+            log.debug("Trigger {} configuration unchanged, no action taken.", trigger.getId());
+        }
     }
 
     private void scheduleStartAfterCommit(WorkflowTrigger trigger) {

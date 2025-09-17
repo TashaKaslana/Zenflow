@@ -1,33 +1,41 @@
 package org.phong.zenflow.workflow.subdomain.node_definition.constraints;
 
-import java.util.List;
+import java.util.Arrays;
 
-public class WorkflowConstraints {
-    public static String ZENFLOW_PREFIX = "zenflow";
-    public static String RESERVED_SECRETS_PREFIX = "zenflow.secrets.";
-    public static String RESERVED_PROFILES_PREFIX = "zenflow.profiles.";
+public enum WorkflowConstraints {
+    ZENFLOW_PREFIX("zenflow"),
+    RESERVED_SECRETS_PREFIX("zenflow.secrets."),
+    RESERVED_PROFILES_PREFIX("zenflow.profiles.");
 
-    public static List<String> RESERVED_KEYS = List.of(
-            ZENFLOW_PREFIX, RESERVED_SECRETS_PREFIX, RESERVED_PROFILES_PREFIX
-    );
+    private final String key;
+
+    WorkflowConstraints(String key) {
+        this.key = key;
+    }
+
+    public String key() {
+        return key;
+    }
+
+    public boolean matches(String candidate) {
+        return candidate != null && (candidate.equals(key) || candidate.startsWith(key));
+    }
 
     public static boolean isReservedKey(String key) {
-        if (key == null || key.isEmpty()) return false;
-        for (String reserved : RESERVED_KEYS) {
-            if (key.equals(reserved) || key.startsWith(reserved)) {
-                return true;
-            }
+        if (key == null || key.isEmpty()) {
+            return false;
         }
-        return false;
+        return Arrays.stream(values()).anyMatch(c -> c.matches(key));
     }
 
     public static String extractReservedKey(String key) {
-        if (key == null || key.isEmpty()) return null;
-        for (String reserved : RESERVED_KEYS) {
-            if (key.equals(reserved) || key.startsWith(reserved)) {
-                return reserved;
-            }
+        if (key == null || key.isEmpty()) {
+            return null;
         }
-        return null;
+        return Arrays.stream(values())
+                .filter(c -> c.matches(key))
+                .map(WorkflowConstraints::key)
+                .findFirst()
+                .orElse(null);
     }
 }
