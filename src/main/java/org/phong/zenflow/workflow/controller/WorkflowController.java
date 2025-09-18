@@ -18,7 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
-import org.phong.zenflow.workflow.service.dto.WorkflowDefinitionUpdateResult;
+import org.phong.zenflow.workflow.dto.WorkflowDefinitionUpdateResult;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 
 @RestController

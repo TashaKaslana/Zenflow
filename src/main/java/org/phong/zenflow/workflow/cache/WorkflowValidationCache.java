@@ -1,8 +1,8 @@
-package org.phong.zenflow.workflow.service.cache;
+package org.phong.zenflow.workflow.cache;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import org.phong.zenflow.workflow.service.dto.WorkflowDefinitionUpdateResult;
+import org.phong.zenflow.workflow.dto.WorkflowDefinitionUpdateResult;
 import org.springframework.stereotype.Component;
 
 import java.util.UUID;

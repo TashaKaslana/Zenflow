@@ -1,7 +1,7 @@
 package org.phong.zenflow.workflow.subdomain.trigger.listener;
 
 import lombok.RequiredArgsConstructor;
-import org.phong.zenflow.workflow.service.event.WorkflowDefinitionUpdatedEvent;
+import org.phong.zenflow.workflow.event.WorkflowDefinitionUpdatedEvent;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.trigger.events.WorkflowTriggerRestartEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.events.WorkflowTriggerStartEvent;

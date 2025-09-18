@@ -20,10 +20,10 @@ import org.phong.zenflow.workflow.subdomain.node_definition.services.WorkflowDef
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
-import org.phong.zenflow.workflow.service.dto.WorkflowDefinitionUpdateResult;
-import org.phong.zenflow.workflow.service.cache.WorkflowValidationCache;
+import org.phong.zenflow.workflow.dto.WorkflowDefinitionUpdateResult;
+import org.phong.zenflow.workflow.cache.WorkflowValidationCache;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerEvent;
-import org.phong.zenflow.workflow.service.event.WorkflowDefinitionUpdatedEvent;
+import org.phong.zenflow.workflow.event.WorkflowDefinitionUpdatedEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
