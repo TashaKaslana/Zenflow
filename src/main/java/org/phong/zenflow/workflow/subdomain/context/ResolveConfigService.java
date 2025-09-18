@@ -3,7 +3,7 @@ package org.phong.zenflow.workflow.subdomain.context;
 import lombok.RequiredArgsConstructor;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.secret.dto.AggregatedSecretSetupDto;
-import org.phong.zenflow.secret.service.SecretService;
+import org.phong.zenflow.secret.subdomain.aggregate.SecretAggregateService;
 import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.springframework.stereotype.Component;
@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ResolveConfigService {
     private final TemplateService templateService;
-    private final SecretService secretService;
+    private final SecretAggregateService secretAggregateService;
 
     /**
      * Resolves workflow config by handling zenflow.secrets.* and zenflow.profiles.* templates
@@ -80,7 +80,7 @@ public class ResolveConfigService {
     private Object resolveDefinitionPhaseTemplate(String template, UUID workflowId, String nodeKey) {
         try {
             // Get aggregated secrets and profiles data
-            AggregatedSecretSetupDto agg = secretService.getAggregatedSecretsProfilesAndNodeIndex(workflowId);
+            AggregatedSecretSetupDto agg = secretAggregateService.getAggregatedSecretsProfilesAndNodeIndex(workflowId);
 
             // Create a definition-phase resolver
             DefinitionPhaseResolver resolver = new DefinitionPhaseResolver(agg, nodeKey);

@@ -1,4 +1,4 @@
-package org.phong.zenflow.secret.dto;
+package org.phong.zenflow.secret.subdomain.link.dto;
 
 import jakarta.validation.constraints.NotNull;
 

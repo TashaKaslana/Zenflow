@@ -1,4 +1,4 @@
-package org.phong.zenflow.secret.service;
+package org.phong.zenflow.secret.subdomain.profile.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -4,21 +4,21 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.phong.zenflow.secret.dto.LinkProfileToNodeRequest;
-import org.phong.zenflow.secret.dto.LinkSecretToNodeRequest;
-import org.phong.zenflow.secret.dto.NodeProfileLinkDto;
-import org.phong.zenflow.secret.dto.NodeSecretLinksDto;
+import org.phong.zenflow.secret.subdomain.link.dto.LinkProfileToNodeRequest;
+import org.phong.zenflow.secret.subdomain.link.dto.LinkSecretToNodeRequest;
+import org.phong.zenflow.secret.subdomain.link.dto.NodeProfileLinkDto;
+import org.phong.zenflow.secret.subdomain.link.dto.NodeSecretLinksDto;
 import org.phong.zenflow.secret.infrastructure.persistence.entity.Secret;
-import org.phong.zenflow.secret.infrastructure.persistence.entity.SecretNodeLink;
+import org.phong.zenflow.secret.subdomain.link.infrastructure.entity.SecretNodeLink;
 import org.phong.zenflow.secret.infrastructure.persistence.entity.SecretProfile;
-import org.phong.zenflow.secret.infrastructure.persistence.entity.SecretProfileNodeLink;
-import org.phong.zenflow.secret.infrastructure.persistence.repository.SecretNodeLinkRepository;
-import org.phong.zenflow.secret.infrastructure.persistence.repository.SecretProfileNodeLinkRepository;
+import org.phong.zenflow.secret.subdomain.link.infrastructure.entity.SecretProfileNodeLink;
+import org.phong.zenflow.secret.subdomain.link.infrastructure.repository.SecretNodeLinkRepository;
+import org.phong.zenflow.secret.subdomain.link.infrastructure.repository.SecretProfileNodeLinkRepository;
 import org.phong.zenflow.secret.infrastructure.persistence.repository.SecretProfileRepository;
 import org.phong.zenflow.secret.infrastructure.persistence.repository.SecretRepository;
+import org.phong.zenflow.secret.subdomain.link.service.SecretLinkService;
 import org.phong.zenflow.workflow.infrastructure.persistence.repository.WorkflowRepository;
 
 import java.util.List;
@@ -38,8 +38,7 @@ class SecretLinkServiceTest {
     @Mock private SecretProfileNodeLinkRepository secretProfileNodeLinkRepository;
     @Mock private SecretNodeLinkRepository secretNodeLinkRepository;
     @Mock private WorkflowRepository workflowRepository;
-
-    @InjectMocks private SecretService secretService;
+    @Mock private SecretLinkService secretLinkService;
 
     @Test
     void linkProfileToNode_createsOrUpdates() {
@@ -55,7 +54,7 @@ class SecretLinkServiceTest {
                 .thenReturn(Optional.empty());
         when(workflowRepository.getReferenceById(workflowId)).thenReturn(new org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow());
 
-        secretService.linkProfileToNode(workflowId, new LinkProfileToNodeRequest(profileId, nodeKey));
+        secretLinkService.linkProfileToNode(workflowId, new LinkProfileToNodeRequest(profileId, nodeKey));
 
         ArgumentCaptor<SecretProfileNodeLink> captor = ArgumentCaptor.forClass(SecretProfileNodeLink.class);
         verify(secretProfileNodeLinkRepository).save(captor.capture());
@@ -78,7 +77,7 @@ class SecretLinkServiceTest {
         when(secretProfileNodeLinkRepository.findByWorkflowIdAndNodeKey(workflowId, nodeKey))
                 .thenReturn(Optional.of(link));
 
-        NodeProfileLinkDto dto = secretService.getProfileLink(workflowId, nodeKey);
+        NodeProfileLinkDto dto = secretLinkService.getProfileLink(workflowId, nodeKey);
         assertNotNull(dto);
         assertEquals(workflowId, dto.workflowId());
         assertEquals(nodeKey, dto.nodeKey());
@@ -89,7 +88,7 @@ class SecretLinkServiceTest {
     void unlinkProfileFromNode_callsRepo() {
         UUID workflowId = UUID.randomUUID();
         String nodeKey = "email";
-        secretService.unlinkProfileFromNode(workflowId, nodeKey);
+        secretLinkService.unlinkProfileFromNode(workflowId, nodeKey);
         verify(secretProfileNodeLinkRepository).deleteByWorkflowIdAndNodeKey(workflowId, nodeKey);
     }
 
@@ -108,13 +107,13 @@ class SecretLinkServiceTest {
         org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow wf = new org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow();
         when(workflowRepository.getReferenceById(workflowId)).thenReturn(wf);
 
-        secretService.linkSecretToNode(workflowId, new LinkSecretToNodeRequest(secretId, nodeKey));
+        secretLinkService.linkSecretToNode(workflowId, new LinkSecretToNodeRequest(secretId, nodeKey));
         verify(secretNodeLinkRepository).save(any(SecretNodeLink.class));
 
         // second call should be no-op save
         when(secretNodeLinkRepository.findByWorkflowIdAndNodeKeyAndSecretId(workflowId, nodeKey, secretId))
                 .thenReturn(Optional.of(new SecretNodeLink()));
-        secretService.linkSecretToNode(workflowId, new LinkSecretToNodeRequest(secretId, nodeKey));
+        secretLinkService.linkSecretToNode(workflowId, new LinkSecretToNodeRequest(secretId, nodeKey));
         verify(secretNodeLinkRepository, times(1)).save(any(SecretNodeLink.class));
     }
 
@@ -133,7 +132,7 @@ class SecretLinkServiceTest {
         when(secretNodeLinkRepository.findByWorkflowIdAndNodeKey(workflowId, nodeKey))
                 .thenReturn(List.of(l1, l2));
 
-        NodeSecretLinksDto dto = secretService.getSecretLinks(workflowId, nodeKey);
+        NodeSecretLinksDto dto = secretLinkService.getSecretLinks(workflowId, nodeKey);
         assertNotNull(dto);
         assertEquals(workflowId, dto.workflowId());
         assertEquals(nodeKey, dto.nodeKey());
@@ -146,10 +145,10 @@ class SecretLinkServiceTest {
         String nodeKey = "email";
         UUID secretId = UUID.randomUUID();
 
-        secretService.unlinkSecretFromNode(workflowId, nodeKey, secretId);
+        secretLinkService.unlinkSecretFromNode(workflowId, nodeKey, secretId);
         verify(secretNodeLinkRepository).deleteByWorkflowIdAndNodeKeyAndSecretId(workflowId, nodeKey, secretId);
 
-        secretService.unlinkAllSecretsFromNode(workflowId, nodeKey);
+        secretLinkService.unlinkAllSecretsFromNode(workflowId, nodeKey);
         verify(secretNodeLinkRepository).deleteByWorkflowIdAndNodeKey(workflowId, nodeKey);
     }
 }

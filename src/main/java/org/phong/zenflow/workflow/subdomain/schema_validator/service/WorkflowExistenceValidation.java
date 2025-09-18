@@ -2,6 +2,7 @@ package org.phong.zenflow.workflow.subdomain.schema_validator.service;
 
 import lombok.AllArgsConstructor;
 import org.phong.zenflow.secret.service.SecretService;
+import org.phong.zenflow.secret.subdomain.profile.service.ProfileSecretService;
 import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.node_definition.constraints.WorkflowConstraints;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
@@ -21,6 +22,7 @@ import java.util.UUID;
 public class WorkflowExistenceValidation {
     private final SecretService secretService;
     private final TemplateService templateService;
+    private final ProfileSecretService profileSecretService;
 
     public List<ValidationError> validateExistence(WorkflowDefinition workflow) {
         List<ValidationError> errors = new ArrayList<>();
@@ -98,7 +100,7 @@ public class WorkflowExistenceValidation {
                     }
 
                     String pluginKey = node.getPluginNode().getPluginKey();
-                    UUID profileId = secretService.resolveProfileId(workflowId, pluginKey, profileName);
+                    UUID profileId = profileSecretService.resolveProfileId(workflowId, pluginKey, profileName);
                     if (profileId == null) {
                         extra.add(ValidationError.builder()
                                 .nodeKey(nk)

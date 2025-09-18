@@ -4,24 +4,15 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.phong.zenflow.core.services.AuthService;
-import org.phong.zenflow.project.service.ProjectService;
-import org.phong.zenflow.secret.dto.ProfileSecretListDto;
-import org.phong.zenflow.secret.infrastructure.mapstruct.SecretMapper;
-import org.phong.zenflow.secret.infrastructure.persistence.entity.ProfileSecretLink;
+import org.phong.zenflow.secret.subdomain.profile.dto.ProfileSecretListDto;
+import org.phong.zenflow.secret.subdomain.link.infrastructure.entity.ProfileSecretLink;
 import org.phong.zenflow.secret.infrastructure.persistence.entity.Secret;
 import org.phong.zenflow.secret.infrastructure.persistence.entity.SecretProfile;
-import org.phong.zenflow.secret.infrastructure.persistence.repository.ProfileSecretLinkRepository;
-import org.phong.zenflow.secret.infrastructure.persistence.repository.SecretProfileRepository;
-import org.phong.zenflow.secret.infrastructure.persistence.repository.SecretRepository;
+import org.phong.zenflow.secret.subdomain.link.infrastructure.repository.ProfileSecretLinkRepository;
+import org.phong.zenflow.secret.subdomain.link.service.SecretLinkService;
 import org.phong.zenflow.secret.util.AESUtil;
-import org.phong.zenflow.user.service.UserService;
-import org.phong.zenflow.workflow.service.WorkflowService;
-import org.phong.zenflow.plugin.subdomain.node.service.PluginNodeService;
-import org.phong.zenflow.plugin.services.PluginService;
 
 import java.util.Arrays;
 import java.util.List;
@@ -36,32 +27,11 @@ import static org.mockito.Mockito.when;
 class SecretServiceTest {
 
     @Mock
-    private SecretRepository secretRepository;
-    @Mock
-    private SecretProfileRepository secretProfileRepository;
-    @Mock
     private ProfileSecretLinkRepository profileSecretLinkRepository;
-    @Mock
-    private SecretMapper secretMapper;
     @Mock
     private AESUtil aesUtil;
     @Mock
-    private UserService userService;
-    @Mock
-    private WorkflowService workflowService;
-    @Mock
-    private ProjectService projectService;
-    @Mock
-    private AuthService authService;
-    @Mock
-    private SecretProfileSchemaValidator validator;
-    @Mock
-    private PluginNodeService pluginNodeService;
-    @Mock
-    private PluginService pluginService;
-
-    @InjectMocks
-    private SecretService secretService;
+    private SecretLinkService secretLinkService;
 
     private UUID workflowId;
     private SecretProfile profile1;
@@ -117,7 +87,7 @@ class SecretServiceTest {
         when(profileSecretLinkRepository.findByWorkflowId(workflowId)).thenReturn(links);
 
         // Act
-        ProfileSecretListDto result = secretService.getProfileSecretMapByWorkflowId(workflowId);
+        ProfileSecretListDto result = secretLinkService.getProfileSecretMapByWorkflowId(workflowId);
 
         // Assert
         assertNotNull(result);

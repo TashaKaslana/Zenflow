@@ -1,6 +1,6 @@
-package org.phong.zenflow.secret.infrastructure.persistence.repository;
+package org.phong.zenflow.secret.subdomain.link.infrastructure.repository;
 
-import org.phong.zenflow.secret.infrastructure.persistence.entity.SecretProfileNodeLink;
+import org.phong.zenflow.secret.subdomain.link.infrastructure.entity.SecretProfileNodeLink;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;

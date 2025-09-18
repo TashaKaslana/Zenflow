@@ -2,17 +2,19 @@ package org.phong.zenflow.secret.controller;
 
 import lombok.AllArgsConstructor;
 import org.phong.zenflow.core.responses.RestApiResponse;
-import org.phong.zenflow.secret.dto.CreateProfileSecretsRequest;
+import org.phong.zenflow.secret.subdomain.profile.dto.CreateProfileSecretsRequest;
 import org.phong.zenflow.secret.dto.CreateSecretBatchRequest;
 import org.phong.zenflow.secret.dto.CreateSecretRequest;
-import org.phong.zenflow.secret.dto.NodeProfileLinkDto;
-import org.phong.zenflow.secret.dto.NodeSecretLinksDto;
-import org.phong.zenflow.secret.dto.ProfileSecretListDto;
-import org.phong.zenflow.secret.dto.LinkProfileToNodeRequest;
-import org.phong.zenflow.secret.dto.LinkSecretToNodeRequest;
+import org.phong.zenflow.secret.subdomain.link.dto.NodeProfileLinkDto;
+import org.phong.zenflow.secret.subdomain.link.dto.NodeSecretLinksDto;
+import org.phong.zenflow.secret.subdomain.profile.dto.ProfileSecretListDto;
+import org.phong.zenflow.secret.subdomain.link.dto.LinkProfileToNodeRequest;
+import org.phong.zenflow.secret.subdomain.link.dto.LinkSecretToNodeRequest;
 import org.phong.zenflow.secret.dto.SecretDto;
 import org.phong.zenflow.secret.dto.UpdateSecretRequest;
 import org.phong.zenflow.secret.service.SecretService;
+import org.phong.zenflow.secret.subdomain.link.service.SecretLinkService;
+import org.phong.zenflow.secret.subdomain.profile.service.ProfileSecretService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
@@ -27,6 +29,8 @@ import java.util.UUID;
 @AllArgsConstructor
 public class SecretController {
     private SecretService secretService;
+    private SecretLinkService secretLinkService;
+    private ProfileSecretService profileSecretService;
 
     @PostMapping
     public ResponseEntity<RestApiResponse<SecretDto>> createSecret(@RequestBody CreateSecretRequest request) {
@@ -102,7 +106,7 @@ public class SecretController {
 
     @GetMapping("/workflows/{workflowId}/profile")
     public ResponseEntity<RestApiResponse<ProfileSecretListDto>> getProfileSecretsByWorkflowId(@PathVariable UUID workflowId) {
-        var secrets = secretService.getProfileSecretMapByWorkflowId(workflowId);
+        var secrets = secretLinkService.getProfileSecretMapByWorkflowId(workflowId);
         return RestApiResponse.success(secrets);
     }
 
@@ -114,50 +118,54 @@ public class SecretController {
 
     @GetMapping("/workflows/{workflowId}/map/profiles-by-name")
     public ResponseEntity<RestApiResponse<Map<String, Map<String, String>>>> getProfilesKeyMap(@PathVariable UUID workflowId) {
-        Map<String, Map<String, String>> map = secretService.getProfilesKeyMapByWorkflowId(workflowId);
+        Map<String, Map<String, String>> map = secretLinkService.getProfilesKeyMapByWorkflowId(workflowId);
         return RestApiResponse.success(map);
     }
 
     @PostMapping("/workflows/{workflowId}/profile")
     public ResponseEntity<RestApiResponse<ProfileSecretListDto>> createProfileSecretsForWorkflow(@PathVariable UUID workflowId, @RequestBody CreateProfileSecretsRequest secrets) {
-        var profileSecrets = secretService.createProfileSecrets(workflowId, secrets);
+        var profileSecrets = profileSecretService.createProfileSecrets(workflowId, secrets);
         return RestApiResponse.created(profileSecrets);
     }
 
     @PostMapping("/workflows/{workflowId}/profile/link")
     public ResponseEntity<RestApiResponse<Void>> linkProfileToNode(@PathVariable UUID workflowId, @RequestBody LinkProfileToNodeRequest request) {
-        secretService.linkProfileToNode(workflowId, request);
+        secretLinkService.linkProfileToNode(workflowId, request);
         return RestApiResponse.noContent();
     }
+
     @GetMapping("/workflows/{workflowId}/profile/link/{nodeKey}")
     public ResponseEntity<RestApiResponse<NodeProfileLinkDto>> getProfileLink(@PathVariable UUID workflowId, @PathVariable String nodeKey) {
-        var dto = secretService.getProfileLink(workflowId, nodeKey);
+        var dto = secretLinkService.getProfileLink(workflowId, nodeKey);
         return RestApiResponse.success(dto);
     }
+
     @DeleteMapping("/workflows/{workflowId}/profile/link/{nodeKey}")
     public ResponseEntity<RestApiResponse<Void>> unlinkProfileFromNode(@PathVariable UUID workflowId, @PathVariable String nodeKey) {
-        secretService.unlinkProfileFromNode(workflowId, nodeKey);
+        secretLinkService.unlinkProfileFromNode(workflowId, nodeKey);
         return RestApiResponse.noContent();
     }
 
     @PostMapping("/workflows/{workflowId}/secret/link")
     public ResponseEntity<RestApiResponse<Void>> linkSecretToNode(@PathVariable UUID workflowId, @RequestBody LinkSecretToNodeRequest request) {
-        secretService.linkSecretToNode(workflowId, request);
+        secretLinkService.linkSecretToNode(workflowId, request);
         return RestApiResponse.noContent();
     }
     @GetMapping("/workflows/{workflowId}/secret/link/{nodeKey}")
     public ResponseEntity<RestApiResponse<NodeSecretLinksDto>> getSecretLinks(@PathVariable UUID workflowId, @PathVariable String nodeKey) {
-        var dto = secretService.getSecretLinks(workflowId, nodeKey);
+        var dto = secretLinkService.getSecretLinks(workflowId, nodeKey);
         return RestApiResponse.success(dto);
     }
+
     @DeleteMapping("/workflows/{workflowId}/secret/link/{nodeKey}/{secretId}")
     public ResponseEntity<RestApiResponse<Void>> unlinkSecretFromNode(@PathVariable UUID workflowId, @PathVariable String nodeKey, @PathVariable UUID secretId) {
-        secretService.unlinkSecretFromNode(workflowId, nodeKey, secretId);
+        secretLinkService.unlinkSecretFromNode(workflowId, nodeKey, secretId);
         return RestApiResponse.noContent();
     }
+
     @DeleteMapping("/workflows/{workflowId}/secret/link/{nodeKey}")
     public ResponseEntity<RestApiResponse<Void>> unlinkAllSecretsFromNode(@PathVariable UUID workflowId, @PathVariable String nodeKey) {
-        secretService.unlinkAllSecretsFromNode(workflowId, nodeKey);
+        secretLinkService.unlinkAllSecretsFromNode(workflowId, nodeKey);
         return RestApiResponse.noContent();
     }
 }

@@ -1,4 +1,4 @@
-package org.phong.zenflow.secret.infrastructure.persistence.entity;
+package org.phong.zenflow.secret.subdomain.link.infrastructure.entity;
 
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.AttributeOverrides;
@@ -14,6 +14,7 @@ import lombok.Setter;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 import org.phong.zenflow.core.superbase.BaseIdEntity;
+import org.phong.zenflow.secret.infrastructure.persistence.entity.SecretProfile;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 
 @Getter

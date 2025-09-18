@@ -1,4 +1,4 @@
-package org.phong.zenflow.secret.dto;
+package org.phong.zenflow.secret.subdomain.profile.dto;
 
 import java.io.Serializable;
 import java.util.Map;

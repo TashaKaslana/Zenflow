@@ -8,7 +8,7 @@ import org.phong.zenflow.log.auditlog.enums.AuditAction;
 import org.phong.zenflow.core.utils.MapUtils;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.secret.dto.AggregatedSecretSetupDto;
-import org.phong.zenflow.secret.service.SecretService;
+import org.phong.zenflow.secret.subdomain.aggregate.SecretAggregateService;
 import org.phong.zenflow.workflow.exception.WorkflowException;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.service.WorkflowService;
@@ -43,7 +43,7 @@ public class WorkflowRunnerService {
     private final WorkflowRunService workflowRunService;
     private final WebClient webClient;
     private final WorkflowService workflowService;
-    private final SecretService secretService;
+    private final SecretAggregateService secretAggregateService;
     private final Executor executor;
     private final RuntimeContextManager contextManager;
 
@@ -52,7 +52,7 @@ public class WorkflowRunnerService {
             WorkflowRunService workflowRunService,
             WebClient webClient,
             WorkflowService workflowService,
-            SecretService secretService,
+            SecretAggregateService secretAggregateService,
             @Qualifier("virtualThreadExecutor") Executor executor,
             RuntimeContextManager contextManager
     ) {
@@ -60,7 +60,7 @@ public class WorkflowRunnerService {
         this.workflowRunService = workflowRunService;
         this.webClient = webClient;
         this.workflowService = workflowService;
-        this.secretService = secretService;
+        this.secretAggregateService = secretAggregateService;
         this.executor = executor;
         this.contextManager = contextManager;
     }
@@ -149,7 +149,7 @@ public class WorkflowRunnerService {
         if (workflowRun.getContext() == null || workflowRun.getContext().isEmpty()) {
             // First run: ensure the run is started and create a new context
             log.debug("No existing context found for workflow run ID: {}. Starting new run.", workflowRunId);
-            AggregatedSecretSetupDto agg = secretService.getAggregatedSecretsProfilesAndNodeIndex(workflowId);
+            AggregatedSecretSetupDto agg = secretAggregateService.getAggregatedSecretsProfilesAndNodeIndex(workflowId);
 
             // Build per-node profile view expected by ExecutionContext.getProfileSecret
             Map<String, Object> profilesByNodeKey = agg.nodeProfiles().entrySet().stream()
