@@ -75,16 +75,16 @@ public class WorkflowExistenceValidation {
         return errors;
     }
 
-    public List<ValidationError> validateSecretAndProfileExistence(UUID workflowId, WorkflowDefinition workflow, boolean strictRefs) {
+    public List<ValidationError> validateSecretAndProfileExistence(UUID workflowId, WorkflowDefinition workflow) {
         List<ValidationError> extra = new ArrayList<>();
 
-        validateSecretExistence(workflowId, workflow, strictRefs, extra);
-        validateProfileExistence(workflowId, workflow, strictRefs, extra);
+        validateSecretExistence(workflowId, workflow, extra);
+        validateProfileExistence(workflowId, workflow, extra);
 
         return extra;
     }
 
-    private void validateProfileExistence(UUID workflowId, WorkflowDefinition workflow, boolean strictRefs, List<ValidationError> extra) {
+    private void validateProfileExistence(UUID workflowId, WorkflowDefinition workflow, List<ValidationError> extra) {
         if (workflow != null && workflow.nodes() != null && workflow.metadata() != null && workflow.metadata().profiles() != null) {
             Map<String, List<String>> profileUsage = workflow.metadata().profiles();
             Map<String, BaseWorkflowNode> nodeMap = workflow.nodes().asMap();
@@ -102,7 +102,7 @@ public class WorkflowExistenceValidation {
                     if (profileId == null) {
                         extra.add(ValidationError.builder()
                                 .nodeKey(nk)
-                                .errorType(strictRefs ? "definition" : "definition-warning")
+                                .errorType("definition")
                                 .errorCode(ValidationErrorCode.INVALID_REFERENCE)
                                 .path("metadata.profiles." + profileName)
                                 .message("Profile '" + profileName + "' does not exist for plugin '" + pluginKey + "'")
@@ -137,7 +137,7 @@ public class WorkflowExistenceValidation {
         }
     }
 
-    private void validateSecretExistence(UUID workflowId, WorkflowDefinition workflow, boolean strictRefs, List<ValidationError> extra) {
+    private void validateSecretExistence(UUID workflowId, WorkflowDefinition workflow, List<ValidationError> extra) {
         if (workflow != null && workflow.nodes() != null && workflow.metadata() != null && workflow.metadata().secrets() != null) {
             Map<String, List<String>> secretsUsage = workflow.metadata().secrets();
 
@@ -147,7 +147,7 @@ public class WorkflowExistenceValidation {
                 if (ids == null || ids.isEmpty()) {
                     extra.add(ValidationError.builder()
                             .nodeKey("metadata")
-                            .errorType(strictRefs ? "definition" : "definition-warning")
+                            .errorType("definition")
                             .errorCode(ValidationErrorCode.INVALID_REFERENCE)
                             .path("metadata.secrets." + secretKey)
                             .message("Secret key '" + secretKey + "' does not exist in this workflow")

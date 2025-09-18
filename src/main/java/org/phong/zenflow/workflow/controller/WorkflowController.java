@@ -8,7 +8,6 @@ import org.phong.zenflow.workflow.dto.WorkflowDefinitionChangeRequest;
 import org.phong.zenflow.workflow.dto.UpdateWorkflowDefinitionResponse;
 import org.phong.zenflow.workflow.dto.WorkflowDto;
 import org.phong.zenflow.workflow.service.WorkflowService;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.dto.ExecuteWorkflowResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -19,8 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
-import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
-import org.phong.zenflow.workflow.subdomain.schema_validator.service.WorkflowValidationService;
+import org.phong.zenflow.workflow.service.dto.WorkflowDefinitionUpdateResult;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 
 @RestController
 @RequestMapping("/workflows")
@@ -28,8 +27,6 @@ import org.phong.zenflow.workflow.subdomain.schema_validator.service.WorkflowVal
 public class WorkflowController {
 
     private final WorkflowService workflowService;
-    private final WorkflowValidationService validationService;
-
     @PostMapping
     public ResponseEntity<RestApiResponse<WorkflowDto>> createWorkflow(@Valid @RequestBody CreateWorkflowRequest request) {
         WorkflowDto createdWorkflow = workflowService.createWorkflow(request);
@@ -128,11 +125,12 @@ public class WorkflowController {
             @PathVariable UUID id,
             @RequestBody WorkflowDefinitionChangeRequest request,
             @RequestParam(name = "publish", defaultValue = "false") boolean publish) {
-        WorkflowDefinition updatedDefinition = workflowService.updateWorkflowDefinition(id, request, publish);
-        ValidationResult definitionVr = validationService.validateDefinition(id, updatedDefinition, false);
-        ValidationResult publishVr = validationService.validateDefinition(id, updatedDefinition, true);
-        Boolean isActive = workflowService.getWorkflow(id).getIsActive();
-        UpdateWorkflowDefinitionResponse body = new UpdateWorkflowDefinitionResponse(updatedDefinition, isActive, definitionVr, publishVr);
+        WorkflowDefinitionUpdateResult result = workflowService.updateWorkflowDefinition(id, request, publish);
+        UpdateWorkflowDefinitionResponse body = new UpdateWorkflowDefinitionResponse(
+                result.definition(),
+                result.isActive(),
+                result.validation(),
+                result.publishAttempt());
         return RestApiResponse.success(body, "Workflow definition updated successfully");
     }
 

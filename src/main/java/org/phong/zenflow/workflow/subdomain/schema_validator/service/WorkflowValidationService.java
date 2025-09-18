@@ -75,17 +75,14 @@ public class WorkflowValidationService {
     }
 
     /**
-     * Definition-time validation with optional reference existence checks against a workflow ID.
-     * When strictRefs is true, missing external references (e.g., profiles) are returned as errors; otherwise as warnings.
+     * Definition-time validation with reference existence checks against a workflow ID.
      */
-    public ValidationResult validateDefinition(UUID workflowId, WorkflowDefinition workflow, boolean strictRefs) {
+    public ValidationResult validateDefinition(UUID workflowId, WorkflowDefinition workflow) {
         ValidationResult base = validateDefinition(workflow);
-        List<ValidationError> extra = workflowExistenceValidation.validateSecretAndProfileExistence(workflowId, workflow, strictRefs);
+        List<ValidationError> extra = workflowExistenceValidation.validateSecretAndProfileExistence(workflowId, workflow);
         base.addAllErrors(extra);
         return base;
     }
-
-
 
     private List<ValidationError> validateAliasKeys(WorkflowDefinition workflow) {
         List<ValidationError> errors = new ArrayList<>();

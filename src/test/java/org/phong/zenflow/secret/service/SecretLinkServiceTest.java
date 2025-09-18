@@ -7,27 +7,19 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.phong.zenflow.core.services.AuthService;
-import org.phong.zenflow.plugin.services.PluginService;
-import org.phong.zenflow.plugin.subdomain.node.service.PluginNodeService;
-import org.phong.zenflow.project.service.ProjectService;
 import org.phong.zenflow.secret.dto.LinkProfileToNodeRequest;
 import org.phong.zenflow.secret.dto.LinkSecretToNodeRequest;
 import org.phong.zenflow.secret.dto.NodeProfileLinkDto;
 import org.phong.zenflow.secret.dto.NodeSecretLinksDto;
-import org.phong.zenflow.secret.infrastructure.mapstruct.SecretMapper;
 import org.phong.zenflow.secret.infrastructure.persistence.entity.Secret;
 import org.phong.zenflow.secret.infrastructure.persistence.entity.SecretNodeLink;
 import org.phong.zenflow.secret.infrastructure.persistence.entity.SecretProfile;
 import org.phong.zenflow.secret.infrastructure.persistence.entity.SecretProfileNodeLink;
-import org.phong.zenflow.secret.infrastructure.persistence.repository.ProfileSecretLinkRepository;
 import org.phong.zenflow.secret.infrastructure.persistence.repository.SecretNodeLinkRepository;
 import org.phong.zenflow.secret.infrastructure.persistence.repository.SecretProfileNodeLinkRepository;
 import org.phong.zenflow.secret.infrastructure.persistence.repository.SecretProfileRepository;
 import org.phong.zenflow.secret.infrastructure.persistence.repository.SecretRepository;
-import org.phong.zenflow.secret.util.AESUtil;
-import org.phong.zenflow.user.service.UserService;
-import org.phong.zenflow.workflow.service.WorkflowService;
+import org.phong.zenflow.workflow.infrastructure.persistence.repository.WorkflowRepository;
 
 import java.util.List;
 import java.util.Optional;
@@ -43,18 +35,9 @@ class SecretLinkServiceTest {
 
     @Mock private SecretRepository secretRepository;
     @Mock private SecretProfileRepository secretProfileRepository;
-    @Mock private ProfileSecretLinkRepository profileSecretLinkRepository;
     @Mock private SecretProfileNodeLinkRepository secretProfileNodeLinkRepository;
     @Mock private SecretNodeLinkRepository secretNodeLinkRepository;
-    @Mock private SecretMapper secretMapper;
-    @Mock private AESUtil aesUtil;
-    @Mock private UserService userService;
-    @Mock private WorkflowService workflowService;
-    @Mock private ProjectService projectService;
-    @Mock private AuthService authService;
-    @Mock private SecretProfileSchemaValidator validator;
-    @Mock private PluginNodeService pluginNodeService;
-    @Mock private PluginService pluginService;
+    @Mock private WorkflowRepository workflowRepository;
 
     @InjectMocks private SecretService secretService;
 
@@ -70,6 +53,7 @@ class SecretLinkServiceTest {
         when(secretProfileRepository.getReferenceById(profileId)).thenReturn(profile);
         when(secretProfileNodeLinkRepository.findByWorkflowIdAndNodeKey(workflowId, nodeKey))
                 .thenReturn(Optional.empty());
+        when(workflowRepository.getReferenceById(workflowId)).thenReturn(new org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow());
 
         secretService.linkProfileToNode(workflowId, new LinkProfileToNodeRequest(profileId, nodeKey));
 
@@ -121,6 +105,8 @@ class SecretLinkServiceTest {
         Secret secret = new Secret();
         secret.setId(secretId);
         when(secretRepository.getReferenceById(secretId)).thenReturn(secret);
+        org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow wf = new org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow();
+        when(workflowRepository.getReferenceById(workflowId)).thenReturn(wf);
 
         secretService.linkSecretToNode(workflowId, new LinkSecretToNodeRequest(secretId, nodeKey));
         verify(secretNodeLinkRepository).save(any(SecretNodeLink.class));

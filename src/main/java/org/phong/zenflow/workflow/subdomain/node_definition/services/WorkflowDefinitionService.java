@@ -130,7 +130,7 @@ public class WorkflowDefinitionService {
      * @throws WorkflowNodeDefinitionException       If the new definition is null or any node has invalid properties
      * @throws WorkflowDefinitionValidationException If the resulting workflow fails in validation
      */
-    public WorkflowDefinition upsert(WorkflowDefinition newDef, WorkflowDefinition existingDef) {
+    public List<ValidationError> upsertWithoutValidation(WorkflowDefinition newDef, WorkflowDefinition existingDef) {
         if (newDef == null) {
             throw new WorkflowNodeDefinitionException("Workflow definition cannot be null");
         }
@@ -138,7 +138,13 @@ public class WorkflowDefinitionService {
         List<ValidationError> upsertedNodesErr = upsertNodes(existingDef, newDef);
         upsertMetadata(existingDef.metadata(), newDef.metadata());
 
-        ValidationResult validationResult = constructStaticGenerationAndValidate(existingDef);
+        return upsertedNodesErr;
+    }
+
+    public WorkflowDefinition upsert(WorkflowDefinition newDef, WorkflowDefinition existingDef) {
+        List<ValidationError> upsertedNodesErr = upsertWithoutValidation(newDef, existingDef);
+
+        ValidationResult validationResult = buildStaticContextAndValidate(existingDef, null);
         validationResult.addAllErrors(upsertedNodesErr);
 
         if (!validationResult.isValid()) {
@@ -148,13 +154,17 @@ public class WorkflowDefinitionService {
         return existingDef;
     }
 
-    private ValidationResult constructStaticGenerationAndValidate(WorkflowDefinition tempDef) {
+    public ValidationResult buildStaticContextAndValidate(WorkflowDefinition workflowDefinition, UUID workflowId) {
+        return constructStaticGenerationAndValidate(workflowDefinition, workflowId);
+    }
+
+    private ValidationResult constructStaticGenerationAndValidate(WorkflowDefinition tempDef, UUID workflowId) {
         List<ValidationError> validationErrors = new ArrayList<>();
 
         resolvePluginId(tempDef, validationErrors);
         workflowContextService.buildStaticContext(tempDef);
 
-        ValidationResult validationResult = workflowValidationService.validateDefinition(tempDef);
+        ValidationResult validationResult = workflowValidationService.validateDefinition(workflowId, tempDef);
         validationResult.addAllErrors(validationErrors);
 
         return validationResult;
@@ -201,7 +211,7 @@ public class WorkflowDefinitionService {
      * @param keysToRemove       The keys of the nodes to remove
      * @return The updated workflow definition with the specified nodes removed
      */
-    public WorkflowDefinition removeNodes(WorkflowDefinition workflowDefinition, List<String> keysToRemove) {
+    public WorkflowDefinition removeNodesWithoutValidation(WorkflowDefinition workflowDefinition, List<String> keysToRemove) {
         if (workflowDefinition == null) {
             return new WorkflowDefinition();
         }
@@ -210,11 +220,6 @@ public class WorkflowDefinitionService {
         }
 
         keysToRemove.forEach(workflowDefinition.nodes()::remove);
-        ValidationResult validationResult = constructStaticGenerationAndValidate(workflowDefinition);
-        if (!validationResult.isValid()) {
-            log.debug("Workflow definition validation failed after node removal: {}", validationResult.getErrors());
-            throw new WorkflowDefinitionValidationException("Workflow definition validation failed after node removal!", validationResult);
-        }
         return workflowDefinition;
     }
 

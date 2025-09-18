@@ -5,12 +5,12 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
-import org.phong.zenflow.secret.service.SecretService;
 import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowNodes;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
 import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
@@ -33,7 +33,6 @@ class WorkflowValidationServiceTest {
     @Mock private SchemaTemplateValidationService schemaTemplateValidationService;
     @Mock private PluginNodeExecutorRegistry executorRegistry;
     @Mock private TemplateService templateService;
-    @Mock private SecretService secretService;
     @Mock private WorkflowExistenceValidation workflowExistenceValidation;
 
     private WorkflowValidationService service;
@@ -77,28 +76,34 @@ class WorkflowValidationServiceTest {
         UUID workflowId = UUID.randomUUID();
         WorkflowDefinition def = buildDefinitionWithProfile("pluginA");
 
-        when(secretService.isProfileLinked(eq(workflowId), eq("n1"))).thenReturn(false);
+        ValidationError warn = ValidationError.builder()
+                .nodeKey("n1")
+                .errorType("definition-warning")
+                .message("profile not linked")
+                .build();
+        ValidationError err = ValidationError.builder()
+                .nodeKey("n1")
+                .errorType("definition")
+                .message("profile missing")
+                .build();
+        when(workflowExistenceValidation.validateSecretAndProfileExistence(eq(workflowId), any()))
+                .thenReturn(List.of(warn, err));
 
-        ValidationResult defRes = service.validateDefinition(workflowId, def, false);
-        ValidationResult pubRes = service.validateDefinition(workflowId, def, true);
+        ValidationResult result = service.validateDefinition(workflowId, def);
 
-        assertThat(defRes.getErrors()).isNotEmpty();
-        assertThat(pubRes.getErrors()).isNotEmpty();
-
-        // defRes may be invalid (we use errorType distinction), pubRes must be invalid
-        assertThat(pubRes.isValid()).isFalse();
+        assertThat(result.getErrors()).contains(warn, err);
+        assertThat(result.isValid()).isFalse();
     }
 
     @Test
     void validateDefinition_profileExists_passesBoth() {
         UUID workflowId = UUID.randomUUID();
         WorkflowDefinition def = buildDefinitionWithProfile("pluginA");
-        when(secretService.isProfileLinked(eq(workflowId), eq("n1"))).thenReturn(true);
+        when(workflowExistenceValidation.validateSecretAndProfileExistence(eq(workflowId), any()))
+                .thenReturn(List.of());
 
-        ValidationResult defRes = service.validateDefinition(workflowId, def, false);
-        ValidationResult pubRes = service.validateDefinition(workflowId, def, true);
+        ValidationResult result = service.validateDefinition(workflowId, def);
 
-        assertThat(defRes.isValid()).isTrue();
-        assertThat(pubRes.isValid()).isTrue();
+        assertThat(result.isValid()).isTrue();
     }
 }

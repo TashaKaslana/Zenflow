@@ -18,8 +18,9 @@ import org.phong.zenflow.workflow.infrastructure.persistence.repository.Workflow
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.services.WorkflowDefinitionService;
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
+import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
-import org.phong.zenflow.workflow.subdomain.schema_validator.service.WorkflowValidationService;
+import org.phong.zenflow.workflow.service.dto.WorkflowDefinitionUpdateResult;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerEvent;
 import org.phong.zenflow.workflow.service.event.WorkflowDefinitionUpdatedEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
@@ -30,6 +31,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -44,7 +46,6 @@ public class WorkflowService {
     private final WorkflowMapper workflowMapper;
     private final WorkflowDefinitionService definitionService;
     private final ApplicationEventPublisher eventPublisher;
-    private final WorkflowValidationService validationService;
 
     /**
      * Create a new workflow
@@ -107,7 +108,7 @@ public class WorkflowService {
      * @return Updated workflow definition
      */
     @Transactional
-    public WorkflowDefinition updateWorkflowDefinition(UUID workflowId, WorkflowDefinitionChangeRequest request, boolean publishAttempt) {
+    public WorkflowDefinitionUpdateResult updateWorkflowDefinition(UUID workflowId, WorkflowDefinitionChangeRequest request, boolean publishAttempt) {
         Workflow workflow = workflowRepository.findById(workflowId)
                 .orElseThrow(() -> new WorkflowException("Workflow not found with id: " + workflowId));
 
@@ -115,39 +116,37 @@ public class WorkflowService {
                 ? workflow.getDefinition().deepCopy()
                 : new WorkflowDefinition();
 
+        List<ValidationError> aggregatedDefinitionErrors = new ArrayList<>();
+
         if (request != null && request.remove() != null && !request.remove().isEmpty()) {
-            currentDefinition = definitionService.removeNodes(currentDefinition, request.remove());
+            currentDefinition = definitionService.removeNodesWithoutValidation(currentDefinition, request.remove());
         }
 
         if (request != null && request.upsert() != null) {
             WorkflowDefinition newDefinition = new WorkflowDefinition(request.upsert().nodes(), request.upsert().metadata());
-            currentDefinition = definitionService.upsert(newDefinition, currentDefinition);
+            aggregatedDefinitionErrors.addAll(definitionService.upsertWithoutValidation(newDefinition, currentDefinition));
+        }
+
+        ValidationResult validationResult = definitionService.buildStaticContextAndValidate(currentDefinition, workflowId);
+        validationResult.addAllErrors(aggregatedDefinitionErrors);
+
+        if (publishAttempt) {
+            workflow.setIsActive(validationResult.isValid());
         }
 
         workflow.setDefinition(currentDefinition);
+        workflowRepository.save(workflow);
 
-        // If client requests a publish attempt, validate strictly and toggle isActive accordingly
-        if (publishAttempt) {
-            ValidationResult vr = validationService.validateDefinition(workflowId, currentDefinition, true);
-            boolean publishable = vr.isValid();
-            workflow.setIsActive(publishable);
-        }
+        eventPublisher.publishEvent(new WorkflowDefinitionUpdatedEvent(workflowId, currentDefinition));
 
-        Workflow saved = workflowRepository.save(workflow);
-
-        WorkflowDefinition definitionForEvent = saved.getDefinition() != null
-                ? saved.getDefinition().deepCopy()
-                : new WorkflowDefinition();
-        eventPublisher.publishEvent(new WorkflowDefinitionUpdatedEvent(workflowId, definitionForEvent));
-
-        return saved.getDefinition();
+        return new WorkflowDefinitionUpdateResult(currentDefinition, validationResult, publishAttempt, workflow.getIsActive());
     }
 
     /**
      * Backward-compatible overload without publish flag. Keeps existing activation state.
      */
     @Transactional
-    public WorkflowDefinition updateWorkflowDefinition(UUID workflowId, WorkflowDefinitionChangeRequest request) {
+    public WorkflowDefinitionUpdateResult updateWorkflowDefinition(UUID workflowId, WorkflowDefinitionChangeRequest request) {
         return updateWorkflowDefinition(workflowId, request, false);
     }
 
