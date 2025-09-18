@@ -1,6 +1,7 @@
 package org.phong.zenflow.secret.subdomain.link.service;
 
 import lombok.AllArgsConstructor;
+import org.phong.zenflow.secret.subdomain.link.infrastructure.projection.SecretProfileNodeLinkInfo;
 import org.phong.zenflow.secret.subdomain.profile.dto.ProfileSecretListDto;
 import org.phong.zenflow.secret.exception.SecretDomainException;
 import org.phong.zenflow.secret.infrastructure.persistence.repository.SecretProfileRepository;
@@ -142,6 +143,39 @@ public class SecretLinkService {
         secretProfileNodeLinkRepository.save(link);
     }
 
+    @Transactional
+    public void unlinkProfilesByWorkflowId(UUID workflowId) {
+        secretProfileNodeLinkRepository.deleteAllByWorkflowId(workflowId);
+    }
+
+    @Transactional
+    public void unlinkProfileLinks(Set<UUID> linkIds) {
+        if (linkIds == null || linkIds.isEmpty()) {
+            return;
+        }
+        secretProfileNodeLinkRepository.deleteAllById(linkIds);
+    }
+
+    @Transactional
+    public void linkProfilesButchToNode(UUID workflowId, List<LinkProfileToNodeRequest> links) {
+        if (links == null || links.isEmpty()) {
+            return;
+        }
+
+        var workflowRef = workflowRepository.getReferenceById(workflowId);
+        List<SecretProfileNodeLink> newLinks = links.stream()
+                .map(req -> {
+                    var link = new SecretProfileNodeLink();
+                    link.setWorkflow(workflowRef);
+                    link.setNodeKey(req.nodeKey());
+                    link.setProfile(secretProfileRepository.getReferenceById(req.profileId()));
+                    return link;
+                })
+                .toList();
+
+        secretProfileNodeLinkRepository.saveAll(newLinks);
+    }
+
     public void linkSecretToNode(UUID workflowId, LinkSecretToNodeRequest request) {
         var secret = secretRepository.getReferenceById(request.secretId());
         var existing = secretNodeLinkRepository.findByWorkflowIdAndNodeKeyAndSecretId(workflowId, request.nodeKey(), request.secretId());
@@ -169,6 +203,10 @@ public class SecretLinkService {
                         link.getProfile().getId()
                 ))
                 .orElse(null);
+    }
+
+    public List<SecretProfileNodeLinkInfo> getProfileLinksByWorkflowId(UUID workflowId) {
+        return secretProfileNodeLinkRepository.getProfileLinksByWorkflowId(workflowId);
     }
 
     public void unlinkProfileFromNode(UUID workflowId, String nodeKey) {

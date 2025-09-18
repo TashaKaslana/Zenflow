@@ -1,4 +1,4 @@
-package org.phong.zenflow.secret.infrastructure.persistence.entity;
+package org.phong.zenflow.secret.subdomain.profile.entity;
 
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.AttributeOverrides;
@@ -16,7 +16,6 @@ import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import org.phong.zenflow.core.superbase.BaseEntity;
-import org.phong.zenflow.core.superbase.BaseEntityWithUpdatedBy;
 import org.phong.zenflow.plugin.infrastructure.persistence.entity.Plugin;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.entity.PluginNode;
 import org.phong.zenflow.project.infrastructure.persistence.entity.Project;

@@ -99,6 +99,10 @@ public class WorkflowContextService {
             }
 
             if (node.getConfig().profile() != null && !node.getConfig().profile().isEmpty()) {
+                node.getConfig().profile().forEach((key, value)
+                        -> ctx.profiles().computeIfAbsent(key, k -> new ArrayList<>()).add(nodeKey)
+                );
+
                 profileRequired.add(nodeKey);
             }
 

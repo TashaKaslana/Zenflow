@@ -4,15 +4,21 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.phong.zenflow.secret.subdomain.profile.dto.ProfileSecretListDto;
-import org.phong.zenflow.secret.subdomain.link.infrastructure.entity.ProfileSecretLink;
 import org.phong.zenflow.secret.infrastructure.persistence.entity.Secret;
-import org.phong.zenflow.secret.infrastructure.persistence.entity.SecretProfile;
+import org.phong.zenflow.secret.infrastructure.persistence.repository.SecretRepository;
+import org.phong.zenflow.secret.subdomain.link.infrastructure.entity.ProfileSecretLink;
 import org.phong.zenflow.secret.subdomain.link.infrastructure.repository.ProfileSecretLinkRepository;
+import org.phong.zenflow.secret.subdomain.link.infrastructure.repository.SecretNodeLinkRepository;
+import org.phong.zenflow.secret.subdomain.link.infrastructure.repository.SecretProfileNodeLinkRepository;
 import org.phong.zenflow.secret.subdomain.link.service.SecretLinkService;
+import org.phong.zenflow.secret.subdomain.profile.dto.ProfileSecretListDto;
+import org.phong.zenflow.secret.subdomain.profile.entity.SecretProfile;
+import org.phong.zenflow.secret.infrastructure.persistence.repository.SecretProfileRepository;
 import org.phong.zenflow.secret.util.AESUtil;
+import org.phong.zenflow.workflow.infrastructure.persistence.repository.WorkflowRepository;
 
 import java.util.Arrays;
 import java.util.List;
@@ -26,11 +32,15 @@ import static org.mockito.Mockito.when;
 @DisplayName("SecretService Tests")
 class SecretServiceTest {
 
-    @Mock
-    private ProfileSecretLinkRepository profileSecretLinkRepository;
-    @Mock
-    private AESUtil aesUtil;
-    @Mock
+    @Mock private ProfileSecretLinkRepository profileSecretLinkRepository;
+    @Mock private SecretRepository secretRepository;
+    @Mock private SecretProfileRepository secretProfileRepository;
+    @Mock private SecretProfileNodeLinkRepository secretProfileNodeLinkRepository;
+    @Mock private SecretNodeLinkRepository secretNodeLinkRepository;
+    @Mock private WorkflowRepository workflowRepository;
+    @Mock private AESUtil aesUtil;
+
+    @InjectMocks
     private SecretLinkService secretLinkService;
 
     private UUID workflowId;
@@ -70,7 +80,6 @@ class SecretServiceTest {
     @Test
     @DisplayName("Should retrieve secrets grouped by profile name for a workflow")
     void shouldGetProfileSecretMapByWorkflowId() {
-        // Arrange
         var link1 = new ProfileSecretLink();
         link1.setProfile(profile1);
         link1.setSecret(secret1);
@@ -86,10 +95,8 @@ class SecretServiceTest {
         List<ProfileSecretLink> links = Arrays.asList(link1, link2, link3);
         when(profileSecretLinkRepository.findByWorkflowId(workflowId)).thenReturn(links);
 
-        // Act
         ProfileSecretListDto result = secretLinkService.getProfileSecretMapByWorkflowId(workflowId);
 
-        // Assert
         assertNotNull(result);
         Map<String, Map<String, String>> profileMap = result.profiles();
         assertNotNull(profileMap);

@@ -9,7 +9,7 @@ import org.phong.zenflow.secret.subdomain.profile.dto.ProfileSecretListDto;
 import org.phong.zenflow.secret.enums.SecretScope;
 import org.phong.zenflow.secret.exception.SecretDomainException;
 import org.phong.zenflow.secret.infrastructure.persistence.entity.Secret;
-import org.phong.zenflow.secret.infrastructure.persistence.entity.SecretProfile;
+import org.phong.zenflow.secret.subdomain.profile.entity.SecretProfile;
 import org.phong.zenflow.secret.infrastructure.persistence.repository.SecretProfileRepository;
 import org.phong.zenflow.secret.infrastructure.persistence.repository.SecretRepository;
 import org.phong.zenflow.secret.subdomain.link.infrastructure.entity.ProfileSecretLink;
