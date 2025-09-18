@@ -21,18 +21,22 @@ import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
 import org.phong.zenflow.workflow.subdomain.schema_validator.enums.ValidationErrorCode;
 import org.phong.zenflow.workflow.service.dto.WorkflowDefinitionUpdateResult;
+import org.phong.zenflow.workflow.service.cache.WorkflowValidationCache;
+import org.phong.zenflow.workflow.exception.WorkflowException;
+import org.phong.zenflow.workflow.dto.WorkflowDto;
 import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.time.OffsetDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 class WorkflowServiceTest {
 
@@ -41,6 +45,7 @@ class WorkflowServiceTest {
     @Mock private WorkflowMapper workflowMapper;
     @Mock private WorkflowDefinitionService definitionService;
     @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock private WorkflowValidationCache validationCache;
 
     private WorkflowService service;
 
@@ -49,11 +54,29 @@ class WorkflowServiceTest {
         MockitoAnnotations.openMocks(this);
         service = new WorkflowService(
                 workflowRepository,
+                validationCache,
                 projectRepository,
                 workflowMapper,
                 definitionService,
                 eventPublisher
         );
+        when(validationCache.get(any())).thenReturn(null);
+        when(workflowMapper.toDto(any())).thenAnswer(invocation -> {
+            Workflow wf = invocation.getArgument(0);
+            return new WorkflowDto(
+                    wf.getId() != null ? wf.getId() : UUID.randomUUID(),
+                    OffsetDateTime.now(),
+                    OffsetDateTime.now(),
+                    null,
+                    null,
+                    wf.getProject() != null ? wf.getProject().getId() : null,
+                    wf.getName(),
+                    wf.getDefinition(),
+                    wf.getIsActive(),
+                    wf.getDeletedAt(),
+                    wf.getDescription(),
+                    wf.getRetryPolicy());
+        });
     }
 
     private Workflow existingWorkflow(UUID id) {
@@ -81,7 +104,12 @@ class WorkflowServiceTest {
         assertThat(result.definition()).isSameAs(wf.getDefinition());
         assertThat(result.validation()).isSameAs(strictResult);
         assertThat(result.isActive()).isTrue();
+        assertThat(result.publishAttempt()).isTrue();
+        assertThat(result.validatedAt()).isNotNull();
+        assertThat(wf.getLastValidation()).isSameAs(strictResult);
+        assertThat(Boolean.TRUE.equals(wf.getLastValidationPublishAttempt())).isTrue();
         verify(definitionService).buildStaticContextAndValidate(any(WorkflowDefinition.class), eq(id));
+        verify(validationCache).put(eq(id), any(WorkflowDefinitionUpdateResult.class));
 
         ArgumentCaptor<WorkflowDefinitionUpdatedEvent> eventCaptor = ArgumentCaptor.forClass(WorkflowDefinitionUpdatedEvent.class);
         verify(eventPublisher).publishEvent(eventCaptor.capture());
@@ -132,8 +160,13 @@ class WorkflowServiceTest {
         assertThat(result.definition()).isSameAs(wf.getDefinition());
         assertThat(result.validation()).isSameAs(validation);
         assertThat(result.isActive()).isTrue();
+        assertThat(result.publishAttempt()).isFalse();
+        assertThat(result.validatedAt()).isNotNull();
+        assertThat(wf.getLastValidation()).isSameAs(validation);
+        assertThat(Boolean.TRUE.equals(wf.getLastValidationPublishAttempt())).isFalse();
         verify(definitionService).buildStaticContextAndValidate(any(WorkflowDefinition.class), eq(id));
         verify(eventPublisher).publishEvent(any(WorkflowDefinitionUpdatedEvent.class));
+        verify(validationCache).put(eq(id), any(WorkflowDefinitionUpdateResult.class));
     }
 
     @Test
@@ -169,4 +202,56 @@ class WorkflowServiceTest {
         verify(definitionService).buildStaticContextAndValidate(any(WorkflowDefinition.class), eq(id));
         verify(eventPublisher).publishEvent(any(WorkflowDefinitionUpdatedEvent.class));
     }
+
+
+    @Test
+    void activateWorkflow_withoutSuccessfulValidation_throws() {
+        UUID id = UUID.randomUUID();
+        Workflow wf = existingWorkflow(id);
+        ValidationError error = ValidationError.builder()
+                .nodeKey("node")
+                .errorType("definition")
+                .message("invalid")
+                .build();
+        wf.setLastValidation(new ValidationResult("definition", new ArrayList<>(List.of(error))));
+        wf.setLastValidationPublishAttempt(true);
+        when(workflowRepository.findById(id)).thenReturn(Optional.of(wf));
+
+        assertThatThrownBy(() -> service.activateWorkflow(id))
+                .isInstanceOf(WorkflowException.class)
+                .hasMessageContaining("successful validation");
+        verify(workflowRepository, never()).save(any());
+    }
+
+    @Test
+    void activateWorkflow_withSuccessfulValidation_allowsActivation() {
+        UUID id = UUID.randomUUID();
+        Workflow wf = existingWorkflow(id);
+        wf.setLastValidation(new ValidationResult("definition", new ArrayList<>()));
+        wf.setLastValidationPublishAttempt(true);
+        when(workflowRepository.findById(id)).thenReturn(Optional.of(wf));
+        when(workflowRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        WorkflowDto dto = service.activateWorkflow(id);
+
+        assertThat(dto.isActive()).isTrue();
+        verify(workflowRepository).save(wf);
+    }
+
+
+
+    @Test
+    void activateWorkflow_withoutPublishAttempt_throws() {
+        UUID id = UUID.randomUUID();
+        Workflow wf = existingWorkflow(id);
+        wf.setLastValidation(new ValidationResult("definition", new ArrayList<>()));
+        wf.setLastValidationPublishAttempt(false);
+        when(workflowRepository.findById(id)).thenReturn(Optional.of(wf));
+
+        assertThatThrownBy(() -> service.activateWorkflow(id))
+                .isInstanceOf(WorkflowException.class)
+                .hasMessageContaining("successful validation");
+        verify(workflowRepository, never()).save(any());
+    }
+
 }

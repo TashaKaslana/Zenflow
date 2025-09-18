@@ -18,9 +18,11 @@ import org.hibernate.type.SqlTypes;
 import org.phong.zenflow.core.superbase.BaseFullAuditEntity;
 import org.phong.zenflow.project.infrastructure.persistence.entity.Project;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
+import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
 
 import java.time.OffsetDateTime;
 import java.util.Map;
+
 
 @Getter
 @Setter
@@ -42,6 +44,16 @@ public class Workflow extends BaseFullAuditEntity {
     @Column(name = "definition")
     @JdbcTypeCode(SqlTypes.JSON)
     private WorkflowDefinition definition;
+
+    @Column(name = "last_validation")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private ValidationResult lastValidation;
+
+    @Column(name = "last_validation_at")
+    private OffsetDateTime lastValidationAt;
+
+    @Column(name = "last_validation_publish_attempt")
+    private Boolean lastValidationPublishAttempt;
 
     @NotNull
     @ColumnDefault("false")

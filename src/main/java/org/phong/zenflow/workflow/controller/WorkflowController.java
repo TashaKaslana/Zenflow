@@ -130,8 +130,21 @@ public class WorkflowController {
                 result.definition(),
                 result.isActive(),
                 result.validation(),
-                result.publishAttempt());
+                result.publishAttempt(),
+                result.validatedAt());
         return RestApiResponse.success(body, "Workflow definition updated successfully");
+    }
+
+    @GetMapping("/{id}/validation")
+    public ResponseEntity<RestApiResponse<UpdateWorkflowDefinitionResponse>> getWorkflowValidation(@PathVariable UUID id) {
+        WorkflowDefinitionUpdateResult result = workflowService.getLatestValidation(id);
+        UpdateWorkflowDefinitionResponse body = new UpdateWorkflowDefinitionResponse(
+                result.definition(),
+                result.isActive(),
+                result.validation(),
+                result.publishAttempt(),
+                result.validatedAt());
+        return RestApiResponse.success(body, "Workflow validation retrieved successfully");
     }
 
     @PostMapping("/{id}/nodes/{nodeKey}/execute")
