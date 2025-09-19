@@ -1,6 +1,5 @@
 package org.phong.zenflow.secret.subdomain.link.infrastructure.projection;
 
-import org.phong.zenflow.secret.infrastructure.persistence.projections.SecretIdInfo;
 import org.phong.zenflow.secret.subdomain.link.infrastructure.entity.SecretNodeLink;
 
 import java.util.UUID;
@@ -11,11 +10,7 @@ import java.util.UUID;
 public interface SecretNodeLinkInfo {
     UUID getId();
 
-    SecretIdInfo getSecret();
+    UUID getSecretId();
 
     String getNodeKey();
-
-    default UUID getSecretId() {
-        return getSecret().getId();
-    }
 }

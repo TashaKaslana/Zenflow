@@ -3,13 +3,10 @@ package org.phong.zenflow.secret.subdomain.link.infrastructure.repository;
 import org.phong.zenflow.secret.subdomain.link.infrastructure.entity.SecretNodeLink;
 import org.phong.zenflow.secret.subdomain.link.infrastructure.projection.SecretNodeLinkInfo;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 
 public interface SecretNodeLinkRepository extends JpaRepository<SecretNodeLink, UUID> {
@@ -19,14 +16,16 @@ public interface SecretNodeLinkRepository extends JpaRepository<SecretNodeLink, 
     void deleteByWorkflowIdAndNodeKey(UUID workflowId, String nodeKey);
     List<SecretNodeLink> findByWorkflowId(UUID workflowId);
 
-    @Modifying
-    @Query(
-            "DELETE FROM SecretNodeLink nk WHERE nk.workflow.id = :workflowId AND nk.secret.id IN :secretIds"
-    )
-    void deleteAllByIdAndSecretIdList(@Param("workflowId") UUID workflowId, @Param("secretIds") Set<UUID> secretIds);
-
     void deleteAllByWorkflowId(UUID workflowId);
 
-    @Query("SELECT id, secret.id, nodeKey FROM SecretNodeLink WHERE workflow.id = :workflowId")
+    @Query("""
+       select l.id as id,
+              s.id as secretId,
+              l.nodeKey as nodeKey
+       from SecretNodeLink l
+       join l.workflow w
+       join l.secret s
+       where w.id = :workflowId
+       """)
     List<SecretNodeLinkInfo> getSecretNodeLinkInfoByWorkflowId(UUID workflowId);
 }

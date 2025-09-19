@@ -46,8 +46,8 @@ public class SecretLinkService {
     }
 
     @Transactional
-    public void unlinkSecretByWorkflowIdAndSecretIds(UUID workflowId, Set<UUID> idList) {
-        secretNodeLinkRepository.deleteAllByIdAndSecretIdList(workflowId, idList);
+    public void unlinkSecretByWorkflowIdAndSecretIds(Set<UUID> idList) {
+        secretNodeLinkRepository.deleteAllById(idList);
     }
 
     @Transactional

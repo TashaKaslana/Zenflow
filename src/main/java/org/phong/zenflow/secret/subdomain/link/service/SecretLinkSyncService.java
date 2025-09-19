@@ -76,15 +76,15 @@ public class SecretLinkSyncService {
                 )
         ));
 
-        List<SecretNodeLinkInsertRequestDto> idsToInsertMissingSecret = new ArrayList<>();
+        List<SecretNodeLinkInsertRequestDto> insertButchDto = new ArrayList<>();
         Set<UUID> idsToDelete = new HashSet<>();
 
-        populateIdListForInsertAndRemove(desired, secretIdsMap, idsToInsertMissingSecret, idsToDelete);
+        populateIdListForInsertAndRemove(desired, secretIdsMap, insertButchDto, idsToDelete);
 
         filterRedundantIdFromDb(secretIdsMap, desired, idsToDelete);
 
-        secretLinkService.unlinkSecretByWorkflowIdAndSecretIds(workflowId, idsToDelete);
-        secretLinkService.linkSecretsButchToNode(workflowId, idsToInsertMissingSecret);
+        secretLinkService.unlinkSecretByWorkflowIdAndSecretIds(idsToDelete);
+        secretLinkService.linkSecretsButchToNode(workflowId, insertButchDto);
     }
 
     private static void populateIdListForInsertAndRemove(Map<String, Set<UUID>> desired, Map<String, Map<UUID, UUID>> secretIdsMap, List<SecretNodeLinkInsertRequestDto> idsToInsertMissingSecret, Set<UUID> idsToDelete) {
@@ -92,10 +92,9 @@ public class SecretLinkSyncService {
             String nk = entry.getKey();
             Set<UUID> want = entry.getValue();
             Map<UUID, UUID> infoMap = secretIdsMap.get(nk);
-            List<UUID> haveList = infoMap.keySet().stream().toList();
 
             // If no links exist, add all wanted
-            if (haveList.isEmpty()) {
+            if (infoMap == null || infoMap.isEmpty()) {
                 if (want.isEmpty()) continue;
 
                 idsToInsertMissingSecret.addAll(
@@ -106,6 +105,7 @@ public class SecretLinkSyncService {
 
                 continue;
             }
+            List<UUID> haveList = infoMap.keySet().stream().toList();
 
             // Add missing
             Set<UUID> have = new HashSet<>(haveList);
@@ -117,7 +117,7 @@ public class SecretLinkSyncService {
 
             // Remove extras not declared
             for (UUID secretId : have) {
-                if (want.contains(secretId)) {
+                if (!want.contains(secretId)) {
                     UUID id = infoMap.get(secretId);
                     idsToDelete.add(id);
                 }
@@ -180,7 +180,10 @@ public class SecretLinkSyncService {
         }
     }
 
-    private static void processToExtractProfileLinkRequest(Map<String, UUID> desiredProfileByNode, Map<String, Map<UUID, UUID>> existingByNode, List<LinkProfileToNodeRequest> linksToInsert, Set<UUID> linkIdsToDelete) {
+    private void processToExtractProfileLinkRequest(Map<String, UUID> desiredProfileByNode,
+                                                           Map<String, Map<UUID, UUID>> existingByNode,
+                                                           List<LinkProfileToNodeRequest> linksToInsert,
+                                                           Set<UUID> linkIdsToDelete) {
         desiredProfileByNode.forEach((nodeKey, desiredProfileId) -> {
             Map<UUID, UUID> existing = existingByNode.get(nodeKey);
             if (existing == null || existing.isEmpty()) {

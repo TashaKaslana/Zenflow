@@ -15,6 +15,13 @@ public interface SecretProfileNodeLinkRepository extends JpaRepository<SecretPro
     void deleteAllByWorkflowId(UUID workflowId);
     java.util.List<SecretProfileNodeLink> findAllByWorkflowId(UUID workflowId);
 
-    @Query("SELECT l.id, l.profile.id, l.nodeKey FROM SecretProfileNodeLink l WHERE l.workflow.id = :workflowId")
+    @Query("""
+       select l.id as id,
+              p.id as profileId,
+              l.nodeKey as nodeKey
+       from SecretProfileNodeLink l
+       join l.profile p
+       where l.workflow.id = :workflowId
+       """)
     List<SecretProfileNodeLinkInfo> getProfileLinksByWorkflowId(UUID workflowId);
 }
