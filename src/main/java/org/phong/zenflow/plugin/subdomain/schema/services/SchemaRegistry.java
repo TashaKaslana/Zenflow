@@ -28,7 +28,6 @@ import java.util.stream.Collectors;
 public class SchemaRegistry {
 
     private static final String BUILTIN_PATH = "/builtin_schemas/";
-
     private final PluginNodeSchemaProvider pluginProvider;
     private final PluginService pluginService;
     private final SchemaIndexRegistry schemaIndexRegistry;
@@ -39,16 +38,19 @@ public class SchemaRegistry {
 
     // Performance optimization: use file-based loading by default
     private final boolean useFileBasedLoading;
+    private final PluginDescriptorSchemaService descriptorSchemaService;
 
     public SchemaRegistry(
             PluginNodeSchemaProvider pluginProvider,
             PluginService pluginService,
             SchemaIndexRegistry schemaIndexRegistry,
+            PluginDescriptorSchemaService descriptorSchemaService,
             @Value("${zenflow.schema.cache-ttl-seconds:3600}") long cacheTtlSeconds,
             @Value("${zenflow.schema.use-file-based-loading:true}") boolean useFileBasedLoading) {
         this.pluginProvider = pluginProvider;
         this.pluginService = pluginService;
         this.schemaIndexRegistry = schemaIndexRegistry;
+        this.descriptorSchemaService = descriptorSchemaService;
         this.useFileBasedLoading = useFileBasedLoading;
         Duration ttl = Duration.ofSeconds(cacheTtlSeconds);
         this.builtinCache = Caffeine.newBuilder()
@@ -92,6 +94,14 @@ public class SchemaRegistry {
 
         // Otherwise, treat it as a plugin node schema with UUID
         return getPluginSchema(templateString);
+    }
+
+    public JSONObject getPluginProfileDescriptorSchema(UUID pluginId, String pluginKey, String descriptorId) {
+        return descriptorSchemaService.getProfileDescriptorSchema(pluginId, pluginKey, descriptorId);
+    }
+
+    public JSONObject getPluginSettingDescriptorSchema(UUID pluginId, String pluginKey, String descriptorId) {
+        return descriptorSchemaService.getSettingDescriptorSchema(pluginId, pluginKey, descriptorId);
     }
 
     public Map<String, JSONObject> getSchemaMapByTemplateStrings(Set<String> templateStrings) {

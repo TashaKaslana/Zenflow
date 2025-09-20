@@ -9,9 +9,6 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -45,32 +42,6 @@ public class PluginProfileDescriptorDelegate {
             registered.add(new RegisteredPluginProfileDescriptor(descriptor, schema, defaults));
         }
         return registered;
-    }
-
-    public Map<String, Object> buildPluginSchema(
-            Class<?> pluginClass,
-            Plugin annotation,
-            List<RegisteredPluginProfileDescriptor> descriptors
-    ) {
-        Map<String, Object> baseSchema = loadBaseSchema(pluginClass, annotation.schemaPath().trim());
-        LinkedHashMap<String, Object> combined = new LinkedHashMap<>(baseSchema);
-
-        if (!descriptors.isEmpty()) {
-            List<Map<String, Object>> profilesMetadata = new LinkedList<>();
-            Map<String, Object> firstProfileSchema = null;
-            for (RegisteredPluginProfileDescriptor descriptor : descriptors) {
-                profilesMetadata.add(descriptor.asMetadataMap());
-                if (firstProfileSchema == null && !descriptor.schema().isEmpty()) {
-                    firstProfileSchema = descriptor.schema();
-                }
-            }
-            combined.put("profiles", profilesMetadata);
-            if (!combined.containsKey("profile") && firstProfileSchema != null) {
-                combined.put("profile", firstProfileSchema);
-            }
-        }
-
-        return combined.isEmpty() ? Collections.emptyMap() : combined;
     }
 
     private List<PluginProfileDescriptor> extractDescriptors(Class<?> pluginClass) {
@@ -108,17 +79,6 @@ public class PluginProfileDescriptorDelegate {
             return LoadSchemaHelper.loadSchema(pluginClass, schemaPath, "plugin.profile.schema.json");
         } catch (Exception ex) {
             throw new IllegalStateException("Failed to load profile schema for descriptor " + descriptor.id(), ex);
-        }
-    }
-
-    private Map<String, Object> loadBaseSchema(Class<?> pluginClass, String schemaPath) {
-        if (schemaPath == null || schemaPath.isBlank()) {
-            return Map.of();
-        }
-        try {
-            return LoadSchemaHelper.loadSchema(pluginClass, schemaPath, "plugin.schema.json");
-        } catch (Exception ex) {
-            throw new IllegalStateException("Failed to load plugin schema from " + schemaPath, ex);
         }
     }
 

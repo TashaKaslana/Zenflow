@@ -15,6 +15,7 @@ import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.test.placeholder.Pl
 import org.phong.zenflow.plugin.subdomain.node.interfaces.PluginNodeSchemaProvider;
 import org.phong.zenflow.plugin.subdomain.schema.registry.SchemaIndexRegistry;
 import org.phong.zenflow.plugin.subdomain.schema.services.SchemaRegistry;
+import org.phong.zenflow.plugin.subdomain.schema.services.PluginDescriptorSchemaService;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.TestExecutionContextUtils;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
@@ -49,7 +50,8 @@ public class PluginNodeTest {
         // Initialize test components
         executorRegistry = new PluginNodeExecutorRegistry();
         placeholderExecutor = new PlaceholderExecutor();
-        schemaRegistry = new SchemaRegistry(schemaProvider, pluginService, schemaIndexRegistry, 3600L, true);
+        PluginDescriptorSchemaService descriptorService = new PluginDescriptorSchemaService(pluginService, schemaIndexRegistry, 3600L, true);
+        schemaRegistry = new SchemaRegistry(schemaProvider, pluginService, schemaIndexRegistry, descriptorService, 3600L, true);
         dispatcher = new PluginNodeExecutorDispatcher(executorRegistry);
 
         // Manually register the placeholder executor for testing

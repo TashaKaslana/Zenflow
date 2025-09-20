@@ -6,6 +6,8 @@ import org.phong.zenflow.plugin.dto.CreatePluginRequest;
 import org.phong.zenflow.plugin.dto.PluginDto;
 import org.phong.zenflow.plugin.dto.UpdatePluginRequest;
 import org.phong.zenflow.plugin.services.PluginService;
+import org.phong.zenflow.plugin.services.PluginDescriptorService;
+import org.phong.zenflow.plugin.subdomain.registry.PluginDescriptorSection;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +24,7 @@ import java.util.UUID;
 public class PluginController {
 
     private final PluginService pluginService;
+    private final PluginDescriptorService pluginDescriptorService;
 
     @PostMapping
     public ResponseEntity<RestApiResponse<PluginDto>> createPlugin(@Valid @RequestBody CreatePluginRequest request) {
@@ -84,4 +87,15 @@ public class PluginController {
           Map<String, Object> schema = pluginService.getProfileSchemaById(key);
           return RestApiResponse.success(schema, "Plugin profile schema retrieved successfully");
       }
+
+      @GetMapping("/{key}/descriptors/{descriptorId}/schema")
+      public ResponseEntity<RestApiResponse<Map<String, Object>>> getPluginDescriptorSchema(
+              @PathVariable String key,
+              @PathVariable String descriptorId,
+              @RequestParam(value = "section", defaultValue = "profile") String section) {
+          PluginDescriptorSection descriptorSection = PluginDescriptorSection.from(section);
+          Map<String, Object> schema = pluginDescriptorService.getDescriptorSchema(key, descriptorId, descriptorSection);
+          return RestApiResponse.success(schema, "Plugin descriptor schema retrieved successfully");
+      }
+
   }

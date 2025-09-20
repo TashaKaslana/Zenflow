@@ -7,6 +7,9 @@ import org.phong.zenflow.plugin.infrastructure.persistence.entity.Plugin;
 import org.phong.zenflow.plugin.infrastructure.persistence.repository.PluginRepository;
 import org.phong.zenflow.plugin.subdomain.registry.profile.PluginProfileDescriptorDelegate;
 import org.phong.zenflow.plugin.subdomain.registry.profile.PluginProfileDescriptorRegistry;
+import org.phong.zenflow.plugin.subdomain.registry.settings.PluginSettingDescriptorDelegate;
+import org.phong.zenflow.plugin.subdomain.registry.settings.PluginSettingDescriptorRegistry;
+import org.phong.zenflow.plugin.subdomain.registry.settings.RegisteredPluginSettingDescriptor;
 import org.phong.zenflow.plugin.subdomain.registry.profile.RegisteredPluginProfileDescriptor;
 import org.phong.zenflow.plugin.subdomain.schema.registry.SchemaIndexRegistry;
 import org.phong.zenflow.plugin.subdomain.schema.services.SchemaValidator;
@@ -41,6 +44,9 @@ public class PluginSynchronizer implements ApplicationRunner {
     private final SchemaIndexRegistry schemaIndexRegistry;
     private final PluginProfileDescriptorDelegate descriptorDelegate;
     private final PluginProfileDescriptorRegistry profileDescriptorRegistry;
+    private final PluginSettingDescriptorDelegate settingDescriptorDelegate;
+    private final PluginSettingDescriptorRegistry settingDescriptorRegistry;
+    private final PluginSchemaComposer pluginSchemaComposer;
 
     @Override
     public void run(ApplicationArguments args) {
@@ -76,10 +82,12 @@ public class PluginSynchronizer implements ApplicationRunner {
             entity.setVerified(annotation.verified());
             entity.setPublisherId(UUID.fromString(annotation.publisherId()));
 
-            List<RegisteredPluginProfileDescriptor> descriptors =
+            List<RegisteredPluginProfileDescriptor> profileDescriptors =
                     descriptorDelegate.resolveDescriptors(clazz, annotation);
+            List<RegisteredPluginSettingDescriptor> settingDescriptors =
+                    settingDescriptorDelegate.resolveDescriptors(clazz);
             Map<String, Object> pluginSchema =
-                    descriptorDelegate.buildPluginSchema(clazz, annotation, descriptors);
+                    pluginSchemaComposer.compose(clazz, annotation, profileDescriptors, settingDescriptors);
 
             if (!pluginSchema.isEmpty()) {
                 if (!schemaValidator.validate(
@@ -94,27 +102,74 @@ public class PluginSynchronizer implements ApplicationRunner {
             Plugin savedEntity = pluginRepository.save(entity);
             log.info("Synchronized plugin: {} v{}", annotation.key(), annotation.version());
 
-            profileDescriptorRegistry.register(savedEntity.getId(), savedEntity.getKey(), descriptors);
-            indexSchema(savedEntity, clazz, annotation.schemaPath());
+            profileDescriptorRegistry.register(savedEntity.getId(), savedEntity.getKey(), profileDescriptors);
+            settingDescriptorRegistry.register(savedEntity.getId(), savedEntity.getKey(), settingDescriptors);
+            indexSchema(savedEntity, clazz, annotation.schemaPath(), profileDescriptors, settingDescriptors);
 
         } catch (Exception e) {
             log.error("Failed to synchronize plugin for class {}", className, e);
         }
     }
 
-    private void indexSchema(Plugin plugin, Class<?> clazz, String schemaPath) {
-        if (plugin.getId() == null) {
-            log.warn("Cannot index schema for plugin {} because it has no ID.", plugin.getKey());
+    private void indexSchema(Plugin plugin, Class<?> clazz, String schemaPath, List<RegisteredPluginProfileDescriptor> profileDescriptors, List<RegisteredPluginSettingDescriptor> settingDescriptors) {
+        UUID pluginId = plugin.getId();
+        String indexKey = pluginId != null ? pluginId.toString() : plugin.getKey();
+
+        if (indexKey == null || indexKey.isBlank()) {
+            log.warn("Cannot index schema for plugin {} because it lacks an identifier.", plugin.getKey());
             return;
         }
-        if (schemaPath == null || schemaPath.trim().isEmpty()) {
-            return;
+
+        if (schemaPath != null && !schemaPath.trim().isEmpty()) {
+            SchemaIndexRegistry.SchemaLocation location =
+                    new SchemaIndexRegistry.SchemaLocation(clazz, schemaPath.trim());
+            if (schemaIndexRegistry.addSchemaLocation(indexKey, location)) {
+                log.debug("Indexed base plugin schema for {}", indexKey);
+            }
         }
-        String pluginId = plugin.getId().toString();
-        SchemaIndexRegistry.SchemaLocation location =
-                new SchemaIndexRegistry.SchemaLocation(clazz, schemaPath.trim());
-        if (schemaIndexRegistry.addSchemaLocation(pluginId, location)) {
-            log.debug("Indexed schema location for plugin ID {}", pluginId);
+
+        if (profileDescriptors != null && !profileDescriptors.isEmpty()) {
+            profileDescriptors.stream()
+                .filter(registered -> registered != null && registered.descriptor() != null)
+                .forEach(registered -> {
+                    String descriptorSchemaPath = registered.descriptor().schemaPath();
+                    if (descriptorSchemaPath == null || descriptorSchemaPath.isBlank()) {
+                        return;
+                    }
+                    SchemaIndexRegistry.SchemaLocation location =
+                            new SchemaIndexRegistry.SchemaLocation(clazz, descriptorSchemaPath.trim());
+                    boolean added;
+                    if (pluginId != null) {
+                        added = schemaIndexRegistry.addProfileSchemaLocation(pluginId, registered.descriptor().id(), location);
+                    } else {
+                        added = schemaIndexRegistry.addProfileSchemaLocation(indexKey, registered.descriptor().id(), location);
+                    }
+                    if (added) {
+                        log.debug("Indexed profile descriptor schema for plugin {} descriptor {}", indexKey, registered.descriptor().id());
+                    }
+                });
+        }
+
+        if (settingDescriptors != null && !settingDescriptors.isEmpty()) {
+            settingDescriptors.stream()
+                    .filter(registered -> registered != null && registered.descriptor() != null)
+                    .forEach(registered -> {
+                        String descriptorSchemaPath = registered.descriptor().schemaPath();
+                        if (descriptorSchemaPath == null || descriptorSchemaPath.isBlank()) {
+                            return;
+                        }
+                        SchemaIndexRegistry.SchemaLocation location =
+                                new SchemaIndexRegistry.SchemaLocation(clazz, descriptorSchemaPath.trim());
+                        boolean added;
+                        if (pluginId != null) {
+                            added = schemaIndexRegistry.addSettingSchemaLocation(pluginId, registered.descriptor().id(), location);
+                        } else {
+                            added = schemaIndexRegistry.addSettingSchemaLocation(indexKey, registered.descriptor().id(), location);
+                        }
+                        if (added) {
+                            log.debug("Indexed setting descriptor schema for plugin {} descriptor {}", indexKey, registered.descriptor().id());
+                        }
+                    });
         }
     }
 }

@@ -9,7 +9,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Centralized registry for schema locations, supporting both plugin-level and node-level schemas.
+ * Centralized registry for schema locations, supporting plugin-level, descriptor-level, and node-level schemas.
  * This component is populated by synchronizing at startup to create an in-memory index
  * of schemas, which allows for fast, file-based lookups that avoid database access.
  */
@@ -17,7 +17,9 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class SchemaIndexRegistry {
 
-    private static final String DESCRIPTOR_KEY_FORMAT = "%s:%s";
+    private static final String BASE_DESCRIPTOR_KEY_FORMAT = "%s:%s:%s";
+    private static final String PROFILE_SECTION = "profile";
+    private static final String SETTING_SECTION = "setting";
 
     /**
      * In-memory index of schema locations, keyed by a unique identifier (e.g., plugin UUID or node UUID).
@@ -42,65 +44,93 @@ public class SchemaIndexRegistry {
     }
 
     /**
-     * Register a descriptor-specific schema location in the index.
-     *
-     * @param pluginId     plugin identifier
-     * @param descriptorId descriptor identifier provided by the plugin
-     * @param location     schema location descriptor
-     * @return true when the location has been stored
+     * Register a descriptor-specific schema location for profile descriptors.
      */
     public boolean addDescriptorSchemaLocation(UUID pluginId, String descriptorId, SchemaLocation location) {
+        return addProfileSchemaLocation(pluginId, descriptorId, location);
+    }
+
+    public boolean addProfileSchemaLocation(UUID pluginId, String descriptorId, SchemaLocation location) {
         if (pluginId == null || descriptorId == null || descriptorId.isBlank()) {
             return false;
         }
-        return addSchemaLocation(buildDescriptorKey(pluginId, descriptorId), location);
+        return addSchemaLocation(buildDescriptorKey(pluginId.toString(), PROFILE_SECTION, descriptorId), location);
+    }
+
+    public boolean addProfileSchemaLocation(String pluginKey, String descriptorId, SchemaLocation location) {
+        if (pluginKey == null || pluginKey.isBlank() || descriptorId == null || descriptorId.isBlank()) {
+            return false;
+        }
+        return addSchemaLocation(buildDescriptorKey(pluginKey, PROFILE_SECTION, descriptorId), location);
+    }
+
+    public boolean addSettingSchemaLocation(UUID pluginId, String descriptorId, SchemaLocation location) {
+        if (pluginId == null || descriptorId == null || descriptorId.isBlank()) {
+            return false;
+        }
+        return addSchemaLocation(buildDescriptorKey(pluginId.toString(), SETTING_SECTION, descriptorId), location);
+    }
+
+    public boolean addSettingSchemaLocation(String pluginKey, String descriptorId, SchemaLocation location) {
+        if (pluginKey == null || pluginKey.isBlank() || descriptorId == null || descriptorId.isBlank()) {
+            return false;
+        }
+        return addSchemaLocation(buildDescriptorKey(pluginKey, SETTING_SECTION, descriptorId), location);
     }
 
     /**
      * Retrieves a schema location by its unique identifier.
-     *
-     * @param key The unique identifier (e.g., plugin ID or node ID).
-     * @return The schema location, or null if not found.
      */
     public SchemaLocation getSchemaLocation(String key) {
         return schemaIndex.get(key);
     }
 
-    public SchemaLocation getDescriptorSchemaLocation(UUID pluginId, String descriptorId) {
+    public SchemaLocation getProfileSchemaLocation(UUID pluginId, String descriptorId) {
         if (pluginId == null || descriptorId == null || descriptorId.isBlank()) {
             return null;
         }
-        return getSchemaLocation(buildDescriptorKey(pluginId, descriptorId));
+        return getSchemaLocation(buildDescriptorKey(pluginId.toString(), PROFILE_SECTION, descriptorId));
     }
 
-    /**
-     * Checks if a schema location exists for the given identifier.
-     *
-     * @param key The unique identifier (e.g., plugin ID or node ID).
-     * @return true if a schema location exists, false otherwise.
-     */
+    public SchemaLocation getProfileSchemaLocation(String pluginKey, String descriptorId) {
+        if (pluginKey == null || pluginKey.isBlank() || descriptorId == null || descriptorId.isBlank()) {
+            return null;
+        }
+        return getSchemaLocation(buildDescriptorKey(pluginKey, PROFILE_SECTION, descriptorId));
+    }
+
+    public SchemaLocation getSettingSchemaLocation(UUID pluginId, String descriptorId) {
+        if (pluginId == null || descriptorId == null || descriptorId.isBlank()) {
+            return null;
+        }
+        return getSchemaLocation(buildDescriptorKey(pluginId.toString(), SETTING_SECTION, descriptorId));
+    }
+
+    public SchemaLocation getSettingSchemaLocation(String pluginKey, String descriptorId) {
+        if (pluginKey == null || pluginKey.isBlank() || descriptorId == null || descriptorId.isBlank()) {
+            return null;
+        }
+        return getSchemaLocation(buildDescriptorKey(pluginKey, SETTING_SECTION, descriptorId));
+    }
+
     public boolean hasSchemaLocation(String key) {
         return schemaIndex.containsKey(key);
     }
 
-    public boolean hasDescriptorSchema(UUID pluginId, String descriptorId) {
-        if (pluginId == null || descriptorId == null || descriptorId.isBlank()) {
-            return false;
-        }
-        return hasSchemaLocation(buildDescriptorKey(pluginId, descriptorId));
+    public boolean hasProfileSchema(UUID pluginId, String descriptorId) {
+        return getProfileSchemaLocation(pluginId, descriptorId) != null;
     }
 
-    /**
-     * Gets the total number of schema locations currently in the index.
-     *
-     * @return The size of the schema index.
-     */
+    public boolean hasSettingSchema(UUID pluginId, String descriptorId) {
+        return getSettingSchemaLocation(pluginId, descriptorId) != null;
+    }
+
     public int getSchemaIndexSize() {
         return schemaIndex.size();
     }
 
-    private String buildDescriptorKey(UUID pluginId, String descriptorId) {
-        return DESCRIPTOR_KEY_FORMAT.formatted(pluginId, descriptorId);
+    private String buildDescriptorKey(String base, String section, String descriptorId) {
+        return BASE_DESCRIPTOR_KEY_FORMAT.formatted(base, section, descriptorId);
     }
 
     /**
@@ -115,10 +145,6 @@ public class SchemaIndexRegistry {
             }
         }
 
-        /**
-         * Checks if a custom schema path is defined.
-         * @return true if the path is not empty.
-         */
         public boolean hasCustomPath() {
             return !schemaPath.isEmpty();
         }
