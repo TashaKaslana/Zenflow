@@ -58,14 +58,20 @@ public class PluginService {
     }
 
     public Map<String, Object> getPluginSchemaByKey(String key) {
-        return pluginRepository.findByKey(key)
-                .map(Plugin::getPluginSchema)
+        Plugin plugin = pluginRepository.findByKey(key)
                 .orElseThrow(() -> new PluginException("Plugin not found with key: " + key));
+        Map<String, Object> schema = plugin.getPluginSchema();
+        return schema == null ? Map.of() : schema;
     }
 
     @SuppressWarnings("unchecked")
     public Map<String, Object> getProfileSchemaById(String key) {
-        return (Map<String, Object>) getPluginSchemaByKey(key).get("profile");
+        Map<String, Object> pluginSchema = getPluginSchemaByKey(key);
+        Object profile = pluginSchema.get("profile");
+        if (profile instanceof Map<?, ?> profileMap) {
+            return (Map<String, Object>) profileMap;
+        }
+        return Map.of();
     }
 
     @Transactional

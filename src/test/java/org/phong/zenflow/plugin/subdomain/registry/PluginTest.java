@@ -9,11 +9,19 @@ import org.phong.zenflow.plugin.subdomain.registry.definitions.IntegrationPlugin
 import org.phong.zenflow.plugin.subdomain.registry.definitions.TestPlugin;
 import org.phong.zenflow.plugin.subdomain.registry.definitions.GoogleDrivePlugin;
 import org.phong.zenflow.plugin.subdomain.registry.definitions.GoogleDocsPlugin;
+import org.phong.zenflow.plugin.subdomain.registry.profile.PluginProfileDescriptorRegistry;
+import org.phong.zenflow.plugin.subdomain.registry.profile.PluginProfileDescriptorDelegate;
+import org.phong.zenflow.plugin.subdomain.registry.definitions.google.GoogleOAuthAuthorizationService;
+import org.phong.zenflow.plugin.subdomain.registry.definitions.google.GoogleOAuthProfileDescriptor;
+import org.phong.zenflow.plugin.subdomain.registry.profile.PluginProfileDescriptor;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
 import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -28,6 +36,10 @@ import static org.mockito.Mockito.*;
         GoogleDrivePlugin.class,
         GoogleDocsPlugin.class,
         PluginSynchronizer.class,
+        PluginProfileDescriptorDelegate.class,
+        GoogleOAuthProfileDescriptor.class,
+        GoogleOAuthAuthorizationService.class,
+        PluginProfileDescriptorRegistry.class,
         ObjectMapper.class
 })
 public class PluginTest {
@@ -215,8 +227,8 @@ public class PluginTest {
         CorePlugin corePlugin = new CorePlugin();
         IntegrationPlugin integrationPlugin = new IntegrationPlugin();
         TestPlugin testPlugin = new TestPlugin();
-        GoogleDrivePlugin googleDrivePlugin = new GoogleDrivePlugin();
-        GoogleDocsPlugin googleDocsPlugin = new GoogleDocsPlugin();
+        GoogleDrivePlugin googleDrivePlugin = createGoogleDrivePlugin();
+        GoogleDocsPlugin googleDocsPlugin = createGoogleDocsPlugin();
 
         // Verify that the classes have the @Plugin annotation
         assertTrue(CorePlugin.class.isAnnotationPresent(
@@ -297,6 +309,53 @@ public class PluginTest {
     }
 
     @Test
+    void googlePluginsExposeProfileDescriptors() {
+        GoogleDrivePlugin drivePlugin = createGoogleDrivePlugin();
+        List<PluginProfileDescriptor> driveDescriptors = drivePlugin.getPluginProfiles();
+        assertFalse(driveDescriptors.isEmpty(), "Drive plugin should expose at least one profile descriptor");
+        PluginProfileDescriptor descriptor = driveDescriptors.get(0);
+        assertEquals("oauth-default", descriptor.id());
+        assertEquals("Google OAuth Profile", descriptor.displayName());
+        assertTrue(descriptor.requiresPreparation());
+        assertEquals("/google/oauth.profile.schema.json", descriptor.schemaPath());
+
+        GoogleDocsPlugin docsPlugin = createGoogleDocsPlugin();
+        List<PluginProfileDescriptor> docsDescriptors = docsPlugin.getPluginProfiles();
+        assertEquals(1, docsDescriptors.size(), "Docs plugin should reuse the shared OAuth descriptor");
+        assertEquals(descriptor.schemaPath(), docsDescriptors.get(0).schemaPath());
+    }
+
+    @Test
+    void googlePluginSchemasIncludeProfileMetadata() {
+        when(pluginRepository.findByKey(anyString())).thenReturn(Optional.empty());
+        when(pluginRepository.save(any(Plugin.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        pluginSynchronizer.run(null);
+
+        ArgumentCaptor<Plugin> captor = ArgumentCaptor.forClass(Plugin.class);
+        verify(pluginRepository, atLeastOnce()).save(captor.capture());
+
+        Plugin googleDrive = captor.getAllValues().stream()
+                .filter(plugin -> "google-drive".equals(plugin.getKey()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Google Drive plugin was not synchronized"));
+
+        Map<String, Object> schema = googleDrive.getPluginSchema();
+        assertNotNull(schema, "Google Drive plugin should persist profile schema metadata");
+        assertTrue(schema.containsKey("profiles"));
+        List<?> profiles = (List<?>) schema.get("profiles");
+        assertFalse(profiles.isEmpty());
+        Object firstProfile = profiles.get(0);
+        assertInstanceOf(Map.class, firstProfile);
+        Map<?, ?> profileMap = (Map<?, ?>) firstProfile;
+        assertEquals("oauth-default", profileMap.get("id"));
+        assertEquals(Boolean.TRUE, profileMap.get("requiresPreparation"));
+        assertTrue(profileMap.containsKey("schema"));
+        Map<?, ?> descriptorSchema = (Map<?, ?>) profileMap.get("schema");
+        assertEquals("Google OAuth Credentials", descriptorSchema.get("title"));
+        assertEquals(descriptorSchema, schema.get("profile"));
+    }
+    @Test
     void testPluginSynchronizerOrder() {
         // Test that PluginSynchronizer has the correct order annotation
         assertTrue(PluginSynchronizer.class.isAnnotationPresent(org.springframework.core.annotation.Order.class),
@@ -324,4 +383,17 @@ public class PluginTest {
         // Verify that it attempted to save plugins despite errors
         verify(pluginRepository, atLeastOnce()).save(any(Plugin.class));
     }
+
+    private GoogleOAuthProfileDescriptor createDescriptor() {
+        return new GoogleOAuthProfileDescriptor(new GoogleOAuthAuthorizationService());
+    }
+
+    private GoogleDrivePlugin createGoogleDrivePlugin() {
+        return new GoogleDrivePlugin(createDescriptor());
+    }
+
+    private GoogleDocsPlugin createGoogleDocsPlugin() {
+        return new GoogleDocsPlugin(createDescriptor());
+    }
+
 }

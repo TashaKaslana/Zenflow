@@ -1,15 +1,18 @@
 # Plugin Schemas
 
-Plugins may declare configuration requirements through a JSON schema file. Each plugin definition can point to a `plugin.schema.json` using the `schemaPath` attribute of the `@Plugin` annotation. The schema is loaded at startup and stored with the plugin record.
+Plugins expose credential configuration via PluginProfileDescriptor implementations. A plugin definition that implements PluginProfileProvider can return one or more descriptors describing the profiles it supports. Each descriptor may reference a JSON schema file (via schemaPath) and declare whether additional preparation is required after the user submits the form.
 
-The attribute is optional. Plugins without additional configuration can omit `schemaPath`, in which case no schema is persisted or returned by the API.
+At startup the PluginSynchronizer collects the descriptors, loads their schemas, and persists a consolidated structure on the plugin record. When @Plugin.schemaPath is provided the referenced JSON schema is still loaded and merged so additional sections (e.g., settings) remain intact. The persisted shape contains a profiles array describing the available descriptors plus a profile property that mirrors the first descriptor's schema for backward compatibility.
 
-The stored schema may contain multiple sections such as `profile` credentials or other `settings`. The entire schema is exposed via the REST API so the frontend can render forms dynamically.
-
-```
+`
 GET /plugins/{key}/schema
-```
+`
 
-Example: requesting `GET /plugins/google-drive/schema` returns the shared Google OAuth profile schema used by both Google Drive and Google Docs plugins.
+The response contains:
 
-Clients should use the returned JSON schema to build forms for gathering configuration information from users.
+- profiles: ordered descriptors with id, label, description, equiresPreparation, defaults, and an embedded schema when provided.
+- profile: convenience alias for the first descriptor's schema so existing consumers can continue to render a single profile form.
+
+Legacy plugins that still declare @Plugin(schemaPath = ...) are automatically wrapped into a single default descriptor, so older bundles continue to function without changes. New plugins should prefer the descriptor API.
+
+During profile creation, descriptors can override prepareProfile(ProfilePreparationContext) to generate additional secrets (e.g., exchanging an OAuth client for a refresh token). When equiresPreparation() returns 	rue, callers should expect to run that hook before persisting the profile.

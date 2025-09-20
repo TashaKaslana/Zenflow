@@ -1,13 +1,18 @@
 package org.phong.zenflow.plugin.subdomain.registry.definitions;
 
 import org.phong.zenflow.plugin.subdomain.registry.Plugin;
+import org.phong.zenflow.plugin.subdomain.registry.profile.PluginProfileDescriptor;
+import org.phong.zenflow.plugin.subdomain.registry.profile.PluginProfileProvider;
+import org.phong.zenflow.plugin.subdomain.registry.definitions.google.GoogleOAuthProfileDescriptor;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
 
 /**
  * Google Drive plugin definition providing Google Drive nodes.
  */
 @Component
-  @Plugin(
+@Plugin(
       key = "google-drive",
       name = "Google Drive Plugin",
       version = "1.0.0",
@@ -16,7 +21,16 @@ import org.springframework.stereotype.Component;
       icon = "simple-icons:googledrive",
       organization = "google",
       schemaPath = "/google/plugin.schema.json"
-  )
-  public class GoogleDrivePlugin {
-    // Marker class for Google Drive plugin definition
+)
+public class GoogleDrivePlugin implements PluginProfileProvider {
+    private final List<PluginProfileDescriptor> profiles;
+
+    public GoogleDrivePlugin(GoogleOAuthProfileDescriptor descriptor) {
+        this.profiles = List.of(descriptor);
+    }
+
+    @Override
+    public List<PluginProfileDescriptor> getPluginProfiles() {
+        return profiles;
+    }
 }

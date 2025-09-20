@@ -1,20 +1,39 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "title": "Plugin Schema Definition Schema",
   "properties": {
+    "profiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "label": { "type": "string" },
+          "description": { "type": "string" },
+          "defaults": { "type": "object" },
+          "schema": { "type": "object" },
+          "requiresPreparation": { "type": "boolean" }
+        },
+        "required": ["id", "label"],
+        "additionalProperties": true
+      }
+    },
+    "profile": {
+      "type": "object"
+    },
     "properties": {
       "type": "object",
       "properties": {
-        "profile": {
-          "type": "object"
-        }
+        "profile": { "type": "object" }
       },
-      "required": ["profile"]
+      "required": ["profile"],
+      "additionalProperties": true
     }
   },
-  "required": [
-    "properties"
+  "anyOf": [
+    { "required": ["profiles"] },
+    { "required": ["properties"] }
   ],
   "additionalProperties": true
 }

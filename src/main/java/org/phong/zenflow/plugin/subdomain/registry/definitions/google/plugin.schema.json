@@ -11,7 +11,7 @@
         "CLIENT_SECRET": { "type": "string" },
         "CLIENT_REFRESH_TOKEN": { "type": "string" }
       },
-      "required": ["CLIENT_ID", "CLIENT_SECRET", "CLIENT_REFRESH"]
+      "required": ["CLIENT_ID", "CLIENT_SECRET", "CLIENT_REFRESH_TOKEN"]
     }
   }
 }

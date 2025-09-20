@@ -4,6 +4,8 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -14,6 +16,8 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 @Slf4j
 public class SchemaIndexRegistry {
+
+    private static final String DESCRIPTOR_KEY_FORMAT = "%s:%s";
 
     /**
      * In-memory index of schema locations, keyed by a unique identifier (e.g., plugin UUID or node UUID).
@@ -38,6 +42,21 @@ public class SchemaIndexRegistry {
     }
 
     /**
+     * Register a descriptor-specific schema location in the index.
+     *
+     * @param pluginId     plugin identifier
+     * @param descriptorId descriptor identifier provided by the plugin
+     * @param location     schema location descriptor
+     * @return true when the location has been stored
+     */
+    public boolean addDescriptorSchemaLocation(UUID pluginId, String descriptorId, SchemaLocation location) {
+        if (pluginId == null || descriptorId == null || descriptorId.isBlank()) {
+            return false;
+        }
+        return addSchemaLocation(buildDescriptorKey(pluginId, descriptorId), location);
+    }
+
+    /**
      * Retrieves a schema location by its unique identifier.
      *
      * @param key The unique identifier (e.g., plugin ID or node ID).
@@ -45,6 +64,13 @@ public class SchemaIndexRegistry {
      */
     public SchemaLocation getSchemaLocation(String key) {
         return schemaIndex.get(key);
+    }
+
+    public SchemaLocation getDescriptorSchemaLocation(UUID pluginId, String descriptorId) {
+        if (pluginId == null || descriptorId == null || descriptorId.isBlank()) {
+            return null;
+        }
+        return getSchemaLocation(buildDescriptorKey(pluginId, descriptorId));
     }
 
     /**
@@ -57,6 +83,13 @@ public class SchemaIndexRegistry {
         return schemaIndex.containsKey(key);
     }
 
+    public boolean hasDescriptorSchema(UUID pluginId, String descriptorId) {
+        if (pluginId == null || descriptorId == null || descriptorId.isBlank()) {
+            return false;
+        }
+        return hasSchemaLocation(buildDescriptorKey(pluginId, descriptorId));
+    }
+
     /**
      * Gets the total number of schema locations currently in the index.
      *
@@ -66,15 +99,17 @@ public class SchemaIndexRegistry {
         return schemaIndex.size();
     }
 
+    private String buildDescriptorKey(UUID pluginId, String descriptorId) {
+        return DESCRIPTOR_KEY_FORMAT.formatted(pluginId, descriptorId);
+    }
+
     /**
      * Holds the location of a schema definition, typically the class it's associated with
      * and the path to the schema file.
      */
     public record SchemaLocation(Class<?> clazz, String schemaPath) {
         public SchemaLocation {
-            if (clazz == null) {
-                throw new IllegalArgumentException("Class cannot be null");
-            }
+            Objects.requireNonNull(clazz, "Class cannot be null");
             if (schemaPath == null) {
                 schemaPath = "";
             }
