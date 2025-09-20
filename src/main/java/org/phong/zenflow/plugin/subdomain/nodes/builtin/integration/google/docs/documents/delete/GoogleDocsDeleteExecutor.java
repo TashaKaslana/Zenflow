@@ -10,7 +10,7 @@ import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.drive
 import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.trigger.resource.DefaultTriggerResourceConfig;
 import org.springframework.stereotype.Component;
 
@@ -42,8 +42,8 @@ public class GoogleDocsDeleteExecutor implements PluginNodeExecutor {
             String documentId = (String) input.get("documentId");
 
             @SuppressWarnings("unchecked")
-            Map<String, Map<String, String>> secretMap = context.read("secrets", Map.class);
-            Map<String, String> credentials = secretMap.get(profile);
+            Map<String, Map<String, String>> profileMap = context.read("profiles", Map.class);
+            Map<String, String> credentials = profileMap.get(profile);
             String clientId = credentials.get("CLIENT_ID");
             String clientSecret = credentials.get("CLIENT_SECRET");
             String refreshToken = credentials.get("REFRESH_TOKEN");

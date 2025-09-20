@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "General Google Plugin Schema",
+  "properties": {
+    "profile": {
+      "title": "Google OAuth Profile (single or multiple)",
+      "type": "object",
+      "properties": {
+        "CLIENT_ID": { "type": "string" },
+        "CLIENT_SECRET": { "type": "string" },
+        "CLIENT_REFRESH_TOKEN": { "type": "string" }
+      },
+      "required": ["CLIENT_ID", "CLIENT_SECRET", "CLIENT_REFRESH"]
+    }
+  }
+}

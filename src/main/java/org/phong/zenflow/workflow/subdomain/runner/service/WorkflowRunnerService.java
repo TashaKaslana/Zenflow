@@ -7,7 +7,8 @@ import org.phong.zenflow.log.auditlog.annotations.AuditLog;
 import org.phong.zenflow.log.auditlog.enums.AuditAction;
 import org.phong.zenflow.core.utils.MapUtils;
 import org.phong.zenflow.core.utils.ObjectConversion;
-import org.phong.zenflow.secret.service.SecretService;
+import org.phong.zenflow.secret.dto.AggregatedSecretSetupDto;
+import org.phong.zenflow.secret.subdomain.aggregate.SecretAggregateService;
 import org.phong.zenflow.workflow.exception.WorkflowException;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.service.WorkflowService;
@@ -42,7 +43,7 @@ public class WorkflowRunnerService {
     private final WorkflowRunService workflowRunService;
     private final WebClient webClient;
     private final WorkflowService workflowService;
-    private final SecretService secretService;
+    private final SecretAggregateService secretAggregateService;
     private final Executor executor;
     private final RuntimeContextManager contextManager;
 
@@ -51,7 +52,7 @@ public class WorkflowRunnerService {
             WorkflowRunService workflowRunService,
             WebClient webClient,
             WorkflowService workflowService,
-            SecretService secretService,
+            SecretAggregateService secretAggregateService,
             @Qualifier("virtualThreadExecutor") Executor executor,
             RuntimeContextManager contextManager
     ) {
@@ -59,7 +60,7 @@ public class WorkflowRunnerService {
         this.workflowRunService = workflowRunService;
         this.webClient = webClient;
         this.workflowService = workflowService;
-        this.secretService = secretService;
+        this.secretAggregateService = secretAggregateService;
         this.executor = executor;
         this.contextManager = contextManager;
     }
@@ -128,7 +129,7 @@ public class WorkflowRunnerService {
             log.warn("Error running workflow with ID: {}", workflowId, e);
             workflowRunService.handleWorkflowError(workflowRunId, e);
 
-            Object callbackUrlObj = context.get(ExecutionContextKey.CALLBACK_URL);
+            Object callbackUrlObj = context.get(ExecutionContextKey.CALLBACK_URL.key());
             if (callbackUrlObj instanceof String callbackUrl && !callbackUrl.isEmpty()) {
                 notifyCallbackUrl(callbackUrl, workflowRunId);
             }
@@ -148,17 +149,44 @@ public class WorkflowRunnerService {
         if (workflowRun.getContext() == null || workflowRun.getContext().isEmpty()) {
             // First run: ensure the run is started and create a new context
             log.debug("No existing context found for workflow run ID: {}. Starting new run.", workflowRunId);
-            Map<String, String> secretOfWorkflow = secretService.getSecretMapByWorkflowId(workflowId);
-            Map<String, Map<String, String>> profileSecrets = secretService.getProfileSecretMapByWorkflowId(workflowId);
-            Map<String, Object> initialContext = new ConcurrentHashMap<>(
-                    Map.of(
-                            "secrets", secretOfWorkflow,
-                            "profiles", profileSecrets
-                    )
-            );
+            AggregatedSecretSetupDto agg = secretAggregateService.getAggregatedSecretsProfilesAndNodeIndex(workflowId);
+
+            // Build per-node profile view expected by ExecutionContext.getProfileSecret
+            Map<String, Object> profilesByNodeKey = agg.nodeProfiles().entrySet().stream()
+                    .collect(Collectors.toMap(
+                            Map.Entry::getKey,
+                            e -> {
+                                String profileId = e.getValue();
+                                Map<String, String> secrets = agg.profiles().getOrDefault(profileId, Map.of());
+                                return new ConcurrentHashMap<>(Map.of(
+                                        "secrets", secrets,
+                                        "profileId", profileId,
+                                        "profileName", agg.profileNames().getOrDefault(profileId, null)
+                                ));
+                            }
+                    ));
+
+            // Build per-node secrets view expected by ExecutionContext.getSecret
+            Map<String, Object> secretsByNodeKey = agg.nodeSecrets().entrySet().stream()
+                    .collect(Collectors.toMap(
+                            Map.Entry::getKey,
+                            e -> {
+                                Map<String, String> nodeSecretMap = e.getValue().stream()
+                                        .collect(Collectors.toMap(
+                                                sid -> agg.secretKeys().getOrDefault(sid, sid),
+                                                sid -> agg.secrets().get(sid),
+                                                (a, b) -> b
+                                        ));
+                                return new ConcurrentHashMap<>(nodeSecretMap);
+                            }
+                    ));
+
+            Map<String, Object> initialContext = new ConcurrentHashMap<>();
+            initialContext.put(ExecutionContextKey.SECRET_KEY.key(), secretsByNodeKey);
+            initialContext.put(ExecutionContextKey.PROFILE_KEY.key(), profilesByNodeKey);
 
             if (request != null && request.callbackUrl() != null && !request.callbackUrl().isEmpty()) {
-                initialContext.put(ExecutionContextKey.CALLBACK_URL, request.callbackUrl());
+                initialContext.put(ExecutionContextKey.CALLBACK_URL.key(), request.callbackUrl());
             }
 
             if (request != null && request.payload() != null && startNodeKey != null) {
@@ -185,7 +213,7 @@ public class WorkflowRunnerService {
             workflowRunService.completeWorkflowRun(workflowRunId);
             log.debug("Workflow with ID: {} completed successfully", workflowId);
 
-            Object callbackUrlObj = context.get(ExecutionContextKey.CALLBACK_URL);
+            Object callbackUrlObj = context.get(ExecutionContextKey.CALLBACK_URL.key());
             if (callbackUrlObj instanceof String callbackUrl && !callbackUrl.isEmpty()) {
                 notifyCallbackUrl(callbackUrl, workflowRunId);
             }

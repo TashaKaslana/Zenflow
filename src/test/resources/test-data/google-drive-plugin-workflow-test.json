@@ -1,0 +1,134 @@
+{
+  "upsert": {
+    "nodes": [
+      {
+        "key": "start",
+        "type": "TRIGGER",
+        "pluginNode": {
+          "pluginKey": "core",
+          "nodeKey": "webhook.trigger",
+          "version": "1.0.0",
+          "executorType": "builtin"
+        },
+        "next": [
+          "gd-upload"
+        ],
+        "config": {
+          "input": {
+            "payload": {
+              "profile": "google-oauth",
+              "file_name": "zenflow-test.txt",
+              "mime_type": "text/plain",
+              "initial_content_b64": "SGVsbG8gWmVuZmxvdyE=",
+              "update_content_b64": "VXBkYXRlZCBaZW5mbG93IQ=="
+            }
+          },
+          "output": null,
+          "entrypoint": null,
+          "profile": {
+            "google-oauth": {
+              "type": "OAUTH2",
+              "credentials": {
+                "clientId": "your-client-id",
+                "CLIENT_SECRET": "your-client-secret",
+                "REFRESH_TOKEN": "your-access-token"
+              }
+            }
+          }
+        }
+      },
+      {
+        "key": "gd-upload",
+        "type": "PLUGIN",
+        "next": [
+          "gd-update"
+        ],
+        "config": {
+          "input": {
+            "profile": "{{start.output.payload.profile}}",
+            "name": "{{start.output.payload.file_name}}",
+            "mimeType": "{{start.output.payload.mime_type}}",
+            "data": "{{start.output.payload.initial_content_b64}}"
+          },
+          "output": null,
+          "entrypoint": null
+        },
+        "pluginNode": {
+          "pluginKey": "google-drive",
+          "nodeKey": "files.upload",
+          "version": "1.0.0",
+          "executorType": "builtin"
+        }
+      },
+      {
+        "key": "gd-update",
+        "type": "PLUGIN",
+        "next": [
+          "gd-get-metadata"
+        ],
+        "config": {
+          "input": {
+            "profile": "{{start.output.payload.profile}}",
+            "fileId": "{{gd-upload.output.file.id}}",
+            "name": "{{start.output.payload.file_name}}",
+            "mimeType": "{{start.output.payload.mime_type}}",
+            "contentBase64": "{{start.output.payload.update_content_b64}}"
+          },
+          "output": null,
+          "entrypoint": null
+        },
+        "pluginNode": {
+          "pluginKey": "google-drive",
+          "nodeKey": "files.update",
+          "version": "1.0.0",
+          "executorType": "builtin"
+        }
+      },
+      {
+        "key": "gd-get-metadata",
+        "type": "PLUGIN",
+        "next": [
+          "gd-delete"
+        ],
+        "config": {
+          "input": {
+            "profile": "{{start.output.payload.profile}}",
+            "fileId": "{{gd-upload.output.file.id}}"
+          },
+          "output": null,
+          "entrypoint": null
+        },
+        "pluginNode": {
+          "pluginKey": "google-drive",
+          "nodeKey": "files.getMetadata",
+          "version": "1.0.0",
+          "executorType": "builtin"
+        }
+      },
+      {
+        "key": "gd-delete",
+        "type": "PLUGIN",
+        "next": [],
+        "config": {
+          "input": {
+            "profile": "{{start.output.payload.profile}}",
+            "fileId": "{{gd-upload.output.file.id}}"
+          },
+          "output": null,
+          "entrypoint": null
+        },
+        "pluginNode": {
+          "pluginKey": "google-drive",
+          "nodeKey": "files.delete",
+          "version": "1.0.0",
+          "executorType": "builtin"
+        }
+      }
+    ],
+    "metadata": {
+      "aliases": {}
+    }
+  },
+  "remove": []
+}
+

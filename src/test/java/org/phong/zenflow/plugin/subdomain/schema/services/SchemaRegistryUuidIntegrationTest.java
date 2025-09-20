@@ -7,8 +7,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.phong.zenflow.plugin.services.PluginService;
 import org.phong.zenflow.plugin.subdomain.node.interfaces.PluginNodeSchemaProvider;
 import org.phong.zenflow.plugin.subdomain.schema.exception.NodeSchemaMissingException;
+import org.phong.zenflow.plugin.subdomain.schema.registry.SchemaIndexRegistry;
+import org.phong.zenflow.plugin.subdomain.schema.services.test.TestSchemaResource;
 
 import java.util.*;
 
@@ -23,7 +26,13 @@ class SchemaRegistryUuidIntegrationTest {
     @Mock
     private PluginNodeSchemaProvider pluginProvider;
 
+    @Mock
+    private PluginService pluginService;
+
     private SchemaRegistry schemaRegistry;
+
+    @Mock
+    private SchemaIndexRegistry schemaIndexRegistry;
 
     private final String testNodeId1 = "123e4567-e89b-12d3-a456-426614174001";
     private final String testNodeId2 = "123e4567-e89b-12d3-a456-426614174002";
@@ -31,48 +40,18 @@ class SchemaRegistryUuidIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        schemaRegistry = new SchemaRegistry(pluginProvider, 3600, true);
+        schemaRegistry = new SchemaRegistry(pluginProvider, pluginService, schemaIndexRegistry, 3600, true);
+
+        // Mock schema index registry for UUID-based lookups
+        lenient().when(schemaIndexRegistry.hasSchemaLocation(anyString())).thenReturn(true);
+        lenient().when(schemaIndexRegistry.getSchemaLocation(anyString()))
+                .thenReturn(new SchemaIndexRegistry.SchemaLocation(TestSchemaResource.class, "schema.json"));
 
         // Mock schema responses
         Map<String, Object> emailSchema = createMockSchema("email", "send");
-        Map<String, Object> slackSchema = createMockSchema("slack", "message");
 
         // Use lenient stubbing since not all tests use all mock methods
-        lenient().when(pluginProvider.getSchemaJsonFromFile(testNodeId1)).thenReturn(emailSchema);
-        lenient().when(pluginProvider.getSchemaJsonFromFile(testNodeId2)).thenReturn(slackSchema);
-        lenient().when(pluginProvider.getSchemaJson(testNodeId1)).thenReturn(emailSchema);
-        lenient().when(pluginProvider.getSchemaJson(testNodeId2)).thenReturn(slackSchema);
-        lenient().when(pluginProvider.getSchemaJsonFromFile(compositeKey1)).thenReturn(emailSchema);
-
-        lenient().when(pluginProvider.getAllSchemasByIdentifiersFromFile(anySet())).thenAnswer(invocation -> {
-            Set<String> ids = invocation.getArgument(0);
-            Map<String, Map<String, Object>> result = new HashMap<>();
-            for (String id : ids) {
-                if (testNodeId1.equals(id)) {
-                    result.put(id, emailSchema);
-                } else if (testNodeId2.equals(id)) {
-                    result.put(id, slackSchema);
-                } else if (compositeKey1.equals(id)) {
-                    result.put(id, emailSchema);
-                }
-            }
-            return result;
-        });
-
-        lenient().when(pluginProvider.getAllSchemasByIdentifiers(anySet())).thenAnswer(invocation -> {
-            Set<String> ids = invocation.getArgument(0);
-            Map<String, Map<String, Object>> result = new HashMap<>();
-            for (String id : ids) {
-                if (testNodeId1.equals(id)) {
-                    result.put(id, emailSchema);
-                } else if (testNodeId2.equals(id)) {
-                    result.put(id, slackSchema);
-                } else if (compositeKey1.equals(id)) {
-                    result.put(id, emailSchema);
-                }
-            }
-            return result;
-        });
+        lenient().when(pluginProvider.getSchemaJson(anyString())).thenReturn(emailSchema); // Broad stubbing for database calls
     }
 
     @Test
@@ -81,27 +60,27 @@ class SchemaRegistryUuidIntegrationTest {
         // Act
         JSONObject schema = schemaRegistry.getSchemaByTemplateString(testNodeId1);
 
+        // Debugging: Print the schema to see its content
+        System.out.println("Schema returned: " + schema.toString());
+
         // Assert
         assertNotNull(schema, "Schema should not be null");
         assertEquals("object", schema.getString("type"), "Schema type should be object");
         assertTrue(schema.has("properties"), "Schema should have properties");
 
+        // Assert against the schema from TestSchemaResource.class
         JSONObject properties = schema.getJSONObject("properties");
-        assertEquals("email", properties.getJSONObject("pluginType").getString("default"));
-        assertEquals("send", properties.getJSONObject("nodeType").getString("default"));
+        assertTrue(properties.has("testProperty"), "Schema should have testProperty");
+        assertEquals("string", properties.getJSONObject("testProperty").getString("type"));
 
-        // Verify UUID was used for file-based loading (due to useFileBasedLoading = true)
-        verify(pluginProvider).getSchemaJsonFromFile(testNodeId1);
+        // Verify that pluginProvider was NOT called for file-based loading
+        verify(pluginProvider, never()).getSchemaJsonFromFile(testNodeId1);
         verify(pluginProvider, never()).getSchemaJson(testNodeId1);
     }
 
     @Test
     @DisplayName("Should retrieve schema by composite key template string as fallback")
     void shouldRetrieveSchemaByCompositeKeyTemplateString() {
-        // Mock composite key fallback
-        Map<String, Object> compositeSchema = createMockSchema("composite", "fallback");
-        when(pluginProvider.getSchemaJsonFromFile(compositeKey1)).thenReturn(compositeSchema);
-
         // Act
         JSONObject schema = schemaRegistry.getSchemaByTemplateString(compositeKey1);
 
@@ -110,8 +89,14 @@ class SchemaRegistryUuidIntegrationTest {
         assertEquals("object", schema.getString("type"), "Schema type should be object");
         assertTrue(schema.has("properties"), "Schema should have properties");
 
-        // Verify composite key was used
-        verify(pluginProvider).getSchemaJsonFromFile(compositeKey1);
+        // Assert against the schema from TestSchemaResource.class
+        JSONObject properties = schema.getJSONObject("properties");
+        assertTrue(properties.has("testProperty"), "Schema should have testProperty");
+        assertEquals("string", properties.getJSONObject("testProperty").getString("type"));
+
+        // Verify that pluginProvider was NOT called
+        verify(pluginProvider, never()).getSchemaJsonFromFile(compositeKey1);
+        verify(pluginProvider, never()).getSchemaJson(compositeKey1);
     }
 
     @Test
@@ -134,14 +119,18 @@ class SchemaRegistryUuidIntegrationTest {
         assertTrue(schemas.containsKey(testNodeId2), "Should contain UUID schema 2");
         assertTrue(schemas.containsKey(compositeKey1), "Should contain composite key schema");
 
-        // Verify all schemas are valid
+        // Verify all schemas are valid and assert against the schema from TestSchemaResource.class
         schemas.values().forEach(schema -> {
             assertNotNull(schema, "Each schema should not be null");
             assertEquals("object", schema.getString("type"), "Each schema type should be object");
+            JSONObject properties = schema.getJSONObject("properties");
+            assertTrue(properties.has("testProperty"), "Schema should have testProperty");
+            assertEquals("string", properties.getJSONObject("testProperty").getString("type"));
         });
 
-        // Verify batch loading was used for UUID schemas
-        verify(pluginProvider).getAllSchemasByIdentifiersFromFile(Set.of(testNodeId1, testNodeId2, compositeKey1));
+        // Verify that pluginProvider was NOT called
+        verify(pluginProvider, never()).getAllSchemasByIdentifiersFromFile(anySet());
+        verify(pluginProvider, never()).getAllSchemasByIdentifiers(anySet());
     }
 
     @Test
@@ -158,8 +147,9 @@ class SchemaRegistryUuidIntegrationTest {
         assertNotNull(schema2, "Second schema retrieval should succeed");
         assertEquals(schema1.getString("type"), schema2.getString("type"), "Cached schema should match original");
 
-        // Verify provider was called only once due to caching
-        verify(pluginProvider, times(1)).getSchemaJsonFromFile(testNodeId1);
+        // Verify that pluginProvider was NOT called
+        verify(pluginProvider, never()).getSchemaJsonFromFile(testNodeId1);
+        verify(pluginProvider, never()).getSchemaJson(testNodeId1);
 
         // Test cache invalidation
         schemaRegistry.invalidateByTemplateString(testNodeId1);
@@ -169,15 +159,16 @@ class SchemaRegistryUuidIntegrationTest {
 
         assertNotNull(schema3, "Schema retrieval after cache invalidation should succeed");
 
-        // Verify provider was called again after cache invalidation
-        verify(pluginProvider, times(2)).getSchemaJsonFromFile(testNodeId1);
+        // Verify that pluginProvider was NOT called again after cache invalidation
+        verify(pluginProvider, never()).getSchemaJsonFromFile(testNodeId1);
+        verify(pluginProvider, never()).getSchemaJson(testNodeId1);
     }
 
     @Test
     @DisplayName("Should handle database fallback when file-based loading is disabled")
     void shouldHandleDatabaseFallbackWhenFileBasedLoadingDisabled() {
         // Arrange - Create registry with file-based loading disabled
-        SchemaRegistry dbRegistry = new SchemaRegistry(pluginProvider, 3600, false);
+        SchemaRegistry dbRegistry = new SchemaRegistry(pluginProvider, pluginService, schemaIndexRegistry, 3600, false);
 
         // Act
         JSONObject schema = dbRegistry.getSchemaByTemplateString(testNodeId1);
@@ -195,13 +186,23 @@ class SchemaRegistryUuidIntegrationTest {
     @DisplayName("Should throw exception when schema not found for UUID")
     void shouldThrowExceptionWhenSchemaNotFoundForUuid() {
         // Arrange
-        String nonExistentUuid = "999e9999-e99b-99d9-a999-999999999999";
-        when(pluginProvider.getSchemaJsonFromFile(nonExistentUuid)).thenReturn(Map.of());
+        String nonExistentUuid = "999e9999-e99b-92d3-a456-426614174001";
+
+        // Mock schemaIndexRegistry to return a non-existent location
+        lenient().when(schemaIndexRegistry.hasSchemaLocation(nonExistentUuid)).thenReturn(true);
+        lenient().when(schemaIndexRegistry.getSchemaLocation(nonExistentUuid))
+                .thenReturn(new SchemaIndexRegistry.SchemaLocation(TestSchemaResource.class, "non_existent_schema.json")); // Non-existent path
+
+        // Crucial: Make pluginProvider.getSchemaJson return an empty map for the non-existent UUID
+        lenient().when(pluginProvider.getSchemaJson(nonExistentUuid)).thenReturn(Map.of());
 
         // Act & Assert
         assertThrows(NodeSchemaMissingException.class, () -> schemaRegistry.getSchemaByTemplateString(nonExistentUuid), "Should throw NodeSchemaMissingException for non-existent UUID");
 
-        verify(pluginProvider).getSchemaJsonFromFile(nonExistentUuid);
+        // Verify that pluginProvider was NOT called for file-based loading
+        verify(pluginProvider, never()).getSchemaJsonFromFile(nonExistentUuid);
+        // Verify that pluginProvider.getSchemaJson was called
+        verify(pluginProvider).getSchemaJson(nonExistentUuid);
     }
 
     @Test
@@ -223,7 +224,7 @@ class SchemaRegistryUuidIntegrationTest {
 
         // Verify both methods were called with UUID
         verify(pluginProvider).getSchemaJson(testNodeId1);
-        verify(pluginProvider, atLeast(1)).getSchemaJsonFromFile(testNodeId1);
+        verify(pluginProvider, never()).getSchemaJsonFromFile(testNodeId1);
     }
 
     // Helper method

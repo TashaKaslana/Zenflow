@@ -2,9 +2,12 @@ package org.phong.zenflow.secret.service;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
+import org.phong.zenflow.core.services.AuthService;
 import org.phong.zenflow.log.auditlog.annotations.AuditLog;
 import org.phong.zenflow.log.auditlog.enums.AuditAction;
 import org.phong.zenflow.project.service.ProjectService;
+import org.phong.zenflow.secret.dto.CreateSecretBatchRequest;
 import org.phong.zenflow.secret.dto.CreateSecretRequest;
 import org.phong.zenflow.secret.dto.SecretDto;
 import org.phong.zenflow.secret.dto.UpdateSecretRequest;
@@ -15,7 +18,7 @@ import org.phong.zenflow.secret.infrastructure.persistence.entity.Secret;
 import org.phong.zenflow.secret.infrastructure.persistence.repository.SecretRepository;
 import org.phong.zenflow.secret.util.AESUtil;
 import org.phong.zenflow.user.service.UserService;
-import org.phong.zenflow.workflow.service.WorkflowService;
+import org.phong.zenflow.workflow.infrastructure.persistence.repository.WorkflowRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -36,8 +39,9 @@ public class SecretService {
     private final SecretMapper secretMapper;
     private final AESUtil aesUtil;
     private final UserService userService;
-    private final WorkflowService workflowService;
+    private final WorkflowRepository workflowRepository;
     private final ProjectService projectService;
+    private final AuthService authService;
 
     @Transactional(readOnly = true)
     public List<SecretDto> getAllSecrets() {
@@ -70,14 +74,9 @@ public class SecretService {
             targetIdExpression = "#result.id"
     )
     public SecretDto createSecret(CreateSecretRequest request) {
-        log.info("Creating new secret with groupName: {} and key: {}", request.groupName(), request.key());
+        log.info("Creating new secret with key: {}", request.key());
         try {
-            Secret secret = secretMapper.toEntity(request);
-
-            secret.setUser(userService.getReferenceById(request.userId()));
-            secret.setProject(request.projectId() != null ? projectService.getReferenceById(request.projectId()) : null);
-            secret.setWorkflow(request.workflowId() != null ? workflowService.getReferenceById(request.workflowId()) : null);
-            secret.setEncryptedValue(aesUtil.encrypt(request.value()));
+            Secret secret = getSecretFromRequest(request);
 
             Secret savedSecret = secretRepository.save(secret);
             return mapToDto(savedSecret);
@@ -85,6 +84,40 @@ public class SecretService {
             log.error("Failed to create secret: {}", e.getMessage(), e);
             throw new SecretDomainException("Failed to create secret", e);
         }
+    }
+
+    @AuditLog(
+            action = AuditAction.SECRET_CREATE,
+            targetIdExpression = "#result.id",
+            description = "Create batch of secrets"
+    )
+    public List<SecretDto> createSecretsBatch(CreateSecretBatchRequest request) {
+        log.info("Creating batch of secrets, count: {}", request.secrets().size());
+        try {
+            List<Secret> secrets = request.secrets().stream()
+                    .map(this::getSecretFromRequest)
+                    .collect(Collectors.toList());
+
+            List<Secret> savedSecrets = secretRepository.saveAll(secrets);
+            return savedSecrets.stream().map(this::mapToDto).collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("Failed to create secrets batch: {}", e.getMessage(), e);
+            throw new SecretDomainException("Failed to create secrets batch", e);
+        }
+    }
+
+    @NotNull
+    private Secret getSecretFromRequest(CreateSecretRequest req) {
+        Secret secret = secretMapper.toEntity(req);
+        secret.setUser(userService.getReferenceById(authService.getUserIdFromContext()));
+        secret.setProject(req.projectId() != null ? projectService.getReferenceById(req.projectId()) : null);
+        secret.setWorkflow(req.workflowId() != null ? workflowRepository.getReferenceById(req.workflowId()) : null);
+        try {
+            secret.setEncryptedValue(aesUtil.encrypt(req.value()));
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        return secret;
     }
 
     @AuditLog(
@@ -183,46 +216,6 @@ public class SecretService {
                 .collect(Collectors.toList());
     }
 
-    public Map<String, String> getSecretMapByWorkflowId(UUID workflowId) {
-        return secretRepository.findByWorkflowId(workflowId)
-                .stream()
-                .collect(Collectors.toMap(
-                        secret -> secret.getGroupName() + "." + secret.getKey(),
-                        secret -> {
-                            try {
-                                return aesUtil.decrypt(secret.getEncryptedValue());
-                            } catch (Exception e) {
-                                throw new SecretDomainException("Can't encrypted value for workflowId: " + workflowId, e);
-                            }
-                        }
-                ));
-    }
-
-    /**
-     * Retrieves all secrets for a workflow grouped by their profile name.
-     *
-     * @param workflowId the workflow identifier
-     * @return map keyed by profile name, each containing a map of secret key to decrypted value
-     */
-    public Map<String, Map<String, String>> getProfileSecretMapByWorkflowId(UUID workflowId) {
-        return secretRepository.findByWorkflowId(workflowId)
-                .stream()
-                .collect(Collectors.groupingBy(
-                        Secret::getGroupName,
-                        Collectors.toMap(
-                                Secret::getKey,
-                                secret -> {
-                                    try {
-                                        return aesUtil.decrypt(secret.getEncryptedValue());
-                                    } catch (Exception e) {
-                                        throw new SecretDomainException("Can't encrypted value for workflowId: " + workflowId, e);
-                                    }
-                                },
-                                (existing, replacement) -> replacement
-                        )
-                ));
-    }
-
     private SecretDto mapToDto(Secret secret) {
         try {
             SecretDto dto = secretMapper.toDto(secret);
@@ -234,5 +227,38 @@ public class SecretService {
             log.error("Failed to decrypt secret value for id {}: {}", secret.getId(), e.getMessage(), e);
             throw new SecretDomainException("Failed to decrypt secret value", e);
         }
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, List<UUID>> getSecretIdsByKey(UUID workflowId) {
+        return secretRepository.findByWorkflowId(workflowId)
+                .stream()
+                .collect(Collectors.groupingBy(
+                        Secret::getKey,
+                        Collectors.mapping(Secret::getId, Collectors.toList())
+                ));
+    }
+
+    @Transactional(readOnly = true)
+    public List<UUID> resolveSecretIds(UUID workflowId, String key) {
+        Map<String, List<UUID>> map = getSecretIdsByKey(workflowId);
+        return map.getOrDefault(key, List.of());
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, String> getSecretsKeyMapByWorkflowId(UUID workflowId) {
+        return secretRepository.findByWorkflowId(workflowId)
+                .stream()
+                .collect(Collectors.toMap(
+                        Secret::getKey,
+                        s -> {
+                            try {
+                                return aesUtil.decrypt(s.getEncryptedValue());
+                            } catch (Exception e) {
+                                throw new SecretDomainException("Can't decrypt value for workflowId: " + workflowId, e);
+                            }
+                        },
+                        (existing, replacement) -> replacement
+                ));
     }
 }

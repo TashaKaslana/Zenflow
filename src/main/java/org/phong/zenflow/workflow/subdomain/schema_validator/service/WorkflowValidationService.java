@@ -8,11 +8,13 @@ import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.OutputUsage;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
 import org.phong.zenflow.workflow.subdomain.schema_validator.enums.ValidationErrorCode;
+import org.phong.zenflow.workflow.subdomain.schema_validator.service.schema.SchemaTemplateValidationService;
+import org.phong.zenflow.workflow.subdomain.schema_validator.service.schema.SchemaValidationService;
 import org.springframework.stereotype.Service;
 import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 
@@ -20,6 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 /**
@@ -41,6 +44,7 @@ public class WorkflowValidationService {
     private final SchemaTemplateValidationService schemaTemplateValidationService;
     private final PluginNodeExecutorRegistry executorRegistry;
     private final TemplateService templateService;
+    private final WorkflowExistenceValidation workflowExistenceValidation;
 
     /**
      * Phase 1: Validates a workflow definition against schema requirements.
@@ -61,13 +65,23 @@ public class WorkflowValidationService {
         errors.addAll(validateNodeConfigurations(workflow));
 
         // Validate node references
-        errors.addAll(validateNodeReferences(workflow));
+        errors.addAll(workflowExistenceValidation.validateExistence(workflow));
 
         errors.addAll(workflowDependencyValidator.validateNodeDependencyLoops(workflow));
 
         errors.addAll(validateAliasKeys(workflow));
 
         return new ValidationResult("definition", errors);
+    }
+
+    /**
+     * Definition-time validation with reference existence checks against a workflow ID.
+     */
+    public ValidationResult validateDefinition(UUID workflowId, WorkflowDefinition workflow) {
+        ValidationResult base = validateDefinition(workflow);
+        List<ValidationError> extra = workflowExistenceValidation.validateSecretAndProfileExistence(workflowId, workflow);
+        base.addAllErrors(extra);
+        return base;
     }
 
     private List<ValidationError> validateAliasKeys(WorkflowDefinition workflow) {
@@ -236,63 +250,6 @@ public class WorkflowValidationService {
                         node.getKey(), node.getConfig(), node.getKey() + ".config.input"
                 )
         );
-    }
-
-    /**
-     * Validates that node references within the workflow point to existing nodes.
-     * Checks both template references and explicit 'next' references.
-     *
-     * @param workflow The workflow definition to check for valid node references
-     * @return List of validation errors for invalid node references
-     */
-    private List<ValidationError> validateNodeReferences(WorkflowDefinition workflow) {
-        List<ValidationError> errors = new ArrayList<>();
-
-        Set<String> nodeKeys = workflow.nodes().keys();
-        Map<String, String> aliases = workflow.metadata().aliases();
-
-        workflow.nodes().forEach((k, node) -> errors.addAll(validateNodeExistence(node, nodeKeys, aliases)));
-
-        return errors;
-    }
-
-    /**
-     * Validates that the node's configuration does not reference non-existent nodes.
-     * Checks both template references and explicit 'next' references.
-     *
-     * @param node     The workflow node to validate
-     * @param nodeKeys Set of all existing node keys in the workflow
-     * @param aliases  Map of aliases defined in the workflow metadata
-     * @return List of validation errors for missing node references
-     */
-    private List<ValidationError> validateNodeExistence(BaseWorkflowNode node, Set<String> nodeKeys,
-                                                        Map<String, String> aliases) {
-        List<ValidationError> errors = new ArrayList<>();
-
-        if (node.getConfig() != null) {
-            Set<String> templates = templateService.extractRefs(node.getConfig());
-
-            for (String template : templates) {
-                String referencedNode = templateService.getReferencedNode(template, aliases);
-
-                // Only validate existence - dependency direction is handled by WorkflowDependencyValidator
-                if (referencedNode != null && !nodeKeys.contains(referencedNode)) {
-                    errors.add(ValidationError.builder()
-                            .nodeKey(node.getKey())
-                            .errorType("definition")
-                            .errorCode(ValidationErrorCode.MISSING_NODE_REFERENCE)
-                            .path(node.getKey() + ".config")
-                            .message("Referenced node '" + referencedNode + "' does not exist in workflow")
-                            .template("{{" + template + "}}")
-                            .value(referencedNode)
-                            .expectedType("existing_node_key")
-                            .schemaPath("$.nodes[?(@.key=='" + node.getKey() + "')].config")
-                            .build());
-                }
-            }
-        }
-
-        return errors;
     }
 
     /**

@@ -16,43 +16,23 @@
           "description": "ID of the document to delete"
         }
       },
-      "required": ["profile", "documentId"],
+      "required": [
+        "profile",
+        "documentId"
+      ],
       "additionalProperties": false
     },
     "output": {
       "type": "object",
       "title": "Output Schema"
     },
-    "profiles": {
-      "type": "array",
-      "title": "Credential Profiles",
-      "description": "Secret groups with required Google OAuth keys",
-      "minItems": 1,
-      "items": {
-        "type": "object",
-        "title": "Profile Definition",
-        "properties": {
-          "name": {
-            "type": "string",
-            "description": "Profile name referencing a stored secret group"
-          },
-          "keys": {
-            "type": "object",
-            "description": "Required secret keys for this profile",
-            "properties": {
-              "CLIENT_ID": { "type": "string" },
-              "CLIENT_SECRET": { "type": "string" },
-              "REFRESH_TOKEN": { "type": "string" }
-            },
-            "required": ["CLIENT_ID", "CLIENT_SECRET", "REFRESH_TOKEN"],
-            "additionalProperties": false
-          }
-        },
-        "required": ["name", "keys"],
-        "additionalProperties": false
-      }
+    "profile": {
+      "$ref": "plugin:profile"
     }
   },
-  "required": ["input", "output", "profiles"],
+  "required": [
+    "input",
+    "output"
+  ],
   "additionalProperties": false
 }

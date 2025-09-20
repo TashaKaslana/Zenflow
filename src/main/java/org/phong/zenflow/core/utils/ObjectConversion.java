@@ -32,7 +32,9 @@ public final class ObjectConversion {
         return mapper.convertValue(obj, new TypeReference<>() {});
     }
 
-
+    public static ObjectMapper getObjectMapper() {
+        return mapper;
+    }
 
     public static <T> Map<String, T> convertObjectToMap(Object obj, Class<T> valueType) {
         JavaType mapType = mapper.getTypeFactory().constructMapType(Map.class, String.class, valueType);

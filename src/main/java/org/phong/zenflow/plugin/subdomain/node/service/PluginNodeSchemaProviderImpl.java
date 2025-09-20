@@ -2,13 +2,14 @@ package org.phong.zenflow.plugin.subdomain.node.service;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.phong.zenflow.core.utils.LoadSchemaHelper;
 import org.phong.zenflow.plugin.subdomain.node.exception.ValidateNodeSchemaException;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.entity.PluginNode;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.projections.PluginNodeSchema;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.repository.PluginNodeRepository;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.repository.PluginNodeSpecifications;
 import org.phong.zenflow.plugin.subdomain.node.interfaces.PluginNodeSchemaProvider;
-import org.phong.zenflow.plugin.subdomain.node.registry.PluginNodeSynchronizer;
+import org.phong.zenflow.plugin.subdomain.schema.registry.SchemaIndexRegistry;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
@@ -26,7 +27,7 @@ import java.util.stream.Collectors;
 public class PluginNodeSchemaProviderImpl implements PluginNodeSchemaProvider {
 
     private final PluginNodeRepository pluginNodeRepository;
-    private final PluginNodeSynchronizer synchronizer;
+    private final SchemaIndexRegistry schemaIndexRegistry;
 
     // Cache for file-based schemas to avoid repeated file I/O
     private final Map<String, Map<String, Object>> fileSchemaCache = new ConcurrentHashMap<>();
@@ -91,12 +92,12 @@ public class PluginNodeSchemaProviderImpl implements PluginNodeSchemaProvider {
     }
 
     private Map<String, Object> loadSchemaFromFile(String nodeId) {
-        PluginNodeSynchronizer.SchemaLocation location = synchronizer.getSchemaLocation(nodeId);
+        SchemaIndexRegistry.SchemaLocation location = schemaIndexRegistry.getSchemaLocation(nodeId);
         if (location == null) {
             throw new ValidateNodeSchemaException("Schema location not indexed for node ID: " + nodeId);
         }
 
-        return synchronizer.loadSchema(location.clazz(), location.schemaPath());
+        return LoadSchemaHelper.loadSchema(location.clazz(), location.schemaPath(), "schema.json");
     }
 
     /**
@@ -119,13 +120,13 @@ public class PluginNodeSchemaProviderImpl implements PluginNodeSchemaProvider {
      * Get schema index statistics for monitoring
      */
     public int getIndexedSchemaCount() {
-        return synchronizer.getSchemaIndexSize();
+        return schemaIndexRegistry.getSchemaIndexSize();
     }
 
     /**
      * Check if a schema is available via file-based loading
      */
     public boolean hasFileBasedSchema(String nodeId) {
-        return synchronizer.hasSchemaLocation(nodeId);
+        return schemaIndexRegistry.hasSchemaLocation(nodeId);
     }
 }

@@ -7,15 +7,18 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.phong.zenflow.core.utils.LoadSchemaHelper;
 import org.phong.zenflow.plugin.infrastructure.persistence.entity.Plugin;
 import org.phong.zenflow.plugin.infrastructure.persistence.repository.PluginRepository;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.repository.PluginNodeRepository;
+import org.phong.zenflow.plugin.subdomain.schema.registry.SchemaIndexRegistry;
 import org.phong.zenflow.workflow.subdomain.trigger.registry.TriggerRegistry;
 import org.springframework.context.ApplicationContext;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -24,10 +27,6 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 @DisplayName("PluginNodeSynchronizer - UUID Integration Tests")
 class PluginNodeSynchronizerUuidIntegrationTest {
-
-    @Mock
-    private PluginNodeRepository pluginNodeRepository;
-
     @Mock
     private PluginRepository pluginRepository;
 
@@ -46,7 +45,8 @@ class PluginNodeSynchronizerUuidIntegrationTest {
     @Mock
     private PluginNodeExecutor mockExecutor;
 
-    private PluginNodeSynchronizer synchronizer;
+    @Mock
+    private SchemaIndexRegistry schemaIndexRegistry;
 
     private UUID testNodeId1;
     private UUID testNodeId2;
@@ -54,15 +54,6 @@ class PluginNodeSynchronizerUuidIntegrationTest {
     @BeforeEach
     @SuppressWarnings("unchecked")
     void setUp() throws Exception {
-        synchronizer = new PluginNodeSynchronizer(
-                pluginNodeRepository,
-                pluginRepository,
-                objectMapper,
-                triggerRegistry,
-                registry,
-                applicationContext
-        );
-
         testNodeId1 = UUID.fromString("123e4567-e89b-12d3-a456-426614174001");
         testNodeId2 = UUID.fromString("123e4567-e89b-12d3-a456-426614174002");
 
@@ -75,6 +66,13 @@ class PluginNodeSynchronizerUuidIntegrationTest {
                 .thenReturn(createMockSchemaMap());
 
         lenient().when(applicationContext.getBean(any(Class.class))).thenReturn(mockExecutor);
+
+        // Mock SchemaIndexRegistry behavior
+        final ConcurrentHashMap<String, SchemaIndexRegistry.SchemaLocation> schemaIndex = new java.util.concurrent.ConcurrentHashMap<>();
+        lenient().when(schemaIndexRegistry.getSchemaIndex()).thenReturn(schemaIndex);
+        lenient().when(schemaIndexRegistry.getSchemaIndexSize()).thenAnswer(i -> schemaIndex.size());
+        lenient().when(schemaIndexRegistry.hasSchemaLocation(anyString())).thenAnswer(i -> schemaIndex.containsKey(i.getArgument(0)));
+        lenient().when(schemaIndexRegistry.getSchemaLocation(anyString())).thenAnswer(i -> schemaIndex.get(i.getArgument(0)));
     }
 
     @Test
@@ -85,14 +83,14 @@ class PluginNodeSynchronizerUuidIntegrationTest {
         simulateNodeSynchronization("test:validator:2.0.0", testNodeId2);
 
         // Assert
-        assertEquals(2, synchronizer.getSchemaIndexSize(), "Should have indexed 2 schemas");
+        assertEquals(2, schemaIndexRegistry.getSchemaIndexSize(), "Should have indexed 2 schemas");
 
-        assertTrue(synchronizer.hasSchemaLocation(testNodeId1.toString()),
+        assertTrue(schemaIndexRegistry.hasSchemaLocation(testNodeId1.toString()),
                 "Should have schema location for UUID 1");
-        assertTrue(synchronizer.hasSchemaLocation(testNodeId2.toString()),
+        assertTrue(schemaIndexRegistry.hasSchemaLocation(testNodeId2.toString()),
                 "Should have schema location for UUID 2");
 
-        PluginNodeSynchronizer.SchemaLocation location1 = synchronizer.getSchemaLocation(testNodeId1.toString());
+        SchemaIndexRegistry.SchemaLocation location1 = schemaIndexRegistry.getSchemaLocation(testNodeId1.toString());
         assertNotNull(location1, "Schema location should not be null");
         // Since we're using AtomicReference for placeholder, check that it's the expected class
         assertEquals(java.util.concurrent.atomic.AtomicReference.class, location1.clazz(), "Should reference correct class");
@@ -106,19 +104,19 @@ class PluginNodeSynchronizerUuidIntegrationTest {
     @DisplayName("Should handle schema loading from different path configurations")
     void shouldHandleSchemaLoadingFromDifferentPathConfigurations() {
         // Test default schema path
-        String defaultPath = synchronizer.extractPath(String.class, "");
+        String defaultPath = LoadSchemaHelper.extractPath(String.class, "");
         assertTrue(defaultPath.contains("schema.json"), "Default path should contain schema.json");
 
         // Test custom absolute path
-        String absolutePath = synchronizer.extractPath(String.class, "/custom/schema.json");
+        String absolutePath = LoadSchemaHelper.extractPath(String.class, "/custom/schema.json");
         assertTrue(absolutePath.contains("custom/schema.json"), "Should handle absolute paths");
 
         // Test relative path
-        String relativePath = synchronizer.extractPath(String.class, "./config/schema.json");
+        String relativePath = LoadSchemaHelper.extractPath(String.class, "./config/schema.json");
         assertTrue(relativePath.contains("config/schema.json"), "Should handle relative paths");
 
         // Test parent directory path
-        String parentPath = synchronizer.extractPath(String.class, "../shared/schema.json");
+        String parentPath = LoadSchemaHelper.extractPath(String.class, "../shared/schema.json");
         assertTrue(parentPath.contains("shared/schema.json"), "Should handle parent directory paths");
     }
 
@@ -132,7 +130,7 @@ class PluginNodeSynchronizerUuidIntegrationTest {
         verify(registry).register(eq(testNodeId1.toString()), any());
         verify(triggerRegistry).registerTrigger(eq(testNodeId1.toString()));
 
-        assertTrue(synchronizer.hasSchemaLocation(testNodeId1.toString()),
+        assertTrue(schemaIndexRegistry.hasSchemaLocation(testNodeId1.toString()),
                 "Trigger node should be indexed by UUID");
     }
 
@@ -162,11 +160,11 @@ class PluginNodeSynchronizerUuidIntegrationTest {
         thread2.join();
 
         // Assert
-        assertEquals(2, synchronizer.getSchemaIndexSize(),
+        assertEquals(2, schemaIndexRegistry.getSchemaIndexSize(),
                 "Should handle concurrent indexing correctly");
-        assertTrue(synchronizer.hasSchemaLocation(testNodeId1.toString()),
+        assertTrue(schemaIndexRegistry.hasSchemaLocation(testNodeId1.toString()),
                 "Should contain first concurrent node");
-        assertTrue(synchronizer.hasSchemaLocation(testNodeId2.toString()),
+        assertTrue(schemaIndexRegistry.hasSchemaLocation(testNodeId2.toString()),
                 "Should contain second concurrent node");
     }
 
@@ -175,19 +173,19 @@ class PluginNodeSynchronizerUuidIntegrationTest {
     void shouldMaintainSchemaIndexIntegrityDuringUpdates() {
         // Act - Initial synchronization
         simulateNodeSynchronization("update:test:1.0.0", testNodeId1);
-        assertEquals(1, synchronizer.getSchemaIndexSize(), "Should have initial entry");
+        assertEquals(1, schemaIndexRegistry.getSchemaIndexSize(), "Should have initial entry");
 
         // Act - Update synchronization (same UUID, different version)
         simulateNodeSynchronization("update:test:1.1.0", testNodeId1);
 
         // Assert
-        assertEquals(1, synchronizer.getSchemaIndexSize(),
+        assertEquals(1, schemaIndexRegistry.getSchemaIndexSize(),
                 "Should maintain same index size after update");
-        assertTrue(synchronizer.hasSchemaLocation(testNodeId1.toString()),
+        assertTrue(schemaIndexRegistry.hasSchemaLocation(testNodeId1.toString()),
                 "Should still contain the updated node");
 
-        PluginNodeSynchronizer.SchemaLocation location =
-                synchronizer.getSchemaLocation(testNodeId1.toString());
+        SchemaIndexRegistry.SchemaLocation location =
+                schemaIndexRegistry.getSchemaLocation(testNodeId1.toString());
         assertNotNull(location, "Schema location should be updated");
     }
 
@@ -212,9 +210,9 @@ class PluginNodeSynchronizerUuidIntegrationTest {
         Class<?> mockClass = createMockClassForNodeType(parts[1]);
 
         // Simulate the schema indexing
-        PluginNodeSynchronizer.SchemaLocation location =
-                new PluginNodeSynchronizer.SchemaLocation(mockClass, "");
-        synchronizer.getSchemaIndex().put(nodeId.toString(), location);
+        SchemaIndexRegistry.SchemaLocation location =
+                new SchemaIndexRegistry.SchemaLocation(mockClass, "");
+        schemaIndexRegistry.getSchemaIndex().put(nodeId.toString(), location);
 
         // Simulate the registry registration (this is what the real implementation does)
         registry.register(nodeId.toString(), () -> mockExecutor);

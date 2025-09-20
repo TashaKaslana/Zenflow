@@ -14,7 +14,7 @@ import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import java.util.UUID;
 
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
 import org.phong.zenflow.workflow.subdomain.schema_validator.service.WorkflowValidationService;
 import org.springframework.context.ApplicationEventPublisher;

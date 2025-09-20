@@ -26,4 +26,4 @@ Creates a copy of an existing file in Google Drive. You can optionally specify a
 - `webViewLink` (string): Link to view the file in Google Drive.
 
 ## Credentials
-Use the same credential profile structure as the List Files node.
+Use the plugin-level OAuth profile referenced by the `profile` input field. Configure this profile once with `CLIENT_ID`, `CLIENT_SECRET`, and `REFRESH_TOKEN`.

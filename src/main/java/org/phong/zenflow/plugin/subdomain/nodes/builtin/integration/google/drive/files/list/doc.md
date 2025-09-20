@@ -32,21 +32,10 @@ Uses OAuth2 credentials to access Google Drive and retrieve basic file informati
 ```
 
 ## Credentials
-Create a secret profile group (e.g., `my-google-drive-profile`) that includes the following keys:
+Configure a plugin-level OAuth profile (e.g., `my-google-drive-profile`) with the following keys:
 
-```json
-{
-  "profiles": [
-    {
-      "name": "my-google-drive-profile",
-      "keys": {
-        "CLIENT_ID": "<client id>",
-        "CLIENT_SECRET": "<client secret>",
-        "REFRESH_TOKEN": "<refresh token>"
-      }
-    }
-  ]
-}
-```
+- `CLIENT_ID`
+- `CLIENT_SECRET`
+- `REFRESH_TOKEN`
 
-The profile name is supplied via the `profile` input field and the system resolves these keys to their secret values before execution.
+Reference the profile name via the `profile` input field. The system retrieves these keys from the plugin-level profile before execution.

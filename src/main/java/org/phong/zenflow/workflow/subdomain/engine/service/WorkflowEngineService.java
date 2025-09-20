@@ -20,7 +20,7 @@ import org.phong.zenflow.workflow.subdomain.engine.exception.WorkflowEngineExcep
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowNodes;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_execution.service.NodeExecutionService;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
 import org.phong.zenflow.workflow.subdomain.schema_validator.service.WorkflowValidationService;
@@ -130,7 +130,7 @@ public class WorkflowEngineService {
                 workflowRunId,
                 workingNode,
                 result,
-                execCtx.read(ExecutionContextKey.CALLBACK_URL, String.class)
+                execCtx.read(ExecutionContextKey.CALLBACK_URL.key(), String.class)
         );
 
         if (result.getStatus() == ExecutionStatus.COMMIT) {

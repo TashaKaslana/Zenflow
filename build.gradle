@@ -2,6 +2,7 @@ plugins {
     id 'java'
     id 'org.springframework.boot' version '3.5.3'
     id 'io.spring.dependency-management' version '1.1.7'
+    id "org.flywaydb.flyway" version "10.10.0"
 }
 
 group = 'org.phong'
@@ -54,6 +55,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
     implementation 'org.flywaydb:flyway-core'
     implementation 'org.flywaydb:flyway-database-postgresql'
+    implementation 'org.postgresql:postgresql:42.7.3'
     implementation 'org.mapstruct:mapstruct:1.6.3'
     implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.19.1")
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.19.1")
@@ -65,6 +67,8 @@ dependencies {
     implementation 'com.googlecode.aviator:aviator:5.4.3'
     implementation 'org.springframework.boot:spring-boot-starter-mail'
     implementation "com.github.ben-manes.caffeine:caffeine:3.2.2"
+
+    implementation 'net.datafaker:datafaker:2.5.0'
 
     //integration
     implementation("net.dv8tion:JDA:5.6.1")

@@ -23,4 +23,4 @@ Updates metadata or content of an existing file in Google Drive. Use this node t
 - `file` (object): Updated file resource returned from the API.
 
 ## Credentials
-Use the same credential profile structure as the List Files node.
+Use the plugin-level OAuth profile referenced by the `profile` input field. Configure this profile once with `CLIENT_ID`, `CLIENT_SECRET`, and `REFRESH_TOKEN`.

@@ -9,33 +9,57 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.phong.zenflow.core.utils.ObjectConversion;
+import org.phong.zenflow.secret.exception.SecretDomainException;
 import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 
-@Getter
 @Builder
 public class ExecutionContext {
+    private final static String PROHIBITED_KEY_PREFIX = "__zenflow_";
+
+    @Getter
     private final UUID workflowId;
+
+    @Getter
     private final UUID workflowRunId;
+
+    @Getter
     private final String traceId;
+
+    @Getter
     private final UUID userId;
-    private final RuntimeContextManager contextManager;
+
+    @Getter
     private final NodeLogPublisher logPublisher;
-    private final TemplateService templateService;
+
+    @Getter
     private String nodeKey;
 
+    private final TemplateService templateService;
+    private final RuntimeContextManager contextManager;
+
     /**
-     * Read a value from the runtime context with template resolution and consumer cleanup.
+     * Reads a value from the runtime context with template resolution and type-safe casting.
      * <p>
-     * This should be preferred over {@link #get(String)} within executors as it resolves template
-     * expressions and performs type-safe casting.
+     * This method resolves template expressions if applicable and ensures the returned value matches the specified type.
+     *
+     * @param key   the key to retrieve the value from the runtime context
+     * @param clazz the expected class type of the value
+     * @return the value associated with the key, or null if not found
+     * @throws IllegalArgumentException if the key starts with a prohibited prefix
+     * @throws ClassCastException       if the value cannot be cast to the specified type
      */
     public <T> T read(String key, Class<T> clazz) {
-        RuntimeContext context = contextManager.getOrCreate(workflowRunId.toString());
-        if (context == null) {
-            return null;
+        // Allow internal reads for allowlisted reserved keys used by the engine
+        boolean isReserved = key.startsWith(PROHIBITED_KEY_PREFIX);
+        boolean isWhitelisted = ExecutionContextKey.CALLBACK_URL.matches(key);
+        if (isReserved && !isWhitelisted) {
+            throw new IllegalArgumentException("Access to reserved context keys is prohibited: " + key);
         }
+
+        RuntimeContext context = getContext();
+        if (context == null) return null;
 
         Object o;
         if (templateService != null && templateService.isTemplate(key)) {
@@ -54,15 +78,19 @@ public class ExecutionContext {
         }
     }
 
+    private RuntimeContext getContext() {
+        return contextManager.getOrCreate(workflowRunId.toString());
+    }
+
     public void write(String key, Object value) {
-        RuntimeContext context = contextManager.getOrCreate(workflowRunId.toString());
+        RuntimeContext context = getContext();
         if (context != null) {
             context.put(key, value);
         }
     }
 
     public void remove(String key) {
-        RuntimeContext context = contextManager.getOrCreate(workflowRunId.toString());
+        RuntimeContext context = getContext();
         if (context != null) {
             context.remove(key);
         }
@@ -85,22 +113,6 @@ public class ExecutionContext {
         return templateService != null ? templateService.getEvaluator() : null;
     }
 
-    /**
-     * Low-level access to the underlying runtime context for template evaluation.
-     * <p>
-     * Executors should use {@link #read(String, Class)} instead to ensure templates are resolved
-     * and values are type-checked. This method still performs consumer tracking using the
-     * currently set {@code nodeKey} and is primarily intended for internal usage by
-     * {@link org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService}.
-     */
-    public Object get(String key) {
-        RuntimeContext context = contextManager.getOrCreate(workflowRunId.toString());
-        if (context == null) {
-            return null;
-        }
-        return context.getAndClean(nodeKey, key);
-    }
-
     public WorkflowConfig resolveConfig(String nodeKey, WorkflowConfig config) {
         if (config == null || config.input() == null) {
             return config;
@@ -109,10 +121,15 @@ public class ExecutionContext {
         this.nodeKey = nodeKey;
         Map<String, Object> resolvedInput = resolveMap(config.input());
         this.nodeKey = previous;
-        return new WorkflowConfig(resolvedInput, config.output(), config.entrypoint());
+
+        return new WorkflowConfig(resolvedInput, config.output(), config.profile());
     }
 
     private Map<String, Object> resolveMap(Map<String, Object> map) {
+        if (map == null || map.isEmpty()) {
+            return map;
+        }
+
         return map.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> resolveValue(e.getValue())));
     }
@@ -128,6 +145,49 @@ public class ExecutionContext {
         } else if (value instanceof List<?> list) {
             return list.stream().map(this::resolveValue).toList();
         }
+
         return value;
+    }
+
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> getCurrentNodeEntrypoint() {
+        RuntimeContext context = getContext();
+        return (Map<String, Object>) context.get(ExecutionContextKey.ENTRYPOINT_LIST_KEY + nodeKey);
+    }
+
+    @SuppressWarnings("unchecked")
+    public Object getProfileSecret(String key) {
+        RuntimeContext context = getContext();
+        Map<String, Object> profiles = (Map<String, Object>) context.get(ExecutionContextKey.PROFILE_KEY.key());
+        Map<String, Object> nodeProfile = (Map<String, Object>) profiles.get(nodeKey);
+
+        if (nodeProfile == null) {
+            String nodeKey = this.nodeKey != null ? this.nodeKey : "unknown";
+            throw new SecretDomainException("No profiles found in context for node: " + nodeKey);
+        }
+
+        Map<String, Object> secrets = (Map<String, Object>) nodeProfile.get("secrets");
+        if (secrets != null) {
+            return secrets.get(key);
+        }
+
+        return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    public Object getSecret(String key) {
+        RuntimeContext context = getContext();
+        Map<String, Object> secretsList = (Map<String, Object>) context.get(ExecutionContextKey.SECRET_KEY.key());
+
+        if (secretsList == null) {
+            throw new SecretDomainException("No profiles found in context");
+        }
+
+        Map<String, Object> secrets = (Map<String, Object>) secretsList.get(nodeKey);
+        if (secrets != null) {
+            return secrets.get(key);
+        }
+
+        return null;
     }
 }

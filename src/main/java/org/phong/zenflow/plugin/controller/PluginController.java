@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -66,9 +67,21 @@ public class PluginController {
         return RestApiResponse.success("Plugins deleted successfully");
     }
 
-    @DeleteMapping("/all")
-    public ResponseEntity<RestApiResponse<Void>> deleteAllPlugins() {
-        pluginService.deleteAllPlugins();
-        return RestApiResponse.success("All plugins deleted successfully");
-    }
-}
+      @DeleteMapping("/all")
+      public ResponseEntity<RestApiResponse<Void>> deleteAllPlugins() {
+          pluginService.deleteAllPlugins();
+          return RestApiResponse.success("All plugins deleted successfully");
+      }
+
+      @GetMapping("/{key}/schema")
+      public ResponseEntity<RestApiResponse<Map<String, Object>>> getPluginSchema(@PathVariable String key) {
+          Map<String, Object> schema = pluginService.getPluginSchemaByKey(key);
+          return RestApiResponse.success(schema, "Plugin schema retrieved successfully");
+      }
+
+      @GetMapping("/{key}/profile-schema")
+      public ResponseEntity<RestApiResponse<Map<String, Object>>> getPluginProfileSchema(@PathVariable String key) {
+          Map<String, Object> schema = pluginService.getProfileSchemaById(key);
+          return RestApiResponse.success(schema, "Plugin profile schema retrieved successfully");
+      }
+  }

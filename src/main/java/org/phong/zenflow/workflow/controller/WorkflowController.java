@@ -5,9 +5,9 @@ import org.phong.zenflow.core.responses.RestApiResponse;
 import org.phong.zenflow.workflow.dto.CreateWorkflowRequest;
 import org.phong.zenflow.workflow.dto.UpdateWorkflowRequest;
 import org.phong.zenflow.workflow.dto.WorkflowDefinitionChangeRequest;
+import org.phong.zenflow.workflow.dto.UpdateWorkflowDefinitionResponse;
 import org.phong.zenflow.workflow.dto.WorkflowDto;
 import org.phong.zenflow.workflow.service.WorkflowService;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.dto.ExecuteWorkflowResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -18,6 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
+import org.phong.zenflow.workflow.dto.WorkflowDefinitionUpdateResult;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 
 @RestController
 @RequestMapping("/workflows")
@@ -25,7 +27,6 @@ import java.util.UUID;
 public class WorkflowController {
 
     private final WorkflowService workflowService;
-
     @PostMapping
     public ResponseEntity<RestApiResponse<WorkflowDto>> createWorkflow(@Valid @RequestBody CreateWorkflowRequest request) {
         WorkflowDto createdWorkflow = workflowService.createWorkflow(request);
@@ -120,11 +121,30 @@ public class WorkflowController {
 
     @PostMapping("/{id}/nodes")
     @Transactional
-    public ResponseEntity<RestApiResponse<WorkflowDefinition>> updateWorkflowDefinition(
+    public ResponseEntity<RestApiResponse<UpdateWorkflowDefinitionResponse>> updateWorkflowDefinition(
             @PathVariable UUID id,
-            @RequestBody WorkflowDefinitionChangeRequest request) {
-        WorkflowDefinition updatedDefinition = workflowService.updateWorkflowDefinition(id, request);
-        return RestApiResponse.success(updatedDefinition, "Workflow definition updated successfully");
+            @RequestBody WorkflowDefinitionChangeRequest request,
+            @RequestParam(name = "publish", defaultValue = "false") boolean publish) {
+        WorkflowDefinitionUpdateResult result = workflowService.updateWorkflowDefinition(id, request, publish);
+        UpdateWorkflowDefinitionResponse body = new UpdateWorkflowDefinitionResponse(
+                result.definition(),
+                result.isActive(),
+                result.validation(),
+                result.publishAttempt(),
+                result.validatedAt());
+        return RestApiResponse.success(body, "Workflow definition updated successfully");
+    }
+
+    @GetMapping("/{id}/validation")
+    public ResponseEntity<RestApiResponse<UpdateWorkflowDefinitionResponse>> getWorkflowValidation(@PathVariable UUID id) {
+        WorkflowDefinitionUpdateResult result = workflowService.getLatestValidation(id);
+        UpdateWorkflowDefinitionResponse body = new UpdateWorkflowDefinitionResponse(
+                result.definition(),
+                result.isActive(),
+                result.validation(),
+                result.publishAttempt(),
+                result.validatedAt());
+        return RestApiResponse.success(body, "Workflow validation retrieved successfully");
     }
 
     @PostMapping("/{id}/nodes/{nodeKey}/execute")
