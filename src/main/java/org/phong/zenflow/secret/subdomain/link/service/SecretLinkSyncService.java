@@ -4,6 +4,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.secret.service.SecretService;
 import org.phong.zenflow.secret.subdomain.link.dto.LinkProfileToNodeRequest;
+import org.phong.zenflow.workflow.infrastructure.persistence.repository.WorkflowRepository;
+import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
+import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
+import org.phong.zenflow.workflow.subdomain.schema_validator.enums.ValidationErrorCode;
+import java.time.OffsetDateTime;
 import org.phong.zenflow.secret.subdomain.link.dto.SecretNodeLinkInsertRequestDto;
 import org.phong.zenflow.secret.subdomain.link.infrastructure.projection.SecretNodeLinkInfo;
 import org.phong.zenflow.secret.subdomain.link.infrastructure.projection.SecretProfileNodeLinkInfo;
@@ -27,6 +32,7 @@ public class SecretLinkSyncService {
     private final SecretService secretService;
     private final SecretLinkService secretLinkService;
     private final ProfileSecretService profileSecretService;
+    private final WorkflowRepository workflowRepository;
 
     public void syncLinksFromMetadata(UUID workflowId, WorkflowDefinition definition) {
         if (definition == null || definition.metadata() == null) return;
@@ -142,7 +148,11 @@ public class SecretLinkSyncService {
     private void syncProfilesFromMetadata(UUID workflowId, WorkflowDefinition definition) {
         if (definition.metadata().profiles() == null) return;
 
-        Map<String, UUID> desiredProfileByNode = getDesiredProfileIdsForNodes(workflowId, definition);
+        ProfileResolutionResult resolution = getDesiredProfileIdsForNodes(workflowId, definition);
+        Map<String, UUID> desiredProfileByNode = resolution.desiredProfiles();
+        if (!resolution.missingAssignments().isEmpty()) {
+            markWorkflowProfilesMissing(workflowId, resolution.missingAssignments());
+        }
         List<SecretProfileNodeLinkInfo> existingLinks = secretLinkService.getProfileLinksByWorkflowId(workflowId);
 
         if (desiredProfileByNode.isEmpty()) {
@@ -209,24 +219,65 @@ public class SecretLinkSyncService {
         });
     }
 
-    private Map<String, UUID> getDesiredProfileIdsForNodes(UUID workflowId, WorkflowDefinition definition) {
+    private ProfileResolutionResult getDesiredProfileIdsForNodes(UUID workflowId, WorkflowDefinition definition) {
         Map<String, List<String>> profiles = definition.metadata().profiles();
 
-        // nodeKey -> desired profileId
         Map<String, UUID> desiredProfileByNode = new HashMap<>();
+        List<MissingProfileAssignment> missingAssignments = new ArrayList<>();
+
         profiles.forEach((profileName, nodes) -> {
-            if (nodes == null) return;
+            if (nodes == null) {
+                return;
+            }
             for (String nk : nodes) {
                 var node = definition.nodes().get(nk);
-                if (node == null || node.getPluginNode() == null) continue;
+                if (node == null || node.getPluginNode() == null) {
+                    missingAssignments.add(new MissingProfileAssignment(nk, profileName, null));
+                    continue;
+                }
                 String pluginKey = node.getPluginNode().getPluginKey();
                 UUID pid = profileSecretService.resolveProfileId(workflowId, pluginKey, profileName);
                 if (pid != null) {
                     desiredProfileByNode.put(nk, pid);
+                } else {
+                    missingAssignments.add(new MissingProfileAssignment(nk, profileName, pluginKey));
                 }
             }
         });
-        return desiredProfileByNode;
+        return new ProfileResolutionResult(desiredProfileByNode, missingAssignments);
+    }
+
+    private record ProfileResolutionResult(Map<String, UUID> desiredProfiles, List<MissingProfileAssignment> missingAssignments) { }
+
+    private record MissingProfileAssignment(String nodeKey, String profileName, String pluginKey) { }
+
+    private void markWorkflowProfilesMissing(UUID workflowId, List<MissingProfileAssignment> missingAssignments) {
+        if (missingAssignments.isEmpty()) {
+            return;
+        }
+        workflowRepository.findById(workflowId).ifPresent(workflow -> {
+            workflow.setIsActive(false);
+            List<ValidationError> errors = new ArrayList<>();
+            ValidationResult current = workflow.getLastValidation();
+            if (current != null && current.getErrors() != null) {
+                errors.addAll(current.getErrors());
+            }
+            for (MissingProfileAssignment assignment : missingAssignments) {
+                String message = "Profile '" + assignment.profileName() + "' could not be resolved for node '" + assignment.nodeKey() + "'"
+                        + (assignment.pluginKey() != null ? " (plugin '" + assignment.pluginKey() + "')" : "");
+                errors.add(ValidationError.builder()
+                        .nodeKey(assignment.nodeKey())
+                        .errorType("definition")
+                        .errorCode(ValidationErrorCode.VALIDATION_ERROR)
+                        .path("metadata.profiles." + assignment.profileName())
+                        .message(message)
+                        .build());
+            }
+            workflow.setLastValidation(new ValidationResult("profile-sync", errors));
+            workflow.setLastValidationAt(OffsetDateTime.now());
+            workflow.setLastValidationPublishAttempt(false);
+            workflowRepository.save(workflow);
+        });
     }
 }
 
