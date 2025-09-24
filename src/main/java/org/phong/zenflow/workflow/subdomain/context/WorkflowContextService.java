@@ -3,9 +3,13 @@ package org.phong.zenflow.workflow.subdomain.context;
 import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.Nullable;
 import org.json.JSONObject;
 import org.phong.zenflow.core.utils.ObjectConversion;
+import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.projections.PluginNodeId;
+import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.repository.PluginNodeRepository;
 import org.phong.zenflow.plugin.subdomain.schema.services.SchemaRegistry;
+import org.phong.zenflow.secret.subdomain.profile.service.ProfileSecretService;
 import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.node_definition.constraints.WorkflowConstraints;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
@@ -14,12 +18,16 @@ import org.phong.zenflow.workflow.subdomain.node_definition.definitions.Workflow
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.OutputUsage;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowMetadata;
 
+import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
+import org.phong.zenflow.workflow.subdomain.schema_validator.enums.ValidationErrorCode;
 import org.phong.zenflow.workflow.subdomain.schema_validator.service.schema.SchemaTypeResolver;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -40,6 +48,8 @@ public class WorkflowContextService {
     private final SchemaRegistry schemaRegistry;
     private final SchemaTypeResolver schemaTypeResolver;
     private final TemplateService templateService;
+    private final PluginNodeRepository pluginNodeRepository;
+    private final ProfileSecretService profileSecretService;
 
     private void generateAliasLinkBackToConsumers(WorkflowMetadata ctx) {
         for (Map.Entry<String, String> aliasEntry : ctx.aliases().entrySet()) {
@@ -51,10 +61,22 @@ public class WorkflowContextService {
         }
     }
 
-    public void buildStaticContext(WorkflowDefinition wf) {
+    public void buildStaticContext(WorkflowDefinition wf, UUID workflowId, List<ValidationError> validationErrors) {
+        WorkflowMetadata metadata = preserveWorkflowDefinition(wf);
+        resolvePluginId(wf, validationErrors);
+        resolveProfileId(wf, workflowId, validationErrors);
+        if (metadata == null) return;
+
+        generateIndexPopulationMap(wf.nodes(), metadata);
+        generateAliasLinkBackToConsumers(metadata);
+        generateTypeForConsumerFields(wf, metadata);
+    }
+
+    @Nullable
+    private static WorkflowMetadata preserveWorkflowDefinition(WorkflowDefinition wf) {
         WorkflowMetadata metadata = wf.metadata();
         if (metadata == null) {
-            return;
+            return null;
         }
 
         WorkflowMetadata snapshot = new WorkflowMetadata();
@@ -84,10 +106,7 @@ public class WorkflowContextService {
             metadata.aliases().clear();
             metadata.aliases().putAll(snapshot.aliases());
         }
-
-        generateIndexPopulationMap(wf.nodes(), metadata);
-        generateAliasLinkBackToConsumers(metadata);
-        generateTypeForConsumerFields(wf, metadata);
+        return metadata;
     }
 
     private void generateIndexPopulationMap(WorkflowNodes nodes, WorkflowMetadata ctx) {
@@ -99,10 +118,9 @@ public class WorkflowContextService {
             }
 
             if (node.getConfig().profile() != null && !node.getConfig().profile().isEmpty()) {
-                node.getConfig().profile().forEach((key, value)
-                        -> ctx.profiles().computeIfAbsent(key, k -> new ArrayList<>()).add(nodeKey)
-                );
-
+                for (String profileName : node.getConfig().profile()) {
+                    ctx.profiles().computeIfAbsent(profileName, k -> new ArrayList<>()).add(nodeKey);
+                }
                 profileRequired.add(nodeKey);
             }
 
@@ -230,5 +248,85 @@ public class WorkflowContextService {
         }
         return ref;
     }
-}
 
+    private void resolvePluginId(WorkflowDefinition workflowDefinition, List<ValidationError> validationErrors) {
+        Set<String> compositeKeys = workflowDefinition.nodes().getPluginNodeCompositeKeys();
+        if (compositeKeys.isEmpty()) {
+            return;
+        }
+
+        Set<PluginNodeId> pluginNodeIds = pluginNodeRepository.findIdsByCompositeKeys(compositeKeys);
+
+        Map<String, UUID> compositeKeyToIdMap = new HashMap<>();
+        pluginNodeIds.forEach(pluginNodeId ->
+                compositeKeyToIdMap.put(pluginNodeId.getCompositeKey(), pluginNodeId.getId()));
+
+        // Update workflow nodes with the resolved UUIDs
+        for (Map.Entry<String, BaseWorkflowNode> nodeEntry : workflowDefinition.nodes().asMap().entrySet()) {
+            BaseWorkflowNode workflowNode = nodeEntry.getValue();
+            String compositeKey = workflowNode.getPluginNode().toCacheKey();
+
+            if (compositeKeyToIdMap.containsKey(compositeKey)) {
+                workflowNode.getPluginNode().setNodeId(compositeKeyToIdMap.get(compositeKey));
+            } else {
+                validationErrors.add(
+                        ValidationError.builder()
+                                .nodeKey(nodeEntry.getKey())
+                                .errorCode(ValidationErrorCode.VALIDATION_ERROR)
+                                .errorType("definition")
+                                .path("nodes.pluginNode.nodeId")
+                                .message("Plugin Node doesn't exist with composite key: " + compositeKey)
+                                .build()
+                );
+            }
+        }
+    }
+
+    private void resolveProfileId(WorkflowDefinition def, UUID workflowId, List<ValidationError> validationErrors) {
+        Map<String, List<String>> profileUsage = def.metadata().profiles();
+        Map<String, BaseWorkflowNode> nodeMap = def.nodes().asMap();
+
+        if (profileUsage == null || profileUsage.isEmpty()) {
+            return;
+        }
+
+        for (Map.Entry<String, List<String>> entry : profileUsage.entrySet()) {
+            String profileName = entry.getKey();
+            List<String> nodeKeys = entry.getValue();
+
+            for (String nodeKey : nodeKeys) {
+                BaseWorkflowNode node = nodeMap.get(nodeKey);
+                if (node == null || node.getPluginNode() == null) {
+                    validationErrors.add(
+                            ValidationError.builder()
+                                    .nodeKey(nodeKey)
+                                    .errorCode(ValidationErrorCode.VALIDATION_ERROR)
+                                    .errorType("definition")
+                                    .path("nodes.pluginNode")
+                                    .message("Node not found or missing pluginNode for profile: " + profileName)
+                                    .build()
+                    );
+                    continue;
+                }
+
+                String pluginKey = node.getPluginNode().getPluginKey();
+                UUID profileId = profileSecretService.resolveProfileId(workflowId, pluginKey, profileName);
+
+                if (profileId == null) {
+                    validationErrors.add(
+                            ValidationError.builder()
+                                    .nodeKey(nodeKey)
+                                    .errorCode(ValidationErrorCode.VALIDATION_ERROR)
+                                    .errorType("definition")
+                                    .path("metadata.profiles")
+                                    .message("Profile not found in secrets: " + profileName + " for plugin: " + pluginKey)
+                                    .build()
+                    );
+                } else {
+                    // Profile ID resolved successfully, can be used as needed
+                    log.debug("Resolved profile ID {} for profile {} in node {}", profileId, profileName, nodeKey);
+                }
+            }
+        }
+    }
+}

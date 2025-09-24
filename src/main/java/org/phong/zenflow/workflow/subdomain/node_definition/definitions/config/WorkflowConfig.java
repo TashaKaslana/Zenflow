@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.List;
 import java.util.Map;
 
 @Data
@@ -27,16 +28,16 @@ public final class WorkflowConfig implements Serializable {
         this(new WorkflowConfigInput(), new WorkflowConfigProfile(), new WorkflowConfigOutput());
     }
 
-    public WorkflowConfig(Map<String, Object> input, Map<String, Object> profile) {
-        this(new WorkflowConfigInput(input), new WorkflowConfigProfile(profile), null);
+    public WorkflowConfig(Map<String, Object> input,  List<String> profileNames) {
+        this(new WorkflowConfigInput(input), new WorkflowConfigProfile(profileNames), null);
     }
 
     public WorkflowConfig(Map<String, Object> input) {
         this(new WorkflowConfigInput(input), null, null);
     }
 
-    public WorkflowConfig(Map<String, Object> input, Map<String, Object> profile, Map<String, Object> output) {
-        this(new WorkflowConfigInput(input), new WorkflowConfigProfile(profile), new WorkflowConfigOutput(output));
+    public WorkflowConfig(Map<String, Object> input, List<String> profileNames, Map<String, Object> output) {
+        this(new WorkflowConfigInput(input), new WorkflowConfigProfile(profileNames), new WorkflowConfigOutput(output));
     }
 
     public Map<String, Object> input() {
@@ -59,7 +60,7 @@ public final class WorkflowConfig implements Serializable {
         return output != null ? output.output() : Map.of();
     }
 
-    public Map<String, Object> profile() {
-        return profile != null ? profile.profileKeys() : Map.of();
+    public List<String> profile() {
+        return profile != null ? profile.profileNames() : List.of();
     }
 }

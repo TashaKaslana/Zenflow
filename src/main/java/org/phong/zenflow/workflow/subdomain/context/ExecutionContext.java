@@ -122,7 +122,7 @@ public class ExecutionContext {
         Map<String, Object> resolvedInput = resolveMap(config.input());
         this.nodeKey = previous;
 
-        return new WorkflowConfig(resolvedInput, config.output(), config.profile());
+        return new WorkflowConfig(resolvedInput, config.profile(), config.output());
     }
 
     private Map<String, Object> resolveMap(Map<String, Object> map) {

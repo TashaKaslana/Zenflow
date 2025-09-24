@@ -6,7 +6,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
-
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
 import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
 
@@ -48,13 +47,13 @@ public class BaseWorkflowNode {
 
         // Deep copy PluginNodeIdentifier
         this.pluginNode = other.pluginNode != null ?
-            new PluginNodeIdentifier(
-                other.pluginNode.getNodeId(), // UUID is immutable
-                other.pluginNode.getPluginKey(), // String is immutable
-                other.pluginNode.getNodeKey(), // String is immutable
-                other.pluginNode.getVersion(), // String is immutable
-                other.pluginNode.getExecutorType() // String is immutable
-            ) : null;
+                new PluginNodeIdentifier(
+                        other.pluginNode.getNodeId(), // UUID is immutable
+                        other.pluginNode.getPluginKey(), // String is immutable
+                        other.pluginNode.getNodeKey(), // String is immutable
+                        other.pluginNode.getVersion(), // String is immutable
+                        other.pluginNode.getExecutorType() // String is immutable
+                ) : null;
 
         // Deep copy next list
         this.next = other.next != null ? new ArrayList<>(other.next) : null;
@@ -76,9 +75,9 @@ public class BaseWorkflowNode {
         if (config == null) return null;
 
         return new WorkflowConfig(
-            config.input() != null ? deepCopyMap(config.input()) : null,
-            config.output() != null ? deepCopyMap(config.output()) : null,
-            config.profile() != null ? deepCopyMap(config.profile()) : null
+                config.input() != null ? deepCopyMap(config.input()) : null,
+                config.profile() != null ? deepCopyList(config.profile()) : null,
+                config.output() != null ? deepCopyMap(config.output()) : null
         );
     }
 
@@ -95,6 +94,11 @@ public class BaseWorkflowNode {
         return copy;
     }
 
+    private List<String> deepCopyList(List<String> original) {
+        if (original == null) return null;
+        return new ArrayList<>(original);
+    }
+
     /**
      * Deep copy any object value recursively
      */
@@ -104,7 +108,7 @@ public class BaseWorkflowNode {
 
         // Immutable types - safe to share
         if (value instanceof String || value instanceof Number ||
-            value instanceof Boolean || value.getClass().isEnum()) {
+                value instanceof Boolean || value.getClass().isEnum()) {
             return value;
         }
 

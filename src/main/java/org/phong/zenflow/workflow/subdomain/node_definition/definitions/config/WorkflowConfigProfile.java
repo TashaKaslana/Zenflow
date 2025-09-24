@@ -3,14 +3,14 @@ package org.phong.zenflow.workflow.subdomain.node_definition.definitions.config;
 import com.fasterxml.jackson.annotation.JsonCreator;
 
 import java.io.Serializable;
-import java.util.Map;
+import java.util.List;
 
-public record WorkflowConfigProfile(Map<String, Object> profileKeys) implements Serializable {
+public record WorkflowConfigProfile(List<String> profileNames) implements Serializable {
     @JsonCreator
     public WorkflowConfigProfile {
     }
 
     public WorkflowConfigProfile() {
-        this(Map.of());
+        this(List.of());
     }
 }
