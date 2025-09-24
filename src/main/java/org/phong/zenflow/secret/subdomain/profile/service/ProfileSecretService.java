@@ -19,6 +19,7 @@ import org.phong.zenflow.workflow.infrastructure.persistence.repository.Workflow
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -119,5 +120,20 @@ public class ProfileSecretService {
                 .flatMap(plugin -> secretProfileRepository.findByNameAndWorkflowIdAndPluginId(profileName, workflowId, plugin.getId()))
                 .map(SecretProfile::getId)
                 .orElse(null);
+    }
+
+    // Returns a map of pluginKey -> (profileName -> profileId) for all profiles in the given workflow
+    @Transactional(readOnly = true)
+    public Map<String, Map<String, UUID>> getPluginProfileMap(UUID workflowId) {
+        List<SecretProfile> profiles = secretProfileRepository.findByWorkflowId(workflowId);
+        Map<String, Map<String, UUID>> profileMap = new HashMap<>();
+
+        for (SecretProfile profile : profiles) {
+            String pluginKey = profile.getPlugin().getKey();
+            profileMap.putIfAbsent(pluginKey, new HashMap<>());
+            profileMap.get(pluginKey).put(profile.getName(), profile.getId());
+        }
+
+        return profileMap;
     }
 }

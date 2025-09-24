@@ -109,7 +109,7 @@ public class WorkflowDefinitionService {
             metadata.nodeDependencies().putAll(updates.nodeDependencies() != null ? updates.nodeDependencies() : Map.of());
             metadata.nodeConsumers().putAll(updates.nodeConsumers() != null ? updates.nodeConsumers() : Map.of());
             metadata.secrets().putAll(updates.secrets() != null ? updates.secrets() : Map.of());
-            metadata.profiles().putAll(updates.profiles() != null ? updates.profiles() : Map.of());
+            metadata.profileAssignments().putAll(updates.profileAssignments() != null ? updates.profileAssignments() : Map.of());
             if (updates.profileRequiredNodes() != null) {
                 metadata.profileRequiredNodes().clear();
                 metadata.profileRequiredNodes().addAll(updates.profileRequiredNodes());

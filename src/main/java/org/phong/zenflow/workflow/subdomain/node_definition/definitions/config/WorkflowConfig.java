@@ -23,21 +23,24 @@ public final class WorkflowConfig implements Serializable {
     @JsonUnwrapped
     private final WorkflowConfigOutput output;
 
-
     public WorkflowConfig() {
         this(new WorkflowConfigInput(), new WorkflowConfigProfile(), new WorkflowConfigOutput());
     }
 
-    public WorkflowConfig(Map<String, Object> input,  List<String> profileNames) {
-        this(new WorkflowConfigInput(input), new WorkflowConfigProfile(profileNames), null);
+    public WorkflowConfig(Map<String, Object> input, List<String> profileKeys) {
+        this(new WorkflowConfigInput(input), new WorkflowConfigProfile(profileKeys), null);
     }
 
     public WorkflowConfig(Map<String, Object> input) {
         this(new WorkflowConfigInput(input), null, null);
     }
 
-    public WorkflowConfig(Map<String, Object> input, List<String> profileNames, Map<String, Object> output) {
-        this(new WorkflowConfigInput(input), new WorkflowConfigProfile(profileNames), new WorkflowConfigOutput(output));
+    public WorkflowConfig(Map<String, Object> input, Map<String, Object> output) {
+        this(new WorkflowConfigInput(input), null, new WorkflowConfigOutput(output));
+    }
+
+    public WorkflowConfig(Map<String, Object> input, List<String> profileKeys, Map<String, Object> output) {
+        this(new WorkflowConfigInput(input), new WorkflowConfigProfile(profileKeys), new WorkflowConfigOutput(output));
     }
 
     public Map<String, Object> input() {
@@ -51,9 +54,8 @@ public final class WorkflowConfig implements Serializable {
         }
         if (clazz.isInstance(value)) {
             return clazz.cast(value);
-        } else {
-            throw new ClassCastException("Cannot cast input value to " + clazz.getName());
         }
+        throw new ClassCastException("Cannot cast input value to " + clazz.getName());
     }
 
     public Map<String, Object> output() {
@@ -61,6 +63,12 @@ public final class WorkflowConfig implements Serializable {
     }
 
     public List<String> profile() {
-        return profile != null ? profile.profileNames() : List.of();
+        return profile != null ? profile.profileKeys() : List.of();
+    }
+
+    public List<String> profileKeys() {
+        return profile();
     }
 }
+
+

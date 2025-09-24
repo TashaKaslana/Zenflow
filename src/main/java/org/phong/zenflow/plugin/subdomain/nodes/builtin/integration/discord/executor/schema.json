@@ -39,9 +39,28 @@
               "type": "string",
               "description": "Embed color as hex (#FF0000), color name (red), or decimal number",
               "oneOf": [
-                {"pattern": "^#[0-9A-Fa-f]{6}$"},
-                {"pattern": "^\\d+$"},
-                {"enum": ["red", "green", "blue", "yellow", "orange", "pink", "cyan", "magenta", "white", "black", "gray", "grey"]}
+                {
+                  "pattern": "^#[0-9A-Fa-f]{6}$"
+                },
+                {
+                  "pattern": "^\\d+$"
+                },
+                {
+                  "enum": [
+                    "red",
+                    "green",
+                    "blue",
+                    "yellow",
+                    "orange",
+                    "pink",
+                    "cyan",
+                    "magenta",
+                    "white",
+                    "black",
+                    "gray",
+                    "grey"
+                  ]
+                }
               ]
             },
             "thumbnail": {
@@ -82,7 +101,10 @@
                     "description": "Whether the field should be displayed inline"
                   }
                 },
-                "required": ["name", "value"],
+                "required": [
+                  "name",
+                  "value"
+                ],
                 "additionalProperties": false
               }
             },
@@ -106,7 +128,9 @@
                   "description": "Author icon URL"
                 }
               },
-              "required": ["name"],
+              "required": [
+                "name"
+              ],
               "additionalProperties": false
             },
             "url": {
@@ -133,7 +157,11 @@
           "description": "Whether the message should be sent as text-to-speech"
         }
       },
-      "required": ["bot_token", "channel_id", "message"],
+      "required": [
+        "bot_token",
+        "channel_id",
+        "message"
+      ],
       "additionalProperties": true
     },
     "output": {
@@ -168,13 +196,24 @@
           "type": "object",
           "description": "Bot user information",
           "properties": {
-            "id": {"type": "string"},
-            "username": {"type": "string"},
-            "discriminator": {"type": "string"}
+            "id": {
+              "type": "string"
+            },
+            "username": {
+              "type": "string"
+            },
+            "discriminator": {
+              "type": "string"
+            }
           }
         }
       }
     }
+  },
+  "profile": {
+    "profileKeys": [
+      "default"
+    ],
+    "description": "Requires the default Discord profile for authentication."
   }
 }
-

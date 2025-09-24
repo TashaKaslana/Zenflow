@@ -30,7 +30,7 @@ public class ResolveConfigService {
         }
 
         Map<String, Object> resolvedInput = resolveMap(config.input(), workflowId, nodeKey);
-        return new WorkflowConfig(resolvedInput, config.output(), config.profile());
+        return new WorkflowConfig(resolvedInput, config.profile(), config.output());
     }
 
     private Map<String, Object> resolveMap(Map<String, Object> map, UUID workflowId, String nodeKey) {

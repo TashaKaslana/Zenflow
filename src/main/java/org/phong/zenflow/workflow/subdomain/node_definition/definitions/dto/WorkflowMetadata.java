@@ -12,7 +12,7 @@ public record WorkflowMetadata(
         Map<String, Set<String>> nodeDependencies,
         Map<String, OutputUsage> nodeConsumers,
         Map<String, List<String>> secrets,
-        Map<String, List<String>> profiles,
+        Map<String, WorkflowProfileBinding> profileAssignments,
         List<String> profileRequiredNodes
 ) {
     public WorkflowMetadata() {
@@ -35,10 +35,7 @@ public record WorkflowMetadata(
                 other.secrets.entrySet().stream().collect(HashMap::new,
                     (map, e) -> map.put(e.getKey(), new ArrayList<>(e.getValue())),
                     HashMap::putAll) : new HashMap<>(),
-            other.profiles != null ?
-                other.profiles.entrySet().stream().collect(HashMap::new,
-                    (map, e) -> map.put(e.getKey(), new ArrayList<>(e.getValue())),
-                    HashMap::putAll) : new HashMap<>(),
+            other.profileAssignments != null ? new HashMap<>(other.profileAssignments) : new HashMap<>(),
             other.profileRequiredNodes != null ? new ArrayList<>(other.profileRequiredNodes) : new ArrayList<>()
         );
     }
