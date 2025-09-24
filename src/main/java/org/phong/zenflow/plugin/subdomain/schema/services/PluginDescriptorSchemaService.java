@@ -34,8 +34,8 @@ public class PluginDescriptorSchemaService {
     public PluginDescriptorSchemaService(
             PluginService pluginService,
             SchemaIndexRegistry schemaIndexRegistry,
-            @Value("") long cacheTtlSeconds,
-            @Value("") boolean useFileBasedLoading) {
+            @Value("${zenflow.schema.cache-ttl-seconds:3600}") long cacheTtlSeconds,
+            @Value("${zenflow.schema.use-file-based-loading:true}") boolean useFileBasedLoading) {
         this.pluginService = pluginService;
         this.schemaIndexRegistry = schemaIndexRegistry;
         this.useFileBasedLoading = useFileBasedLoading;

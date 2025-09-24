@@ -11,7 +11,7 @@ import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
-import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.discord.share.DiscordJdaResourceManager;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.discord.core.DiscordJdaResourceManager;
 import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
@@ -26,7 +26,7 @@ import java.util.List;
 
 @Component
 @PluginNode(
-        key = "integration:discord.message.send",
+        key = "discord:message.send",
         name = "Discord Send Message",
         version = "1.0.0",
         description = "Sends a message to a Discord channel using JDA. Supports text messages and embeds.",
@@ -48,7 +48,7 @@ public class DiscordMessageExecutor implements PluginNodeExecutor {
             Map<String, Object> input = config.input();
 
             // Extract required parameters
-            botToken = (String) input.get("bot_token");
+            botToken = (String) context.getProfileSecret("BOT_TOKEN");
             String channelId = (String) input.get("channel_id");
             String message = (String) input.get("message");
 
