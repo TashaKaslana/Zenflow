@@ -1,4 +1,4 @@
-package org.phong.zenflow.secret.dto;
+package org.phong.zenflow.secret.subdomain.aggregate;
 
 import jakarta.validation.constraints.NotNull;
 
@@ -17,7 +17,7 @@ import java.util.Map;
  * <p>
  * For display purposes, clients can map profileId -> profileName using profileNames.
  */
-public record AggregatedSecretSetupDto(
+public record AggregatedSecretButchDto(
         @NotNull Map<String, String> secrets,
         @NotNull Map<String, Map<String, String>> profiles,
         @NotNull Map<String, String> nodeProfiles,

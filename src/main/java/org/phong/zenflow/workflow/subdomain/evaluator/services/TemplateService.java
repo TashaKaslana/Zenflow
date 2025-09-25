@@ -189,11 +189,10 @@ public class TemplateService {
      *
      * @param template   The template string to resolve
      * @param workflowId The workflow ID to resolve against
-     * @param nodeKey    The node key for profile scoping
      * @param resolver   Typed resolver for secrets and profiles
      * @return The resolved value or the original template if it cannot be resolved
      */
-    public Object resolveDefinitionPhase(String template, UUID workflowId, String nodeKey, ReservedValueResolver resolver) {
+    public Object resolveDefinitionPhase(String template, UUID workflowId, ReservedValueResolver resolver) {
         // Step 1: Ignore blank templates
         if (template == null || template.trim().isEmpty()) {
             return template;
@@ -204,7 +203,7 @@ public class TemplateService {
         // Step 2: If the whole string is a single expression, keep the result type intact
         if (matcher.matches()) {
             String expression = matcher.group(1).trim();
-            return evaluateDefinitionPhaseExpression(expression, workflowId, nodeKey, resolver);
+            return evaluateDefinitionPhaseExpression(expression, workflowId, resolver);
         }
 
         // Step 3: Otherwise, resolve each embedded expression and build a final string
@@ -212,7 +211,7 @@ public class TemplateService {
         matcher.reset();
         while (matcher.find()) {
             String expression = matcher.group(1).trim();
-            Object result = evaluateDefinitionPhaseExpression(expression, workflowId, nodeKey, resolver);
+            Object result = evaluateDefinitionPhaseExpression(expression, workflowId, resolver);
             matcher.appendReplacement(sb, result != null ? Matcher.quoteReplacement(result.toString()) : "null");
         }
         matcher.appendTail(sb);
@@ -223,7 +222,7 @@ public class TemplateService {
      * Evaluates a single definition-phase expression. Only reserved keys are handled; any
      * non-reserved expression is returned unreplaced (re-inserted as a template token).
      */
-    private Object evaluateDefinitionPhaseExpression(String expression, UUID workflowId, String nodeKey, ReservedValueResolver resolver) {
+    private Object evaluateDefinitionPhaseExpression(String expression, UUID workflowId, ReservedValueResolver resolver) {
         try {
             if (expression == null || expression.isEmpty()) {
                 return null;
@@ -232,11 +231,6 @@ public class TemplateService {
             // Handle zenflow.secrets.* expressions
             if (expression.startsWith(WorkflowConstraints.RESERVED_SECRETS_PREFIX.key())) {
                 return resolveSecretExpression(expression, workflowId, resolver);
-            }
-
-            // Handle zenflow.profiles.* expressions
-            if (expression.startsWith(WorkflowConstraints.RESERVED_PROFILES_PREFIX.key())) {
-                return resolveProfileExpression(expression, workflowId, nodeKey, resolver);
             }
 
             // For non-reserved expressions, return the original template
@@ -267,24 +261,6 @@ public class TemplateService {
     }
 
     /**
-     * Resolves {@code zenflow.profiles.*} expressions using the provided {@link ReservedValueResolver}.
-     */
-    private Object resolveProfileExpression(String expression, UUID workflowId, String nodeKey, ReservedValueResolver resolver) {
-        try {
-            // Extract profile field from expression like "zenflow.profiles.fieldName"
-            String profileField = expression.substring(WorkflowConstraints.RESERVED_PROFILES_PREFIX.key().length());
-
-            Object result = resolver.resolveProfileValue(workflowId, nodeKey, profileField);
-
-            return result != null ? result : "{{" + expression + "}}";
-
-        } catch (Exception e) {
-            log.warn("Failed to resolve profile expression: {}", expression, e);
-            return "{{" + expression + "}}";
-        }
-}
-
-    /**
      * Read-only view of the shared evaluator. Mutation operations such as
      * {@code addFunction} are intentionally omitted. Consumers should call
      * {@link #cloneInstance()} to get a writable copy for custom functions.
@@ -313,7 +289,5 @@ public class TemplateService {
      */
     public interface ReservedValueResolver {
         Object resolveSecretValue(UUID workflowId, String secretKey);
-
-        Object resolveProfileValue(UUID workflowId, String nodeKey, String profileField);
     }
 }

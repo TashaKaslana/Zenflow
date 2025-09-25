@@ -9,6 +9,7 @@ import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.discord.core.DiscordJdaResourceManager;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.trigger.dto.TriggerContext;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContextTool;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerExecutor;
@@ -44,14 +45,17 @@ public class DiscordMessageTriggerExecutor implements TriggerExecutor {
     }
 
     @Override
-    public Optional<String> getResourceKey(WorkflowTrigger trigger) {
+    public Optional<String> getResourceKey(TriggerContext triggerCtx) {
+        Map<String, String> profiles = triggerCtx.profiles();
+
         // Use the Discord bot token as the resource key for sharing JDA instances
-        String botToken = (String) trigger.getConfig().get("bot_token");
+        String botToken = profiles.get("bot_token");
         return Optional.ofNullable(botToken);
     }
 
     @Override
-    public RunningHandle start(WorkflowTrigger trigger, TriggerContextTool contextTool) throws Exception {
+    public RunningHandle start(TriggerContext triggerCtx, TriggerContextTool contextTool) throws Exception {
+        WorkflowTrigger trigger = triggerCtx.trigger();
         log.info("Starting Discord message trigger for workflow: {}", trigger.getWorkflowId());
 
         // Create resource config
