@@ -4,7 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.repository.WorkflowTriggerRepository;
-import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContext;
+import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContextTool;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerExecutor;
 import org.phong.zenflow.workflow.subdomain.trigger.registry.TriggerRegistry;
 import org.springframework.stereotype.Service;
@@ -25,7 +25,7 @@ public class TriggerOrchestrator {
 
     private final WorkflowTriggerRepository repo;
     private final Map<UUID, TriggerExecutor.RunningHandle> running = new ConcurrentHashMap<>();
-    private final TriggerContext ctx;
+    private final TriggerContextTool contextTool;
     private final TriggerRegistry registry;
     private final ResolveConfigService resolveConfigService;
 
@@ -62,7 +62,7 @@ public class TriggerOrchestrator {
             WorkflowTrigger effectiveTrigger = buildEffectiveTrigger(t);
 
             // Start the trigger
-            var handle = executor.start(effectiveTrigger, ctx);
+            var handle = executor.start(effectiveTrigger, contextTool);
             running.put(t.getId(), handle);
 
             log.info("Started trigger {} (executor: {}) for workflow {}",
@@ -200,5 +200,10 @@ public class TriggerOrchestrator {
         } catch (Exception e) {
             log.error("Error in resource unregistration for trigger {}: {}", trigger.getId(), e.getMessage(), e);
         }
+    }
+
+    public record TriggerContext(WorkflowTrigger trigger,
+                                 Map<String, String> secrets,
+                                 Map<String, String> profile) {
     }
 }

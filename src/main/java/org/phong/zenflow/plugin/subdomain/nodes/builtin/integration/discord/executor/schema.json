@@ -212,8 +212,10 @@
   },
   "profile": {
     "profileKeys": [
-      "default"
+      "discord-bot-token"
     ],
-    "description": "Requires the default Discord profile for authentication."
+    "description": "Uses the Discord bot profile for authentication."
   }
 }
+
+

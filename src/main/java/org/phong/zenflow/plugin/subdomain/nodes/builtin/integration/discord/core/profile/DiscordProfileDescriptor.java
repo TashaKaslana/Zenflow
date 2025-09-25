@@ -25,3 +25,4 @@ public class DiscordProfileDescriptor implements PluginProfileDescriptor {
         return "./discord.profile.json";
     }
 }
+

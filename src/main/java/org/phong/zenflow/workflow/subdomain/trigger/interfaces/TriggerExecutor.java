@@ -7,7 +7,7 @@ import org.phong.zenflow.plugin.subdomain.resource.NodeResourcePool;
 import java.util.Optional;
 
 public interface TriggerExecutor extends PluginNodeExecutor {
-    RunningHandle start(WorkflowTrigger trigger, TriggerContext ctx) throws Exception;
+    RunningHandle start(WorkflowTrigger trigger, TriggerContextTool contextTool) throws Exception;
 
     /**
      * Optional: Return the resource manager if this trigger needs shared resources.

@@ -12,7 +12,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.triggers.polling.resource.PollingResponseCache;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.triggers.polling.resource.PollingResponseCacheManager;
-import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContext;
+import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContextTool;
 import org.phong.zenflow.workflow.subdomain.trigger.resource.DefaultTriggerResourceConfig;
 
 import java.time.Instant;
@@ -50,7 +50,7 @@ public class PollingTriggerJob implements Job {
             Object requestBody = dataMap.get("requestBody");
 
             // Get trigger context from job data
-            TriggerContext triggerContext = (TriggerContext) dataMap.get("triggerContext");
+            TriggerContextTool triggerContextTool = (TriggerContextTool) dataMap.get("triggerContext");
 
             log.debug("Polling endpoint: {} for trigger: {}", url, triggerId);
 
@@ -87,8 +87,8 @@ public class PollingTriggerJob implements Job {
                                                           dataToCompare, includeResponse);
 
                 // Trigger workflow
-                triggerContext.startWorkflow(workflowId, triggerExecutorId, payload);
-                triggerContext.markTriggered(triggerId, Instant.now());
+                triggerContextTool.startWorkflow(workflowId, triggerExecutorId, payload);
+                triggerContextTool.markTriggered(triggerId, Instant.now());
 
                 log.debug("Workflow triggered for polling change: {}", triggerId);
             } else {

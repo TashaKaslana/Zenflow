@@ -11,7 +11,7 @@ import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
-import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContext;
+import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContextTool;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerExecutor;
 import org.phong.zenflow.plugin.subdomain.resource.NodeResourcePool;
 import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
@@ -51,7 +51,7 @@ public class PollingTriggerExecutor implements TriggerExecutor {
     }
 
     @Override
-    public RunningHandle start(WorkflowTrigger trigger, TriggerContext ctx) throws Exception {
+    public RunningHandle start(WorkflowTrigger trigger, TriggerContextTool contextTool) throws Exception {
         log.info("Starting Quartz-based polling trigger for workflow: {}", trigger.getWorkflowId());
 
         Map<String, Object> config = trigger.getConfig();
@@ -102,7 +102,7 @@ public class PollingTriggerExecutor implements TriggerExecutor {
             // Add complex objects to job data map
             job.getJobDataMap().put("headers", headers);
             job.getJobDataMap().put("requestBody", requestBody);
-            job.getJobDataMap().put("triggerContext", ctx);
+            job.getJobDataMap().put("triggerContext", contextTool);
 
             // Create Quartz trigger for scheduling
             Trigger quartzTrigger = TriggerBuilder.newTrigger()

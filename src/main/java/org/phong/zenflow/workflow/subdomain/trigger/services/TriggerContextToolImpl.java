@@ -4,7 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
-import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContext;
+import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContextTool;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
@@ -14,12 +14,12 @@ import java.util.UUID;
 
 @Component
 @Slf4j
-public class TriggerContextImpl implements TriggerContext {
+public class TriggerContextToolImpl implements TriggerContextTool {
     private final ApplicationEventPublisher publisher;
     private final TriggerAsyncService triggerAsyncService;
 
-    public TriggerContextImpl(ApplicationEventPublisher publisher,
-                              TriggerAsyncService triggerAsyncService) {
+    public TriggerContextToolImpl(ApplicationEventPublisher publisher,
+                                  TriggerAsyncService triggerAsyncService) {
         this.publisher = publisher;
         this.triggerAsyncService = triggerAsyncService;
     }

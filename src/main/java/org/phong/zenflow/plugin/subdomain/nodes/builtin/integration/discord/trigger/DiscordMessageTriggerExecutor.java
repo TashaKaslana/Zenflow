@@ -10,7 +10,7 @@ import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.discord.core
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
-import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContext;
+import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContextTool;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerExecutor;
 import org.phong.zenflow.workflow.subdomain.trigger.resource.DefaultTriggerResourceConfig;
 import org.phong.zenflow.plugin.subdomain.resource.NodeResourcePool;
@@ -51,7 +51,7 @@ public class DiscordMessageTriggerExecutor implements TriggerExecutor {
     }
 
     @Override
-    public RunningHandle start(WorkflowTrigger trigger, TriggerContext ctx) throws Exception {
+    public RunningHandle start(WorkflowTrigger trigger, TriggerContextTool contextTool) throws Exception {
         log.info("Starting Discord message trigger for workflow: {}", trigger.getWorkflowId());
 
         // Create resource config
@@ -86,7 +86,7 @@ public class DiscordMessageTriggerExecutor implements TriggerExecutor {
                         trigger.getTriggerExecutorId(),
                         trigger.getWorkflowId(),
                         trigger.getConfig(),
-                        ctx
+                        contextTool
                 );
 
         // Register with the hub using channel ID as key
