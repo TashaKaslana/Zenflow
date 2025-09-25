@@ -1,6 +1,7 @@
 package org.phong.zenflow.secret.subdomain.profile.service;
 
 import lombok.AllArgsConstructor;
+import org.jetbrains.annotations.NotNull;
 import org.phong.zenflow.core.services.AuthService;
 import org.phong.zenflow.plugin.services.PluginService;
 import org.phong.zenflow.plugin.subdomain.node.service.PluginNodeService;
@@ -38,6 +39,7 @@ public class ProfileSecretService {
     private final AESUtil aesUtil;
     private final SecretProfileSchemaValidator validator;
 
+    @Transactional
     public ProfileSecretListDto createProfileSecrets(UUID workflowId, CreateProfileSecretsRequest request) {
         if (request.isDuplicated()) {
             throw new SecretDomainException("Duplicate keys found in the request.");
@@ -49,18 +51,34 @@ public class ProfileSecretService {
             throw new SecretDomainException("Profile with name '" + request.getName() + "' already exists for this workflow.");
         }
 
-        SecretProfile profile = new SecretProfile();
-        profile.setWorkflow(workflowRepository.getReferenceById(workflowId));
-        profile.setName(request.getName());
-        profile.setScope(SecretScope.WORKFLOW);
-        profile.setUser(authService.getReferenceCurrentUser());
-        profile.setPlugin(pluginService.findPluginById(request.getPluginId()));
-        if (request.getPluginNodeId() != null) {
-            profile.setPluginNode(pluginNodeService.findById(request.getPluginNodeId()));
+        boolean isValid = validator.validate(request.getPluginId(), request.getPluginNodeId(), request.getSecrets());
+        if (!isValid) {
+            throw new SecretDomainException("Secrets do not conform to the required schema!");
         }
-        profile = secretProfileRepository.save(profile);
 
-        SecretProfile finalProfile = profile;
+        SecretProfile finalProfile = saveProfileSecret(workflowId, request);
+        List<Secret> savedSecrets = saveSecrets(request, finalProfile);
+        linkSecretsToProfile(savedSecrets, finalProfile);
+
+        Map<String, Map<String, String>> profileMap = Map.of(
+                finalProfile.getName(),
+                savedSecrets.stream().collect(Collectors.toMap(
+                        Secret::getKey,
+                        s -> {
+                            try {
+                                return aesUtil.decrypt(s.getEncryptedValue());
+                            } catch (Exception e) {
+                                throw new SecretDomainException("Can't decrypt value for workflowId: " + workflowId, e);
+                            }
+                        }
+                ))
+        );
+
+        return new ProfileSecretListDto(profileMap);
+    }
+
+    @NotNull
+    private List<Secret> saveSecrets(CreateProfileSecretsRequest request, SecretProfile finalProfile) {
         List<Secret> secrets = request.getSecrets().entrySet().stream()
                 .map(entry -> {
                     Secret secret = new Secret();
@@ -78,14 +96,10 @@ public class ProfileSecretService {
                 })
                 .collect(Collectors.toList());
 
-        boolean isValid = validator.validate(request.getPluginId(), request.getPluginNodeId(), request.getSecrets());
-        if (!isValid) {
-            throw new SecretDomainException("Secrets do not conform to the required schema!");
-        }
+        return secretRepository.saveAll(secrets);
+    }
 
-        List<Secret> savedSecrets = secretRepository.saveAll(secrets);
-
-        // Link secrets to the created profile
+    private void linkSecretsToProfile(List<Secret> savedSecrets, SecretProfile finalProfile) {
         var links = savedSecrets.stream().map(sec -> {
             var link = new ProfileSecretLink();
             link.setProfile(finalProfile);
@@ -93,22 +107,21 @@ public class ProfileSecretService {
             return link;
         }).collect(Collectors.toList());
         profileSecretLinkRepository.saveAll(links);
+    }
 
-        Map<String, Map<String, String>> profileMap = Map.of(
-                finalProfile.getName(),
-                savedSecrets.stream().collect(Collectors.toMap(
-                        Secret::getKey,
-                        s -> {
-                            try {
-                                return aesUtil.decrypt(s.getEncryptedValue());
-                            } catch (Exception e) {
-                                throw new SecretDomainException("Can't decrypt value for workflowId: " + workflowId, e);
-                            }
-                        }
-                ))
-        );
+    @NotNull
+    private SecretProfile saveProfileSecret(UUID workflowId, CreateProfileSecretsRequest request) {
+        SecretProfile profile = new SecretProfile();
+        profile.setWorkflow(workflowRepository.getReferenceById(workflowId));
+        profile.setName(request.getName());
+        profile.setScope(SecretScope.WORKFLOW);
+        profile.setUser(authService.getReferenceCurrentUser());
+        profile.setPlugin(pluginService.findPluginById(request.getPluginId()));
+        if (request.getPluginNodeId() != null) {
+            profile.setPluginNode(pluginNodeService.findById(request.getPluginNodeId()));
+        }
 
-        return new ProfileSecretListDto(profileMap);
+        return secretProfileRepository.save(profile);
     }
 
     @Transactional(readOnly = true)

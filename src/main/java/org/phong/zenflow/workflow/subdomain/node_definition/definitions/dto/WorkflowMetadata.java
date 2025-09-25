@@ -1,5 +1,6 @@
 package org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -14,7 +15,7 @@ public record WorkflowMetadata(
         Map<String, List<String>> secrets,
         Map<String, WorkflowProfileBinding> profileAssignments,
         List<String> profileRequiredNodes
-) {
+) implements Serializable {
     public WorkflowMetadata() {
         this(new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(), new ArrayList<>());
     }

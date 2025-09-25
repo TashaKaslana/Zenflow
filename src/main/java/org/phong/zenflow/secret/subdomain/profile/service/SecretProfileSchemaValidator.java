@@ -4,10 +4,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.everit.json.schema.Schema;
 import org.everit.json.schema.loader.SchemaLoader;
+import org.jetbrains.annotations.Nullable;
 import org.json.JSONObject;
+import org.phong.zenflow.plugin.subdomain.registry.profile.PluginProfileDescriptorRegistry;
+import org.phong.zenflow.plugin.subdomain.registry.profile.RegisteredPluginProfileDescriptor;
 import org.phong.zenflow.plugin.subdomain.schema.services.SchemaRegistry;
 import org.springframework.stereotype.Component;
 
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -16,27 +21,14 @@ import java.util.UUID;
 @Slf4j
 public class SecretProfileSchemaValidator {
     private final SchemaRegistry schemaRegistry;
+    private final PluginProfileDescriptorRegistry profileDescriptorRegistry;
 
     public boolean validate(UUID pluginId, UUID pluginNodeId, Map<String, String> secrets) {
         try {
-            JSONObject schemaObject = null;
-            if (pluginId != null) {
-                schemaObject = schemaRegistry.getSchemaByTemplateString("plugin:" + pluginId);
-            }
-            if (schemaObject == null && pluginNodeId != null) {
-                schemaObject = schemaRegistry.getSchemaByTemplateString(pluginNodeId.toString());
-            }
+            Map<String, Object> combinedSchema = getCombinedSchema(pluginId, pluginNodeId);
+            if (combinedSchema == null) return false;
 
-            if (schemaObject == null) {
-                return false;
-            }
-
-            JSONObject secretsJson = getProfileItemsDefinition(schemaObject);
-            if (secretsJson == null) {
-                log.warn("Could not extract profile items definition from schema");
-                return false;
-            }
-
+            JSONObject secretsJson = new JSONObject(combinedSchema);
             JSONObject subject = new JSONObject(secrets);
 
             Schema schema = SchemaLoader.builder()
@@ -56,10 +48,51 @@ public class SecretProfileSchemaValidator {
         }
     }
 
-    public JSONObject getProfileItemsDefinition(JSONObject schema) {
+    @Nullable
+    private Map<String, Object> getCombinedSchema(UUID pluginId, UUID pluginNodeId) {
+        JSONObject nodeSchemaObj;
+
+        nodeSchemaObj = schemaRegistry.getSchemaByTemplateString(pluginNodeId.toString());
+        List<String> profileKeys = getRequiredProfileKeys(nodeSchemaObj);
+
+        if (profileKeys == null || profileKeys.isEmpty()) {
+            log.warn("No profile keys defined in node schema");
+            return null;
+        }
+
+        List<RegisteredPluginProfileDescriptor> profileDescriptors = profileDescriptorRegistry.getByPluginId(pluginId);
+        List<Map<String, Object>> descriptorSchemas = profileDescriptors.stream()
+                .filter(descriptorCompose
+                        -> profileKeys.contains(descriptorCompose.descriptor().id())
+                )
+                .map(RegisteredPluginProfileDescriptor::schema)
+                .toList();
+        if (descriptorSchemas.isEmpty()) {
+            log.warn("No matching profile descriptors found for plugin {}", pluginId);
+            return null;
+        }
+
+        Map<String, Object> combinedSchema = new HashMap<>();
+
+        descriptorSchemas.forEach(schema -> {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> props = (Map<String, Object>) schema.get("properties");
+            if (props != null) {
+                combinedSchema.putAll(props);
+            }
+        });
+        return combinedSchema;
+    }
+
+    public List<String> getRequiredProfileKeys(JSONObject schema) {
         try {
             return schema.getJSONObject("properties")
-                    .getJSONObject("profile");
+                    .getJSONObject("profile")
+                    .getJSONArray("profileKeys")
+                    .toList()
+                    .stream()
+                    .map(Object::toString)
+                    .toList();
         } catch (Exception e) {
             return null;
         }

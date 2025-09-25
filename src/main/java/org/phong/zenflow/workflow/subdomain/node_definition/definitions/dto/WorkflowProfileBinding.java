@@ -1,5 +1,6 @@
 package org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto;
 
+import java.io.Serializable;
 import java.util.UUID;
 
 /**
@@ -10,7 +11,7 @@ public record WorkflowProfileBinding(
         String profileKey,
         String profileName,
         UUID profileId
-) {
+) implements Serializable {
     public WorkflowProfileBinding {
         pluginKey = normalize(pluginKey);
         profileKey = normalize(profileKey);
