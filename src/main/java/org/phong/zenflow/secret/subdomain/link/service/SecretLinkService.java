@@ -90,7 +90,8 @@ public class SecretLinkService {
                         )
                 ));
     }
-    
+
+    @Transactional(readOnly = true)
     public Map<String, String> getProfileForWorkflowNode(UUID workflowId, String nodeKey) {
         Map<String, String> profile = null;
         
@@ -245,7 +246,8 @@ public class SecretLinkService {
                 .collect(Collectors.toList());
         return new NodeSecretLinksDto(workflowId, nodeKey, ids);
     }
-    
+
+    @Transactional(readOnly = true)
     public Map<String, String> getSecretsForWorkflowNode(UUID workflowId, String nodeKey) {
         Map<String, String> secrets = null;
         

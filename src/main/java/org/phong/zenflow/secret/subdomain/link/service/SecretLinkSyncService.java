@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.secret.service.SecretService;
 import org.phong.zenflow.secret.subdomain.link.dto.LinkProfileToNodeRequest;
+import org.phong.zenflow.secret.subdomain.link.event.SecretLinkedEvent;
 import org.phong.zenflow.workflow.infrastructure.persistence.repository.WorkflowRepository;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
@@ -16,7 +17,9 @@ import org.phong.zenflow.secret.subdomain.profile.service.ProfileSecretService;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowProfileBinding;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -35,7 +38,9 @@ public class SecretLinkSyncService {
     private final SecretLinkService secretLinkService;
     private final ProfileSecretService profileSecretService;
     private final WorkflowRepository workflowRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
+    @Transactional
     public void syncLinksFromMetadata(UUID workflowId, WorkflowDefinition definition) {
         if (definition == null || definition.metadata() == null) return;
         try {
@@ -50,6 +55,8 @@ public class SecretLinkSyncService {
         } catch (Exception e) {
             log.warn("Profile auto-linking failed during upsert: {}", e.getMessage());
         }
+
+        eventPublisher.publishEvent(new SecretLinkedEvent(definition, workflowId));
     }
 
     private void syncSecretsFromMetadata(UUID workflowId, WorkflowDefinition definition) {

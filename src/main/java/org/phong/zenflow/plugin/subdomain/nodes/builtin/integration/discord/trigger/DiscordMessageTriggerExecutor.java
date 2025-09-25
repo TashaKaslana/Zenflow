@@ -49,7 +49,7 @@ public class DiscordMessageTriggerExecutor implements TriggerExecutor {
         Map<String, String> profiles = triggerCtx.profiles();
 
         // Use the Discord bot token as the resource key for sharing JDA instances
-        String botToken = profiles.get("bot_token");
+        String botToken = profiles.get("BOT_TOKEN");
         return Optional.ofNullable(botToken);
     }
 
@@ -59,7 +59,7 @@ public class DiscordMessageTriggerExecutor implements TriggerExecutor {
         log.info("Starting Discord message trigger for workflow: {}", trigger.getWorkflowId());
 
         // Create resource config
-        DefaultTriggerResourceConfig config = new DefaultTriggerResourceConfig(trigger, "bot_token");
+        DefaultTriggerResourceConfig config = new DefaultTriggerResourceConfig(triggerCtx, "BOT_TOKEN");
         String resourceKey = config.getResourceIdentifier();
 
         ScopedNodeResource<JDA> handle = jdaResourceManager.acquire(resourceKey, trigger.getId(), config);

@@ -30,6 +30,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -167,6 +168,7 @@ public class WorkflowContextService {
     private void generateTypeForConsumerFields(WorkflowDefinition wf, WorkflowMetadata ctx) {
         Map<String, BaseWorkflowNode> nodeMap = wf.nodes().asMap();
         Set<String> pluginNodeIds = wf.nodes().getPluginNodeIds().stream()
+                .filter(Objects::nonNull)
                 .map(UUID::toString)
                 .collect(Collectors.toSet());
         Map<String, JSONObject> schemas = schemaRegistry.getSchemaMapByTemplateStrings(pluginNodeIds);

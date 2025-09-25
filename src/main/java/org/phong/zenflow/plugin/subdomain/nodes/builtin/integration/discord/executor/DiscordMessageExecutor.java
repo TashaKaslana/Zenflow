@@ -54,7 +54,7 @@ public class DiscordMessageExecutor implements PluginNodeExecutor {
 
             // Validate required parameters
             if (botToken == null || botToken.trim().isEmpty()) {
-                return ExecutionResult.error("bot_token is required");
+                return ExecutionResult.error("BOT_TOKEN is required");
             }
             if (channelId == null || channelId.trim().isEmpty()) {
                 return ExecutionResult.error("channel_id is required");
@@ -66,8 +66,8 @@ public class DiscordMessageExecutor implements PluginNodeExecutor {
             logs.info("Sending Discord message to channel: {}", channelId);
 
             Map<String, Object> configMap = new HashMap<>();
-            configMap.put("bot_token", botToken);
-            DefaultTriggerResourceConfig resourceConfig = new DefaultTriggerResourceConfig(configMap, "bot_token");
+            configMap.put("BOT_TOKEN", botToken);
+            DefaultTriggerResourceConfig resourceConfig = new DefaultTriggerResourceConfig(configMap, "BOT_TOKEN");
 
             try (ScopedNodeResource<JDA> handle = jdaResourceManager.acquire(botToken, context.getWorkflowRunId(), resourceConfig)) {
                 JDA jda = handle.getResource();

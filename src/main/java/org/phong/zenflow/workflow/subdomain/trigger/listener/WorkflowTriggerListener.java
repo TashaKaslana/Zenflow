@@ -1,8 +1,8 @@
 package org.phong.zenflow.workflow.subdomain.trigger.listener;
 
 import lombok.RequiredArgsConstructor;
-import org.phong.zenflow.workflow.event.WorkflowDefinitionUpdatedEvent;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
+import org.phong.zenflow.secret.subdomain.link.event.SecretLinkedEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.events.WorkflowTriggerRestartEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.events.WorkflowTriggerStartEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
@@ -41,7 +41,7 @@ public class WorkflowTriggerListener {
 
     @Async
     @TransactionalEventListener
-    public void onWorkflowDefinitionUpdated(WorkflowDefinitionUpdatedEvent event) {
+    public void onWorkflowDefinitionUpdated(SecretLinkedEvent event) {
         WorkflowDefinition definition = event.definition();
         if (definition != null) {
             triggerService.synchronizeTrigger(event.workflowId(), definition);

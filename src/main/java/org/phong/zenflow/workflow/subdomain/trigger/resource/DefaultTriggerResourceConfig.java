@@ -1,7 +1,8 @@
 package org.phong.zenflow.workflow.subdomain.trigger.resource;
 
-import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
+import org.phong.zenflow.workflow.subdomain.trigger.dto.TriggerContext;
 
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -9,16 +10,21 @@ import java.util.Map;
  */
 public class DefaultTriggerResourceConfig implements TriggerResourceConfig {
 
-    private final Map<String, Object> configMap;
+    private final Map<String, Object> contextMap;
     private final String resourceIdentifier;
 
-    public DefaultTriggerResourceConfig(WorkflowTrigger trigger, String resourceKeyField) {
-        this.configMap = trigger.getConfig();
+    //TODO: currently overwrites contextMap with profiles if present. Consider merging strategies.
+    public DefaultTriggerResourceConfig(TriggerContext triggerCtx, String resourceKeyField) {
+        Map<String, Object> mergeContext = new HashMap<>(triggerCtx.trigger().getConfig());
+        if (triggerCtx.profiles() != null) {
+            mergeContext.putAll(triggerCtx.profiles());
+        }
+        this.contextMap = mergeContext;
         this.resourceIdentifier = extractResourceIdentifier(resourceKeyField);
     }
 
     public DefaultTriggerResourceConfig(Map<String, Object> config, String resourceKeyField) {
-        this.configMap = config;
+        this.contextMap = config;
         this.resourceIdentifier = extractResourceIdentifier(resourceKeyField);
     }
 
@@ -28,12 +34,12 @@ public class DefaultTriggerResourceConfig implements TriggerResourceConfig {
     }
 
     @Override
-    public Map<String, Object> getConfigMap() {
-        return configMap;
+    public Map<String, Object> getContextMap() {
+        return contextMap;
     }
 
     private String extractResourceIdentifier(String keyField) {
-        Object value = configMap.get(keyField);
+        Object value = contextMap.get(keyField);
         if (value == null) {
             throw new IllegalArgumentException("Resource key field '" + keyField + "' not found in config");
         }
