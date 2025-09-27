@@ -1,4 +1,4 @@
-package org.phong.zenflow.plugin.subdomain.registry.definitions.google;
+package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.core;
 
 import com.google.api.client.auth.oauth2.TokenResponse;
 import com.google.api.client.auth.oauth2.TokenResponseException;

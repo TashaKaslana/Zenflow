@@ -1,4 +1,4 @@
-package org.phong.zenflow.plugin.subdomain.registry.definitions.google;
+package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.core;
 
 import com.google.api.services.docs.v1.DocsScopes;
 import com.google.api.services.drive.DriveScopes;

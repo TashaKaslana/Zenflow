@@ -7,7 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
-import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.drive.share.GoogleDriveServiceManager;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.drive.GoogleDriveServiceManager;
 import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
@@ -39,15 +39,16 @@ public class GoogleDriveListExecutor implements PluginNodeExecutor {
         NodeLogPublisher logCollector = context.getLogPublisher();
         try {
             Map<String, Object> input = config.input();
-            String profile = (String) input.get("profile");
             String query = (String) input.getOrDefault("query", "trashed=false");
 
-            @SuppressWarnings("unchecked")
-            Map<String, Map<String, String>> profileMap = context.read("profiles", Map.class);
-            Map<String, String> credentials = profileMap.get(profile);
-            String clientId = credentials.get("CLIENT_ID");
-            String clientSecret = credentials.get("CLIENT_SECRET");
-            String refreshToken = credentials.get("REFRESH_TOKEN");
+            // Get profile credentials using the proper getProfileSecret method
+            String clientId = (String) context.getProfileSecret("CLIENT_ID");
+            String clientSecret = (String) context.getProfileSecret("CLIENT_SECRET");
+            String refreshToken = (String) context.getProfileSecret("CLIENT_REFRESH_TOKEN");
+
+            if (clientId == null || clientSecret == null || refreshToken == null) {
+                return ExecutionResult.error("No valid Google OAuth profile found. Please ensure a Google profile is properly configured and linked to this node.");
+            }
 
             Map<String, Object> cfg = new HashMap<>();
             cfg.put("clientId", clientId);
