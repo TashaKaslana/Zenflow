@@ -5,16 +5,18 @@ import org.jetbrains.annotations.NotNull;
 import org.phong.zenflow.core.services.AuthService;
 import org.phong.zenflow.plugin.services.PluginService;
 import org.phong.zenflow.plugin.subdomain.node.service.PluginNodeService;
-import org.phong.zenflow.secret.subdomain.profile.dto.CreateProfileSecretsRequest;
-import org.phong.zenflow.secret.subdomain.profile.dto.ProfileSecretListDto;
 import org.phong.zenflow.secret.enums.SecretScope;
 import org.phong.zenflow.secret.exception.SecretDomainException;
 import org.phong.zenflow.secret.infrastructure.persistence.entity.Secret;
-import org.phong.zenflow.secret.subdomain.profile.entity.SecretProfile;
 import org.phong.zenflow.secret.infrastructure.persistence.repository.SecretProfileRepository;
 import org.phong.zenflow.secret.infrastructure.persistence.repository.SecretRepository;
 import org.phong.zenflow.secret.subdomain.link.infrastructure.entity.ProfileSecretLink;
 import org.phong.zenflow.secret.subdomain.link.infrastructure.repository.ProfileSecretLinkRepository;
+import org.phong.zenflow.secret.subdomain.profile.dto.CreateProfileSecretsRequest;
+import org.phong.zenflow.secret.subdomain.profile.dto.ProfilePreparationResult;
+import org.phong.zenflow.secret.subdomain.profile.dto.ProfileSecretCreationResult;
+import org.phong.zenflow.secret.subdomain.profile.dto.ProfileSecretListDto;
+import org.phong.zenflow.secret.subdomain.profile.entity.SecretProfile;
 import org.phong.zenflow.secret.util.AESUtil;
 import org.phong.zenflow.workflow.infrastructure.persistence.repository.WorkflowRepository;
 import org.springframework.stereotype.Service;
@@ -37,10 +39,10 @@ public class ProfileSecretService {
     private final PluginNodeService pluginNodeService;
     private final AuthService authService;
     private final AESUtil aesUtil;
-    private final SecretProfileSchemaValidator validator;
+    private final ProfilePreparationService profilePreparationService;
 
     @Transactional
-    public ProfileSecretListDto createProfileSecrets(UUID workflowId, CreateProfileSecretsRequest request) {
+    public ProfileSecretCreationResult createProfileSecrets(UUID workflowId, CreateProfileSecretsRequest request) {
         if (request.isDuplicated()) {
             throw new SecretDomainException("Duplicate keys found in the request.");
         }
@@ -51,13 +53,19 @@ public class ProfileSecretService {
             throw new SecretDomainException("Profile with name '" + request.getName() + "' already exists for this workflow.");
         }
 
-        boolean isValid = validator.validate(request.getPluginId(), request.getPluginNodeId(), request.getSecrets());
-        if (!isValid) {
-            throw new SecretDomainException("Secrets do not conform to the required schema!");
+        ProfilePreparationResult preparationResult = profilePreparationService.prepareSecrets(
+                request.getPluginId(),
+                request.getPluginNodeId(),
+                request.getSecrets(),
+                request.getCallbackUrl()
+        );
+
+        if (!preparationResult.isReady()) {
+            return ProfileSecretCreationResult.pending(preparationResult.pendingRequests());
         }
 
         SecretProfile finalProfile = saveProfileSecret(workflowId, request);
-        List<Secret> savedSecrets = saveSecrets(request, finalProfile);
+        List<Secret> savedSecrets = saveSecrets(preparationResult.preparedSecrets(), finalProfile);
         linkSecretsToProfile(savedSecrets, finalProfile);
 
         Map<String, Map<String, String>> profileMap = Map.of(
@@ -74,12 +82,12 @@ public class ProfileSecretService {
                 ))
         );
 
-        return new ProfileSecretListDto(profileMap);
+        return ProfileSecretCreationResult.completed(new ProfileSecretListDto(profileMap));
     }
 
     @NotNull
-    private List<Secret> saveSecrets(CreateProfileSecretsRequest request, SecretProfile finalProfile) {
-        List<Secret> secrets = request.getSecrets().entrySet().stream()
+    private List<Secret> saveSecrets(Map<String, String> secrets, SecretProfile finalProfile) {
+        List<Secret> secretList = secrets.entrySet().stream()
                 .map(entry -> {
                     Secret secret = new Secret();
                     secret.setWorkflow(finalProfile.getWorkflow());
@@ -96,7 +104,7 @@ public class ProfileSecretService {
                 })
                 .collect(Collectors.toList());
 
-        return secretRepository.saveAll(secrets);
+        return secretRepository.saveAll(secretList);
     }
 
     private void linkSecretsToProfile(List<Secret> savedSecrets, SecretProfile finalProfile) {
