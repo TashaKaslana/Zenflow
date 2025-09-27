@@ -7,6 +7,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.core.GoogleCredentialsException;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.core.GoogleResourceConfigBuilder;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.docs.GoogleDocsServiceManager;
 import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
@@ -41,20 +43,8 @@ public class GoogleDocsGetExecutor implements PluginNodeExecutor {
             Map<String, Object> input = config.input();
             String documentId = (String) input.get("documentId");
 
-            // Get profile credentials using the proper getProfileSecret method
-            String clientId = (String) context.getProfileSecret("CLIENT_ID");
-            String clientSecret = (String) context.getProfileSecret("CLIENT_SECRET");
-            String refreshToken = (String) context.getProfileSecret("CLIENT_REFRESH_TOKEN");
-
-            if (clientId == null || clientSecret == null || refreshToken == null) {
-                return ExecutionResult.error("No valid Google OAuth profile found. Please ensure a Google profile is properly configured and linked to this node.");
-            }
-
-            Map<String, Object> cfg = new HashMap<>();
-            cfg.put("clientId", clientId);
-            cfg.put("clientSecret", clientSecret);
-            cfg.put("refreshToken", refreshToken);
-            DefaultTriggerResourceConfig resourceConfig = new DefaultTriggerResourceConfig(cfg, "refreshToken");
+            DefaultTriggerResourceConfig resourceConfig = GoogleResourceConfigBuilder.build(context);
+            String refreshToken = resourceConfig.getResourceIdentifier();
 
             try (ScopedNodeResource<Docs> handle =
                          docsServiceManager.acquire(refreshToken, context.getWorkflowRunId(), resourceConfig)) {
@@ -68,6 +58,9 @@ public class GoogleDocsGetExecutor implements PluginNodeExecutor {
                 output.put("document", document);
                 return ExecutionResult.success(output);
             }
+        } catch (GoogleCredentialsException e) {
+            logCollector.withException(e).error("Google credential error: {}", e.getMessage());
+            return ExecutionResult.error(e.getMessage());
         } catch (Exception e) {
             logCollector.withException(e).error("Google Docs get failed: {}", e.getMessage());
             return ExecutionResult.error(e.getMessage());

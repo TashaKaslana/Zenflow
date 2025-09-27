@@ -7,10 +7,6 @@
       "type": "object",
       "title": "Input Schema",
       "properties": {
-        "profile": {
-          "type": "string",
-          "description": "Secret profile group name containing OAuth credentials"
-        },
         "name": {
           "type": "string",
           "description": "Name of the file to create"
@@ -26,7 +22,6 @@
         }
       },
       "required": [
-        "profile",
         "name",
         "data"
       ],
@@ -37,7 +32,10 @@
       "title": "Output Schema"
     },
     "profile": {
-      "$ref": "plugin:profile"
+      "profileKeys": [
+        "oauth-default"
+      ],
+      "description": "Requires the Google OAuth profile for authentication."
     }
   },
   "required": [

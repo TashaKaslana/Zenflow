@@ -7,6 +7,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.core.GoogleCredentialsException;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.core.GoogleResourceConfigBuilder;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.drive.GoogleDriveServiceManager;
 import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
@@ -39,21 +41,10 @@ public class GoogleDriveTrashExecutor implements PluginNodeExecutor {
         NodeLogPublisher logCollector = context.getLogPublisher();
         try {
             Map<String, Object> input = config.input();
-            String profile = (String) input.get("profile");
             String fileId = (String) input.get("fileId");
 
-            @SuppressWarnings("unchecked")
-            Map<String, Map<String, String>> profileMap = context.read("profiles", Map.class);
-            Map<String, String> credentials = profileMap.get(profile);
-            String clientId = credentials.get("CLIENT_ID");
-            String clientSecret = credentials.get("CLIENT_SECRET");
-            String refreshToken = credentials.get("REFRESH_TOKEN");
-
-            Map<String, Object> cfg = new HashMap<>();
-            cfg.put("clientId", clientId);
-            cfg.put("clientSecret", clientSecret);
-            cfg.put("refreshToken", refreshToken);
-            DefaultTriggerResourceConfig resourceConfig = new DefaultTriggerResourceConfig(cfg, "refreshToken");
+            DefaultTriggerResourceConfig resourceConfig = GoogleResourceConfigBuilder.build(context);
+            String refreshToken = resourceConfig.getResourceIdentifier();
 
             try (ScopedNodeResource<Drive> handle = driveServiceManager.acquire(refreshToken, context.getWorkflowRunId(), resourceConfig)) {
                 Drive drive = handle.getResource();
@@ -67,6 +58,9 @@ public class GoogleDriveTrashExecutor implements PluginNodeExecutor {
                 output.put("file", file);
                 return ExecutionResult.success(output);
             }
+        } catch (GoogleCredentialsException e) {
+            logCollector.withException(e).error("Google credential error: {}", e.getMessage());
+            return ExecutionResult.error(e.getMessage());
         } catch (Exception e) {
             logCollector.withException(e).error("Google Drive trash failed: {}", e.getMessage());
             return ExecutionResult.error(e.getMessage());
