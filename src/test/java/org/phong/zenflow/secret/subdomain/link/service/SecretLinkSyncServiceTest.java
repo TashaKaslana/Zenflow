@@ -16,8 +16,9 @@ import org.phong.zenflow.workflow.subdomain.node_definition.definitions.Workflow
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
 import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowProfileBinding;
+import org.springframework.context.ApplicationEventPublisher;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -36,12 +37,13 @@ class SecretLinkSyncServiceTest {
     @Mock private SecretLinkService secretLinkService;
     @Mock private ProfileSecretService profileSecretService;
     @Mock private WorkflowRepository workflowRepository;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
     private SecretLinkSyncService syncService;
 
     @BeforeEach
     void setUp() {
-        syncService = new SecretLinkSyncService(secretService, secretLinkService, profileSecretService, workflowRepository);
+        syncService = new SecretLinkSyncService(secretService, secretLinkService, profileSecretService, workflowRepository, eventPublisher);
     }
 
     @Test
@@ -78,7 +80,7 @@ class SecretLinkSyncServiceTest {
         WorkflowNodes nodes = new WorkflowNodes();
         nodes.put(node);
         var metadata = new org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowMetadata();
-        metadata.profiles().put("default", new ArrayList<>(List.of(nodeKey)));
+        metadata.profileAssignments().put(nodeKey, new WorkflowProfileBinding(pluginKey, "default"));
 
         return new WorkflowDefinition(nodes, metadata);
     }
