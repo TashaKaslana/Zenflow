@@ -4,7 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.jetbrains.annotations.NotNull;
-import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContext;
+import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContextTool;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -58,14 +58,14 @@ public class DiscordMessageListenerHub extends ListenerAdapter {
             Map<String, Object> payload = getPayload(event);
 
             // Start the workflow
-            TriggerContext triggerContext = discordMessageContext.triggerContext();
+            TriggerContextTool triggerContextTool = discordMessageContext.triggerContextTool();
             triggerId = discordMessageContext.triggerId();
-            triggerContext.startWorkflow(
+            triggerContextTool.startWorkflow(
                     discordMessageContext.workflowId(),
                     discordMessageContext.triggerExecutorId,
                     payload
             );
-            triggerContext.markTriggered(triggerId, Instant.now());
+            triggerContextTool.markTriggered(triggerId, Instant.now());
 
             log.debug("Discord trigger fired for message: {} in channel: {}", event.getMessageId(), channelId);
 
@@ -100,6 +100,6 @@ public class DiscordMessageListenerHub extends ListenerAdapter {
     }
 
     public record DiscordMessageContext(UUID triggerId, UUID triggerExecutorId, UUID workflowId, Map<String, Object> config,
-                                        TriggerContext triggerContext) {
+                                        TriggerContextTool triggerContextTool) {
     }
 }

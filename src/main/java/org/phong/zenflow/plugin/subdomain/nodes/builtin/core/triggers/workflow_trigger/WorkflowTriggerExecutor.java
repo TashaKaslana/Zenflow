@@ -7,10 +7,11 @@ import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
+import org.phong.zenflow.workflow.subdomain.trigger.dto.TriggerContext;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
-import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContext;
+import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContextTool;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerExecutor;
 import org.phong.zenflow.plugin.subdomain.resource.NodeResourcePool;
 import org.springframework.context.ApplicationEventPublisher;
@@ -43,12 +44,13 @@ public class WorkflowTriggerExecutor implements TriggerExecutor {
     }
 
     @Override
-    public Optional<String> getResourceKey(WorkflowTrigger trigger) {
+    public Optional<String> getResourceKey(TriggerContext triggerCtx) {
         return Optional.empty(); // No resource key needed
     }
 
     @Override
-    public RunningHandle start(WorkflowTrigger trigger, TriggerContext ctx) throws Exception {
+    public RunningHandle start(TriggerContext triggerCtx, TriggerContextTool contextTool) throws Exception {
+        WorkflowTrigger trigger = triggerCtx.trigger();
         log.info("Starting workflow trigger for workflow: {}", trigger.getWorkflowId());
 
         Map<String, Object> config = trigger.getConfig();

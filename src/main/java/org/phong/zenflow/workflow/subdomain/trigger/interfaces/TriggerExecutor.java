@@ -1,13 +1,13 @@
 package org.phong.zenflow.workflow.subdomain.trigger.interfaces;
 
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
-import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
+import org.phong.zenflow.workflow.subdomain.trigger.dto.TriggerContext;
 import org.phong.zenflow.plugin.subdomain.resource.NodeResourcePool;
 
 import java.util.Optional;
 
 public interface TriggerExecutor extends PluginNodeExecutor {
-    RunningHandle start(WorkflowTrigger trigger, TriggerContext ctx) throws Exception;
+    RunningHandle start(TriggerContext triggerCtx, TriggerContextTool contextTool) throws Exception;
 
     /**
      * Optional: Return the resource manager if this trigger needs shared resources.
@@ -21,7 +21,7 @@ public interface TriggerExecutor extends PluginNodeExecutor {
      * Optional: Generate the resource key for this specific trigger.
      * Only needed if this trigger uses shared resources.
      */
-    default Optional<String> getResourceKey(WorkflowTrigger trigger) {
+    default Optional<String> getResourceKey(TriggerContext trigger) {
         return Optional.empty();
     }
 

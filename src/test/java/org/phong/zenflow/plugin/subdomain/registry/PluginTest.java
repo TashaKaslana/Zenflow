@@ -9,11 +9,24 @@ import org.phong.zenflow.plugin.subdomain.registry.definitions.IntegrationPlugin
 import org.phong.zenflow.plugin.subdomain.registry.definitions.TestPlugin;
 import org.phong.zenflow.plugin.subdomain.registry.definitions.GoogleDrivePlugin;
 import org.phong.zenflow.plugin.subdomain.registry.definitions.GoogleDocsPlugin;
+import org.phong.zenflow.plugin.subdomain.registry.profile.PluginProfileDescriptorRegistry;
+import org.phong.zenflow.plugin.subdomain.registry.profile.PluginProfileDescriptorDelegate;
+import org.phong.zenflow.plugin.subdomain.registry.settings.PluginSettingDescriptorDelegate;
+import org.phong.zenflow.plugin.subdomain.registry.settings.PluginSettingDescriptorRegistry;
+import org.phong.zenflow.plugin.subdomain.registry.settings.PluginSettingProvider;
+import org.phong.zenflow.plugin.subdomain.registry.definitions.google.GoogleOAuthAuthorizationService;
+import org.phong.zenflow.plugin.subdomain.registry.definitions.google.GoogleOAuthProfileDescriptor;
+import org.phong.zenflow.plugin.subdomain.registry.profile.PluginProfileDescriptor;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
+import org.springframework.context.ApplicationContext;
 
 import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -28,6 +41,13 @@ import static org.mockito.Mockito.*;
         GoogleDrivePlugin.class,
         GoogleDocsPlugin.class,
         PluginSynchronizer.class,
+        PluginProfileDescriptorDelegate.class,
+        PluginSettingDescriptorDelegate.class,
+        PluginSchemaComposer.class,
+        GoogleOAuthProfileDescriptor.class,
+        GoogleOAuthAuthorizationService.class,
+        PluginProfileDescriptorRegistry.class,
+        PluginSettingDescriptorRegistry.class,
         ObjectMapper.class
 })
 public class PluginTest {
@@ -46,10 +66,25 @@ public class PluginTest {
     void setup() {
         // Default to validating schemas successfully for tests
         when(schemaValidator.validate(anyString(), any(org.json.JSONObject.class))).thenReturn(true);
+        when(pluginRepository.save(any(Plugin.class))).thenAnswer(invocation -> {
+            Plugin plugin = invocation.getArgument(0);
+            if (plugin.getId() == null) {
+                ReflectionTestUtils.setField(plugin, "id", UUID.randomUUID());
+            }
+            return plugin;
+        });
     }
 
     @Autowired
     private PluginSynchronizer pluginSynchronizer;
+
+    @Autowired
+    private PluginSettingDescriptorRegistry settingDescriptorRegistry;
+
+    @Autowired
+    private PluginSettingDescriptorDelegate pluginSettingDescriptorDelegate;
+    @Autowired
+    private ApplicationContext applicationContext;
 
     @Test
     void testCorePluginRegistration() {
@@ -57,6 +92,7 @@ public class PluginTest {
 
         // Mock repository behavior
         Plugin mockPlugin = new Plugin();
+        mockPlugin.setId(UUID.randomUUID());
         mockPlugin.setKey("core");
         mockPlugin.setName("Core Plugin");
         mockPlugin.setVersion("1.0.0");
@@ -67,7 +103,6 @@ public class PluginTest {
         mockPlugin.setPublisherId(UUID.fromString("00000000-0000-0000-0000-000000000000"));
 
         when(pluginRepository.findByKey("core")).thenReturn(Optional.empty());
-        when(pluginRepository.save(any(Plugin.class))).thenReturn(mockPlugin);
 
         // Execute synchronizer
         assertDoesNotThrow(() -> pluginSynchronizer.run(null),
@@ -92,6 +127,7 @@ public class PluginTest {
         // Test that the integration plugin is properly registered
 
         Plugin mockPlugin = new Plugin();
+        mockPlugin.setId(UUID.randomUUID());
         mockPlugin.setKey("integration");
         mockPlugin.setName("Integration Plugin");
         mockPlugin.setVersion("1.0.0");
@@ -102,7 +138,6 @@ public class PluginTest {
         mockPlugin.setPublisherId(UUID.fromString("00000000-0000-0000-0000-000000000000"));
 
         when(pluginRepository.findByKey("integration")).thenReturn(Optional.empty());
-        when(pluginRepository.save(any(Plugin.class))).thenReturn(mockPlugin);
 
         // Execute synchronizer
         assertDoesNotThrow(() -> pluginSynchronizer.run(null),
@@ -127,6 +162,7 @@ public class PluginTest {
         // Test that the test plugin is properly registered
 
         Plugin mockPlugin = new Plugin();
+        mockPlugin.setId(UUID.randomUUID());
         mockPlugin.setKey("test");
         mockPlugin.setName("Test Plugin");
         mockPlugin.setVersion("1.0.0");
@@ -137,7 +173,6 @@ public class PluginTest {
         mockPlugin.setPublisherId(UUID.fromString("00000000-0000-0000-0000-000000000000"));
 
         when(pluginRepository.findByKey("test")).thenReturn(Optional.empty());
-        when(pluginRepository.save(any(Plugin.class))).thenReturn(mockPlugin);
 
         // Execute synchronizer
         assertDoesNotThrow(() -> pluginSynchronizer.run(null),
@@ -163,7 +198,6 @@ public class PluginTest {
 
         // Mock repository behavior for all plugins
         when(pluginRepository.findByKey(anyString())).thenReturn(Optional.empty());
-        when(pluginRepository.save(any(Plugin.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // Execute synchronizer
         assertDoesNotThrow(() -> pluginSynchronizer.run(null),
@@ -185,13 +219,13 @@ public class PluginTest {
         // Test that existing plugins are updated with new information
 
         Plugin existingPlugin = new Plugin();
+        existingPlugin.setId(UUID.randomUUID());
         existingPlugin.setKey("core");
         existingPlugin.setName("Old Core Plugin Name");
         existingPlugin.setVersion("0.9.0");
         existingPlugin.setDescription("Old description");
 
         when(pluginRepository.findByKey("core")).thenReturn(Optional.of(existingPlugin));
-        when(pluginRepository.save(any(Plugin.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // Execute synchronizer
         assertDoesNotThrow(() -> pluginSynchronizer.run(null),
@@ -215,8 +249,8 @@ public class PluginTest {
         CorePlugin corePlugin = new CorePlugin();
         IntegrationPlugin integrationPlugin = new IntegrationPlugin();
         TestPlugin testPlugin = new TestPlugin();
-        GoogleDrivePlugin googleDrivePlugin = new GoogleDrivePlugin();
-        GoogleDocsPlugin googleDocsPlugin = new GoogleDocsPlugin();
+        GoogleDrivePlugin googleDrivePlugin = createGoogleDrivePlugin();
+        GoogleDocsPlugin googleDocsPlugin = createGoogleDocsPlugin();
 
         // Verify that the classes have the @Plugin annotation
         assertTrue(CorePlugin.class.isAnnotationPresent(
@@ -297,6 +331,105 @@ public class PluginTest {
     }
 
     @Test
+    void googlePluginsExposeProfileDescriptors() {
+        GoogleDrivePlugin drivePlugin = createGoogleDrivePlugin();
+        List<PluginProfileDescriptor> driveDescriptors = drivePlugin.getPluginProfiles();
+        assertFalse(driveDescriptors.isEmpty(), "Drive plugin should expose at least one profile descriptor");
+        PluginProfileDescriptor descriptor = driveDescriptors.get(0);
+        assertEquals("oauth-default", descriptor.id());
+        assertEquals("Google OAuth Profile", descriptor.displayName());
+        assertTrue(descriptor.requiresPreparation());
+        assertEquals("/google/oauth.profile.schema.json", descriptor.schemaPath());
+
+        GoogleDocsPlugin docsPlugin = createGoogleDocsPlugin();
+        List<PluginProfileDescriptor> docsDescriptors = docsPlugin.getPluginProfiles();
+        assertEquals(1, docsDescriptors.size(), "Docs plugin should reuse the shared OAuth descriptor");
+        assertEquals(descriptor.schemaPath(), docsDescriptors.get(0).schemaPath());
+    }
+
+    @Test
+    void googlePluginSchemasIncludeProfileMetadata() {
+        when(pluginRepository.findByKey(anyString())).thenReturn(Optional.empty());
+
+
+
+
+        pluginSynchronizer.run(null);
+
+        ArgumentCaptor<Plugin> captor = ArgumentCaptor.forClass(Plugin.class);
+        verify(pluginRepository, atLeastOnce()).save(captor.capture());
+
+        Plugin googleDrive = captor.getAllValues().stream()
+                .filter(plugin -> "google-drive".equals(plugin.getKey()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Google Drive plugin was not synchronized"));
+
+        assertNotNull(googleDrive);
+        UUID pluginId = googleDrive.getId();
+        assertNotNull(pluginId);
+        verify(schemaIndexRegistry, atLeastOnce()).addProfileSchemaLocation(
+                eq(pluginId),
+                eq("oauth-default"),
+                any(org.phong.zenflow.plugin.subdomain.schema.registry.SchemaIndexRegistry.SchemaLocation.class)
+        );
+        Map<String, Object> schema = googleDrive.getPluginSchema();
+        assertNotNull(schema, "Google Drive plugin should persist profile schema metadata");
+        assertTrue(schema.containsKey("profiles"));
+        List<?> profiles = (List<?>) schema.get("profiles");
+        assertFalse(profiles.isEmpty());
+        Object firstProfile = profiles.get(0);
+        assertInstanceOf(Map.class, firstProfile);
+        Map<?, ?> profileMap = (Map<?, ?>) firstProfile;
+        assertEquals("oauth-default", profileMap.get("id"));
+        assertEquals(Boolean.TRUE, profileMap.get("requiresPreparation"));
+        assertTrue(profileMap.containsKey("schema"));
+        Map<?, ?> descriptorSchema = (Map<?, ?>) profileMap.get("schema");
+        assertEquals("Google OAuth Credentials", descriptorSchema.get("title"));
+        assertEquals(descriptorSchema, schema.get("profile"));
+    }
+
+    @Test
+    void testPluginSettingsDescriptors() {
+        when(pluginRepository.findByKey(anyString())).thenReturn(Optional.empty());
+        Object bean = applicationContext.getBean(TestPlugin.class);
+        assertTrue(bean instanceof PluginSettingProvider);
+        assertFalse(((PluginSettingProvider) bean).getPluginSettings().isEmpty(),
+                "Provider should expose test setting descriptors");
+
+
+        assertFalse(pluginSettingDescriptorDelegate.resolveDescriptors(TestPlugin.class).isEmpty(),
+                "Delegate should resolve test setting descriptors");
+
+        pluginSynchronizer.run(null);
+
+        ArgumentCaptor<Plugin> captor = ArgumentCaptor.forClass(Plugin.class);
+        verify(pluginRepository, atLeastOnce()).save(captor.capture());
+
+        Plugin testPlugin = captor.getAllValues().stream()
+                .filter(plugin -> "test".equals(plugin.getKey()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Test plugin was not synchronized"));
+
+        assertFalse(settingDescriptorRegistry.getByPluginKey("test").isEmpty(), "Settings descriptors should be registered");
+
+        Map<String, Object> schema = testPlugin.getPluginSchema();
+        assertNotNull(schema, "Test plugin should persist schema metadata");
+        assertTrue(schema.containsKey("settings"));
+        List<?> settings = (List<?>) schema.get("settings");
+        assertFalse(settings.isEmpty());
+        Object firstSetting = settings.get(0);
+        assertInstanceOf(Map.class, firstSetting);
+        Map<?, ?> settingsMap = (Map<?, ?>) firstSetting;
+        assertEquals("test-settings", settingsMap.get("id"));
+        assertTrue(settingsMap.containsKey("schema"));
+
+        verify(schemaIndexRegistry, atLeastOnce()).addSettingSchemaLocation(
+                any(UUID.class),
+                eq("test-settings"),
+                any(org.phong.zenflow.plugin.subdomain.schema.registry.SchemaIndexRegistry.SchemaLocation.class)
+        );
+    }
+    @Test
     void testPluginSynchronizerOrder() {
         // Test that PluginSynchronizer has the correct order annotation
         assertTrue(PluginSynchronizer.class.isAnnotationPresent(org.springframework.core.annotation.Order.class),
@@ -315,7 +448,6 @@ public class PluginTest {
 
         // Mock repository to throw an exception
         when(pluginRepository.findByKey(anyString())).thenReturn(Optional.empty());
-        when(pluginRepository.save(any(Plugin.class))).thenThrow(new RuntimeException("Database error"));
 
         // Synchronizer should handle exceptions gracefully and continue with other plugins
         assertDoesNotThrow(() -> pluginSynchronizer.run(null),
@@ -324,4 +456,17 @@ public class PluginTest {
         // Verify that it attempted to save plugins despite errors
         verify(pluginRepository, atLeastOnce()).save(any(Plugin.class));
     }
+
+    private GoogleOAuthProfileDescriptor createDescriptor() {
+        return new GoogleOAuthProfileDescriptor(new GoogleOAuthAuthorizationService());
+    }
+
+    private GoogleDrivePlugin createGoogleDrivePlugin() {
+        return new GoogleDrivePlugin(createDescriptor());
+    }
+
+    private GoogleDocsPlugin createGoogleDocsPlugin() {
+        return new GoogleDocsPlugin(createDescriptor());
+    }
+
 }

@@ -6,7 +6,7 @@ import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
 import org.springframework.stereotype.Component;
 import lombok.extern.slf4j.Slf4j;
-import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContext;
+import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContextTool;
 
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -24,7 +24,7 @@ import java.util.UUID;
 @AllArgsConstructor
 public class WorkflowTriggerJob implements Job {
 
-    private TriggerContext triggerContext;
+    private TriggerContextTool triggerContextTool;
 
     @Override
     public void execute(JobExecutionContext context) throws JobExecutionException {
@@ -64,8 +64,8 @@ public class WorkflowTriggerJob implements Job {
             }
 
             // Start the workflow
-            triggerContext.startWorkflow(workflowId, UUID.fromString(triggerExecutorId), payload);
-            triggerContext.markTriggered(triggerId, Instant.now());
+            triggerContextTool.startWorkflow(workflowId, UUID.fromString(triggerExecutorId), payload);
+            triggerContextTool.markTriggered(triggerId, Instant.now());
 
         } catch (Exception e) {
             log.error("Error in Quartz job execution: {}", e.getMessage(), e);

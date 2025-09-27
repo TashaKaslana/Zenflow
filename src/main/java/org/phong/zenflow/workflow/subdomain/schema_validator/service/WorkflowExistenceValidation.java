@@ -7,6 +7,7 @@ import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.node_definition.constraints.WorkflowConstraints;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowProfileBinding;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
 import org.phong.zenflow.workflow.subdomain.schema_validator.enums.ValidationErrorCode;
 import org.springframework.stereotype.Component;
@@ -87,56 +88,61 @@ public class WorkflowExistenceValidation {
     }
 
     private void validateProfileExistence(UUID workflowId, WorkflowDefinition workflow, List<ValidationError> extra) {
-        if (workflow != null && workflow.nodes() != null && workflow.metadata() != null && workflow.metadata().profiles() != null) {
-            Map<String, List<String>> profileUsage = workflow.metadata().profiles();
-            Map<String, BaseWorkflowNode> nodeMap = workflow.nodes().asMap();
-
-            profileUsage.forEach((profileName, nodeKeys) -> {
-                if (nodeKeys == null) return;
-                for (String nk : nodeKeys) {
-                    BaseWorkflowNode node = nodeMap.get(nk);
-                    if (node == null || node.getPluginNode() == null) {
-                        continue; // node existence validated elsewhere
-                    }
-
-                    String pluginKey = node.getPluginNode().getPluginKey();
-                    UUID profileId = profileSecretService.resolveProfileId(workflowId, pluginKey, profileName);
-                    if (profileId == null) {
-                        extra.add(ValidationError.builder()
-                                .nodeKey(nk)
-                                .errorType("definition")
-                                .errorCode(ValidationErrorCode.INVALID_REFERENCE)
-                                .path("metadata.profiles." + profileName)
-                                .message("Profile '" + profileName + "' does not exist for plugin '" + pluginKey + "'")
-                                .value(profileName)
-                                .expectedType("existing_profile_name")
-                                .build());
-                    }
-                }
-            });
-
-            // Warn if a node appears under multiple profiles (duplicate assignment)
-            Map<String, List<String>> profilesByNode = new java.util.HashMap<>();
-            profileUsage.forEach((profileName, nodeKeys) -> {
-                if (nodeKeys == null) return;
-                for (String nk : nodeKeys) {
-                    profilesByNode.computeIfAbsent(nk, k -> new ArrayList<>()).add(profileName);
-                }
-            });
-            profilesByNode.forEach((nk, names) -> {
-                if (names != null && names.size() > 1) {
-                    extra.add(ValidationError.builder()
-                            .nodeKey(nk)
-                            .errorType("definition-warning")
-                            .errorCode(ValidationErrorCode.INVALID_VALUE)
-                            .path("metadata.profiles")
-                            .message("Node '" + nk + "' is listed under multiple profiles: " + names)
-                            .value(String.join(",", names))
-                            .expectedType("single_profile_assignment")
-                            .build());
-                }
-            });
+        if (workflow == null || workflow.nodes() == null || workflow.metadata() == null) {
+            return;
         }
+
+        Map<String, WorkflowProfileBinding> assignments = workflow.metadata().profileAssignments();
+        if (assignments == null || assignments.isEmpty()) {
+            return;
+        }
+
+        Map<String, BaseWorkflowNode> nodeMap = workflow.nodes().asMap();
+
+        assignments.forEach((nodeKey, binding) -> {
+            if (binding == null) {
+                return;
+            }
+
+            BaseWorkflowNode node = nodeMap.get(nodeKey);
+            if (node == null || node.getPluginNode() == null) {
+                return;
+            }
+
+            String pluginKey = binding.pluginKey() != null ? binding.pluginKey() : node.getPluginNode().getPluginKey();
+            String profileKey = binding.profileKey();
+            if (pluginKey == null || pluginKey.isBlank() || profileKey == null || profileKey.isBlank()) {
+                extra.add(ValidationError.builder()
+                        .nodeKey(nodeKey)
+                        .errorType("definition")
+                        .errorCode(ValidationErrorCode.INVALID_REFERENCE)
+                        .path("metadata.profileAssignments." + nodeKey)
+                        .message("Profile key mapping must include both plugin key and profile key")
+                        .build());
+                return;
+            }
+
+            String candidateName = binding.profileName() != null ? binding.profileName() : profileKey;
+            UUID profileId = binding.profileId();
+            if (profileId == null) {
+                profileId = profileSecretService.resolveProfileId(workflowId, pluginKey, candidateName);
+            }
+            if (profileId == null && !candidateName.equals(profileKey)) {
+                profileId = profileSecretService.resolveProfileId(workflowId, pluginKey, profileKey);
+            }
+
+            if (profileId == null) {
+                extra.add(ValidationError.builder()
+                        .nodeKey(nodeKey)
+                        .errorType("definition")
+                        .errorCode(ValidationErrorCode.INVALID_REFERENCE)
+                        .path("metadata.profileAssignments." + nodeKey)
+                        .message("Profile key '" + profileKey + "' could not be resolved for plugin '" + pluginKey + "'")
+                        .value(profileKey)
+                        .expectedType("existing_profile_for_plugin")
+                        .build());
+            }
+        });
     }
 
     private void validateSecretExistence(UUID workflowId, WorkflowDefinition workflow, List<ValidationError> extra) {

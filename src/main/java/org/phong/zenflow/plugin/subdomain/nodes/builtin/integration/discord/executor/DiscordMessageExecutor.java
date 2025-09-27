@@ -11,7 +11,7 @@ import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
-import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.discord.share.DiscordJdaResourceManager;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.discord.core.DiscordJdaResourceManager;
 import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
@@ -26,7 +26,7 @@ import java.util.List;
 
 @Component
 @PluginNode(
-        key = "integration:discord.message.send",
+        key = "discord:message.send",
         name = "Discord Send Message",
         version = "1.0.0",
         description = "Sends a message to a Discord channel using JDA. Supports text messages and embeds.",
@@ -48,13 +48,13 @@ public class DiscordMessageExecutor implements PluginNodeExecutor {
             Map<String, Object> input = config.input();
 
             // Extract required parameters
-            botToken = (String) input.get("bot_token");
+            botToken = (String) context.getProfileSecret("BOT_TOKEN");
             String channelId = (String) input.get("channel_id");
             String message = (String) input.get("message");
 
             // Validate required parameters
             if (botToken == null || botToken.trim().isEmpty()) {
-                return ExecutionResult.error("bot_token is required");
+                return ExecutionResult.error("BOT_TOKEN is required");
             }
             if (channelId == null || channelId.trim().isEmpty()) {
                 return ExecutionResult.error("channel_id is required");
@@ -66,8 +66,8 @@ public class DiscordMessageExecutor implements PluginNodeExecutor {
             logs.info("Sending Discord message to channel: {}", channelId);
 
             Map<String, Object> configMap = new HashMap<>();
-            configMap.put("bot_token", botToken);
-            DefaultTriggerResourceConfig resourceConfig = new DefaultTriggerResourceConfig(configMap, "bot_token");
+            configMap.put("BOT_TOKEN", botToken);
+            DefaultTriggerResourceConfig resourceConfig = new DefaultTriggerResourceConfig(configMap, "BOT_TOKEN");
 
             try (ScopedNodeResource<JDA> handle = jdaResourceManager.acquire(botToken, context.getWorkflowRunId(), resourceConfig)) {
                 JDA jda = handle.getResource();

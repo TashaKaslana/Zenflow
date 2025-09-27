@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Google OAuth Credentials",
+  "properties": {
+    "CLIENT_ID": {
+      "type": "string",
+      "title": "OAuth Client ID"
+    },
+    "CLIENT_SECRET": {
+      "type": "string",
+      "title": "OAuth Client Secret"
+    }
+  },
+  "required": ["CLIENT_ID", "CLIENT_SECRET"]
+}

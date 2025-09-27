@@ -1,13 +1,18 @@
 package org.phong.zenflow.plugin.subdomain.registry.definitions;
 
 import org.phong.zenflow.plugin.subdomain.registry.Plugin;
+import org.phong.zenflow.plugin.subdomain.registry.profile.PluginProfileDescriptor;
+import org.phong.zenflow.plugin.subdomain.registry.profile.PluginProfileProvider;
+import org.phong.zenflow.plugin.subdomain.registry.definitions.google.GoogleOAuthProfileDescriptor;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
 
 /**
  * Google Docs plugin definition providing Google Docs nodes.
  */
 @Component
-  @Plugin(
+@Plugin(
       key = "google-docs",
       name = "Google Docs Plugin",
       version = "1.0.0",
@@ -16,8 +21,16 @@ import org.springframework.stereotype.Component;
       icon = "simple-icons:googledocs",
       organization = "google",
       schemaPath = "/google/plugin.schema.json"
-  )
-  public class GoogleDocsPlugin {
-    // Marker class for Google Docs plugin definition
-}
+)
+public class GoogleDocsPlugin implements PluginProfileProvider {
+    private final List<PluginProfileDescriptor> profiles;
 
+    public GoogleDocsPlugin(GoogleOAuthProfileDescriptor descriptor) {
+        this.profiles = List.of(descriptor);
+    }
+
+    @Override
+    public List<PluginProfileDescriptor> getPluginProfiles() {
+        return profiles;
+    }
+}

@@ -28,7 +28,7 @@ public class ScheduleTriggerResourceConfig implements TriggerResourceConfig {
     }
 
     @Override
-    public Map<String, Object> getConfigMap() {
+    public Map<String, Object> getContextMap() {
         return configMap;
     }
 

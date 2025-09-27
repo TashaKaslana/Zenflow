@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -88,6 +89,30 @@ public class SecretLinkService {
                                 (existing, replacement) -> replacement
                         )
                 ));
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, String> getProfileForWorkflowNode(UUID workflowId, String nodeKey) {
+        Map<String, String> profile = null;
+        
+        Optional<SecretProfileNodeLink> profileLink = secretProfileNodeLinkRepository.findByWorkflowIdAndNodeKey(workflowId, nodeKey);
+        if (profileLink.isPresent()) {
+            profile = profileSecretLinkRepository.findByProfileId(profileLink.get().getProfile().getId())
+                    .stream()
+                    .collect(Collectors.toMap(
+                            link -> link.getSecret().getKey(),
+                            link -> {
+                                try {
+                                    return aesUtil.decrypt(link.getSecret().getEncryptedValue());
+                                } catch (Exception e) {
+                                    throw new SecretDomainException("Can't decrypt value for workflowId: " + workflowId, e);
+                                }
+                            },
+                            (existing, replacement) -> replacement
+                    ));
+        }
+        
+        return profile;
     }
 
 //    /**
@@ -220,6 +245,29 @@ public class SecretLinkService {
                 .map(link -> link.getSecret().getId())
                 .collect(Collectors.toList());
         return new NodeSecretLinksDto(workflowId, nodeKey, ids);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, String> getSecretsForWorkflowNode(UUID workflowId, String nodeKey) {
+        Map<String, String> secrets = null;
+        
+        List<SecretNodeLink> secretLinks = secretNodeLinkRepository.findByWorkflowIdAndNodeKey(workflowId, nodeKey);
+        if (!secretLinks.isEmpty()) {
+            secrets = secretLinks.stream()
+                    .collect(Collectors.toMap(
+                            link -> link.getSecret().getKey(),
+                            link -> {
+                                try {
+                                    return aesUtil.decrypt(link.getSecret().getEncryptedValue());
+                                } catch (Exception e) {
+                                    throw new SecretDomainException("Can't decrypt value for workflowId: " + workflowId, e);
+                                }
+                            },
+                            (existing, replacement) -> replacement
+                    ));
+        }
+        
+        return secrets;
     }
 
 

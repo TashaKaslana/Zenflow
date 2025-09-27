@@ -1,7 +1,6 @@
 package org.phong.zenflow.secret.subdomain.aggregate;
 
 import lombok.AllArgsConstructor;
-import org.phong.zenflow.secret.dto.AggregatedSecretSetupDto;
 import org.phong.zenflow.secret.exception.SecretDomainException;
 import org.phong.zenflow.secret.infrastructure.persistence.entity.Secret;
 import org.phong.zenflow.secret.subdomain.profile.entity.SecretProfile;
@@ -32,7 +31,7 @@ public class SecretAggregateService {
     private final AESUtil aesUtil;
 
     @Transactional(readOnly = true)
-    public AggregatedSecretSetupDto getAggregatedSecretsProfilesAndNodeIndex(UUID workflowId) {
+    public AggregatedSecretButchDto getAggregatedSecretsProfilesAndNodeIndex(UUID workflowId) {
         // Secrets keyed by secretId to avoid collisions on duplicate keys
         Map<String, String> secretsById = secretRepository.findByWorkflowId(workflowId)
                 .stream()
@@ -96,6 +95,6 @@ public class SecretAggregateService {
                 .filter(p -> p.getWorkflow() != null && workflowId.equals(p.getWorkflow().getId()))
                 .collect(Collectors.toMap(p -> p.getId().toString(), SecretProfile::getName, (a, b) -> b));
 
-        return new AggregatedSecretSetupDto(secretsById, profilesById, nodeProfiles, nodeSecrets, profileNames, secretKeys);
+        return new AggregatedSecretButchDto(secretsById, profilesById, nodeProfiles, nodeSecrets, profileNames, secretKeys);
     }
 }

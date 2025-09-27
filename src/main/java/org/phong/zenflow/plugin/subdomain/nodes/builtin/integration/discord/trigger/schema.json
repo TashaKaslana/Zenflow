@@ -5,11 +5,6 @@
     "input": {
       "type": "object",
       "properties": {
-        "bot_token": {
-          "type": "string",
-          "description": "Discord bot token for authentication. Keep this secure and never expose it in logs.",
-          "minLength": 50
-        },
         "channel_id": {
           "type": "string",
           "description": "Discord channel ID to monitor for messages. Must be a valid Discord snowflake ID.",
@@ -50,7 +45,9 @@
           "description": "Whether content filtering should be case-sensitive."
         }
       },
-      "required": ["bot_token", "channel_id"],
+      "required": [
+        "channel_id"
+      ],
       "additionalProperties": true
     },
     "output": {
@@ -93,28 +90,48 @@
           "type": "object",
           "description": "Author information",
           "properties": {
-            "id": {"type": "string"},
-            "username": {"type": "string"},
-            "discriminator": {"type": "string"},
-            "avatar": {"type": "string"},
-            "is_bot": {"type": "boolean"}
+            "id": {
+              "type": "string"
+            },
+            "username": {
+              "type": "string"
+            },
+            "discriminator": {
+              "type": "string"
+            },
+            "avatar": {
+              "type": "string"
+            },
+            "is_bot": {
+              "type": "boolean"
+            }
           }
         },
         "channel": {
           "type": "object",
           "description": "Channel information",
           "properties": {
-            "id": {"type": "string"},
-            "name": {"type": "string"},
-            "type": {"type": "string"}
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            }
           }
         },
         "guild": {
           "type": "object",
           "description": "Server (guild) information",
           "properties": {
-            "id": {"type": "string"},
-            "name": {"type": "string"}
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            }
           }
         },
         "attachments": {
@@ -123,10 +140,18 @@
           "items": {
             "type": "object",
             "properties": {
-              "id": {"type": "string"},
-              "filename": {"type": "string"},
-              "url": {"type": "string"},
-              "size": {"type": "number"}
+              "id": {
+                "type": "string"
+              },
+              "filename": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              },
+              "size": {
+                "type": "number"
+              }
             }
           }
         },
@@ -136,17 +161,30 @@
           "properties": {
             "users": {
               "type": "array",
-              "items": {"type": "string"}
+              "items": {
+                "type": "string"
+              }
             },
             "roles": {
               "type": "array",
-              "items": {"type": "string"}
+              "items": {
+                "type": "string"
+              }
             },
-            "everyone": {"type": "boolean"}
+            "everyone": {
+              "type": "boolean"
+            }
           }
         }
       }
+    },
+    "profile": {
+      "profileKeys": [
+        "discord-bot-token"
+      ],
+      "description": "Requires the Discord bot profile for authentication."
     }
   }
 }
+
 

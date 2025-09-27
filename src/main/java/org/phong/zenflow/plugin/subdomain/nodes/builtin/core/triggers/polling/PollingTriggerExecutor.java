@@ -10,8 +10,9 @@ import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.triggers.polling.re
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
+import org.phong.zenflow.workflow.subdomain.trigger.dto.TriggerContext;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
-import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContext;
+import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContextTool;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerExecutor;
 import org.phong.zenflow.plugin.subdomain.resource.NodeResourcePool;
 import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
@@ -36,22 +37,22 @@ import java.util.*;
 @Slf4j
 @AllArgsConstructor
 public class PollingTriggerExecutor implements TriggerExecutor {
-
     private final SharedQuartzSchedulerService schedulerService;
     private final PollingResponseCacheManager cacheManager;
+
     @Override
     public Optional<NodeResourcePool<?, ?>> getResourceManager() {
         return Optional.of(cacheManager);
     }
 
     @Override
-    public Optional<String> getResourceKey(WorkflowTrigger trigger) {
-        // Use trigger ID as resource key for response caching
-        return Optional.of(trigger.getId().toString());
+    public Optional<String> getResourceKey(TriggerContext triggerCtx) {
+        return Optional.of(triggerCtx.trigger().getId().toString());
     }
 
     @Override
-    public RunningHandle start(WorkflowTrigger trigger, TriggerContext ctx) throws Exception {
+    public RunningHandle start(TriggerContext triggerCtx, TriggerContextTool contextTool) throws Exception {
+        WorkflowTrigger trigger = triggerCtx.trigger();
         log.info("Starting Quartz-based polling trigger for workflow: {}", trigger.getWorkflowId());
 
         Map<String, Object> config = trigger.getConfig();
@@ -102,7 +103,7 @@ public class PollingTriggerExecutor implements TriggerExecutor {
             // Add complex objects to job data map
             job.getJobDataMap().put("headers", headers);
             job.getJobDataMap().put("requestBody", requestBody);
-            job.getJobDataMap().put("triggerContext", ctx);
+            job.getJobDataMap().put("triggerContext", contextTool);
 
             // Create Quartz trigger for scheduling
             Trigger quartzTrigger = TriggerBuilder.newTrigger()

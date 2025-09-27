@@ -5,8 +5,9 @@ import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
+import org.phong.zenflow.workflow.subdomain.trigger.dto.TriggerContext;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
-import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContext;
+import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContextTool;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerExecutor;
 import org.phong.zenflow.plugin.subdomain.resource.NodeResourcePool;
 import org.springframework.stereotype.Component;
@@ -34,12 +35,13 @@ public class ManualTriggerExecutor implements TriggerExecutor {
     }
 
     @Override
-    public Optional<String> getResourceKey(WorkflowTrigger trigger) {
+    public Optional<String> getResourceKey(TriggerContext trigger) {
         return Optional.empty(); // No resource key needed
     }
 
     @Override
-    public RunningHandle start(WorkflowTrigger trigger, TriggerContext ctx) throws Exception {
+    public RunningHandle start(TriggerContext triggerCtx, TriggerContextTool contextTool) throws Exception {
+        WorkflowTrigger trigger = triggerCtx.trigger();
         log.info("Starting manual trigger for workflow: {}", trigger.getWorkflowId());
 
         // Manual triggers are essentially always "ready" but don't actively trigger

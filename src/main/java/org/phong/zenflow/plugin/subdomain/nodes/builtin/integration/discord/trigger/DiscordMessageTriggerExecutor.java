@@ -6,11 +6,12 @@ import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.hooks.EventListener;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
-import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.discord.share.DiscordJdaResourceManager;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.discord.core.DiscordJdaResourceManager;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.trigger.dto.TriggerContext;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
-import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContext;
+import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContextTool;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerExecutor;
 import org.phong.zenflow.workflow.subdomain.trigger.resource.DefaultTriggerResourceConfig;
 import org.phong.zenflow.plugin.subdomain.resource.NodeResourcePool;
@@ -21,7 +22,7 @@ import java.util.*;
 
 @Component
 @PluginNode(
-        key = "integration:discord.message.trigger",
+        key = "discord:message.trigger",
         name = "Discord Message Trigger",
         version = "1.0.0",
         description = "Listens for Discord messages and triggers workflows. Uses centralized hub for O(1) performance.",
@@ -44,18 +45,21 @@ public class DiscordMessageTriggerExecutor implements TriggerExecutor {
     }
 
     @Override
-    public Optional<String> getResourceKey(WorkflowTrigger trigger) {
+    public Optional<String> getResourceKey(TriggerContext triggerCtx) {
+        Map<String, String> profiles = triggerCtx.profiles();
+
         // Use the Discord bot token as the resource key for sharing JDA instances
-        String botToken = (String) trigger.getConfig().get("bot_token");
+        String botToken = profiles.get("BOT_TOKEN");
         return Optional.ofNullable(botToken);
     }
 
     @Override
-    public RunningHandle start(WorkflowTrigger trigger, TriggerContext ctx) throws Exception {
+    public RunningHandle start(TriggerContext triggerCtx, TriggerContextTool contextTool) throws Exception {
+        WorkflowTrigger trigger = triggerCtx.trigger();
         log.info("Starting Discord message trigger for workflow: {}", trigger.getWorkflowId());
 
         // Create resource config
-        DefaultTriggerResourceConfig config = new DefaultTriggerResourceConfig(trigger, "bot_token");
+        DefaultTriggerResourceConfig config = new DefaultTriggerResourceConfig(triggerCtx, "BOT_TOKEN");
         String resourceKey = config.getResourceIdentifier();
 
         ScopedNodeResource<JDA> handle = jdaResourceManager.acquire(resourceKey, trigger.getId(), config);
@@ -86,7 +90,7 @@ public class DiscordMessageTriggerExecutor implements TriggerExecutor {
                         trigger.getTriggerExecutorId(),
                         trigger.getWorkflowId(),
                         trigger.getConfig(),
-                        ctx
+                        contextTool
                 );
 
         // Register with the hub using channel ID as key

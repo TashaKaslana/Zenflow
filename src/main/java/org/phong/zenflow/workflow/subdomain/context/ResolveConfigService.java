@@ -2,8 +2,8 @@ package org.phong.zenflow.workflow.subdomain.context;
 
 import lombok.RequiredArgsConstructor;
 import org.phong.zenflow.core.utils.ObjectConversion;
-import org.phong.zenflow.secret.dto.AggregatedSecretSetupDto;
-import org.phong.zenflow.secret.subdomain.aggregate.SecretAggregateService;
+import org.phong.zenflow.secret.subdomain.aggregate.AggregatedSecretDto;
+import org.phong.zenflow.secret.subdomain.link.service.SecretLinkService;
 import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.springframework.stereotype.Component;
@@ -18,19 +18,26 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ResolveConfigService {
     private final TemplateService templateService;
-    private final SecretAggregateService secretAggregateService;
+    private final SecretLinkService secretLinkService;
 
     /**
      * Resolves workflow config by handling zenflow.secrets.* and zenflow.profiles.* templates
      * during the definition phase.
      */
-    public WorkflowConfig resolveConfig(WorkflowConfig config, UUID workflowId, String nodeKey) {
+    public ResolvedResult resolveConfig(WorkflowConfig config, UUID workflowId, String nodeKey) {
         if (config == null || config.input() == null) {
-            return config;
+            return new ResolvedResult(
+                    config,
+                    null
+            );
         }
 
         Map<String, Object> resolvedInput = resolveMap(config.input(), workflowId, nodeKey);
-        return new WorkflowConfig(resolvedInput, config.output(), config.profile());
+        Map<String, String> profileForWorkflowNode = secretLinkService.getProfileForWorkflowNode(workflowId, nodeKey);
+        return new ResolvedResult(
+                new WorkflowConfig(resolvedInput, config.profile(), config.output()),
+                profileForWorkflowNode
+        );
     }
 
     private Map<String, Object> resolveMap(Map<String, Object> map, UUID workflowId, String nodeKey) {
@@ -67,7 +74,7 @@ public class ResolveConfigService {
 
         // Check if any reference starts with zenflow.secrets or zenflow.profiles
         boolean hasReservedKeys = refs.stream().anyMatch(ref ->
-            ref.startsWith("zenflow.secrets.") || ref.startsWith("zenflow.profiles."));
+                ref.startsWith("zenflow.secrets.") || ref.startsWith("zenflow.profiles."));
 
         if (!hasReservedKeys) {
             return template; // Not a reserved key template, return as-is
@@ -80,12 +87,12 @@ public class ResolveConfigService {
     private Object resolveDefinitionPhaseTemplate(String template, UUID workflowId, String nodeKey) {
         try {
             // Get aggregated secrets and profiles data
-            AggregatedSecretSetupDto agg = secretAggregateService.getAggregatedSecretsProfilesAndNodeIndex(workflowId);
+            AggregatedSecretDto agg = new AggregatedSecretDto(secretLinkService.getSecretsForWorkflowNode(workflowId, nodeKey));
 
             // Create a definition-phase resolver
-            DefinitionPhaseResolver resolver = new DefinitionPhaseResolver(agg, nodeKey);
+            DefinitionPhaseResolver resolver = new DefinitionPhaseResolver(agg);
 
-            return templateService.resolveDefinitionPhase(template, workflowId, nodeKey, resolver);
+            return templateService.resolveDefinitionPhase(template, workflowId, resolver);
         } catch (Exception e) {
             // If resolution fails, return the original template
             return template;
@@ -95,56 +102,17 @@ public class ResolveConfigService {
     /**
      * Internal class that provides definition-phase resolution for secrets and profiles
      */
-    private static class DefinitionPhaseResolver implements TemplateService.ReservedValueResolver {
-        private final AggregatedSecretSetupDto aggregatedData;
-        private final String nodeKey;
-
-        public DefinitionPhaseResolver(AggregatedSecretSetupDto aggregatedData, String nodeKey) {
-            this.aggregatedData = aggregatedData;
-            this.nodeKey = nodeKey;
-        }
-
+    private record DefinitionPhaseResolver(
+            AggregatedSecretDto aggregatedData) implements TemplateService.ReservedValueResolver {
         /**
          * Resolves secret value by key for the current workflow
          */
         @Override
         public String resolveSecretValue(UUID workflowId, String secretKey) {
-            // Find secret by key from nodeSecrets mapping
-            List<String> nodeSecretIds = aggregatedData.nodeSecrets().get(nodeKey);
-            if (nodeSecretIds == null) {
-                return null;
-            }
-
-            // Find the secret ID that matches the requested key
-            for (String secretId : nodeSecretIds) {
-                String actualSecretKey = aggregatedData.secretKeys().get(secretId);
-                if (secretKey.equals(actualSecretKey)) {
-                    return aggregatedData.secrets().get(secretId);
-                }
-            }
-
-            return null;
+            return aggregatedData.secrets().get(secretKey);
         }
+    }
 
-        /**
-         * Resolves profile value by field name for the current node
-         */
-        @Override
-        public String resolveProfileValue(UUID workflowId, String nodeKey, String profileField) {
-            // Get the profile ID for this node
-            String profileId = aggregatedData.nodeProfiles().get(nodeKey);
-            if (profileId == null) {
-                return null;
-            }
-
-            // Get the profile's secrets map
-            Map<String, String> profileSecrets = aggregatedData.profiles().get(profileId);
-            if (profileSecrets == null) {
-                return null;
-            }
-
-            // Return the requested field value
-            return profileSecrets.get(profileField);
-        }
+    public record ResolvedResult(WorkflowConfig config, Map<String, String> profiles) {
     }
 }

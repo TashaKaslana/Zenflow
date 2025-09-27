@@ -1,6 +1,6 @@
 package org.phong.zenflow.workflow.subdomain.trigger.resource;
 
-import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
+import org.phong.zenflow.workflow.subdomain.trigger.dto.TriggerContext;
 
 import java.util.Map;
 
@@ -22,13 +22,13 @@ public interface TriggerResourceConfig {
     /**
      * Get the raw configuration map from WorkflowTrigger.config
      */
-    Map<String, Object> getConfigMap();
+    Map<String, Object> getContextMap();
 
     /**
      * Get a specific configuration value
      */
     default <T> T getConfigValue(String key, Class<T> type) {
-        Object value = getConfigMap().get(key);
+        Object value = getContextMap().get(key);
         if (value != null && type.isAssignableFrom(value.getClass())) {
             return type.cast(value);
         }
@@ -48,13 +48,13 @@ public interface TriggerResourceConfig {
      * This enables the same pooling pattern as GlobalDbConnectionPool.
      */
     default TriggerResourceKey toResourceKey() {
-        return new TriggerResourceKey(getResourceIdentifier(), getConfigMap());
+        return new TriggerResourceKey(getResourceIdentifier(), getContextMap());
     }
 
     /**
      * Create from WorkflowTrigger, similar to ResolvedDbConfig.fromInput()
      */
-    static TriggerResourceConfig fromTrigger(WorkflowTrigger trigger, String resourceKeyField) {
-        return new DefaultTriggerResourceConfig(trigger, resourceKeyField);
+    static TriggerResourceConfig fromTrigger(TriggerContext triggerCtx, String resourceKeyField) {
+        return new DefaultTriggerResourceConfig(triggerCtx, resourceKeyField);
     }
 }

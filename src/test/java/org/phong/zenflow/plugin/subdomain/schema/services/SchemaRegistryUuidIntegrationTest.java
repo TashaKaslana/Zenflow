@@ -40,7 +40,8 @@ class SchemaRegistryUuidIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        schemaRegistry = new SchemaRegistry(pluginProvider, pluginService, schemaIndexRegistry, 3600, true);
+        schemaRegistry = new SchemaRegistry(pluginProvider, pluginService, schemaIndexRegistry,
+                new PluginDescriptorSchemaService(pluginService, schemaIndexRegistry, 3600, true), 3600, true);
 
         // Mock schema index registry for UUID-based lookups
         lenient().when(schemaIndexRegistry.hasSchemaLocation(anyString())).thenReturn(true);
@@ -168,7 +169,8 @@ class SchemaRegistryUuidIntegrationTest {
     @DisplayName("Should handle database fallback when file-based loading is disabled")
     void shouldHandleDatabaseFallbackWhenFileBasedLoadingDisabled() {
         // Arrange - Create registry with file-based loading disabled
-        SchemaRegistry dbRegistry = new SchemaRegistry(pluginProvider, pluginService, schemaIndexRegistry, 3600, false);
+        SchemaRegistry dbRegistry = new SchemaRegistry(pluginProvider, pluginService, schemaIndexRegistry,
+                new PluginDescriptorSchemaService(pluginService, schemaIndexRegistry, 3600, false), 3600, false);
 
         // Act
         JSONObject schema = dbRegistry.getSchemaByTemplateString(testNodeId1);

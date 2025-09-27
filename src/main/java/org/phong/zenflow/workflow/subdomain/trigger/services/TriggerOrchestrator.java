@@ -2,9 +2,13 @@ package org.phong.zenflow.workflow.subdomain.trigger.services;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
+import org.phong.zenflow.workflow.subdomain.context.ResolveConfigService;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.trigger.dto.TriggerContext;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.repository.WorkflowTriggerRepository;
-import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContext;
+import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContextTool;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerExecutor;
 import org.phong.zenflow.workflow.subdomain.trigger.registry.TriggerRegistry;
 import org.springframework.stereotype.Service;
@@ -15,8 +19,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
-import org.phong.zenflow.workflow.subdomain.context.ResolveConfigService;
 
 @Slf4j
 @Service
@@ -25,9 +27,27 @@ public class TriggerOrchestrator {
 
     private final WorkflowTriggerRepository repo;
     private final Map<UUID, TriggerExecutor.RunningHandle> running = new ConcurrentHashMap<>();
-    private final TriggerContext ctx;
+    private final TriggerContextTool contextTool;
     private final TriggerRegistry registry;
     private final ResolveConfigService resolveConfigService;
+
+    @NotNull
+    private static WorkflowTrigger getWorkflowTrigger(WorkflowTrigger t, ResolveConfigService.ResolvedResult resolvedResult) {
+        Map<String, Object> resolvedInput = resolvedResult.config().input();
+
+        WorkflowTrigger copy = new WorkflowTrigger();
+        copy.setId(t.getId());
+        copy.setWorkflowId(t.getWorkflowId());
+        copy.setType(t.getType());
+        copy.setTriggerExecutorId(t.getTriggerExecutorId());
+        copy.setEnabled(t.getEnabled());
+        copy.setLastTriggeredAt(t.getLastTriggeredAt());
+        copy.setCreatedAt(t.getCreatedAt());
+        copy.setUpdatedAt(t.getUpdatedAt());
+        copy.setConfig(resolvedInput);
+
+        return copy;
+    }
 
     public void startAllEnabled() {
         repo.findByEnabledTrue().forEach(this::start);
@@ -55,14 +75,14 @@ public class TriggerOrchestrator {
                 return;
             }
 
-            // Handle resource management if the trigger needs it - use manual registration for persistence
-            handleResourceRegistration(executor, t);
-
             // Resolve reserved config dynamically (secrets/profiles) while keeping templates in DB
-            WorkflowTrigger effectiveTrigger = buildEffectiveTrigger(t);
+            TriggerContext effectiveTrigger = buildEffectiveTrigger(t);
+
+            // Handle resource management if the trigger needs it - use manual registration for persistence
+            handleResourceRegistration(executor, effectiveTrigger);
 
             // Start the trigger
-            var handle = executor.start(effectiveTrigger, ctx);
+            var handle = executor.start(effectiveTrigger, contextTool);
             running.put(t.getId(), handle);
 
             log.info("Started trigger {} (executor: {}) for workflow {}",
@@ -73,38 +93,26 @@ public class TriggerOrchestrator {
         }
     }
 
-    private WorkflowTrigger buildEffectiveTrigger(WorkflowTrigger t) {
+    private TriggerContext buildEffectiveTrigger(WorkflowTrigger t) {
         try {
             if (t.getConfig() == null || t.getWorkflowId() == null) {
-                return t; // nothing to resolve
+                return new TriggerContext(t, null); // nothing to resolve
             }
 
             String nodeKey = t.getNodeKey();
             if (nodeKey == null || nodeKey.isBlank()) {
                 log.debug("Node key missing for trigger {}. Using raw config.", t.getId());
-                return t;
+                return new TriggerContext(t, null);
             }
 
             // Resolve reserved values using definition-phase resolver
-            Map<String, Object> resolved = resolveConfigService
-                    .resolveConfig(new WorkflowConfig(t.getConfig(), null, null), t.getWorkflowId(), nodeKey)
-                    .input();
-
-            // Create a detached copy with resolved config to avoid persisting values
-            WorkflowTrigger copy = new WorkflowTrigger();
-            copy.setId(t.getId());
-            copy.setWorkflowId(t.getWorkflowId());
-            copy.setType(t.getType());
-            copy.setTriggerExecutorId(t.getTriggerExecutorId());
-            copy.setEnabled(t.getEnabled());
-            copy.setLastTriggeredAt(t.getLastTriggeredAt());
-            copy.setCreatedAt(t.getCreatedAt());
-            copy.setUpdatedAt(t.getUpdatedAt());
-            copy.setConfig(resolved);
-            return copy;
+            ResolveConfigService.ResolvedResult resolvedResult = resolveConfigService
+                    .resolveConfig(new WorkflowConfig(t.getConfig(), null, null), t.getWorkflowId(), nodeKey);
+            WorkflowTrigger copy = getWorkflowTrigger(t, resolvedResult);
+            return new TriggerContext(copy, resolvedResult.profiles());
         } catch (Exception e) {
             log.warn("Failed to build effective trigger for {}. Using raw config.", t.getId(), e);
-            return t;
+            return new TriggerContext(t, null);
         }
     }
 
@@ -113,7 +121,8 @@ public class TriggerOrchestrator {
         if (handle != null) {
             try {
                 // Get the trigger from the database to handle resource cleanup
-                repo.findById(triggerId).ifPresent(this::handleResourceUnregistration);
+                TriggerContext triggerContext = buildEffectiveTrigger(repo.findById(triggerId).orElseThrow());
+                handleResourceUnregistration(triggerContext);
 
                 handle.stop();
                 log.info("Stopped trigger {}", triggerId);
@@ -127,7 +136,8 @@ public class TriggerOrchestrator {
         var handle = running.remove(trigger.getId());
         if (handle != null) {
             try {
-                handleResourceUnregistration(trigger);
+                TriggerContext triggerContext = buildEffectiveTrigger(trigger);
+                handleResourceUnregistration(triggerContext);
 
                 handle.stop();
                 log.info("Stopped trigger {}:", trigger.getId());
@@ -165,23 +175,23 @@ public class TriggerOrchestrator {
     }
 
 
-    private void handleResourceRegistration(TriggerExecutor executor, WorkflowTrigger trigger) {
+    private void handleResourceRegistration(TriggerExecutor executor, TriggerContext triggerCtx) {
         executor.getResourceManager().ifPresent(resourceManager ->
-                executor.getResourceKey(trigger).ifPresent(resourceKey -> {
+                executor.getResourceKey(triggerCtx).ifPresent(resourceKey -> {
                     try {
-                        resourceManager.registerNodeUsage(resourceKey, trigger.getId());
-                        log.debug("Registered trigger {} for resource {})", trigger.getId(), resourceKey);
+                        resourceManager.registerNodeUsage(resourceKey, triggerCtx.trigger().getId());
+                        log.debug("Registered trigger {} for resource {})", triggerCtx.trigger().getId(), resourceKey);
                     } catch (Exception e) {
-                        log.error("Failed resource registration for trigger {}: {}", trigger.getId(), e.getMessage(), e);
+                        log.error("Failed resource registration for trigger {}: {}", triggerCtx.trigger().getId(), e.getMessage(), e);
                     }
                 }));
     }
 
-    private void handleResourceUnregistration(WorkflowTrigger trigger) {
+    private void handleResourceUnregistration(TriggerContext triggerCtx) {
         try {
-            UUID triggerExecutorId = trigger.getTriggerExecutorId();
+            UUID triggerExecutorId = triggerCtx.trigger().getTriggerExecutorId();
             if (triggerExecutorId == null) {
-                log.debug("No executor ID for trigger {}, skipping resource cleanup", trigger.getId());
+                log.debug("No executor ID for trigger {}, skipping resource cleanup", triggerCtx.trigger().getId());
                 return;
             }
 
@@ -189,16 +199,16 @@ public class TriggerOrchestrator {
             if (executor == null) return;
 
             executor.getResourceManager().ifPresent(resourceManager ->
-                    executor.getResourceKey(trigger).ifPresent(resourceKey -> {
+                    executor.getResourceKey(triggerCtx).ifPresent(resourceKey -> {
                         try {
-                            resourceManager.unregisterNodeUsage(resourceKey, trigger.getId());
-                            log.debug("Unregistered trigger {} from resource {}", trigger.getId(), resourceKey);
+                            resourceManager.unregisterNodeUsage(resourceKey, triggerCtx.trigger().getId());
+                            log.debug("Unregistered trigger {} from resource {}", triggerCtx.trigger().getId(), resourceKey);
                         } catch (Exception e) {
-                            log.error("Failed resource unregistration for trigger {}: {}", trigger.getId(), e.getMessage(), e);
+                            log.error("Failed resource unregistration for trigger {}: {}", triggerCtx.trigger().getId(), e.getMessage(), e);
                         }
                     }));
         } catch (Exception e) {
-            log.error("Error in resource unregistration for trigger {}: {}", trigger.getId(), e.getMessage(), e);
+            log.error("Error in resource unregistration for trigger {}: {}", triggerCtx.trigger().getId(), e.getMessage(), e);
         }
     }
 }

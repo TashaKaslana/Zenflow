@@ -2,8 +2,6 @@ package org.phong.zenflow.workflow.subdomain.node_definition.services;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.projections.PluginNodeId;
-import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.repository.PluginNodeRepository;
 import org.phong.zenflow.workflow.subdomain.context.WorkflowContextService;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
@@ -21,7 +19,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -37,7 +34,6 @@ public class WorkflowDefinitionService {
 
     private final WorkflowValidationService workflowValidationService;
     private final WorkflowContextService workflowContextService;
-    private final PluginNodeRepository pluginNodeRepository;
 
     /**
      * Updates or inserts nodes in the temporary definition based on the existing definition.
@@ -113,7 +109,7 @@ public class WorkflowDefinitionService {
             metadata.nodeDependencies().putAll(updates.nodeDependencies() != null ? updates.nodeDependencies() : Map.of());
             metadata.nodeConsumers().putAll(updates.nodeConsumers() != null ? updates.nodeConsumers() : Map.of());
             metadata.secrets().putAll(updates.secrets() != null ? updates.secrets() : Map.of());
-            metadata.profiles().putAll(updates.profiles() != null ? updates.profiles() : Map.of());
+            metadata.profileAssignments().putAll(updates.profileAssignments() != null ? updates.profileAssignments() : Map.of());
             if (updates.profileRequiredNodes() != null) {
                 metadata.profileRequiredNodes().clear();
                 metadata.profileRequiredNodes().addAll(updates.profileRequiredNodes());
@@ -161,47 +157,12 @@ public class WorkflowDefinitionService {
     private ValidationResult constructStaticGenerationAndValidate(WorkflowDefinition tempDef, UUID workflowId) {
         List<ValidationError> validationErrors = new ArrayList<>();
 
-        resolvePluginId(tempDef, validationErrors);
-        workflowContextService.buildStaticContext(tempDef);
+        workflowContextService.buildStaticContext(tempDef, workflowId,  validationErrors);
 
         ValidationResult validationResult = workflowValidationService.validateDefinition(workflowId, tempDef);
         validationResult.addAllErrors(validationErrors);
 
         return validationResult;
-    }
-
-    private void resolvePluginId(WorkflowDefinition workflowDefinition, List<ValidationError> validationErrors) {
-        Set<String> compositeKeys = workflowDefinition.nodes().getPluginNodeCompositeKeys();
-        if (compositeKeys.isEmpty()) {
-            return;
-        }
-
-        Set<PluginNodeId> pluginNodeIds = pluginNodeRepository.findIdsByCompositeKeys(compositeKeys);
-
-        Map<String, UUID> compositeKeyToIdMap = new HashMap<>();
-        pluginNodeIds.forEach(pluginNodeId ->
-            compositeKeyToIdMap.put(pluginNodeId.getCompositeKey(), pluginNodeId.getId()));
-
-        // Update workflow nodes with the resolved UUIDs
-        for (Map.Entry<String, BaseWorkflowNode> nodeEntry : workflowDefinition.nodes().asMap().entrySet()) {
-            BaseWorkflowNode workflowNode = nodeEntry.getValue();
-            String compositeKey = workflowNode.getPluginNode().toCacheKey();
-
-            if (compositeKeyToIdMap.containsKey(compositeKey)) {
-                workflowNode.getPluginNode().setNodeId(compositeKeyToIdMap.get(compositeKey));
-            } else {
-                validationErrors.add(
-                        ValidationError.builder()
-                                .nodeKey(nodeEntry.getKey())
-                                .errorCode(ValidationErrorCode.VALIDATION_ERROR)
-                                .errorType("definition")
-                                .path("nodes.pluginNode.nodeId")
-                                .message("Plugin Node doesn't exist with composite key: " + compositeKey)
-                                .build()
-                );
-            }
-        }
-
     }
 
     /**

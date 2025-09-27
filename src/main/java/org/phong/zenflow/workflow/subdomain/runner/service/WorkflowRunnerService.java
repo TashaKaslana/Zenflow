@@ -7,7 +7,7 @@ import org.phong.zenflow.log.auditlog.annotations.AuditLog;
 import org.phong.zenflow.log.auditlog.enums.AuditAction;
 import org.phong.zenflow.core.utils.MapUtils;
 import org.phong.zenflow.core.utils.ObjectConversion;
-import org.phong.zenflow.secret.dto.AggregatedSecretSetupDto;
+import org.phong.zenflow.secret.subdomain.aggregate.AggregatedSecretButchDto;
 import org.phong.zenflow.secret.subdomain.aggregate.SecretAggregateService;
 import org.phong.zenflow.workflow.exception.WorkflowException;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
@@ -149,7 +149,7 @@ public class WorkflowRunnerService {
         if (workflowRun.getContext() == null || workflowRun.getContext().isEmpty()) {
             // First run: ensure the run is started and create a new context
             log.debug("No existing context found for workflow run ID: {}. Starting new run.", workflowRunId);
-            AggregatedSecretSetupDto agg = secretAggregateService.getAggregatedSecretsProfilesAndNodeIndex(workflowId);
+            AggregatedSecretButchDto agg = secretAggregateService.getAggregatedSecretsProfilesAndNodeIndex(workflowId);
 
             // Build per-node profile view expected by ExecutionContext.getProfileSecret
             Map<String, Object> profilesByNodeKey = agg.nodeProfiles().entrySet().stream()
