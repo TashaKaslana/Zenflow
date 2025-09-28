@@ -13,7 +13,7 @@ import org.phong.zenflow.workflow.subdomain.trigger.dto.TriggerContext;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContextTool;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerExecutor;
-import org.phong.zenflow.workflow.subdomain.trigger.resource.DefaultTriggerResourceConfig;
+import org.phong.zenflow.workflow.subdomain.trigger.resource.DefaultResourceConfig;
 import org.phong.zenflow.plugin.subdomain.resource.NodeResourcePool;
 import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
 import org.springframework.stereotype.Component;
@@ -59,10 +59,10 @@ public class DiscordMessageTriggerExecutor implements TriggerExecutor {
         log.info("Starting Discord message trigger for workflow: {}", trigger.getWorkflowId());
 
         // Create resource config
-        DefaultTriggerResourceConfig config = new DefaultTriggerResourceConfig(triggerCtx, "BOT_TOKEN");
+        DefaultResourceConfig config = new DefaultResourceConfig(triggerCtx, "BOT_TOKEN");
         String resourceKey = config.getResourceIdentifier();
 
-        ScopedNodeResource<JDA> handle = jdaResourceManager.acquire(resourceKey, trigger.getId(), config);
+        ScopedNodeResource<JDA> handle = jdaResourceManager.acquire(resourceKey, config);
         JDA jda = handle.getResource();
 
         // Attach the hub listener immediately (idempotent check)

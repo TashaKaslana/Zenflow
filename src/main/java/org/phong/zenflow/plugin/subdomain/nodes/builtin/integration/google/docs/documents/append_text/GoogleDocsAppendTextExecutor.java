@@ -17,7 +17,7 @@ import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
-import org.phong.zenflow.workflow.subdomain.trigger.resource.DefaultTriggerResourceConfig;
+import org.phong.zenflow.workflow.subdomain.trigger.resource.DefaultResourceConfig;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -48,11 +48,11 @@ public class GoogleDocsAppendTextExecutor implements PluginNodeExecutor {
             String documentId = (String) input.get("documentId");
             String text = (String) input.get("text");
 
-            DefaultTriggerResourceConfig resourceConfig = GoogleResourceConfigBuilder.build(context);
+            DefaultResourceConfig resourceConfig = GoogleResourceConfigBuilder.build(context);
             String refreshToken = resourceConfig.getResourceIdentifier();
 
             try (ScopedNodeResource<Docs> handle =
-                         docsServiceManager.acquire(refreshToken, context.getWorkflowRunId(), resourceConfig)) {
+                         docsServiceManager.acquire(refreshToken, resourceConfig)) {
                 Docs docs = handle.getResource();
 
                 InsertTextRequest insert = new InsertTextRequest()

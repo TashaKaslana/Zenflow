@@ -55,6 +55,6 @@ public interface TriggerResourceConfig {
      * Create from WorkflowTrigger, similar to ResolvedDbConfig.fromInput()
      */
     static TriggerResourceConfig fromTrigger(TriggerContext triggerCtx, String resourceKeyField) {
-        return new DefaultTriggerResourceConfig(triggerCtx, resourceKeyField);
+        return new DefaultResourceConfig(triggerCtx, resourceKeyField);
     }
 }

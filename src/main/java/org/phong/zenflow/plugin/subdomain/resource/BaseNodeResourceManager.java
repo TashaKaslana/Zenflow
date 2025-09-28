@@ -10,7 +10,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * Base implementation of {@link NodeResourcePool} using Caffeine cache and
@@ -60,15 +59,14 @@ public abstract class BaseNodeResourceManager<T, C> implements NodeResourcePool<
      * usage when the returned handle is closed.
      *
      * @param resourceKey unique identifier for the resource
-     * @param nodeId      the node acquiring the resource
      * @param config      configuration needed to create the resource
      * @return handle wrapping the shared resource
      */
     @Override
-    public ScopedNodeResource<T> acquire(String resourceKey, UUID nodeId, C config) {
+    public ScopedNodeResource<T> acquire(String resourceKey, C config) {
         Tracked<T> trackedResource = getOrCreateTrackedResource(resourceKey, config);
         trackedResource.refs.incrementAndGet();
-        return new ScopedNodeResource<>(this, resourceKey, nodeId, trackedResource.resource);
+        return new ScopedNodeResource<>(this, resourceKey, trackedResource.resource);
     }
 
     @Override

@@ -8,13 +8,13 @@ import java.util.Map;
 /**
  * Default implementation of TriggerResourceConfig that wraps WorkflowTrigger.config
  */
-public class DefaultTriggerResourceConfig implements TriggerResourceConfig {
+public class DefaultResourceConfig implements TriggerResourceConfig {
 
     private final Map<String, Object> contextMap;
     private final String resourceIdentifier;
 
     //TODO: currently overwrites contextMap with profiles if present. Consider merging strategies.
-    public DefaultTriggerResourceConfig(TriggerContext triggerCtx, String resourceKeyField) {
+    public DefaultResourceConfig(TriggerContext triggerCtx, String resourceKeyField) {
         Map<String, Object> mergeContext = new HashMap<>(triggerCtx.trigger().getConfig());
         if (triggerCtx.profiles() != null) {
             mergeContext.putAll(triggerCtx.profiles());
@@ -23,7 +23,7 @@ public class DefaultTriggerResourceConfig implements TriggerResourceConfig {
         this.resourceIdentifier = extractResourceIdentifier(resourceKeyField);
     }
 
-    public DefaultTriggerResourceConfig(Map<String, Object> config, String resourceKeyField) {
+    public DefaultResourceConfig(Map<String, Object> config, String resourceKeyField) {
         this.contextMap = config;
         this.resourceIdentifier = extractResourceIdentifier(resourceKeyField);
     }

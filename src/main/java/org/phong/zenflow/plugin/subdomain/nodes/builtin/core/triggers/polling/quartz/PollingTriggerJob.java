@@ -13,7 +13,7 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.triggers.polling.resource.PollingResponseCache;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.triggers.polling.resource.PollingResponseCacheManager;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContextTool;
-import org.phong.zenflow.workflow.subdomain.trigger.resource.DefaultTriggerResourceConfig;
+import org.phong.zenflow.workflow.subdomain.trigger.resource.DefaultResourceConfig;
 
 import java.time.Instant;
 import java.util.*;
@@ -67,7 +67,7 @@ public class PollingTriggerJob implements Job {
             String cacheKey = triggerId.toString();
             Map<String, Object> cacheConfig = new HashMap<>();
             cacheConfig.put("triggerId", triggerId.toString());
-            DefaultTriggerResourceConfig resourceConfig = new DefaultTriggerResourceConfig(cacheConfig, "triggerId");
+            DefaultResourceConfig resourceConfig = new DefaultResourceConfig(cacheConfig, "triggerId");
 
             PollingResponseCache responseCache = cacheManager.getOrCreateResource(cacheKey, resourceConfig);
 

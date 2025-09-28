@@ -14,7 +14,7 @@ import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
-import org.phong.zenflow.workflow.subdomain.trigger.resource.DefaultTriggerResourceConfig;
+import org.phong.zenflow.workflow.subdomain.trigger.resource.DefaultResourceConfig;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -45,10 +45,10 @@ public class GoogleDriveMoveExecutor implements PluginNodeExecutor {
             String destinationFolderId = (String) input.get("destinationFolderId");
             String sourceFolderId = (String) input.get("sourceFolderId");
 
-            DefaultTriggerResourceConfig resourceConfig = GoogleResourceConfigBuilder.build(context);
+            DefaultResourceConfig resourceConfig = GoogleResourceConfigBuilder.build(context);
             String refreshToken = resourceConfig.getResourceIdentifier();
 
-            try (ScopedNodeResource<Drive> handle = driveServiceManager.acquire(refreshToken, context.getWorkflowRunId(), resourceConfig)) {
+            try (ScopedNodeResource<Drive> handle = driveServiceManager.acquire(refreshToken, resourceConfig)) {
                 Drive drive = handle.getResource();
 
                 if (sourceFolderId == null || sourceFolderId.isBlank()) {

@@ -1,7 +1,5 @@
 package org.phong.zenflow.plugin.subdomain.resource;
 
-import java.util.UUID;
-
 /**
  * Generic resource pool for node or trigger executors that need shared resources.
  * Provides methods for acquiring, tracking, and cleaning up shared clients.
@@ -37,5 +35,5 @@ public interface NodeResourcePool<T, C> {
      */
     boolean isResourceHealthy(String resourceKey);
 
-    ScopedNodeResource<T> acquire(String resourceKey, UUID nodeId, C config);
+    ScopedNodeResource<T> acquire(String resourceKey, C config);
 }

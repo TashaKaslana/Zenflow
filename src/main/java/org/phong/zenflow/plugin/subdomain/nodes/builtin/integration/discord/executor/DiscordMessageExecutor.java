@@ -16,7 +16,7 @@ import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
-import org.phong.zenflow.workflow.subdomain.trigger.resource.DefaultTriggerResourceConfig;
+import org.phong.zenflow.workflow.subdomain.trigger.resource.DefaultResourceConfig;
 import org.springframework.stereotype.Component;
 
 import java.awt.*;
@@ -67,9 +67,9 @@ public class DiscordMessageExecutor implements PluginNodeExecutor {
 
             Map<String, Object> configMap = new HashMap<>();
             configMap.put("BOT_TOKEN", botToken);
-            DefaultTriggerResourceConfig resourceConfig = new DefaultTriggerResourceConfig(configMap, "BOT_TOKEN");
+            DefaultResourceConfig resourceConfig = new DefaultResourceConfig(configMap, "BOT_TOKEN");
 
-            try (ScopedNodeResource<JDA> handle = jdaResourceManager.acquire(botToken, context.getWorkflowRunId(), resourceConfig)) {
+            try (ScopedNodeResource<JDA> handle = jdaResourceManager.acquire(botToken, resourceConfig)) {
                 JDA jda = handle.getResource();
 
                 // Get the text channel

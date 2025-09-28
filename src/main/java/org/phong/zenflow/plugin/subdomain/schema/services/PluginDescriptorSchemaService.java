@@ -97,7 +97,7 @@ public class PluginDescriptorSchemaService {
             }
         }
 
-        Map<String, Object> pluginSchema = null;
+        Map<String, Object> pluginSchema;
         if (pluginId != null) {
             pluginSchema = pluginService.findPluginById(pluginId).getPluginSchema();
         } else {

@@ -84,7 +84,7 @@ public class PollingTriggerExecutor implements TriggerExecutor {
 
         // Register cache resource usage via scoped handle
         String cacheKey = trigger.getId().toString();
-        var cacheHandle = cacheManager.acquire(cacheKey, trigger.getId(), null);
+        var cacheHandle = cacheManager.acquire(cacheKey, null);
         try {
             // Create Quartz job with all necessary data
             JobDetail job = JobBuilder.newJob(PollingTriggerJob.class)

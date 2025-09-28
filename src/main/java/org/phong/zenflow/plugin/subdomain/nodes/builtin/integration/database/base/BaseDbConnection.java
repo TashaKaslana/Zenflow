@@ -35,7 +35,7 @@ public class BaseDbConnection {
             );
 
             logPublisher.info("Creating new DataSource for connectionId: {}", connectionId);
-            try (ScopedNodeResource<HikariDataSource> handle = globalPool.acquire(key.toString(), context.getWorkflowRunId(), dbPoolConfig)) {
+            try (ScopedNodeResource<HikariDataSource> handle = globalPool.acquire(key.toString(), dbPoolConfig)) {
                 dbConfig.setDataSource(handle.getResource());
             }
             logPublisher.info("Using DataSource for connectionId: {}", connectionId);
