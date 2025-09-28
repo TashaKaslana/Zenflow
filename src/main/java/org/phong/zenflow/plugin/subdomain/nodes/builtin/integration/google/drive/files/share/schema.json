@@ -7,10 +7,6 @@
       "type": "object",
       "title": "Input Schema",
       "properties": {
-        "profile": {
-          "type": "string",
-          "description": "Secret profile group name containing OAuth credentials"
-        },
         "fileId": {
           "type": "string",
           "description": "ID of the file to share"
@@ -29,7 +25,6 @@
         }
       },
       "required": [
-        "profile",
         "fileId",
         "role",
         "type"
@@ -41,7 +36,10 @@
       "title": "Output Schema"
     },
     "profile": {
-      "$ref": "plugin:profile"
+      "profileKeys": [
+        "oauth-default"
+      ],
+      "description": "Requires the Google OAuth profile for authentication."
     }
   },
   "required": [

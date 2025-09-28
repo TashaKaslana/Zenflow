@@ -2,7 +2,6 @@ package org.phong.zenflow.workflow.subdomain.runner.listener;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.phong.zenflow.workflow.subdomain.runner.event.WorkflowRunnerPublishableEvent;
 import org.phong.zenflow.workflow.subdomain.runner.service.WorkflowRunnerService;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerEvent;
 import org.springframework.scheduling.annotation.Async;
@@ -17,7 +16,7 @@ public class WorkflowRunnerListener {
 
     @TransactionalEventListener(fallbackExecution = true)
     @Async("applicationTaskExecutor")
-    public void onWorkflowRunEvent(WorkflowRunnerPublishableEvent event) {
+    public void onWorkflowRunEvent(WorkflowTriggerEvent event) {
         log.debug("Publishing WorkflowRunnerPublishableEvent for workflow {}, run {}, triggerType {}, triggerExecutorId {}, payload {}",
                 event.getWorkflowId(),
                 event.getWorkflowRunId(),
@@ -32,11 +31,5 @@ public class WorkflowRunnerListener {
                     event.getWorkflowId(),
                     event.request()
             );
-    }
-
-    @TransactionalEventListener
-    @Async("applicationTaskExecutor")
-    public void onWorkflowRunEventConcrete(WorkflowTriggerEvent event) {
-        onWorkflowRunEvent(event);
     }
 }

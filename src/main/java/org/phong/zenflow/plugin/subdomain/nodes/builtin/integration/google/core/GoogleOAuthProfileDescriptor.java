@@ -1,4 +1,4 @@
-package org.phong.zenflow.plugin.subdomain.registry.definitions.google;
+package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.core;
 
 import com.google.api.services.docs.v1.DocsScopes;
 import com.google.api.services.drive.DriveScopes;
@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Shared Google OAuth profile descriptor used across Google plugins.
@@ -74,7 +75,9 @@ public class GoogleOAuthProfileDescriptor implements PluginProfileDescriptor {
 
         String authorizationCode = submitted.get(AUTHORIZATION_CODE_KEY);
         if (authorizationCode == null || authorizationCode.isBlank()) {
-            String authorizationUrl = authorizationService.buildAuthorizationUrl(clientId, SCOPES);
+            //TODO: Add state verification in the future
+            String state = UUID.randomUUID().toString();
+            String authorizationUrl = authorizationService.buildAuthorizationUrl(clientId, SCOPES, state);
             context.requestAdditionalField(ProfilePreparationRequest.secretField(
                     AUTHORIZATION_CODE_KEY,
                     "Authorization Code",

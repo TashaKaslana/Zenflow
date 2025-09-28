@@ -14,6 +14,7 @@ import org.phong.zenflow.secret.dto.SecretDto;
 import org.phong.zenflow.secret.dto.UpdateSecretRequest;
 import org.phong.zenflow.secret.service.SecretService;
 import org.phong.zenflow.secret.subdomain.link.service.SecretLinkService;
+import org.phong.zenflow.secret.subdomain.profile.dto.ProfileSecretCreationResult;
 import org.phong.zenflow.secret.subdomain.profile.service.ProfileSecretService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -123,9 +124,12 @@ public class SecretController {
     }
 
     @PostMapping("/workflows/{workflowId}/profile")
-    public ResponseEntity<RestApiResponse<ProfileSecretListDto>> createProfileSecretsForWorkflow(@PathVariable UUID workflowId, @RequestBody CreateProfileSecretsRequest secrets) {
-        var profileSecrets = profileSecretService.createProfileSecrets(workflowId, secrets);
-        return RestApiResponse.created(profileSecrets);
+    public ResponseEntity<?> createProfileSecretsForWorkflow(@PathVariable UUID workflowId, @RequestBody CreateProfileSecretsRequest secrets) {
+        ProfileSecretCreationResult result = profileSecretService.createProfileSecrets(workflowId, secrets);
+        if (result.hasPendingRequests()) {
+            return RestApiResponse.accepted(result.pendingRequests(), "Profile preparation requires additional input");
+        }
+        return RestApiResponse.created(result.profileSecrets());
     }
 
     @PostMapping("/workflows/{workflowId}/profile/link")

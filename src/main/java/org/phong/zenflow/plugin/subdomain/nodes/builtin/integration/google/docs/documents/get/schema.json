@@ -7,17 +7,12 @@
       "type": "object",
       "title": "Input Schema",
       "properties": {
-        "profile": {
-          "type": "string",
-          "description": "Secret profile group name containing OAuth credentials"
-        },
         "documentId": {
           "type": "string",
           "description": "ID of the document to retrieve"
         }
       },
       "required": [
-        "profile",
         "documentId"
       ],
       "additionalProperties": false
@@ -27,7 +22,10 @@
       "title": "Output Schema"
     },
     "profile": {
-      "$ref": "plugin:profile"
+      "profileKeys": [
+        "oauth-default"
+      ],
+      "description": "Requires the Google OAuth profile for authentication."
     }
   },
   "required": [

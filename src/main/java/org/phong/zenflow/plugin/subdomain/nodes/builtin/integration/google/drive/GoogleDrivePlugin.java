@@ -1,9 +1,9 @@
-package org.phong.zenflow.plugin.subdomain.registry.definitions;
+package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.drive;
 
 import org.phong.zenflow.plugin.subdomain.registry.Plugin;
 import org.phong.zenflow.plugin.subdomain.registry.profile.PluginProfileDescriptor;
 import org.phong.zenflow.plugin.subdomain.registry.profile.PluginProfileProvider;
-import org.phong.zenflow.plugin.subdomain.registry.definitions.google.GoogleOAuthProfileDescriptor;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.core.GoogleOAuthProfileDescriptor;
 import org.springframework.stereotype.Component;
 
 import java.util.List;

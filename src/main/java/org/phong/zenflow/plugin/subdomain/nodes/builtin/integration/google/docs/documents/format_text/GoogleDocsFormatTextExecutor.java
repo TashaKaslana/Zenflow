@@ -11,6 +11,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.core.GoogleCredentialsException;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.core.GoogleResourceConfigBuilder;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.docs.GoogleDocsServiceManager;
 import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
@@ -44,25 +46,14 @@ public class GoogleDocsFormatTextExecutor implements PluginNodeExecutor {
         NodeLogPublisher logCollector = context.getLogPublisher();
         try {
             Map<String, Object> input = config.input();
-            String profile = (String) input.get("profile");
             String documentId = (String) input.get("documentId");
             Number start = (Number) input.get("startIndex");
             Number end = (Number) input.get("endIndex");
             Boolean bold = (Boolean) input.getOrDefault("bold", Boolean.FALSE);
             Number fontSize = (Number) input.get("fontSize");
 
-            @SuppressWarnings("unchecked")
-            Map<String, Map<String, String>> profileMap = context.read("profiles", Map.class);
-            Map<String, String> credentials = profileMap.get(profile);
-            String clientId = credentials.get("CLIENT_ID");
-            String clientSecret = credentials.get("CLIENT_SECRET");
-            String refreshToken = credentials.get("REFRESH_TOKEN");
-
-            Map<String, Object> cfg = new HashMap<>();
-            cfg.put("clientId", clientId);
-            cfg.put("clientSecret", clientSecret);
-            cfg.put("refreshToken", refreshToken);
-            DefaultTriggerResourceConfig resourceConfig = new DefaultTriggerResourceConfig(cfg, "refreshToken");
+            DefaultTriggerResourceConfig resourceConfig = GoogleResourceConfigBuilder.build(context);
+            String refreshToken = resourceConfig.getResourceIdentifier();
 
             try (ScopedNodeResource<Docs> handle =
                          docsServiceManager.acquire(refreshToken, context.getWorkflowRunId(), resourceConfig)) {
@@ -89,10 +80,12 @@ public class GoogleDocsFormatTextExecutor implements PluginNodeExecutor {
                 output.put("formatted", true);
                 return ExecutionResult.success(output);
             }
+        } catch (GoogleCredentialsException e) {
+            logCollector.withException(e).error("Google credential error: {}", e.getMessage());
+            return ExecutionResult.error(e.getMessage());
         } catch (Exception e) {
             logCollector.withException(e).error("Google Docs format text failed: {}", e.getMessage());
             return ExecutionResult.error(e.getMessage());
         }
     }
 }
-

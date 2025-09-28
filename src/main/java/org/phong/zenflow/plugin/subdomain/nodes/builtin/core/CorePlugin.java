@@ -1,4 +1,4 @@
-package org.phong.zenflow.plugin.subdomain.registry.definitions;
+package org.phong.zenflow.plugin.subdomain.nodes.builtin.core;
 
 import org.phong.zenflow.plugin.subdomain.registry.Plugin;
 import org.springframework.stereotype.Component;

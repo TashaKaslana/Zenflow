@@ -16,6 +16,8 @@ public class CreateProfileSecretsRequest {
 
     private UUID pluginNodeId;
 
+    private String callbackUrl;
+
     @NotNull
     private String name;
 
