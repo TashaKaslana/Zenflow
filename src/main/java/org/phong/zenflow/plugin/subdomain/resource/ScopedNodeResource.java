@@ -1,5 +1,7 @@
 package org.phong.zenflow.plugin.subdomain.resource;
 
+import lombok.Getter;
+
 import java.util.UUID;
 
 /**
@@ -12,6 +14,7 @@ public class ScopedNodeResource<T> implements AutoCloseable {
     private final NodeResourcePool<T, ?> pool;
     private final String resourceKey;
     private final UUID nodeId;
+    @Getter
     private final T resource;
 
     public ScopedNodeResource(NodeResourcePool<T, ?> pool, String resourceKey, UUID nodeId, T resource) {
@@ -21,12 +24,8 @@ public class ScopedNodeResource<T> implements AutoCloseable {
         this.resource = resource;
     }
 
-    public T getResource() {
-        return resource;
-    }
-
     @Override
     public void close() {
-        pool.unregisterNodeUsage(resourceKey, nodeId);
+        pool.unregisterNodeUsage(resourceKey);
     }
 }

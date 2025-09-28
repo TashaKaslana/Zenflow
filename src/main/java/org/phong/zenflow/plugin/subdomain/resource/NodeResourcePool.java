@@ -24,23 +24,18 @@ public interface NodeResourcePool<T, C> {
      * Register a node as using this resource. Enables reference counting
      * for cleanup.
      */
-    void registerNodeUsage(String resourceKey, UUID nodeId);
+    void registerNodeUsage(String resourceKey);
 
     /**
      * Unregister a node from using this resource. Will cleanup the resource
      * if no more nodes are using it.
      */
-    void unregisterNodeUsage(String resourceKey, UUID nodeId);
+    void unregisterNodeUsage(String resourceKey);
 
     /**
      * Check if a resource exists and is considered healthy.
      */
     boolean isResourceHealthy(String resourceKey);
-
-    /**
-     * Force cleanup of unused resources (for maintenance).
-     */
-    void cleanupUnusedResources();
 
     ScopedNodeResource<T> acquire(String resourceKey, UUID nodeId, C config);
 }

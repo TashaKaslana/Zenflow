@@ -6,6 +6,7 @@ import io.micrometer.core.instrument.MultiGauge;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.binder.MeterBinder;
 import lombok.RequiredArgsConstructor;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Component;
 import org.springframework.scheduling.annotation.Scheduled;
 
@@ -24,7 +25,7 @@ public class NodeResourcePoolMetrics implements MeterBinder {
     private final Map<NodeResourcePool<?, ?>, MultiGauge> gauges = new ConcurrentHashMap<>();
 
     @Override
-    public void bindTo(MeterRegistry registry) {
+    public void bindTo(@NotNull MeterRegistry registry) {
         for (NodeResourcePool<?, ?> pool : pools) {
             if (pool instanceof BaseNodeResourceManager<?, ?> base) {
                 String poolName = pool.getClass().getSimpleName();

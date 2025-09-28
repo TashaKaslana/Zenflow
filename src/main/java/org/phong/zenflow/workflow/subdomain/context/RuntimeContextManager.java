@@ -2,11 +2,12 @@ package org.phong.zenflow.workflow.subdomain.context;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import lombok.NonNull;
 import org.springframework.stereotype.Component;
 
 @Component
 public class RuntimeContextManager {
-    private final Cache<String, RuntimeContext> cache = Caffeine.newBuilder().build();
+    private final Cache<@NonNull String, RuntimeContext> cache = Caffeine.newBuilder().build();
 
     /**
      * Retrieves the {@link RuntimeContext} associated with the given key from the cache.

@@ -179,7 +179,7 @@ public class TriggerOrchestrator {
         executor.getResourceManager().ifPresent(resourceManager ->
                 executor.getResourceKey(triggerCtx).ifPresent(resourceKey -> {
                     try {
-                        resourceManager.registerNodeUsage(resourceKey, triggerCtx.trigger().getId());
+                        resourceManager.registerNodeUsage(resourceKey);
                         log.debug("Registered trigger {} for resource {})", triggerCtx.trigger().getId(), resourceKey);
                     } catch (Exception e) {
                         log.error("Failed resource registration for trigger {}: {}", triggerCtx.trigger().getId(), e.getMessage(), e);
@@ -201,7 +201,7 @@ public class TriggerOrchestrator {
             executor.getResourceManager().ifPresent(resourceManager ->
                     executor.getResourceKey(triggerCtx).ifPresent(resourceKey -> {
                         try {
-                            resourceManager.unregisterNodeUsage(resourceKey, triggerCtx.trigger().getId());
+                            resourceManager.unregisterNodeUsage(resourceKey);
                             log.debug("Unregistered trigger {} from resource {}", triggerCtx.trigger().getId(), resourceKey);
                         } catch (Exception e) {
                             log.error("Failed resource unregistration for trigger {}: {}", triggerCtx.trigger().getId(), e.getMessage(), e);

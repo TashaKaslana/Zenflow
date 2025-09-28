@@ -159,6 +159,10 @@ public class ExecutionContext {
     public Object getProfileSecret(String key) {
         RuntimeContext context = getContext();
         Map<String, Object> profiles = (Map<String, Object>) context.get(ExecutionContextKey.PROFILE_KEY.key());
+        if (profiles == null) {
+            return null;
+        }
+
         Map<String, Object> nodeProfile = (Map<String, Object>) profiles.get(nodeKey);
 
         if (nodeProfile == null) {

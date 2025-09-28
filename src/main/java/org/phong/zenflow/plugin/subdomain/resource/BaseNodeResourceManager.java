@@ -2,16 +2,15 @@ package org.phong.zenflow.plugin.subdomain.resource;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.Expiry;
 import com.github.benmanes.caffeine.cache.RemovalCause;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.HashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * Base implementation of {@link NodeResourcePool} using Caffeine cache and
@@ -22,24 +21,38 @@ import java.util.concurrent.ConcurrentMap;
  */
 @Slf4j
 public abstract class BaseNodeResourceManager<T, C> implements NodeResourcePool<T, C> {
-
-    private final Cache<String, T> resourceCache = Caffeine.newBuilder()
-            .maximumSize(500)
-            .removalListener(this::onResourceRemoval)
-            .build();
-
-    private final ConcurrentHashMap<String, Set<UUID>> resourceUsage = new ConcurrentHashMap<>();
-    private final ConcurrentMap<String, Long> lastAccess = new ConcurrentHashMap<>();
     private final Duration idleEviction = Duration.ofMinutes(10);
+
+    private final Cache<@NonNull String, Tracked<T>> resourceCache = Caffeine.newBuilder()
+            .maximumSize(500)
+            .expireAfter(new Expiry<@NonNull String, @NonNull Tracked<T>>() {
+                public long expireAfterCreate(String k, Tracked<T> v, long now) {
+                    return v.refs.get() > 0 ? Long.MAX_VALUE : idleEviction.toNanos();
+                }
+
+                public long expireAfterUpdate(String k, Tracked<T> v, long now, long cur) {
+                    return v.refs.get() > 0 ? Long.MAX_VALUE : idleEviction.toNanos();
+                }
+
+                public long expireAfterRead(String k, Tracked<T> v, long now, long cur) {
+                    return v.refs.get() > 0 ? Long.MAX_VALUE : idleEviction.toNanos();
+                }
+            })
+            .removalListener((String k, Tracked<T> v, RemovalCause c) -> onResourceRemoval(k, v.resource, c))
+            .build();
 
     @Override
     public T getOrCreateResource(String resourceKey, C config) {
-        T resource = resourceCache.get(resourceKey, k -> {
+        Tracked<T> trackedResource = getOrCreateTrackedResource(resourceKey, config);
+
+        return trackedResource.resource;
+    }
+
+    private Tracked<T> getOrCreateTrackedResource(String resourceKey, C config) {
+        return resourceCache.get(resourceKey, k -> {
             log.info("Creating new resource for key: {}", k);
-            return createResource(k, config);
+            return new Tracked<>(createResource(k, config));
         });
-        lastAccess.put(resourceKey, System.currentTimeMillis());
-        return resource;
     }
 
     /**
@@ -47,36 +60,34 @@ public abstract class BaseNodeResourceManager<T, C> implements NodeResourcePool<
      * usage when the returned handle is closed.
      *
      * @param resourceKey unique identifier for the resource
-     * @param nodeId the node acquiring the resource
-     * @param config configuration needed to create the resource
+     * @param nodeId      the node acquiring the resource
+     * @param config      configuration needed to create the resource
      * @return handle wrapping the shared resource
      */
     @Override
     public ScopedNodeResource<T> acquire(String resourceKey, UUID nodeId, C config) {
-        T resource = getOrCreateResource(resourceKey, config);
-        registerNodeUsage(resourceKey, nodeId);
-        return new ScopedNodeResource<>(this, resourceKey, nodeId, resource);
+        Tracked<T> trackedResource = getOrCreateTrackedResource(resourceKey, config);
+        trackedResource.refs.incrementAndGet();
+        return new ScopedNodeResource<>(this, resourceKey, nodeId, trackedResource.resource);
     }
 
     @Override
-    public void registerNodeUsage(String resourceKey, UUID nodeId) {
-        resourceUsage.computeIfAbsent(resourceKey, k -> ConcurrentHashMap.newKeySet()).add(nodeId);
-        log.debug("Registered node {} for resource {}", nodeId, resourceKey);
-    }
-
-    @Override
-    public void unregisterNodeUsage(String resourceKey, UUID nodeId) {
-        Set<UUID> nodes = resourceUsage.get(resourceKey);
-        if (nodes != null) {
-            nodes.remove(nodeId);
-            if (nodes.isEmpty()) {
-                resourceUsage.remove(resourceKey);
-                resourceCache.invalidate(resourceKey);
-                lastAccess.remove(resourceKey);
-                log.info("No more nodes using resource {}, marked for cleanup", resourceKey);
-            }
+    public void registerNodeUsage(String resourceKey) {
+        Tracked<T> tracked = resourceCache.getIfPresent(resourceKey);
+        if (tracked == null) {
+            return;
         }
-        log.debug("Unregistered node {} from resource {}", nodeId, resourceKey);
+
+        int referenceCount = tracked.refs.incrementAndGet();
+        log.debug("Registered a node for resource {} with current usage count: {}", resourceKey, referenceCount);
+    }
+
+    @Override
+    public void unregisterNodeUsage(String resourceKey) {
+        var tracked = resourceCache.getIfPresent(resourceKey);
+        if (tracked == null) return;
+
+        tracked.refs.decrementAndGet();
     }
 
     @Override
@@ -85,21 +96,6 @@ public abstract class BaseNodeResourceManager<T, C> implements NodeResourcePool<
         return resource != null && checkResourceHealth(resource);
     }
 
-    @Override
-    public void cleanupUnusedResources() {
-        log.info("Starting cleanup of unused node resources");
-        long cutoff = System.currentTimeMillis() - idleEviction.toMillis();
-        lastAccess.forEach((key, ts) -> {
-            if (ts < cutoff && !resourceUsage.containsKey(key)) {
-                resourceCache.invalidate(key);
-                lastAccess.remove(key);
-                log.debug("Evicted idle resource {}", key);
-            }
-        });
-        resourceCache.cleanUp();
-    }
-
-
     /**
      * Snapshot of current resource usage: resource key to active node count.
      *
@@ -107,7 +103,8 @@ public abstract class BaseNodeResourceManager<T, C> implements NodeResourcePool<
      */
     protected Map<String, Integer> getUsageSnapshot() {
         Map<String, Integer> snapshot = new HashMap<>();
-        resourceUsage.forEach((key, nodes) -> snapshot.put(key, nodes.size()));
+        resourceCache.asMap()
+                .forEach((key, tracked) -> snapshot.put(key, tracked.refs.get()));
         return snapshot;
     }
 
@@ -116,7 +113,8 @@ public abstract class BaseNodeResourceManager<T, C> implements NodeResourcePool<
      * Subclasses can use this for health checks or additional logic.
      */
     protected T getExistingResource(String resourceKey) {
-        return resourceCache.getIfPresent(resourceKey);
+        Tracked<T> tracked = resourceCache.getIfPresent(resourceKey);
+        return tracked != null ? tracked.resource : null;
     }
 
     /**
