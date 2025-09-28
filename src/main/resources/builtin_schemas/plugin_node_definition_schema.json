@@ -1,54 +1,83 @@
 {
+  "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "title": "Plugin Node Configuration Schema",
-  "properties": {
-    "input": {
-      "$ref": "http://json-schema.org/draft-07/schema#",
-      "title": "Input Schema"
-    },
-    "output": {
-      "$ref": "http://json-schema.org/draft-07/schema#",
-      "title": "Output Schema"
-    },
-    "secrets": {
-      "type": "array",
-      "title": "Secrets",
-      "description": "Secrets to inject into the HTTP request.",
-      "minItems": 0,
-      "items": {
-        "type": "object",
-        "title": "Secret Definition",
-        "properties": {
-          "key": {
-            "type": "string",
-            "title": "Secret Key",
-            "description": "Environment key of the secret.",
-            "pattern": "^[A-Z0-9_]+$",
-            "minLength": 3,
-            "maxLength": 64
-          },
-          "required": {
-            "type": "boolean",
-            "title": "Is Required",
-            "default": true,
-            "description": "Whether this secret must be provided."
-          },
-          "description": {
-            "type": "string",
-            "title": "Secret Description",
-            "description": "Explanation of what this secret is used for."
-          },
-          "inject_as": {
-            "type": "string",
-            "title": "Inject As",
-            "enum": ["header", "query", "body"],
-            "default": "header",
-            "description": "How to inject the secret into the request."
-          }
+  "definitions": {
+    "secret": {
+      "type": "object",
+      "title": "Secret Definition",
+      "properties": {
+        "key": {
+          "type": "string",
+          "title": "Secret Key",
+          "description": "Environment key of the secret.",
+          "pattern": "^[A-Z0-9_]+$",
+          "minLength": 3,
+          "maxLength": 64
         },
-        "required": ["key"]
-      }
+        "required": {
+          "type": "boolean",
+          "title": "Is Required",
+          "default": true,
+          "description": "Whether this secret must be provided."
+        },
+        "description": {
+          "type": "string",
+          "title": "Secret Description",
+          "description": "Explanation of what this secret is used for."
+        },
+        "inject_as": {
+          "type": "string",
+          "title": "Inject As",
+          "enum": [
+            "header",
+            "query",
+            "body"
+          ],
+          "default": "header",
+          "description": "How to inject the secret into the request."
+        },
+        "value": {
+          "type": "string",
+          "description": "Actual secret value provided at runtime"
+        }
+      },
+      "required": [
+        "key"
+      ],
+      "additionalProperties": false
     }
   },
-  "required": ["input", "secrets"]
+  "properties": {
+    "properties": {
+      "type": "object",
+      "properties": {
+        "input": {
+          "$ref": "http://json-schema.org/draft-07/schema#"
+        },
+        "output": {
+          "$ref": "http://json-schema.org/draft-07/schema#"
+        }
+      },
+      "required": [
+        "input"
+      ]
+    },
+    "profile": {
+      "type": "object",
+      "properties": {
+        "profileKeys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "required": [
+    "properties"
+  ],
+  "additionalProperties": true
 }

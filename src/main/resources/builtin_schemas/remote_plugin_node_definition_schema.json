@@ -1,4 +1,5 @@
 {
+  "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "title": "Plugin Node Configuration Schema",
   "properties": {
@@ -47,6 +48,35 @@
           }
         },
         "required": ["key"]
+      }
+    },
+    "profiles": {
+      "type": "array",
+      "title": "Profiles",
+      "description": "Groups of secrets that can be reused across nodes.",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "title": "Profile Definition",
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Profile Name",
+            "description": "Name of the secret profile."
+          },
+          "required": {
+            "type": "boolean",
+            "title": "Is Required",
+            "default": true,
+            "description": "Whether this profile must be provided."
+          },
+          "description": {
+            "type": "string",
+            "title": "Profile Description",
+            "description": "Explanation of what this profile is used for."
+          }
+        },
+        "required": ["name"]
       }
     },
     "entrypoint": {

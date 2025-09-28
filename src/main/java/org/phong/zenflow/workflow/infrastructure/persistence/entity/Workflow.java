@@ -1,7 +1,5 @@
 package org.phong.zenflow.workflow.infrastructure.persistence.entity;
 
-import jakarta.persistence.AttributeOverride;
-import jakarta.persistence.AttributeOverrides;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -20,22 +18,17 @@ import org.hibernate.type.SqlTypes;
 import org.phong.zenflow.core.superbase.BaseFullAuditEntity;
 import org.phong.zenflow.project.infrastructure.persistence.entity.Project;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
+import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
 
 import java.time.OffsetDateTime;
 import java.util.Map;
+
 
 @Getter
 @Setter
 @Entity
 @Table(name = "workflows", indexes = {
         @Index(name = "idx_workflows_project_id", columnList = "project_id")
-})
-@AttributeOverrides({
-        @AttributeOverride(name = "id", column = @Column(name = "id", nullable = false)),
-        @AttributeOverride(name = "createdAt", column = @Column(name = "created_at", nullable = false)),
-        @AttributeOverride(name = "updatedAt", column = @Column(name = "updated_at", nullable = false)),
-        @AttributeOverride(name = "createdBy", column = @Column(name = "created_by")),
-        @AttributeOverride(name = "updatedBy", column = @Column(name = "updated_by"))
 })
 public class Workflow extends BaseFullAuditEntity {
     @NotNull
@@ -52,8 +45,15 @@ public class Workflow extends BaseFullAuditEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     private WorkflowDefinition definition;
 
-    @Column(name = "start_node", length = Integer.MAX_VALUE)
-    private String startNode;
+    @Column(name = "last_validation")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private ValidationResult lastValidation;
+
+    @Column(name = "last_validation_at")
+    private OffsetDateTime lastValidationAt;
+
+    @Column(name = "last_validation_publish_attempt")
+    private Boolean lastValidationPublishAttempt;
 
     @NotNull
     @ColumnDefault("false")

@@ -13,15 +13,18 @@ import org.phong.zenflow.plugin.subdomain.node.exception.PluginNodeException;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.mapstruct.PluginNodeMapper;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.entity.PluginNode;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.repository.PluginNodeRepository;
-import org.phong.zenflow.plugin.subdomain.node.utils.JsonSchemaValidator;
-import org.phong.zenflow.plugin.subdomain.node.utils.SchemaRegistry;
+import org.phong.zenflow.plugin.subdomain.schema.utils.JsonSchemaValidator;
+import org.phong.zenflow.plugin.subdomain.schema.services.SchemaRegistry;
+import org.phong.zenflow.plugin.subdomain.schema.services.NodeSampleDataService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @AllArgsConstructor
 @Slf4j
@@ -35,6 +38,7 @@ public class PluginNodeService {
     private final PluginNodeRepository pluginNodeRepository;
     private final PluginNodeMapper pluginNodeMapper;
     private final SchemaRegistry schemaRegistry;
+    private final NodeSampleDataService nodeSampleDataService;
 
     public PluginNode findById(UUID id) {
         return pluginNodeRepository.findById(id)
@@ -66,6 +70,12 @@ public class PluginNodeService {
 
     public Page<PluginNodeDto> findAllByPluginId(Pageable pageable, UUID pluginId) {
         return pluginNodeRepository.findAllByPluginId(pluginId, pageable).map(pluginNodeMapper::toDto);
+    }
+
+    public Map<UUID, PluginNode> findAllByPluginId(List<UUID> nodeIds) {
+        return pluginNodeRepository.findAllById(nodeIds)
+                .stream()
+                .collect(Collectors.toMap(PluginNode::getId, node -> node));
     }
 
     @AuditLog(
@@ -108,5 +118,9 @@ public class PluginNodeService {
     public PluginNodeDto findPluginNodeByName(String name) {
         return pluginNodeMapper.toDto(pluginNodeRepository.findByName(name)
                 .orElseThrow(() -> new PluginNodeException("PluginNode not found with name: " + name)));
+    }
+
+    public Map<String, Object> getSampleData(UUID nodeId) {
+        return nodeSampleDataService.getSampleData(nodeId);
     }
 }

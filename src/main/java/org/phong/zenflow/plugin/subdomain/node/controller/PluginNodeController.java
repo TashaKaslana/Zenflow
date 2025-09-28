@@ -2,10 +2,14 @@ package org.phong.zenflow.plugin.subdomain.node.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.phong.zenflow.core.responses.RestApiResponse;
+import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
+import org.phong.zenflow.plugin.subdomain.execution.services.SingleNodeExecutionService;
 import org.phong.zenflow.plugin.subdomain.node.dto.CreatePluginNode;
 import org.phong.zenflow.plugin.subdomain.node.dto.PluginNodeDto;
 import org.phong.zenflow.plugin.subdomain.node.dto.UpdatePluginNodeRequest;
 import org.phong.zenflow.plugin.subdomain.node.service.PluginNodeService;
+import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.entity.PluginNode;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -14,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -22,6 +27,7 @@ import java.util.UUID;
 public class PluginNodeController {
 
     private final PluginNodeService pluginNodeService;
+    private final SingleNodeExecutionService singleNodeExecutionService;
 
     @PostMapping("for/{pluginId}")
     public ResponseEntity<RestApiResponse<PluginNodeDto>> createPluginNode(
@@ -41,6 +47,12 @@ public class PluginNodeController {
     public ResponseEntity<RestApiResponse<PluginNodeDto>> getPluginNodeById(@PathVariable UUID nodeId) {
         PluginNodeDto node = pluginNodeService.findPluginNodeById(nodeId);
         return RestApiResponse.success(node, "Plugin node retrieved successfully");
+    }
+
+    @GetMapping("/{nodeId}/sample")
+    public ResponseEntity<RestApiResponse<Map<String, Object>>> getSampleData(@PathVariable UUID nodeId) {
+        Map<String, Object> sample = pluginNodeService.getSampleData(nodeId);
+        return RestApiResponse.success(sample, "Sample data generated successfully");
     }
 
     @GetMapping("/name/{name}")
@@ -67,5 +79,14 @@ public class PluginNodeController {
     public ResponseEntity<RestApiResponse<Void>> deletePluginNodes(@RequestBody List<UUID> nodeIds) {
         pluginNodeService.deletePluginNodes(nodeIds);
         return RestApiResponse.success("Plugin nodes deleted successfully");
+    }
+
+    @PostMapping("/{nodeId}/execute")
+    public ResponseEntity<RestApiResponse<ExecutionResult>> executePluginNode(
+            @PathVariable UUID nodeId,
+            @RequestBody(required = false) BaseWorkflowNode instanceNode) {
+        PluginNode node = pluginNodeService.findById(nodeId);
+        ExecutionResult result = singleNodeExecutionService.executeNode(node, instanceNode);
+        return RestApiResponse.success(result, "Plugin node executed successfully");
     }
 }

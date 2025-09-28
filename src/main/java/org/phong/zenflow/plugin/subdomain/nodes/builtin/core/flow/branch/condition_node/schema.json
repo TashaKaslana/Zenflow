@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "input": {
+      "type": "object",
+      "properties": {
+        "cases": {
+          "type": "array",
+          "description": "List of condition cases to check in sequence.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "when": {
+                "type": "string",
+                "description": "Boolean expression to evaluate."
+              },
+              "then": {
+                "type": "string",
+                "description": "Node to execute when the condition is true."
+              }
+            },
+            "required": [
+              "when",
+              "then"
+            ]
+          }
+        },
+        "default_case": {
+          "type": "string",
+          "description": "Default node to execute when no condition matches."
+        }
+      },
+      "required": [
+        "cases",
+        "default_case"
+      ]
+    },
+    "output": {
+      "type": "object"
+    },
+    "secrets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key"
+        ]
+      }
+    }
+  },
+  "required": [
+    "input"
+  ]
+}

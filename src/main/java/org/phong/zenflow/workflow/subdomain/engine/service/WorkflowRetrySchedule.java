@@ -1,11 +1,12 @@
 package org.phong.zenflow.workflow.subdomain.engine.service;
 
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.phong.zenflow.core.services.SharedQuartzSchedulerService;
 import org.phong.zenflow.workflow.subdomain.engine.exception.WorkflowEngineException;
 import org.quartz.JobBuilder;
 import org.quartz.JobDataMap;
 import org.quartz.JobDetail;
-import org.quartz.Scheduler;
 import org.quartz.Trigger;
 import org.quartz.TriggerBuilder;
 import org.springframework.stereotype.Service;
@@ -14,17 +15,33 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @AllArgsConstructor
 public class WorkflowRetrySchedule {
+    public static final int MAX_RETRY_ATTEMPTS = 3;
     private static final long RETRY_DELAY_MILLIS = 5000; // Default retry delay in milliseconds
-    private final Scheduler scheduler;
+    private final SharedQuartzSchedulerService scheduler;
 
-    public void scheduleRetry(UUID workflowId, UUID workflowRunId, String nodeKey, Integer attempts) {
+    public void scheduleRetry(UUID workflowId,
+                              UUID workflowRunId,
+                              String nodeKey,
+                              Integer attempts,
+                              String callbackUrl) {
+        if (attempts == null || attempts < 1) {
+            attempts = 1;
+        }
+
+        if (attempts > MAX_RETRY_ATTEMPTS) {
+            log.warn("Max retry attempts reached for workflowRunId: {}, nodeKey: {}. No further retries will be scheduled.", workflowRunId, nodeKey);
+            return;
+        }
+
         JobDataMap jobDataMap = new JobDataMap();
         jobDataMap.put("workflowId", workflowId.toString());
         jobDataMap.put("workflowRunId", workflowRunId.toString());
         jobDataMap.put("nodeKey", nodeKey);
+        jobDataMap.put("callbackUrl", callbackUrl);
 
         String jobId = workflowRunId + ":" + nodeKey;
         String triggerId = "trigger-" + jobId;

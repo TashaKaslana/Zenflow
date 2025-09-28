@@ -3,11 +3,10 @@ package org.phong.zenflow.workflow.subdomain.context;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
-import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -25,11 +24,19 @@ public class RuntimeContext {
     private final Map<String, Set<String>> consumers = new ConcurrentHashMap<>();
     private final Map<String, String> aliases = new ConcurrentHashMap<>();
 
+    // Loop-aware cleanup management
+    private final Map<String, Map<String, Set<String>>> pendingLoopCleanup = new ConcurrentHashMap<>();
+    private final Set<String> activeLoops = new HashSet<>();
+
     public void initialize(Map<String, Object> initialContext,
                            Map<String, Set<String>> initialConsumers,
                            Map<String, String> initialAliases) {
         if (initialConsumers != null) {
-            consumers.putAll(initialConsumers);
+            initialConsumers.forEach((key, value) -> {
+                if (value != null) {
+                    consumers.put(key, new HashSet<>(value));
+                }
+            });
         }
         if (initialContext != null) {
             context.putAll(initialContext);
@@ -62,64 +69,6 @@ public class RuntimeContext {
     }
 
     /**
-     * Process output based on output declaration mapping.
-     * This is more efficient than storing all outputs as it only stores values
-     * that are explicitly declared in the output mapping.
-     *
-     * @param nodeKey           The key of the node that produced the output
-     * @param outputDeclaration The output declaration mapping from node config
-     * @param output            The raw output values from execution
-     */
-    public void processOutput(String nodeKey, Map<String, Object> outputDeclaration, Map<String, Object> output) {
-        if (outputDeclaration == null || output == null || output.isEmpty()) {
-            log.debug("No output to process for node '{}' with declaration", nodeKey);
-            return;
-        }
-
-        log.debug("Processing selective output for node '{}' with declaration: {}", nodeKey, outputDeclaration);
-
-        for (Map.Entry<String, Object> entry : outputDeclaration.entrySet()) {
-            String outputProperty = entry.getKey();
-            Object templateOrMapping = entry.getValue();
-
-            // Determine the target key where the output should be stored
-            String targetKey;
-            Object value;
-
-            if (templateOrMapping instanceof String template && TemplateEngine.isTemplate(template)) {
-                // If the value is a template reference, extract the target key
-                targetKey = template.substring(2, template.length() - 2).trim();
-                value = output.get(outputProperty);
-
-                // Skip storing if there are no consumers for this key
-                if (!consumers.isEmpty() && !hasConsumers(targetKey)) {
-                    log.debug("Skipping storage of output to '{}' as it has no consumers", targetKey);
-                    continue;
-                }
-            } else {
-                // Direct mapping: key in outputDeclaration -> standard node output key format
-                targetKey = nodeKey + ".output." + outputProperty;
-                value = output.get(outputProperty);
-
-                // Skip storing if there are no consumers for this key
-                if (!consumers.isEmpty() && !hasConsumers(targetKey)) {
-                    log.debug("Skipping storage of output to '{}' as it has no consumers in explicit output", targetKey);
-                    continue;
-                }
-            }
-
-            // Only store if we have a value
-            if (value != null) {
-                context.put(targetKey, value);
-                log.debug("Stored selective output '{}' with value type '{}'",
-                        targetKey, value.getClass().getSimpleName());
-            } else {
-                log.warn("Output value for '{}' is null, not storing", targetKey);
-            }
-        }
-    }
-
-    /**
      * Process output according to consumer information already in the RuntimeContext.
      * This is the most efficient approach as it only stores values that are
      * actually needed by downstream nodes.
@@ -145,7 +94,7 @@ public class RuntimeContext {
             }
 
             // Check if this output key has any consumers using the existing consumers map
-            if (!hasConsumers(currentOutputKey)) {
+            if (isConsumersEmpty(currentOutputKey)) {
                 log.debug("Skipping storage of '{}' as it has no registered consumers", currentOutputKey);
                 continue;
             }
@@ -161,27 +110,20 @@ public class RuntimeContext {
      * Get a value from the context and mark it as consumed by the specified node.
      * This method also triggers garbage collection for the key if there are no more consumers.
      * If the key is a template reference, it will be resolved before returning.
+     * Supports default values using syntax like {{ref:defaultValue}}
      *
      * @param nodeKey The key of the node consuming this value
      * @param key     The key or template to retrieve from the context
      * @return The resolved value from the context, or null if not found
      */
     public Object getAndClean(String nodeKey, String key) {
-        // If this is a template, extract the reference and resolve it
-        if (TemplateEngine.isTemplate(key)) {
-            String refKey = TemplateEngine.extractRefs(key).stream().findFirst().orElse(null);
-            if (refKey != null) {
-                // Check if it's an alias that needs resolution
-                String resolvedKey = resolveAlias(refKey);
-                return getAndMarkConsumed(nodeKey, resolvedKey);
-            }
-            return null;
-        }
-
-        // This path handles cases where a non-template key might be an alias
         String resolvedKey = resolveAlias(key);
+        if (isInLoop()) {
+            return getAndMarkConsumedInLoop(nodeKey, resolvedKey);
+        }
         return getAndMarkConsumed(nodeKey, resolvedKey);
     }
+
 
     /**
      * Gets a value from the context and marks it as consumed, handling garbage collection
@@ -207,9 +149,33 @@ public class RuntimeContext {
     }
 
     /**
-     * Resolves a possible alias to its actual reference key
+     * Gets a value from the context during a loop. Consumer cleanup is deferred
+     * until the loop ends to allow multiple iterations to access the same value.
      *
-     * @param key The key that might be an alias
+     * @param nodeKey The consuming node
+     * @param key     The key to access
+     * @return The value, or null if not found
+     */
+    private Object getAndMarkConsumedInLoop(String nodeKey, String key) {
+        if (!context.containsKey(key)) {
+            return null;
+        }
+
+        Object value = context.get(key);
+        String activeLoop = getActiveLoop();
+        if (activeLoop != null) {
+            pendingLoopCleanup
+                    .computeIfAbsent(activeLoop, k -> new ConcurrentHashMap<>())
+                    .computeIfAbsent(key, k -> new HashSet<>())
+                    .add(nodeKey);
+        }
+        return value;
+    }
+
+    /**
+     * Resolves a possible aliases to its actual reference key
+     *
+     * @param key The key that might be an aliases
      * @return The resolved key
      */
     private String resolveAlias(String key) {
@@ -220,79 +186,6 @@ public class RuntimeContext {
         } else {
             return key;
         }
-    }
-
-    /**
-     * Resolve a configuration object using the RuntimeContext.
-     * Replaces all template references with their actual values in input.
-     *
-     * @param nodeKey The key of the node using this configuration
-     * @param config  The configuration object with templates
-     * @return A new configuration object with resolved values
-     */
-    public WorkflowConfig resolveConfig(String nodeKey, WorkflowConfig config) {
-        if (config == null || config.input() == null) {
-            return config;
-        }
-
-        Map<String, Object> resolvedInput = resolve(nodeKey, config.input());
-        return new WorkflowConfig(resolvedInput, config.output());
-    }
-
-    private Map<String, Object> resolve(String nodeKey, Map<String, Object> config) {
-        Map<String, Object> result = new HashMap<>();
-        for (Map.Entry<String, Object> entry : config.entrySet()) {
-            result.put(entry.getKey(), resolveValue(nodeKey, entry.getValue()));
-        }
-        return result;
-    }
-
-    private Object resolveValue(String nodeKey, Object value) {
-        if (value == null) {
-            return null;
-        }
-
-        return switch (value) {
-            case String str -> {
-                if (!TemplateEngine.isTemplate(str)) {
-                    yield str;
-                }
-                List<String> refs = TemplateEngine.extractRefs(str);
-                if (refs.size() == 1) {
-                    String expr = refs.getFirst();
-                    if (str.trim().equals("{{" + expr + "}}")) {
-                        // Single template, can be any type
-                        if (expr.matches("[a-zA-Z0-9._-]+\\(.*\\)")) {
-                            yield TemplateEngine.evaluateFunction(expr);
-                        } else {
-                            yield getAndClean(nodeKey, str);
-                        }
-                    }
-                }
-
-                // For complex templates, resolve all and return as string
-                String result = str;
-                for (String ref : refs) {
-                    String templateRef = "{{" + ref + "}}";
-                    Object resolvedValue = getAndClean(nodeKey, templateRef);
-                    if (resolvedValue != null) {
-                        result = result.replace(templateRef, resolvedValue.toString());
-                    } else {
-                        // Keep the original template if it can't be resolved
-                        // This prevents malformed expressions like "null > 200"
-                        yield str;
-                    }
-                }
-                yield result;
-            }
-            case Map<?, ?> map ->
-                // To be safe, we assume the map is Map<String, Object>
-                    resolve(nodeKey, ObjectConversion.convertObjectToMap(map));
-            case List<?> list -> list.stream()
-                    .map(item -> resolveValue(nodeKey, item))
-                    .toList();
-            default -> value;
-        };
     }
 
     /**
@@ -330,9 +223,9 @@ public class RuntimeContext {
     /**
      * Check if a key has any remaining consumers
      */
-    public boolean hasConsumers(String key) {
+    public boolean isConsumersEmpty(String key) {
         Set<String> keyConsumers = consumers.get(key);
-        return keyConsumers != null && !keyConsumers.isEmpty();
+        return keyConsumers == null || keyConsumers.isEmpty();
     }
 
     /**
@@ -350,7 +243,7 @@ public class RuntimeContext {
         List<String> keysToRemove = new ArrayList<>();
 
         for (String key : context.keySet()) {
-            if (!hasConsumers(key)) {
+            if (isConsumersEmpty(key)) {
                 keysToRemove.add(key);
             }
         }
@@ -380,11 +273,113 @@ public class RuntimeContext {
     }
 
     /**
+     * Remove a specific key from context and consumers (useful for manual cleanup)
+     *
+     * @param key The key to remove
+     */
+    public void remove(String key) {
+        context.remove(key);
+        consumers.remove(key);
+        log.debug("Removed key '{}' from context and consumers", key);
+    }
+
+    /**
      * Clear all context data (useful for testing or cleanup)
      */
     public void clear() {
         context.clear();
         consumers.clear();
+        pendingLoopCleanup.clear();
+        activeLoops.clear();
         log.debug("RuntimeContext cleared");
+    }
+
+    // ========== Loop-aware context management methods ==========
+
+    /**
+     * Start a loop context. This tells the RuntimeContext to defer cleanup operations
+     * for context values accessed within this loop until the loop completes.
+     *
+     * @param loopNodeKey The unique identifier for the loop node
+     */
+    public void startLoop(String loopNodeKey) {
+        activeLoops.add(loopNodeKey);
+        pendingLoopCleanup.put(loopNodeKey, new ConcurrentHashMap<>());
+        log.debug("Started loop context for node: {}", loopNodeKey);
+    }
+
+    /**
+     * End a loop context and perform all deferred cleanup operations.
+     * This will clean up all context values that were accessed during the loop
+     * and have no remaining consumers.
+     *
+     * @param loopNodeKey The unique identifier for the loop node
+     */
+    public void endLoop(String loopNodeKey) {
+        if (!activeLoops.contains(loopNodeKey)) {
+            log.warn("Attempted to end loop '{}' that was not started", loopNodeKey);
+            return;
+        }
+
+        activeLoops.remove(loopNodeKey);
+        Map<String, Set<String>> pendingCleanup = pendingLoopCleanup.remove(loopNodeKey);
+
+        if (pendingCleanup != null) {
+            int cleanedCount = 0;
+            for (Map.Entry<String, Set<String>> entry : pendingCleanup.entrySet()) {
+                String key = entry.getKey();
+                Set<String> consumersToRemove = entry.getValue();
+
+                // Remove all pending consumers for this key
+                Set<String> keyConsumers = consumers.get(key);
+                if (keyConsumers != null) {
+                    keyConsumers.removeAll(consumersToRemove);
+                    if (keyConsumers.isEmpty()) {
+                        consumers.remove(key);
+                    }
+                }
+
+                // Perform garbage collection for this key
+                if (isConsumersEmpty(key)) {
+                    Object removedValue = context.remove(key);
+                    if (removedValue != null) {
+                        cleanedCount++;
+                        log.debug("Loop cleanup removed key '{}' from context", key);
+                    }
+                }
+            }
+
+            if (cleanedCount > 0) {
+                log.debug("Loop '{}' cleanup removed {} context entries", loopNodeKey, cleanedCount);
+            }
+        }
+
+        log.debug("Ended loop context for node: {}", loopNodeKey);
+    }
+
+    /**
+     * Check if there are any active loops currently running
+     *
+     * @return true if there are active loops
+     */
+    public boolean isInLoop() {
+        return !activeLoops.isEmpty();
+    }
+
+    /**
+     * Get the active loop for a node key (if any)
+     *
+     * @return The loop node key if in a loop, null otherwise
+     */
+    public String getActiveLoop() {
+        return activeLoops.stream().findFirst().orElse(null);
+    }
+
+    public void endLoopIfActive() {
+        String activeLoop = this.getActiveLoop();
+        if (activeLoop != null) {
+            this.endLoop(activeLoop);
+            log.debug("Ended active loop '{}' due to error or validation failure", activeLoop);
+        }
     }
 }

@@ -26,7 +26,8 @@ import java.util.Map;
 @Setter
 @Entity
 @Table(name = "plugin_nodes", indexes = {
-        @Index(name = "idx_plugin_nodes_plugin_id", columnList = "plugin_id")
+        @Index(name = "idx_plugin_nodes_plugin_id", columnList = "plugin_id"),
+        @Index(name = "idx_plugin_node_composite_key", columnList = "composite_key")
 })
 @AttributeOverrides({
         @AttributeOverride(name = "id", column = @Column(name = "id", nullable = false)),
@@ -71,6 +72,6 @@ public class PluginNode extends BaseEntity {
     @Column(name = "icon", length = Integer.MAX_VALUE)
     private String icon;
 
-    @Column(name = "key", length = Integer.MAX_VALUE)
-    private String key;
+    @Column(name = "composite_key", length = Integer.MAX_VALUE)
+    private String compositeKey;
 }

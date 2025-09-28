@@ -9,7 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.responses.RestApiResponse;
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.CreateWorkflowTriggerRequest;
-import org.phong.zenflow.workflow.subdomain.trigger.dto.ExecuteWorkflowTriggerResponse;
+import org.phong.zenflow.workflow.dto.ExecuteWorkflowResponse;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.UpdateWorkflowTriggerRequest;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerDto;
 import org.phong.zenflow.workflow.subdomain.trigger.services.WorkflowTriggerService;
@@ -129,14 +129,15 @@ public class WorkflowTriggerController {
 
     @Operation(summary = "Manually trigger a workflow")
     @PostMapping("/{triggerId}/execute")
-    public ResponseEntity<RestApiResponse<ExecuteWorkflowTriggerResponse>> executeTrigger(
+    public ResponseEntity<RestApiResponse<ExecuteWorkflowResponse>> executeTrigger(
             @Parameter(description = "Trigger ID") @PathVariable UUID triggerId,
             @Valid @RequestBody WorkflowRunnerRequest request
     ) {
         UUID workflowRunId = triggerService.executeTrigger(triggerId, request);
 
-        return RestApiResponse.success(new ExecuteWorkflowTriggerResponse(workflowRunId,
-                        "/workflow-runs/" + workflowRunId),
-                "Workflow triggered successfully");
+        return RestApiResponse.success(
+                ExecuteWorkflowResponse.of(workflowRunId),
+                "Workflow triggered successfully"
+        );
     }
 }

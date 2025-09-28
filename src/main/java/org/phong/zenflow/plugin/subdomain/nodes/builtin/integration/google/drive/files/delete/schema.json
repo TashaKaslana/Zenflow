@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Google Drive Delete File Schema",
+  "properties": {
+    "input": {
+      "type": "object",
+      "title": "Input Schema",
+      "properties": {
+        "fileId": {
+          "type": "string",
+          "description": "ID of the file to delete"
+        }
+      },
+      "required": [
+        "fileId"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "type": "object",
+      "title": "Output Schema"
+    },
+    "profile": {
+      "profileKeys": [
+        "oauth-default"
+      ],
+      "description": "Requires the Google OAuth profile for authentication."
+    }
+  },
+  "required": [
+    "input",
+    "output"
+  ],
+  "additionalProperties": false
+}

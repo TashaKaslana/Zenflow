@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "definitions": {
+    "aggregate_params": {
+      "type": "object",
+      "properties": {
+        "aggregations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "field": {"type": "string"},
+              "function": {"type": "string", "enum": ["count","sum","avg","min","max","first","last","concat","distinct_count","std_dev"]},
+              "alias": {"type": "string"}
+            },
+            "required": ["field","function"]
+          }
+        }
+      },
+      "required": ["aggregations"]
+    }
+  },
+  "properties": {
+    "input": {
+      "type": "object",
+      "properties": {
+        "data": {"type": "array"},
+        "params": {"$ref": "#/definitions/aggregate_params"}
+      },
+      "required": ["data","params"],
+      "additionalProperties": false
+    },
+    "output": {"type": "object"}
+  },
+  "required": ["input"]
+}

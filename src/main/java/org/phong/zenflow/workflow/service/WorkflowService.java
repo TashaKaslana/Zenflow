@@ -9,16 +9,23 @@ import org.phong.zenflow.project.infrastructure.persistence.entity.Project;
 import org.phong.zenflow.project.infrastructure.persistence.repository.ProjectRepository;
 import org.phong.zenflow.workflow.dto.CreateWorkflowRequest;
 import org.phong.zenflow.workflow.dto.UpdateWorkflowRequest;
-import org.phong.zenflow.workflow.dto.UpsertWorkflowDefinition;
+import org.phong.zenflow.workflow.dto.WorkflowDefinitionChangeRequest;
 import org.phong.zenflow.workflow.dto.WorkflowDto;
 import org.phong.zenflow.workflow.exception.WorkflowException;
 import org.phong.zenflow.workflow.infrastructure.mapstruct.WorkflowMapper;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.infrastructure.persistence.repository.WorkflowRepository;
-import org.phong.zenflow.workflow.subdomain.context.WorkflowContextService;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.services.WorkflowDefinitionService;
+import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
+import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
+import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
+import org.phong.zenflow.workflow.dto.WorkflowDefinitionUpdateResult;
+import org.phong.zenflow.workflow.cache.WorkflowValidationCache;
+import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerEvent;
+import org.phong.zenflow.workflow.event.WorkflowDefinitionUpdatedEvent;
+import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -26,7 +33,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -37,10 +43,11 @@ import java.util.UUID;
 @Slf4j
 public class WorkflowService {
     private final WorkflowRepository workflowRepository;
+    private final WorkflowValidationCache validationCache;
     private final ProjectRepository projectRepository;
     private final WorkflowMapper workflowMapper;
     private final WorkflowDefinitionService definitionService;
-    private final WorkflowContextService workflowContextService;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * Create a new workflow
@@ -71,80 +78,137 @@ public class WorkflowService {
                 .toList();
     }
 
-    /**
-     * Update workflow nodes. Accepts incoming nodes, validates them, and updates the workflow definition.
-     *
-     * @param workflowId ID of the workflow to update
-     * @param incomingNodes List of nodes to add or update
-     * @return Updated workflow definition
-     */
     @Transactional
-    public WorkflowDefinition upsertNodes(UUID workflowId, UpsertWorkflowDefinition incomingNodes) {
-        Workflow workflow = workflowRepository.findById(workflowId)
-                .orElseThrow(() -> new WorkflowException("Workflow not found with id: " + workflowId));
+    @AuditLog(action = AuditAction.WORKFLOW_EXECUTE)
+    public UUID executeWorkflow(UUID workflowId, String startNodeKey) {
+        return executeWorkflow(workflowId, startNodeKey, null);
+    }
 
-        WorkflowDefinition definition = workflow.getDefinition();
-        if (definition == null) {
-            definition = new WorkflowDefinition();
-        }
+    @Transactional
+    @AuditLog(action = AuditAction.WORKFLOW_EXECUTE)
+    public UUID executeWorkflow(UUID workflowId, String startNodeKey, Map<String, Object> payload) {
+        UUID workflowRunId = UUID.randomUUID();
+        String callbackUrl = "/workflow-runs/" + workflowRunId;
 
-        List<BaseWorkflowNode> currentNodes = new ArrayList<>(definition.nodes());
-        definitionService.upsertNodes(currentNodes, incomingNodes.nodes());
-        definitionService.upsertMetadata(definition.metadata(), incomingNodes.metadata());
+        eventPublisher.publishEvent(new WorkflowTriggerEvent(
+                workflowRunId,
+                TriggerType.MANUAL,
+                workflowId,
+                new WorkflowRunnerRequest(
+                        callbackUrl, startNodeKey, payload
+                )
+        ));
 
-        WorkflowDefinition updatedDefinition = updateStaticContext(workflow, currentNodes);
-        workflow.setDefinition(updatedDefinition);
-        workflowRepository.save(workflow);
-
-        return updatedDefinition;
+        return workflowRunId;
     }
 
     /**
-     * Remove a node from a workflow by its key
+     * Update workflow definition by removing and upserting nodes in a single request.
      *
-     * @param workflowId ID of the workflow
-     * @param keyToRemove Key of the node to remove
+     * @param workflowId ID of the workflow to update
+     * @param request    Change request containing nodes to upsert and keys to remove
      * @return Updated workflow definition
      */
     @Transactional
-    public WorkflowDefinition removeNode(UUID workflowId, String keyToRemove) {
+    public WorkflowDefinitionUpdateResult updateWorkflowDefinition(UUID workflowId, WorkflowDefinitionChangeRequest request, boolean publishAttempt) {
+        Workflow workflow = workflowRepository.findById(workflowId)
+                .orElseThrow(() -> new WorkflowException("Workflow not found with id: " + workflowId));
+
+        WorkflowDefinition currentDefinition = workflow.getDefinition() != null
+                ? workflow.getDefinition().deepCopy()
+                : new WorkflowDefinition();
+
+        List<ValidationError> aggregatedDefinitionErrors = new ArrayList<>();
+
+        if (request != null && request.remove() != null && !request.remove().isEmpty()) {
+            currentDefinition = definitionService.removeNodesWithoutValidation(currentDefinition, request.remove());
+        }
+
+        if (request != null && request.upsert() != null) {
+            WorkflowDefinition newDefinition = new WorkflowDefinition(request.upsert().nodes(), request.upsert().metadata());
+            aggregatedDefinitionErrors.addAll(definitionService.upsertWithoutValidation(newDefinition, currentDefinition));
+        }
+
+        ValidationResult validationResult = definitionService.buildStaticContextAndValidate(currentDefinition, workflowId);
+        validationResult.addAllErrors(aggregatedDefinitionErrors);
+
+        OffsetDateTime validatedAt = OffsetDateTime.now();
+        workflow.setLastValidation(validationResult);
+        workflow.setLastValidationAt(validatedAt);
+        workflow.setLastValidationPublishAttempt(publishAttempt);
+
+        if (publishAttempt) {
+            workflow.setIsActive(validationResult.isValid());
+        }
+
+        workflow.setDefinition(currentDefinition);
+        workflowRepository.save(workflow);
+
+        WorkflowDefinitionUpdateResult result = new WorkflowDefinitionUpdateResult(currentDefinition, validationResult, publishAttempt, workflow.getIsActive(), validatedAt);
+        validationCache.put(workflowId, result);
+
+        eventPublisher.publishEvent(new WorkflowDefinitionUpdatedEvent(workflowId, currentDefinition));
+
+        return result;
+    }
+
+    /**
+     * Backward-compatible overload without publish flag. Keeps existing activation state.
+     */
+    @Transactional
+    public WorkflowDefinitionUpdateResult updateWorkflowDefinition(UUID workflowId, WorkflowDefinitionChangeRequest request) {
+        return updateWorkflowDefinition(workflowId, request, false);
+    }
+
+    @Transactional(readOnly = true)
+    public WorkflowDefinitionUpdateResult getLatestValidation(UUID workflowId) {
+        WorkflowDefinitionUpdateResult cached = validationCache.get(workflowId);
+        if (cached != null) {
+            return cached;
+        }
+
+        Workflow workflow = getWorkflow(workflowId);
+        ValidationResult validation = workflow.getLastValidation();
+        OffsetDateTime validatedAt = workflow.getLastValidationAt();
+        boolean publishAttempt = Boolean.TRUE.equals(workflow.getLastValidationPublishAttempt());
+        WorkflowDefinition definitionCopy = workflow.getDefinition() != null
+                ? workflow.getDefinition().deepCopy()
+                : new WorkflowDefinition();
+
+        if (validation == null) {
+            WorkflowDefinitionUpdateResult result = new WorkflowDefinitionUpdateResult(definitionCopy, new ValidationResult("definition", new ArrayList<>()), false, workflow.getIsActive(), null);
+            validationCache.put(workflowId, result);
+            return result;
+        }
+
+        WorkflowDefinitionUpdateResult result = new WorkflowDefinitionUpdateResult(definitionCopy, validation, publishAttempt, workflow.getIsActive(), validatedAt);
+        validationCache.put(workflowId, result);
+        return result;
+    }
+
+    public WorkflowDefinition clearWorkflowDefinition(UUID workflowId) {
         Workflow workflow = getWorkflow(workflowId);
         WorkflowDefinition definition = workflow.getDefinition();
         if (definition == null || definition.nodes() == null) {
             return new WorkflowDefinition();
         }
 
-        List<BaseWorkflowNode> currentNodes = new ArrayList<>(definition.nodes());
+        WorkflowDefinition clearedDefinition = definitionService.clearWorkflowDefinition(definition);
 
-        definitionService.removeNode(currentNodes, keyToRemove);
-
-        WorkflowDefinition updatedDefinition = updateStaticContext(workflow, currentNodes);
-        workflow.setDefinition(updatedDefinition);
+        workflow.setDefinition(clearedDefinition);
+        workflow.setLastValidation(null);
+        workflow.setLastValidationAt(null);
+        workflow.setLastValidationPublishAttempt(null);
+        validationCache.invalidate(workflowId);
         workflowRepository.save(workflow);
-        log.debug("Workflow with ID: {} has been updated by removing node with key: {}", workflowId, keyToRemove);
+        log.debug("Workflow with ID: {} has been updated by clearing all nodes", workflowId);
 
-        return updatedDefinition;
-    }
-
-    private WorkflowDefinition updateStaticContext(Workflow workflow, List<BaseWorkflowNode> nodes) {
-        WorkflowDefinition definition = workflow.getDefinition();
-        if (definition == null) {
-            definition = new WorkflowDefinition();
-        }
-
-        Map<String, Object> metadata = definition.metadata();
-        if (metadata == null) {
-            metadata = new HashMap<>();
-        }
-
-        Map<String, Object> newMetadata = workflowContextService.buildStaticContext(nodes, metadata);
-
-        return new WorkflowDefinition(nodes, newMetadata);
+        return clearedDefinition;
     }
 
     public Workflow getWorkflow(UUID id) {
         return workflowRepository.findById(id)
-                .orElseThrow(() -> new WorkflowException("Workflow not found"));
+                .orElseThrow(() -> new WorkflowException("Workflow not found with id: " + id));
     }
 
     /**
@@ -226,6 +290,11 @@ public class WorkflowService {
     public WorkflowDto activateWorkflow(UUID id) {
         Workflow workflow = workflowRepository.findById(id)
                 .orElseThrow(() -> new WorkflowException("Workflow not found with id: " + id));
+
+        ValidationResult lastValidation = workflow.getLastValidation();
+        if (lastValidation == null || !lastValidation.isValid() || !Boolean.TRUE.equals(workflow.getLastValidationPublishAttempt())) {
+            throw new WorkflowException("Workflow cannot be activated without a successful validation");
+        }
 
         workflow.setIsActive(true);
         Workflow updatedWorkflow = workflowRepository.save(workflow);

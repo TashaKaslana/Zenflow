@@ -48,7 +48,7 @@ public class GlobalExceptionHandler {
                                                                               @NonNull WebRequest request) {
         log.warn("Validation Error: {}", ex.getMessage());
 
-        Map<String, String> fieldErrors = new HashMap<>();
+        Map<String, Object> fieldErrors = new HashMap<>();
         List<String> globalErrors = ex.getBindingResult()
                 .getGlobalErrors().stream()
                 .map(ObjectError::getDefaultMessage)
@@ -135,7 +135,7 @@ public class GlobalExceptionHandler {
                 message,
                 HttpRequestUtils.getRequestPath(request),
                 HttpStatus.BAD_REQUEST.getReasonPhrase(),
-                null,
+                (Map<String, Object>) null,
                 null
         );
 
@@ -148,7 +148,7 @@ public class GlobalExceptionHandler {
             WebRequest request) {
         log.warn("Constraint Violation: {}", ex.getMessage());
 
-        Map<String, String> constraintErrors = ex.getConstraintViolations().stream()
+        Map<String, Object> constraintErrors = ex.getConstraintViolations().stream()
                 .collect(Collectors.toMap(
                         violation -> violation.getPropertyPath().toString(),
                         ConstraintViolation::getMessage

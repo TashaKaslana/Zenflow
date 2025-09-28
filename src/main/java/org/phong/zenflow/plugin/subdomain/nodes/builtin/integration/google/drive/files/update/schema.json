@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Google Drive Update File Schema",
+  "properties": {
+    "input": {
+      "type": "object",
+      "title": "Input Schema",
+      "properties": {
+        "fileId": {
+          "type": "string",
+          "description": "ID of the file to update"
+        },
+        "name": {
+          "type": "string",
+          "description": "New name for the file"
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the file"
+        },
+        "mimeType": {
+          "type": "string",
+          "description": "MIME type of the file"
+        },
+        "contentBase64": {
+          "type": "string",
+          "description": "Base64-encoded content to replace the file with"
+        }
+      },
+      "required": [
+        "fileId"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "type": "object",
+      "title": "Output Schema"
+    },
+    "profile": {
+      "profileKeys": [
+        "oauth-default"
+      ],
+      "description": "Requires the Google OAuth profile for authentication."
+    }
+  },
+  "required": [
+    "input",
+    "output"
+  ],
+  "additionalProperties": false
+}

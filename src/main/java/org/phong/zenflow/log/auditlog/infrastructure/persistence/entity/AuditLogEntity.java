@@ -41,7 +41,6 @@ public class AuditLogEntity extends BaseIdEntity {
     @Column(name = "target_type", length = Integer.MAX_VALUE)
     private String targetType;
 
-    @NotNull
     @Column(name = "target_id")
     private UUID targetId;
 
@@ -52,7 +51,7 @@ public class AuditLogEntity extends BaseIdEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     private Map<String, Object> metadata;
 
-    @Column(name = "user_agent", length = 255)
+    @Column(name = "user_agent")
     private String userAgent;
 
     @Column(name = "ip_address", length = 45)

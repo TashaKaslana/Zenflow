@@ -1,0 +1,305 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "nodes"
+  ],
+  "properties": {
+    "nodes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/workflowNode"
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "aliases": {
+          "type": "object"
+        },
+        "nodeDependencies": {
+          "type": "object"
+        },
+        "nodeConsumers": {
+          "type": "object"
+        },
+        "profileAssignments": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "pluginKey": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "profileKey": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "profileName": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "profileId": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[0-9a-fA-F-]+$"
+              }
+            },
+            "required": [
+              "profileKey"
+            ],
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "pluginConfigRemote": {
+      "type": "object",
+      "required": [
+        "input",
+        "secrets"
+      ],
+      "properties": {
+        "input": {
+          "$ref": "http://json-schema.org/draft-07/schema#"
+        },
+        "output": {
+          "$ref": "http://json-schema.org/draft-07/schema#"
+        },
+        "secrets": {
+          "type": "array",
+          "minItems": 0,
+          "items": {
+            "type": "object",
+            "required": [
+              "key"
+            ],
+            "properties": {
+              "key": {
+                "type": "string",
+                "pattern": "^[A-Z0-9_]+$",
+                "minLength": 3,
+                "maxLength": 64
+              },
+              "required": {
+                "type": "boolean",
+                "default": true
+              },
+              "description": {
+                "type": "string"
+              },
+              "inject_as": {
+                "type": "string",
+                "enum": [
+                  "header",
+                  "query",
+                  "body"
+                ],
+                "default": "header"
+              }
+            }
+          }
+        },
+        "profiles": {
+          "type": "array",
+          "minItems": 0,
+          "items": {
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "required": {
+                "type": "boolean",
+                "default": true
+              },
+              "description": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "pluginConfigBuiltin": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/pluginConfigRemote"
+        },
+        {
+          "type": "object",
+          "required": [
+            "entrypoint"
+          ],
+          "properties": {
+            "entrypoint": {
+              "type": "object",
+              "required": [
+                "url",
+                "method"
+              ],
+              "properties": {
+                "url": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "method": {
+                  "type": "string",
+                  "enum": [
+                    "GET",
+                    "POST",
+                    "PUT",
+                    "DELETE",
+                    "PATCH",
+                    "HEAD",
+                    "OPTIONS"
+                  ]
+                },
+                "headers": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^[a-zA-Z0-9-]+$"
+                  },
+                  "additionalProperties": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "workflowNode": {
+      "type": "object",
+      "required": [
+        "key",
+        "type"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "pattern": "^[a-zA-Z_][a-zA-Z0-9_-]*$"
+        },
+        "type": {
+          "type": "string"
+        },
+        "pluginNode": {
+          "type": [
+            "object"
+          ],
+          "required": [
+            "nodeId",
+            "pluginKey",
+            "nodeKey",
+            "version"
+          ],
+          "properties": {
+            "nodeId": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+              "description": "The unique identifier of the plugin node instance (UUID).",
+              "examples": [
+                "123e4567-e89b-12d3-a456-426614174000"
+              ]
+            },
+            "pluginKey": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9_.-]+$",
+              "minLength": 1,
+              "maxLength": 32,
+              "description": "The key of the plugin that contains the node.",
+              "examples": [
+                "core",
+                "dataProcessing",
+                "analytics"
+              ]
+            },
+            "nodeKey": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9_.-]+$",
+              "minLength": 1,
+              "maxLength": 32,
+              "description": "The key of the node within the plugin.",
+              "examples": [
+                "http-request",
+                "data-transform",
+                "analytics-report"
+              ]
+            },
+            "version": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9._-]+$",
+              "description": "The version of the plugin node, following semantic versioning."
+            }
+          }
+        },
+        "next": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "config": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "input": {
+                  "type": [
+                    "object",
+                    "null"
+                  ]
+                },
+                "output": {
+                  "type": [
+                    "object",
+                    "null"
+                  ]
+                }
+              }
+            },
+            {
+              "$ref": "#/definitions/pluginConfigRemote"
+            },
+            {
+              "$ref": "#/definitions/pluginConfigBuiltin"
+            }
+          ]
+        },
+        "metadata": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "policy": {
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

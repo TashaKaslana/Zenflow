@@ -6,6 +6,8 @@ import org.phong.zenflow.plugin.dto.CreatePluginRequest;
 import org.phong.zenflow.plugin.dto.PluginDto;
 import org.phong.zenflow.plugin.dto.UpdatePluginRequest;
 import org.phong.zenflow.plugin.services.PluginService;
+import org.phong.zenflow.plugin.services.PluginDescriptorService;
+import org.phong.zenflow.plugin.subdomain.registry.PluginDescriptorSection;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
@@ -13,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -21,6 +24,7 @@ import java.util.UUID;
 public class PluginController {
 
     private final PluginService pluginService;
+    private final PluginDescriptorService pluginDescriptorService;
 
     @PostMapping
     public ResponseEntity<RestApiResponse<PluginDto>> createPlugin(@Valid @RequestBody CreatePluginRequest request) {
@@ -66,9 +70,32 @@ public class PluginController {
         return RestApiResponse.success("Plugins deleted successfully");
     }
 
-    @DeleteMapping("/all")
-    public ResponseEntity<RestApiResponse<Void>> deleteAllPlugins() {
-        pluginService.deleteAllPlugins();
-        return RestApiResponse.success("All plugins deleted successfully");
-    }
-}
+      @DeleteMapping("/all")
+      public ResponseEntity<RestApiResponse<Void>> deleteAllPlugins() {
+          pluginService.deleteAllPlugins();
+          return RestApiResponse.success("All plugins deleted successfully");
+      }
+
+      @GetMapping("/{key}/schema")
+      public ResponseEntity<RestApiResponse<Map<String, Object>>> getPluginSchema(@PathVariable String key) {
+          Map<String, Object> schema = pluginService.getPluginSchemaByKey(key);
+          return RestApiResponse.success(schema, "Plugin schema retrieved successfully");
+      }
+
+      @GetMapping("/{key}/profile-schema")
+      public ResponseEntity<RestApiResponse<Map<String, Object>>> getPluginProfileSchema(@PathVariable String key) {
+          Map<String, Object> schema = pluginService.getProfileSchemaById(key);
+          return RestApiResponse.success(schema, "Plugin profile schema retrieved successfully");
+      }
+
+      @GetMapping("/{key}/descriptors/{descriptorId}/schema")
+      public ResponseEntity<RestApiResponse<Map<String, Object>>> getPluginDescriptorSchema(
+              @PathVariable String key,
+              @PathVariable String descriptorId,
+              @RequestParam(value = "section", defaultValue = "profile") String section) {
+          PluginDescriptorSection descriptorSection = PluginDescriptorSection.from(section);
+          Map<String, Object> schema = pluginDescriptorService.getDescriptorSchema(key, descriptorId, descriptorSection);
+          return RestApiResponse.success(schema, "Plugin descriptor schema retrieved successfully");
+      }
+
+  }
