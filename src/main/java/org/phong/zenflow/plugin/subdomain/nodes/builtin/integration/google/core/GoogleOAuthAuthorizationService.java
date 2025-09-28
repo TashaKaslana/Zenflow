@@ -24,15 +24,16 @@ public class GoogleOAuthAuthorizationService {
 
     private static final JsonFactory JSON_FACTORY = GsonFactory.getDefaultInstance();
     private static final String TOKEN_SERVER_URL = "https://oauth2.googleapis.com/token";
-    private static final String REDIRECT_URI = "urn:ietf:wg:oauth:2.0:oob";
+    private static final String REDIRECT_URI = "http://localhost:8080/oauth2/google/callback";
 
-    public String buildAuthorizationUrl(String clientId, Collection<String> scopes) {
+    public String buildAuthorizationUrl(String clientId, Collection<String> scopes, String state) {
         try {
-            GoogleAuthorizationCodeRequestUrl requestUrl =
-                    new GoogleAuthorizationCodeRequestUrl(clientId, REDIRECT_URI, scopes)
-                            .setAccessType("offline");
-            requestUrl.set("prompt", "consent");
-            return requestUrl.build();
+            return new GoogleAuthorizationCodeRequestUrl(clientId, REDIRECT_URI, scopes)
+                    .setAccessType("offline")
+                    .set("prompt", "consent select_account")
+                    .set("include_granted_scopes", "true")
+                    .setState(state)
+                    .build();
         } catch (Exception ex) {
             throw new IllegalStateException("Failed to build Google authorization URL", ex);
         }
