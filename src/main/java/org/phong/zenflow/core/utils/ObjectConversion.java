@@ -2,12 +2,14 @@ package org.phong.zenflow.core.utils;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.phong.zenflow.core.annotations.ExcludeFromPayload;
 
 import java.lang.reflect.Field;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,6 +30,24 @@ public final class ObjectConversion {
 
     public static Map<String, Object> convertObjectToMap(Object obj) {
         return mapper.convertValue(obj, new TypeReference<>() {});
+    }
+
+    public static ObjectMapper getObjectMapper() {
+        return mapper;
+    }
+
+    public static <T> Map<String, T> convertObjectToMap(Object obj, Class<T> valueType) {
+        JavaType mapType = mapper.getTypeFactory().constructMapType(Map.class, String.class, valueType);
+        return mapper.convertValue(obj, mapType);
+    }
+
+    public static List<Object> convertObjectToList(Object obj) {
+        return mapper.convertValue(obj, new TypeReference<>() {});
+    }
+
+    public static <T> List<T> convertObjectToList(Object obj, Class<T> elementType) {
+        JavaType type = mapper.getTypeFactory().constructCollectionType(List.class, elementType);
+        return mapper.convertValue(obj, type);
     }
 
     public static Map<String, Object> convertObjectToFilteredMap(Object obj) {
@@ -81,5 +101,14 @@ public final class ObjectConversion {
             }
         }
         return mapper.convertValue(input, typeReference);
+    }
+
+    public static <T> T deepCopy(T object, Class<T> targetType) {
+        try {
+            String json = mapper.writeValueAsString(object);
+            return mapper.readValue(json, targetType);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to create deep copy of object", e);
+        }
     }
 }

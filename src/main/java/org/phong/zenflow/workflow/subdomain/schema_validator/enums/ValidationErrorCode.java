@@ -10,7 +10,7 @@ public enum ValidationErrorCode {
     // === Definition Phase Errors ===
     SCHEMA_NOT_FOUND("Schema not found for validation"),
     INVALID_WORKFLOW_STRUCTURE("Workflow structure does not conform to the schema"),
-    PLUGIN_NODE_DEFINITION_MISSING("Plugin node definition is missing required fields (pluginId, nodeId)"),
+    PLUGIN_NODE_DEFINITION_MISSING("Plugin node definition is missing required fields (pluginKey, nodeKey)"),
     PLUGIN_NODE_CONFIG_MISSING("Plugin node configuration is missing"),
     INVALID_PLUGIN_NODE_DEFINITION("Invalid plugin node definition"),
     MISSING_NODE_REFERENCE("Referenced node does not exist in the workflow"),
@@ -23,6 +23,7 @@ public enum ValidationErrorCode {
     UNREACHABLE_NODE("Node is unreachable from the start node"),
     DISCONNECTED_GRAPH("Workflow has isolated or disconnected components"),
     INVALID_INPUT_STRUCTURE("Input definition is not well-formed"),
+    INVALID_INPUT_VALUE("Input value does not match expected type or format"),
 
     // === Runtime Phase Errors ===
     RUNTIME_VALIDATION_FAILED("Runtime validation failed"),
@@ -53,7 +54,8 @@ public enum ValidationErrorCode {
     INVALID_REFERENCE("Invalid reference"),
     INVALID_ALIAS_FORMAT("Invalid alias format in the key"),
     FUTURE_NODE_REFERENCE("Node reference points to a future node"),
-    FUTURE_NODE_REFERENCE_IN_ALIAS("Alias contains a future node reference");
+    FUTURE_NODE_REFERENCE_IN_ALIAS("Alias contains a future node reference"),
+    RESERVED_KEY("Alias uses a reserved keyword"),;
 
     private final String defaultMessage;
 }

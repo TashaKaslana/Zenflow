@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Google Drive Share File Schema",
+  "properties": {
+    "input": {
+      "type": "object",
+      "title": "Input Schema",
+      "properties": {
+        "fileId": {
+          "type": "string",
+          "description": "ID of the file to share"
+        },
+        "role": {
+          "type": "string",
+          "description": "Role to assign (owner, organizer, fileOrganizer, writer, commenter, reader)"
+        },
+        "type": {
+          "type": "string",
+          "description": "Type of grantee (user, group, domain, anyone)"
+        },
+        "emailAddress": {
+          "type": "string",
+          "description": "Email address of the user or group to share with"
+        }
+      },
+      "required": [
+        "fileId",
+        "role",
+        "type"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "type": "object",
+      "title": "Output Schema"
+    },
+    "profile": {
+      "profileKeys": [
+        "oauth-default"
+      ],
+      "description": "Requires the Google OAuth profile for authentication."
+    }
+  },
+  "required": [
+    "input",
+    "output"
+  ],
+  "additionalProperties": false
+}

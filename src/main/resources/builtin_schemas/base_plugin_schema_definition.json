@@ -1,0 +1,107 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Plugin Schema Definition Schema",
+  "properties": {
+    "profiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "defaults": {
+            "type": "object"
+          },
+          "schema": {
+            "type": "object"
+          },
+          "requiresPreparation": {
+            "type": "boolean"
+          },
+          "pluginKey": {
+            "type": "string"
+          },
+          "namespacedId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label"
+        ],
+        "additionalProperties": true
+      }
+    },
+    "profile": {
+      "type": "object",
+      "properties": {
+        "profileKeys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "resolvedProfiles": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "namespacedKeys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "missingDescriptors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "schema": {
+          "type": "object"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "properties": {
+      "type": "object",
+      "properties": {
+        "profile": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "anyOf": [
+    {
+      "required": [
+        "profiles"
+      ]
+    },
+    {
+      "required": [
+        "profile"
+      ]
+    },
+    {
+      "required": [
+        "properties"
+      ]
+    }
+  ],
+  "additionalProperties": true
+}

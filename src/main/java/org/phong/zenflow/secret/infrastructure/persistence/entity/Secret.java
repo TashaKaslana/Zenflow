@@ -10,7 +10,6 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
@@ -32,9 +31,7 @@ import java.util.UUID;
 @Getter
 @Setter
 @Entity
-@Table(name = "secrets", uniqueConstraints = {
-        @UniqueConstraint(name = "secrets_scope_project_id_workflow_id_group_name_key_key", columnNames = {"scope", "project_id", "workflow_id", "group_name", "key"})
-})
+@Table(name = "secrets")
 @AttributeOverrides({
         @AttributeOverride(name = "id", column = @Column(name = "id", nullable = false)),
         @AttributeOverride(name = "createdAt", column = @Column(name = "created_at", nullable = false)),
@@ -57,10 +54,6 @@ public class Secret extends BaseEntityWithUpdatedBy {
     @OnDelete(action = OnDeleteAction.CASCADE)
     @JoinColumn(name = "workflow_id")
     private Workflow workflow;
-
-    @NotNull
-    @Column(name = "group_name", nullable = false, length = Integer.MAX_VALUE)
-    private String groupName;
 
     @NotNull
     @Column(name = "key", nullable = false, length = Integer.MAX_VALUE)
@@ -97,4 +90,6 @@ public class Secret extends BaseEntityWithUpdatedBy {
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     private SecretScope scope;
+
+    // Decoupled from SecretProfile; association handled by link entity
 }

@@ -2,12 +2,14 @@ package org.phong.zenflow.workflow.subdomain.schema_validator.service;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
+import org.phong.zenflow.workflow.subdomain.node_definition.constraints.WorkflowConstraints;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowMetadata;
+import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
 import org.phong.zenflow.workflow.subdomain.schema_validator.enums.ValidationErrorCode;
+import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -25,6 +27,7 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 @Slf4j
 public class WorkflowDependencyValidator {
+    private final TemplateService templateService;
 
     public List<ValidationError> validateNodeDependencyLoops(WorkflowDefinition workflow) {
 
@@ -46,15 +49,16 @@ public class WorkflowDependencyValidator {
             String currentNode = executionOrder.get(i);
             Set<String> availableNodes = new HashSet<>(executionOrder.subList(0, i));
 
-            errors.addAll(validateNodeDependencies(currentNode, availableNodes, workflow.metadata()));
+            errors.addAll(validateNodeDependencies(currentNode, availableNodes, workflow));
         }
 
         return errors;
     }
 
     private List<ValidationError> validateNodeDependencies(String nodeKey, Set<String> availableNodes,
-                                                           WorkflowMetadata metadata) {
+                                                           WorkflowDefinition workflow) {
         List<ValidationError> errors = new ArrayList<>();
+        WorkflowMetadata metadata = workflow.metadata();
 
         Set<String> dependencies = metadata.nodeDependencies().get(nodeKey);
         if (dependencies == null || dependencies.isEmpty()) {
@@ -63,11 +67,31 @@ public class WorkflowDependencyValidator {
 
         Map<String, String> aliases = metadata.aliases();
 
+        // Create a node map for quick lookup
+        Map<String, BaseWorkflowNode> nodeMap = workflow.nodes().asMap();
+
         // Validate each dependency
         for (String dependency : dependencies) {
-            String sourceNode = TemplateEngine.getReferencedNode(dependency, aliases);
+            if (WorkflowConstraints.isReservedKey(dependency)) {
+                continue;
+            }
+            String sourceNode = templateService.getReferencedNode(dependency, aliases);
 
-            if (sourceNode != null && !availableNodes.contains(sourceNode)) {
+            if (sourceNode == null) {
+                continue;
+            }
+
+            if (!availableNodes.contains(sourceNode)) {
+                // Check if this is a loop node and the dependency is a self-reference
+                boolean isSelfReference = sourceNode.equals(nodeKey);
+                boolean isLoopNode = isLoopNode(nodeKey, nodeMap);
+
+                // Allow self-references for loop nodes (they need to reference their own output)
+                if (isSelfReference && isLoopNode) {
+                    log.debug("Allowing self-reference '{}' for loop node '{}'", dependency, nodeKey);
+                    continue;
+                }
+
                 errors.add(ValidationError.builder()
                         .nodeKey(nodeKey)
                         .errorType("definition")
@@ -88,10 +112,10 @@ public class WorkflowDependencyValidator {
 
     private TopologicalOrderResult buildTopologicalOrder(WorkflowDefinition workflow) {
         List<ValidationError> errors = new ArrayList<>();
-        List<BaseWorkflowNode> nodes = workflow.nodes();
+        Map<String, BaseWorkflowNode> nodeMap = workflow.nodes().asMap();
         Map<String, String> aliases = workflow.metadata() != null ? workflow.metadata().aliases() : Collections.emptyMap();
 
-        if (nodes == null || nodes.isEmpty()) {
+        if (nodeMap == null || nodeMap.isEmpty()) {
             return new TopologicalOrderResult(new ArrayList<>(), errors);
         }
 
@@ -100,9 +124,9 @@ public class WorkflowDependencyValidator {
         Map<String, Integer> inDegree = new HashMap<>();
 
         // Step 1: Initialize nodes
-        for (BaseWorkflowNode node : nodes) {
-            String nodeKey = node.getKey();
-            List<String> nextKeys = node.getNext();
+        for (Map.Entry<String, BaseWorkflowNode> entry : nodeMap.entrySet()) {
+            String nodeKey = entry.getKey();
+            List<String> nextKeys = entry.getValue().getNext();
             if (nextKeys == null) {
                 nextKeys = Collections.emptyList();
             }
@@ -142,7 +166,7 @@ public class WorkflowDependencyValidator {
                 Set<String> dependencies = entry.getValue();
 
                 for (String dependency : dependencies) {
-                    String referencedNode = TemplateEngine.getReferencedNode(dependency, aliases);
+                    String referencedNode = templateService.getReferencedNode(dependency, aliases);
                     if (referencedNode != null && !referencedNode.equals(nodeKey) && inDegree.containsKey(referencedNode)) {
                         adjacencyList.get(referencedNode).add(nodeKey);
                         inDegree.put(nodeKey, inDegree.get(nodeKey) + 1);
@@ -151,7 +175,31 @@ public class WorkflowDependencyValidator {
             }
         }
 
-        // Step 3: Topological sort using Kahn's algorithm
+        // Step 3: Handle loop nodes - temporarily break their back-edges for topological sorting
+        Map<String, List<String>> loopBackEdges = new HashMap<>();
+
+        for (Map.Entry<String, BaseWorkflowNode> entry : nodeMap.entrySet()) {
+            String nodeKey = entry.getKey();
+            BaseWorkflowNode node = entry.getValue();
+            if (isLoopNode(node)) {
+                List<String> nextNodes = adjacencyList.get(nodeKey);
+                List<String> backEdges = new ArrayList<>();
+
+                for (String nextNode : new ArrayList<>(nextNodes)) {
+                    if (adjacencyList.getOrDefault(nextNode, List.of()).contains(nodeKey)) {
+                        backEdges.add(nextNode);
+                        adjacencyList.get(nextNode).remove(nodeKey);
+                        inDegree.put(nodeKey, inDegree.get(nodeKey) - 1);
+                    }
+                }
+
+                if (!backEdges.isEmpty()) {
+                    loopBackEdges.put(nodeKey, backEdges);
+                }
+            }
+        }
+
+        // Step 4: Topological sort using Kahn's algorithm
         Queue<String> queue = new LinkedList<>();
         List<String> executionOrder = new ArrayList<>();
 
@@ -174,33 +222,77 @@ public class WorkflowDependencyValidator {
             }
         }
 
-        // Step 4: Check for cycle
-        if (executionOrder.size() != nodes.size()) {
+        // Step 5: Check for cycle (excluding loop nodes with intentional back edges)
+        if (executionOrder.size() != nodeMap.size()) {
             Set<String> visited = new HashSet<>(executionOrder);
-            Set<String> cycleNodes = nodes.stream()
-                    .map(BaseWorkflowNode::getKey)
+            Set<String> cycleNodes = nodeMap.keySet().stream()
                     .filter(key -> !visited.contains(key))
                     .collect(Collectors.toSet());
 
-            String firstInCycle = cycleNodes.stream().findFirst().orElse("unknown");
+            // Check if all cycle nodes are part of valid loop structures
+            Set<String> invalidCycleNodes = cycleNodes.stream()
+                    .filter(nodeKey -> !isValidLoopCycle(nodeKey, nodeMap, loopBackEdges))
+                    .collect(Collectors.toSet());
 
-            errors.add(ValidationError.builder()
-                    .nodeKey(firstInCycle)
-                    .errorType("definition")
-                    .errorCode(ValidationErrorCode.CIRCULAR_DEPENDENCY)
-                    .path("workflow.nodes")
-                    .message("Workflow contains cycles. Cycle detected involving node: '" + firstInCycle + "'.")
-                    .value(new ArrayList<>(cycleNodes))
-                    .expectedType("acyclic_graph")
-                    .schemaPath("$.nodes")
-                    .build());
+            if (!invalidCycleNodes.isEmpty()) {
+                String firstInCycle = invalidCycleNodes.stream().findFirst().orElse("unknown");
 
-            return new TopologicalOrderResult(null, errors);
+                errors.add(ValidationError.builder()
+                        .nodeKey(firstInCycle)
+                        .errorType("definition")
+                        .errorCode(ValidationErrorCode.CIRCULAR_DEPENDENCY)
+                        .path("workflow.nodes")
+                        .message("Workflow contains cycles. Cycle detected involving node: '" + firstInCycle + "'.")
+                        .value(new ArrayList<>(invalidCycleNodes))
+                        .expectedType("acyclic_graph")
+                        .schemaPath("$.nodes")
+                        .build());
+
+                return new TopologicalOrderResult(null, errors);
+            }
+        }
+
+        // Step 6: Restore loop back edges for execution order
+        for (Map.Entry<String, List<String>> entry : loopBackEdges.entrySet()) {
+            String loopNode = entry.getKey();
+            for (String backEdgeNode : entry.getValue()) {
+                adjacencyList.get(backEdgeNode).add(loopNode);
+            }
         }
 
         return new TopologicalOrderResult(executionOrder, errors);
     }
 
+    private boolean isLoopNode(BaseWorkflowNode node) {
+        // Check if the node type is one of the predefined loop types
+        return NodeType.getLoopStatefulTypes().contains(node.getType());
+    }
+
+    /**
+     * Check if a node is a loop node based on its key and metadata
+     * This overloaded method is used when we only have the nodeKey
+     */
+    private boolean isLoopNode(String nodeKey, Map<String, BaseWorkflowNode> nodeMap) {
+        BaseWorkflowNode node = nodeMap.get(nodeKey);
+        return node != null && isLoopNode(node);
+    }
+
+    private boolean isValidLoopCycle(String nodeKey, Map<String, BaseWorkflowNode> nodeMap, Map<String, List<String>> loopBackEdges) {
+        BaseWorkflowNode node = nodeMap.get(nodeKey);
+        if (node == null) return false;
+
+        // If this node is part of a loop structure with registered back edges, it's valid
+        for (Map.Entry<String, List<String>> entry : loopBackEdges.entrySet()) {
+            String loopNode = entry.getKey();
+            List<String> backEdgeNodes = entry.getValue();
+
+            if (nodeKey.equals(loopNode) || backEdgeNodes.contains(nodeKey)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private List<ValidationError> validateAliasDefinitions(WorkflowDefinition workflow) {
         List<ValidationError> errors = new ArrayList<>();
@@ -210,16 +302,14 @@ public class WorkflowDependencyValidator {
             return errors;
         }
 
-        Set<String> allNodeKeys = workflow.nodes().stream()
-                .map(BaseWorkflowNode::getKey)
-                .collect(Collectors.toSet());
+        Set<String> allNodeKeys = workflow.nodes().keys();
 
         for (Map.Entry<String, String> aliasEntry : aliases.entrySet()) {
             String aliasName = aliasEntry.getKey();
             String aliasValue = aliasEntry.getValue(); // e.g., "{{node1.output.email}}"
 
             // Extract template references from aliases value
-            Set<String> aliasRefs = TemplateEngine.extractRefs(aliasValue);
+            Set<String> aliasRefs = templateService.extractRefs(aliasValue);
 
             for (String ref : aliasRefs) {
                 // For aliases validation, we don't pass aliases to avoid circular resolution

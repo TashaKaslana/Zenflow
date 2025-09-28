@@ -1,0 +1,293 @@
+package org.phong.zenflow.workflow.subdomain.evaluator.services;
+
+import com.googlecode.aviator.AviatorEvaluator;
+import com.googlecode.aviator.AviatorEvaluatorInstance;
+import com.googlecode.aviator.Expression;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import org.phong.zenflow.core.utils.ObjectConversion;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
+import org.phong.zenflow.workflow.subdomain.evaluator.PrefixFunctionEvaluator;
+import org.phong.zenflow.workflow.subdomain.evaluator.functions.AviatorFunctionRegistry;
+import org.phong.zenflow.workflow.subdomain.node_definition.constraints.WorkflowConstraints;
+import org.springframework.stereotype.Service;
+
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * Resolves templated expressions using Aviator.<br>
+ *
+ * - Runtime resolution uses an {@link ExecutionContext} and shared functions exposed with
+ *   the {@code fn:} prefix to avoid collisions with user data.
+ * - Definition-phase resolution resolves only reserved references (e.g., {@code zenflow.secrets.*},
+ *   {@code zenflow.profiles.*}) via a typed {@link ReservedValueResolver}; this is ideal for
+ *   preparing trigger configurations without requiring an {@code ExecutionContext}.
+ */
+@Service
+@Slf4j
+public class TemplateService {
+
+    private static final Pattern EXPRESSION_PATTERN = Pattern.compile("\\{\\{(.*?)}}");
+    private static final Pattern REFERENCE_PATTERN = Pattern.compile("\\{\\{([a-zA-Z0-9_.\\-]+(?:\\([^)]*\\))?(?::[^}]*)?)}}");
+    private static final Pattern REF_WITH_DEFAULT_PATTERN = Pattern.compile("^([a-zA-Z0-9_.\\-]+)(?::(.*))?$");
+
+    private final AviatorEvaluatorInstance baseEvaluator;
+
+    /**
+     * -- GETTER --
+     *  Exposes the shared evaluator as an immutable proxy. Callers must invoke
+     * <p>
+     *  to get a mutable copy before
+     *  registering custom functions.
+     */
+    @Getter
+    private final ImmutableEvaluator evaluator;
+    private final AviatorFunctionRegistry functionRegistry;
+
+    public TemplateService(AviatorFunctionRegistry functionRegistry) {
+        this.functionRegistry = functionRegistry;
+        this.baseEvaluator = AviatorEvaluator.newInstance();
+        this.functionRegistry.registerAll(this.baseEvaluator);
+        this.evaluator = new ImmutableEvaluator();
+    }
+
+    /**
+     * Create a new evaluator instance that inherits all shared functions without
+     * mutating the global evaluator. Custom functions registered on the returned
+     * instance won't affect other executions.
+     */
+    public AviatorEvaluatorInstance newChildEvaluator() {
+        AviatorEvaluatorInstance instance = AviatorEvaluator.newInstance();
+        functionRegistry.registerAll(instance);
+        return instance;
+    }
+
+    public boolean isTemplate(String value) {
+        return value != null && EXPRESSION_PATTERN.matcher(value).find();
+    }
+
+    public Object resolve(String template, ExecutionContext context) {
+        // Step 1: Ignore blank templates
+        if (template == null || template.trim().isEmpty()) {
+            return template;
+        }
+
+        Matcher matcher = EXPRESSION_PATTERN.matcher(template.trim());
+
+        // Step 2: If the whole string is a single expression, keep the result type intact
+        if (matcher.matches()) {
+            String expression = matcher.group(1).trim();
+            return evaluateExpression(expression, context);
+        }
+
+        // Step 3: Otherwise, resolve each embedded expression and build a final string
+        StringBuilder sb = new StringBuilder();
+        matcher.reset();
+        while (matcher.find()) {
+            String expression = matcher.group(1).trim();
+            Object result = evaluateExpression(expression, context);
+            matcher.appendReplacement(sb, result != null ? Matcher.quoteReplacement(result.toString()) : "null");
+        }
+        matcher.appendTail(sb);
+        return sb.toString();
+    }
+
+    public Set<String> extractRefs(String template) {
+        if (template == null) {
+            return new LinkedHashSet<>();
+        }
+
+        Set<String> refs = new LinkedHashSet<>();
+        Matcher matcher = REFERENCE_PATTERN.matcher(template);
+        while (matcher.find()) {
+            String fullExpression = matcher.group(1).trim();
+            Matcher refMatcher = REF_WITH_DEFAULT_PATTERN.matcher(fullExpression);
+            if (refMatcher.matches()) {
+                String reference = refMatcher.group(1);
+                if (!reference.matches("[a-zA-Z0-9._-]+\\(.*\\)")) {
+                    refs.add(reference);
+                }
+            }
+        }
+        return refs;
+    }
+
+    public Set<String> extractRefs(Object value) {
+        if (value instanceof String template) {
+            return extractRefs(template);
+        } else if (value instanceof Map<?, ?> map) {
+            Set<String> refs = new LinkedHashSet<>();
+            for (Object v : map.values()) {
+                refs.addAll(extractRefs(v));
+            }
+            return refs;
+        } else if (value instanceof List<?> list) {
+            Set<String> refs = new LinkedHashSet<>();
+            for (Object item : list) {
+                refs.addAll(extractRefs(item));
+            }
+            return refs;
+        } else if (value != null) {
+            try {
+                Map<?, ?> map = ObjectConversion.convertObjectToMap(value);
+                return extractRefs(map);
+            } catch (Exception e) {
+                return extractRefs(value.toString());
+            }
+        }
+        return new LinkedHashSet<>();
+    }
+
+    public String getReferencedNode(String templateExpression, Map<String, String> aliasMap) {
+        if (templateExpression == null || templateExpression.isEmpty()) {
+            return null;
+        }
+
+        if (aliasMap != null && !aliasMap.isEmpty()) {
+            String actualTemplate = aliasMap.get(templateExpression);
+            if (actualTemplate != null && actualTemplate.startsWith("{{") && actualTemplate.endsWith("}}")) {
+                templateExpression = actualTemplate.substring(2, actualTemplate.length() - 2).trim();
+            }
+        }
+
+        return templateExpression.split("\\.")[0];
+    }
+
+    private Object evaluateExpression(String expression, ExecutionContext context) {
+        try {
+            if (expression == null || expression.isEmpty()) {
+                return null;
+            }
+
+            if (PrefixFunctionEvaluator.isFunction(expression)) {
+                expression = PrefixFunctionEvaluator.stripPrefix(expression);
+            } else {
+                expression = String.format("get(\"%s\")", expression);
+            }
+
+            Expression compiledExp = baseEvaluator.compile(expression, true);
+            return compiledExp.execute(Map.of("context", context));
+        } catch (Exception e) {
+            log.error("Failed to evaluate expression: {} - Error: {}", expression, e.getMessage());
+            return "{{" + expression + "}}";
+        }
+    }
+
+    /**
+     * Resolves templates during definition phase for reserved keys like {@code zenflow.secrets.*}
+     * and {@code zenflow.profiles.*}. Uses a typed {@link ReservedValueResolver} so call sites are
+     * explicit and better to debug.<br>
+     *
+     * - Only reserved references are resolved; non-reserved expressions remain as-is.
+     * - Does not require an {@code ExecutionContext}.
+     *
+     * @param template   The template string to resolve
+     * @param workflowId The workflow ID to resolve against
+     * @param resolver   Typed resolver for secrets and profiles
+     * @return The resolved value or the original template if it cannot be resolved
+     */
+    public Object resolveDefinitionPhase(String template, UUID workflowId, ReservedValueResolver resolver) {
+        // Step 1: Ignore blank templates
+        if (template == null || template.trim().isEmpty()) {
+            return template;
+        }
+
+        Matcher matcher = EXPRESSION_PATTERN.matcher(template.trim());
+
+        // Step 2: If the whole string is a single expression, keep the result type intact
+        if (matcher.matches()) {
+            String expression = matcher.group(1).trim();
+            return evaluateDefinitionPhaseExpression(expression, workflowId, resolver);
+        }
+
+        // Step 3: Otherwise, resolve each embedded expression and build a final string
+        StringBuilder sb = new StringBuilder();
+        matcher.reset();
+        while (matcher.find()) {
+            String expression = matcher.group(1).trim();
+            Object result = evaluateDefinitionPhaseExpression(expression, workflowId, resolver);
+            matcher.appendReplacement(sb, result != null ? Matcher.quoteReplacement(result.toString()) : "null");
+        }
+        matcher.appendTail(sb);
+        return sb.toString();
+    }
+
+    /**
+     * Evaluates a single definition-phase expression. Only reserved keys are handled; any
+     * non-reserved expression is returned unreplaced (re-inserted as a template token).
+     */
+    private Object evaluateDefinitionPhaseExpression(String expression, UUID workflowId, ReservedValueResolver resolver) {
+        try {
+            if (expression == null || expression.isEmpty()) {
+                return null;
+            }
+
+            // Handle zenflow.secrets.* expressions
+            if (expression.startsWith(WorkflowConstraints.RESERVED_SECRETS_PREFIX.key())) {
+                return resolveSecretExpression(expression, workflowId, resolver);
+            }
+
+            // For non-reserved expressions, return the original template
+            return "{{" + expression + "}}";
+
+        } catch (Exception e) {
+            log.warn("Failed to evaluate definition-phase expression: {}", expression, e);
+            return "{{" + expression + "}}";
+        }
+    }
+
+    /**
+     * Resolves {@code zenflow.secrets.*} expressions using the provided {@link ReservedValueResolver}.
+     */
+    private Object resolveSecretExpression(String expression, UUID workflowId, ReservedValueResolver resolver) {
+        try {
+            // Extract secret key from expression like "zenflow.secrets.mySecretKey"
+            String secretKey = expression.substring(WorkflowConstraints.RESERVED_SECRETS_PREFIX.key().length());
+
+            Object result = resolver.resolveSecretValue(workflowId, secretKey);
+
+            return result != null ? result : "{{" + expression + "}}";
+
+        } catch (Exception e) {
+            log.warn("Failed to resolve secret expression: {}", expression, e);
+            return "{{" + expression + "}}";
+        }
+    }
+
+    /**
+     * Read-only view of the shared evaluator. Mutation operations such as
+     * {@code addFunction} are intentionally omitted. Consumers should call
+     * {@link #cloneInstance()} to get a writable copy for custom functions.
+     */
+    public class ImmutableEvaluator {
+        private ImmutableEvaluator() {
+        }
+
+        public Expression compile(String expression, boolean cached) {
+            return baseEvaluator.compile(PrefixFunctionEvaluator.stripPrefix(expression), cached);
+        }
+
+        /**
+         * Create a new evaluator instance populated with the shared functions.
+         * The returned evaluator can be safely mutated by callers without
+         * affecting other executions.
+         */
+        public AviatorEvaluatorInstance cloneInstance() {
+            return newChildEvaluator();
+        }
+    }
+
+    /**
+     * Typed resolver for definition-phase reserved lookups. This replaces
+     * reflection-based calls with a clearer, debuggable contract.
+     */
+    public interface ReservedValueResolver {
+        Object resolveSecretValue(UUID workflowId, String secretKey);
+    }
+}

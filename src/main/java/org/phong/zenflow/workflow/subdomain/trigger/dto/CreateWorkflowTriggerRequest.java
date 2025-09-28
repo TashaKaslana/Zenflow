@@ -18,4 +18,5 @@ public class CreateWorkflowTriggerRequest {
     private Map<String, Object> config;
 
     private Boolean enabled = true;
+    private UUID triggerExecutorId;
 }

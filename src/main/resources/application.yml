@@ -1,0 +1,151 @@
+# spring.application.name=Zenflow
+spring:
+  application:
+    name: Zenflow
+  datasource:
+    url: ${SPRING_DATASOURCE:jdbc:postgresql://localhost:5432/zenflow}
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASSWORD:123456}
+    driver-class-name: org.postgresql.Driver
+  data:
+    web:
+      pageable:
+        max-page-size: 10
+  mvc:
+    servlet:
+      path: /api
+  jpa:
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 100
+          order_inserts: true
+          generate_statistics: false
+    open-in-view: false
+  mail:
+    host: ${MAIL_HOST:smtp.localhost}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_SMTP_AUTH:true}
+          starttls:
+            enable: ${MAIL_SMTP_STARTTLS:true}
+  # Add Quartz configuration to fix DataSource error and enable persistence
+  quartz:
+    job-store-type: jdbc
+    jdbc:
+      initialize-schema: embedded
+    properties:
+      org:
+        quartz:
+          scheduler:
+            instanceName: ZenflowScheduler
+            instanceId: AUTO
+            skipUpdateCheck: true
+          jobStore:
+            class: org.quartz.impl.jdbcjobstore.JobStoreTX
+            driverDelegateClass: org.quartz.impl.jdbcjobstore.PostgreSQLDelegate
+            useProperties: false
+            tablePrefix: QRTZ_
+            isClustered: true
+            clusterCheckinInterval: 20000
+            acquireTriggersWithinLock: true
+          threadPool:
+            class: org.quartz.simpl.SimpleThreadPool
+            threadCount: 25
+            threadPriority: 5
+
+server:
+  servlet:
+    encoding:
+      enabled: true
+      force: true
+      charset: UTF-8
+
+app:
+  secret:
+    key: ${APP_SECRET_KEY:default-secret-key}
+
+zenflow:
+  schema:
+    # Time-to-live for schema cache entries in seconds
+    cache-ttl-seconds: 3600
+
+  # Performance-optimized logging configuration
+  logging:
+    durable:
+      router:
+        queue-capacity: 100000
+        workers: 4
+        backpressure:
+          strategy: DROP_DEBUG_FIRST
+          threshold: 0.8
+      buffer:
+        default-batch-size: 100
+        max-delay-ms: 2000
+        ring-buffer-size: 200
+        cleanup-idle-after-ms: 300000  # 5 minutes
+        adaptive-batching: true
+        min-batch-size: 10
+        max-batch-size: 500
+      persistence:
+        batch-timeout-ms: 5000
+        retry-attempts: 3
+        retry-backoff-ms: 1000
+        circuit-breaker:
+          failure-threshold: 10
+          recovery-time-ms: 30000  # 30 seconds
+      thread-pool:
+        core-pool-size: 4
+        maximum-pool-size: 12
+        keep-alive-time-ms: 60000  # 1 minute
+        queue-capacity: 1000
+
+# Enable actuator endpoints for monitoring
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,info,logging
+  endpoint:
+    health:
+      show-details: when-authorized
+      show-components: always
+  metrics:
+    distribution:
+      percentiles-histogram:
+        zenflow.logging.*: true
+      sla:
+        zenflow.logging.persistence.latency: 50ms,100ms,200ms,500ms
+        zenflow.logging.buffer.flush.time: 10ms,25ms,50ms,100ms
+
+# Logging configuration (commented out in the original)
+#logging:
+#  level:
+#    org:
+#      springframework:
+#        transaction: TRACE
+#      hibernate:
+#        SQL: DEBUG
+#        type:
+#          descriptor:
+#            sql:
+#              BasicBinder: TRACE
+#        orm:
+#          jdbc:
+#            bind: TRACE
+#        event:
+#          internal:
+#            DefaultFlushEntityEventListener: DEBUG
+#        engine:
+#          internal:
+#            EntityEntry: TRACE
+#    com:
+#      fasterxml:
+#        jackson:
+#          databind: DEBUG
+#    root: DEBUG
+#    org.phong.zenflow: DEBUG

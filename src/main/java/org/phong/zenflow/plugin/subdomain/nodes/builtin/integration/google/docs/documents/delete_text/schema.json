@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Google Docs Delete Text Schema",
+  "properties": {
+    "input": {
+      "type": "object",
+      "title": "Input Schema",
+      "properties": {
+        "documentId": {
+          "type": "string",
+          "description": "ID of the document to modify"
+        },
+        "startIndex": {
+          "type": "integer",
+          "description": "Start index of the range to delete"
+        },
+        "endIndex": {
+          "type": "integer",
+          "description": "End index of the range to delete"
+        }
+      },
+      "required": [
+        "documentId",
+        "startIndex",
+        "endIndex"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "type": "object",
+      "title": "Output Schema"
+    },
+    "profile": {
+      "profileKeys": [
+        "oauth-default"
+      ],
+      "description": "Requires the Google OAuth profile for authentication."
+    }
+  },
+  "required": [
+    "input",
+    "output"
+  ],
+  "additionalProperties": false
+}

@@ -3,24 +3,27 @@ package org.phong.zenflow.workflow.subdomain.schema_validator.service;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
-import org.phong.zenflow.plugin.subdomain.execution.utils.TemplateEngine;
+import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.OutputUsage;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowConfig;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginDefinition;
-import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
 import org.phong.zenflow.workflow.subdomain.schema_validator.enums.ValidationErrorCode;
+import org.phong.zenflow.workflow.subdomain.schema_validator.service.schema.SchemaTemplateValidationService;
+import org.phong.zenflow.workflow.subdomain.schema_validator.service.schema.SchemaValidationService;
 import org.springframework.stereotype.Service;
+import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 /**
  * Service responsible for validating workflow definitions and their runtime configurations.
@@ -39,6 +42,9 @@ public class WorkflowValidationService {
     private final SchemaValidationService schemaValidationService;
     private final WorkflowDependencyValidator workflowDependencyValidator;
     private final SchemaTemplateValidationService schemaTemplateValidationService;
+    private final PluginNodeExecutorRegistry executorRegistry;
+    private final TemplateService templateService;
+    private final WorkflowExistenceValidation workflowExistenceValidation;
 
     /**
      * Phase 1: Validates a workflow definition against schema requirements.
@@ -59,13 +65,23 @@ public class WorkflowValidationService {
         errors.addAll(validateNodeConfigurations(workflow));
 
         // Validate node references
-        errors.addAll(validateNodeReferences(workflow));
+        errors.addAll(workflowExistenceValidation.validateExistence(workflow));
 
         errors.addAll(workflowDependencyValidator.validateNodeDependencyLoops(workflow));
 
         errors.addAll(validateAliasKeys(workflow));
 
         return new ValidationResult("definition", errors);
+    }
+
+    /**
+     * Definition-time validation with reference existence checks against a workflow ID.
+     */
+    public ValidationResult validateDefinition(UUID workflowId, WorkflowDefinition workflow) {
+        ValidationResult base = validateDefinition(workflow);
+        List<ValidationError> extra = workflowExistenceValidation.validateSecretAndProfileExistence(workflowId, workflow);
+        base.addAllErrors(extra);
+        return base;
     }
 
     private List<ValidationError> validateAliasKeys(WorkflowDefinition workflow) {
@@ -98,11 +114,11 @@ public class WorkflowValidationService {
      * @param templateString Template string formats:
      *                       <ul>
      *                         <li>Built-in: <code>builtin:&#60;name&#62;</code> (e.g., <code>builtin:http-trigger</code>)</li>
-     *                         <li>Plugin: <code>&#60;nodeId&#62;</code> (e.g., <code>123e4567-e89b-12d3-a456-426614174001</code>)</li>
+     *                         <li>Plugin: <code>&#60;nodeUuid&#62;</code> (e.g., <code>123e4567-e89b-12d3-a456-426614174001</code>)</li>
      *                       </ul>
      * @return ValidationResult containing any runtime validation errors found
      */
-    public ValidationResult validateRuntime(String nodeKey, WorkflowConfig resolvedConfig, String templateString) {
+    public ValidationResult validateRuntime(String nodeKey, WorkflowConfig resolvedConfig, String templateString, ExecutionContext context) {
         List<ValidationError> errors = new ArrayList<>();
 
         try {
@@ -112,7 +128,7 @@ public class WorkflowValidationService {
             }
 
             // Additional runtime-specific validations
-            errors.addAll(validateRuntimeConstraints(nodeKey, resolvedConfig, templateString));
+            errors.addAll(validateRuntimeConstraints(nodeKey, resolvedConfig, templateString, context));
 
         } catch (Exception e) {
             errors.add(ValidationError.builder()
@@ -137,23 +153,46 @@ public class WorkflowValidationService {
     private List<ValidationError> validateNodeConfigurations(WorkflowDefinition workflow) {
         List<ValidationError> errors = new ArrayList<>();
 
-        for (BaseWorkflowNode node : workflow.nodes()) {
+        workflow.nodes().forEach((k, node) -> {
             log.debug("Processing node: {} (type: {})", node.getKey(), node.getType());
 
-            String templateString = null;
+            validatePluginNode(node, errors);
+            PluginNodeIdentifier identifier = node.getPluginNode();
+            String templateString = identifier.getNodeId() != null ? identifier.getNodeId().toString() : identifier.toCacheKey();
+            log.debug("Plugin node detected - templateString: {}", templateString);
 
-            // Only handle plugin nodes for now
-            if (node.getType() == NodeType.PLUGIN && node instanceof PluginDefinition pluginNode) {
-                validatePluginNode(pluginNode, errors);
-                templateString = pluginNode.getPluginNode().nodeId().toString();
-                log.debug("Plugin node detected - templateString: {}", templateString);
-            } else {
-                log.debug("Skipping non-plugin node: {}", node.getKey());
+            if (node.getConfig() != null) {
+                log.debug("Validating schema structure for node: {}", node.getKey());
+                List<ValidationError> schemaErrors = schemaValidationService.validateAgainstSchema(
+                        node.getKey(),
+                        node.getConfig(),
+                        templateString,
+                        node.getKey() + ".config.input",
+                        "input",
+                        true
+                );
+                log.debug("Found {} schema errors for node: {} (template fields excluded)", schemaErrors.size(), node.getKey());
+                errors.addAll(schemaErrors);
             }
 
-            // Validate template references in the node's configuration
-            if (templateString != null && node.getConfig().input() != null) {
-                Set<String> templates = TemplateEngine.extractRefs(node.getConfig());
+            String executorKey = identifier.getNodeId() != null ? identifier.getNodeId().toString() : identifier.toCacheKey();
+            executorRegistry.getExecutor(executorKey).ifPresent(executor -> {
+                List<ValidationError> defErrors = executor.validateDefinition(node.getConfig());
+                if (defErrors != null) {
+                    defErrors.forEach(error -> {
+                        if (error.getNodeKey() == null) {
+                            error.setNodeKey(node.getKey());
+                        }
+                        if (error.getErrorType() == null) {
+                            error.setErrorType("definition");
+                        }
+                        errors.add(error);
+                    });
+                }
+            });
+
+            if (node.getConfig().input() != null) {
+                Set<String> templates = templateService.extractRefs(node.getConfig());
                 Map<String, OutputUsage> nodeConsumers = workflow.metadata() != null ?
                         workflow.metadata().nodeConsumers() : null;
 
@@ -170,7 +209,7 @@ public class WorkflowValidationService {
                     errors.addAll(templateErrors);
                 }
             }
-        }
+        });
 
         return errors;
     }
@@ -184,103 +223,33 @@ public class WorkflowValidationService {
      * @param errors List to collect validation errors
      */
     private void validatePluginNode(BaseWorkflowNode node, List<ValidationError> errors) {
-        if (node instanceof PluginDefinition pluginNode) {
-            if (pluginNode.getPluginNode() == null) {
-                errors.add(ValidationError.builder()
-                        .nodeKey(node.getKey())
-                        .errorType("definition")
-                        .errorCode(ValidationErrorCode.PLUGIN_NODE_DEFINITION_MISSING)
-                        .path(node.getKey())
-                        .message("Plugin node definition is missing! Require pluginId and nodeId!")
-                        .build());
-                return;
-            }
-
-            // Validate plugin-specific configuration
-            if (pluginNode.getConfig() == null) {
-                errors.add(ValidationError.builder()
-                        .nodeKey(node.getKey())
-                        .errorType("definition")
-                        .errorCode(ValidationErrorCode.PLUGIN_NODE_CONFIG_MISSING)
-                        .path(node.getKey() + ".config")
-                        .message("Plugin node configuration is missing")
-                        .build());
-            }
-
-            errors.addAll(
-                    schemaValidationService.validateTemplates(
-                            node.getKey(), pluginNode.getConfig(), node.getKey() + ".config.input"
-                    )
-            );
-        } else {
+        if (node.getPluginNode() == null) {
             errors.add(ValidationError.builder()
                     .nodeKey(node.getKey())
                     .errorType("definition")
-                    .errorCode(ValidationErrorCode.INVALID_PLUGIN_NODE_DEFINITION)
+                    .errorCode(ValidationErrorCode.PLUGIN_NODE_DEFINITION_MISSING)
                     .path(node.getKey())
-                    .message("Invalid plugin node definition")
+                    .message("Plugin node definition is missing! Require pluginKey and nodeKey!")
+                    .build());
+            return;
+        }
+
+        // Validate plugin-specific configuration
+        if (node.getConfig() == null) {
+            errors.add(ValidationError.builder()
+                    .nodeKey(node.getKey())
+                    .errorType("definition")
+                    .errorCode(ValidationErrorCode.PLUGIN_NODE_CONFIG_MISSING)
+                    .path(node.getKey() + ".config")
+                    .message("Plugin node configuration is missing")
                     .build());
         }
-    }
 
-    /**
-     * Validates that node references within the workflow point to existing nodes.
-     * Checks both template references and explicit 'next' references.
-     *
-     * @param workflow The workflow definition to check for valid node references
-     * @return List of validation errors for invalid node references
-     */
-    private List<ValidationError> validateNodeReferences(WorkflowDefinition workflow) {
-        List<ValidationError> errors = new ArrayList<>();
-
-        Set<String> nodeKeys = workflow.nodes().stream()
-                .map(BaseWorkflowNode::getKey)
-                .collect(Collectors.toSet());
-
-        for (BaseWorkflowNode node : workflow.nodes()) {
-            errors.addAll(validateNodeExistence(node, nodeKeys, workflow.metadata().aliases()));
-        }
-
-        return errors;
-    }
-
-    /**
-     * Validates that the node's configuration does not reference non-existent nodes.
-     * Checks both template references and explicit 'next' references.
-     *
-     * @param node     The workflow node to validate
-     * @param nodeKeys Set of all existing node keys in the workflow
-     * @param aliases  Map of aliases defined in the workflow metadata
-     * @return List of validation errors for missing node references
-     */
-    private List<ValidationError> validateNodeExistence(BaseWorkflowNode node, Set<String> nodeKeys,
-                                                        Map<String, String> aliases) {
-        List<ValidationError> errors = new ArrayList<>();
-
-        if (node.getConfig() != null) {
-            Set<String> templates = TemplateEngine.extractRefs(node.getConfig());
-
-            for (String template : templates) {
-                String referencedNode = TemplateEngine.getReferencedNode(template, aliases);
-
-                // Only validate existence - dependency direction is handled by WorkflowDependencyValidator
-                if (referencedNode != null && !nodeKeys.contains(referencedNode)) {
-                    errors.add(ValidationError.builder()
-                            .nodeKey(node.getKey())
-                            .errorType("definition")
-                            .errorCode(ValidationErrorCode.MISSING_NODE_REFERENCE)
-                            .path(node.getKey() + ".config")
-                            .message("Referenced node '" + referencedNode + "' does not exist in workflow")
-                            .template("{{" + template + "}}")
-                            .value(referencedNode)
-                            .expectedType("existing_node_key")
-                            .schemaPath("$.nodes[?(@.key=='" + node.getKey() + "')].config")
-                            .build());
-                }
-            }
-        }
-
-        return errors;
+        errors.addAll(
+                schemaValidationService.validateTemplates(
+                        node.getKey(), node.getConfig(), node.getKey() + ".config.input"
+                )
+        );
     }
 
     /**
@@ -289,15 +258,36 @@ public class WorkflowValidationService {
      *
      * @param nodeKey        The key of the node being validated
      * @param resolvedConfig The resolved configuration with all templates expanded
-     * @param nodeType       The type of node being validated
+     * @param executorIdentifier The UUID identifier for the plugin node executor
+     * @param context        The runtime context for validation
      * @return List of validation errors found during runtime constraint validation
      */
-    private List<ValidationError> validateRuntimeConstraints(String nodeKey, WorkflowConfig resolvedConfig, String nodeType) {
+    private List<ValidationError> validateRuntimeConstraints(String nodeKey,
+                                                             WorkflowConfig resolvedConfig,
+                                                             String executorIdentifier,
+                                                             ExecutionContext context) {
         List<ValidationError> errors = new ArrayList<>();
 
         // Add specific runtime validations based on a node type
-        if ("conditionNode".equals(nodeType)) {
+        if ("core:flow.branch.condition:1.0.0".equals(executorIdentifier)) {
             errors.addAll(validateConditionNodeRuntime(nodeKey, resolvedConfig));
+        }
+
+        if (executorIdentifier != null) {
+            executorRegistry.getExecutor(executorIdentifier).ifPresent(executor -> {
+                List<ValidationError> runtimeErrors = executor.validateRuntime(resolvedConfig, context);
+                if (runtimeErrors != null) {
+                    runtimeErrors.forEach(error -> {
+                        if (error.getNodeKey() == null) {
+                            error.setNodeKey(nodeKey);
+                        }
+                        if (error.getErrorType() == null) {
+                            error.setErrorType("runtime");
+                        }
+                        errors.add(error);
+                    });
+                }
+            });
         }
 
         return errors;

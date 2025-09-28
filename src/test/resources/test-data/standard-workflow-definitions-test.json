@@ -1,0 +1,92 @@
+{
+  "upsert": {
+    "nodes": [
+      {
+        "key": "start",
+        "type": "TRIGGER",
+        "pluginNode": {
+          "pluginKey": "core",
+          "nodeKey": "webhook.trigger",
+          "version": "1.0.0",
+          "executorType": "builtin"
+        },
+        "next": [
+          "data-generator"
+        ],
+        "config": {
+          "input": {
+            "payload": {
+              "haha": "badtime",
+              "seed": 1234
+            },
+            "user_agent": "Sámung"
+          },
+          "output": null,
+          "entrypoint": null
+        }
+      },
+      {
+        "key": "data-generator",
+        "type": "PLUGIN",
+        "next": [
+          "email"
+        ],
+        "config": {
+          "input": {
+            "seed": "{{start.output.payload.seed}}",
+            "format": "json"
+          },
+          "output": null,
+          "entrypoint": null
+        },
+        "pluginNode": {
+          "pluginKey": "test",
+          "nodeKey": "data.generate",
+          "version": "1.0.0",
+          "executorType": "builtin"
+        }
+      },
+      {
+        "key": "email",
+        "type": "PLUGIN",
+        "next": [],
+        "config": {
+          "input": {
+            "isPipeline": true,
+            "data": "   initial data   ",
+            "steps": [
+              {
+                "transformer": "trim",
+                "params": {}
+              },
+              {
+                "transformer": "uppercase",
+                "params": {}
+              },
+              {
+                "transformer": "concat",
+                "params": {
+                  "suffix": " - processed"
+                }
+              }
+            ]
+          },
+          "output": null,
+          "entrypoint": null
+        },
+        "pluginNode": {
+          "pluginKey": "core",
+          "nodeKey": "data.transformer",
+          "version": "1.0.0",
+          "executorType": "builtin"
+        }
+      }
+    ],
+    "metadata": {
+      "aliases": {
+
+      }
+    }
+  },
+  "remove": []
+}
