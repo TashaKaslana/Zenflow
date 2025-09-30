@@ -2,28 +2,18 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.timeout;
 
 import lombok.RequiredArgsConstructor;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
-import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
+import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
-import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
 import java.util.Map;
 import java.util.UUID;
 
 @Component
-@PluginNode(
-        key = "core:flow.timeout",
-        name = "Timeout",
-        version = "1.0.0",
-        description = "Schedules a timeout for a workflow node execution.",
-        type = "flow.timeout",
-        tags = {"core", "flow", "timeout", "delay"},
-        icon = "ph:clock"
-)
 @RequiredArgsConstructor
-public class TimeoutExecutor implements PluginNodeExecutor {
+public class TimeoutExecutor implements NodeExecutor {
 
     private final TimeoutScheduler timeoutScheduler;
     @Override

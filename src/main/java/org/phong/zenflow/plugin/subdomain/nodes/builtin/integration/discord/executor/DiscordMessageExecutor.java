@@ -9,8 +9,7 @@ import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
-import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
-import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
+import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.discord.core.DiscordJdaResourceManager;
 import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
@@ -25,20 +24,11 @@ import java.util.Map;
 import java.util.List;
 
 @Component
-@PluginNode(
-        key = "discord:message.send",
-        name = "Discord Send Message",
-        version = "1.0.0",
-        description = "Sends a message to a Discord channel using JDA. Supports text messages and embeds.",
-        type = "integration.message",
-        tags = {"integration", "discord", "message", "send"},
-        icon = "simple-icons:discord"
-)
 @Slf4j
 @AllArgsConstructor
-public class DiscordMessageExecutor implements PluginNodeExecutor {
-
+public class DiscordMessageExecutor implements NodeExecutor {
     private final DiscordJdaResourceManager jdaResourceManager;
+
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher logs = context.getLogPublisher();

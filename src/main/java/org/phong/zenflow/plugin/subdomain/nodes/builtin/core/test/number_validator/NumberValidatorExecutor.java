@@ -2,22 +2,16 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.test.number_valida
 
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
-import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
+import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
-import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
 import java.util.Map;
 
 @Component
-@PluginNode(
-        key = "test:number.validate",
-        name = "Number Validator",
-        version = "1.0.0"
-)
-public class NumberValidatorExecutor implements PluginNodeExecutor {
+public class NumberValidatorExecutor implements NodeExecutor {
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher logCollector = context.getLogPublisher();

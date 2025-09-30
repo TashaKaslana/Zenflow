@@ -4,8 +4,7 @@ import com.google.api.services.drive.Drive;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
-import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
-import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
+import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.core.GoogleCredentialsException;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.core.GoogleResourceConfigBuilder;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.drive.GoogleDriveServiceManager;
@@ -22,16 +21,7 @@ import java.util.Map;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@PluginNode(
-        key = "google-docs:documents.delete",
-        name = "Google Docs - Delete Document",
-        version = "1.0.0",
-        description = "Permanently deletes a Google Docs document using OAuth2 credentials.",
-        icon = "simple-icons:googledocs",
-        type = "integration.documents",
-        tags = {"google", "docs", "delete", "document"}
-)
-public class GoogleDocsDeleteExecutor implements PluginNodeExecutor {
+public class GoogleDocsDeleteExecutor implements NodeExecutor {
 
     private final GoogleDriveServiceManager driveServiceManager;
 

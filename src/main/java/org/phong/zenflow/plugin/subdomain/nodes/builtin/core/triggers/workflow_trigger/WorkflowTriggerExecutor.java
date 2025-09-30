@@ -17,22 +17,11 @@ import org.phong.zenflow.plugin.subdomain.resource.NodeResourcePool;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
 import java.time.OffsetDateTime;
 import java.util.*;
 
 @Component
-@PluginNode(
-        key = "core:workflow.trigger",
-        name = "Workflow Trigger",
-        version = "1.0.0",
-        type = "trigger",
-        triggerType = "manual",
-        description = "Triggers a workflow execution based on provided parameters.",
-        tags = {"workflow", "trigger", "execution"},
-        icon = "ph:rocket-launch"
-)
 @AllArgsConstructor
 @Slf4j
 public class WorkflowTriggerExecutor implements TriggerExecutor {

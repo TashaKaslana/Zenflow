@@ -13,22 +13,11 @@ import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContextToo
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerExecutor;
 import org.phong.zenflow.plugin.subdomain.resource.NodeResourcePool;
 import org.springframework.stereotype.Component;
-import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
 import java.time.OffsetDateTime;
 import java.util.*;
 
 @Component
-@PluginNode(
-        key = "core:webhook.trigger",
-        name = "Webhook Trigger",
-        version = "1.0.0",
-        description = "Executes when a webhook is triggered, processing the request data and metadata.",
-        type = "trigger",
-        triggerType = "webhook",
-        tags = {"webhook", "trigger", "http", "api", "event" },
-        icon = "ph:webhook"
-)
 @Slf4j
 @AllArgsConstructor
 public class WebhookTriggerExecutor implements TriggerExecutor {

@@ -6,31 +6,19 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
-import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
+import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
-import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
 import java.util.List;
 import java.util.Map;
 
 @Component
-@PluginNode(
-        key = "core:flow.branch.condition",
-        name = "Condition Branch",
-        version = "1.0.0",
-        description = "Executes a branch based on conditions defined in the input. " +
-                "Each case is evaluated in order, and the first matching case will be executed. " +
-                "If no cases match, the default case will be executed if provided.",
-        type = "flow",
-        tags = {"core", "flow", "branch", "condition"},
-        icon = "ph:git-branch"
-)
 @Slf4j
 @AllArgsConstructor
-public class ConditionNodeExecutor implements PluginNodeExecutor {
+public class ConditionNodeExecutor implements NodeExecutor {
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher log = context.getLogPublisher();

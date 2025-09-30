@@ -11,22 +11,11 @@ import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContextToo
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerExecutor;
 import org.phong.zenflow.plugin.subdomain.resource.NodeResourcePool;
 import org.springframework.stereotype.Component;
-import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
 import java.time.OffsetDateTime;
 import java.util.*;
 
 @Component
-@PluginNode(
-        key = "core:manual.trigger",
-        name = "Manual Trigger",
-        version = "1.0.0",
-        description = "Executes a manual trigger with optional payload and schedule configuration.",
-        type = "trigger",
-        triggerType = "manual",
-        tags = {"core", "trigger", "manual"},
-        icon = "ph:play"
-)
 @Slf4j
 public class ManualTriggerExecutor implements TriggerExecutor {
     @Override

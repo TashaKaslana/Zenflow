@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
-import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
+import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.BaseDbConnection;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.BaseSqlExecutor;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.dto.ResolvedDbConfig;
@@ -12,7 +12,6 @@ import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
-import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -20,27 +19,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
 
 @Component
-@PluginNode(
-        key = "integration:postgresql",
-        name = "PostgreSQL",
-        version = "1.0.0",
-        description = "Executes SQL queries against a PostgreSQL database with advanced parameter handling and type inference.",
-        type = "integration.database",
-        icon = "postgresql",
-        tags = { "database", "postgresql", "sql", "integration" }
-)
 @Slf4j
 @AllArgsConstructor
-public class PostgresSqlExecutor implements PluginNodeExecutor {
+public class PostgresSqlExecutor implements NodeExecutor {
     private final BaseDbConnection baseDbConnection;
     private final BaseSqlExecutor baseSqlExecutor;
     private final PostgresParameterHandler postgresHandler;
     private final ObjectMapper objectMapper;
-    private final PostgresSqlRuntimeValidator runtimeValidator;
-    private final PostgresSqlDefinitionValidator definitionValidator;
+
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher logPublisher = context.getLogPublisher();
@@ -51,10 +39,10 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
             ResolvedDbConfig dbConfig = baseDbConnection.establishConnection(config, context);
 
             // Pre-process PostgreSQL-specific syntax
-            dbConfig = preprocessPostgresSyntax(dbConfig, logPublisher);
+            preprocessPostgresSyntax(dbConfig, logPublisher);
 
             // Intelligent parameter processing - infer types automatically
-            dbConfig = processParametersWithTypeInference(dbConfig, logPublisher);
+            processParametersWithTypeInference(dbConfig, logPublisher);
 
             // Create PostgreSQL-specific parameter binder and result processor
             BaseSqlExecutor.ParameterBinder parameterBinder = hasParameters(dbConfig) ?
@@ -69,16 +57,6 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
             logPublisher.withException(e).error("Postgres SQL execution failed: {}", e.getMessage());
             return ExecutionResult.error("Postgres SQL execution failed: " + e.getMessage());
         }
-    }
-
-    @Override
-    public List<ValidationError> validateDefinition(WorkflowConfig config) {
-        return definitionValidator.validate(config);
-    }
-
-    @Override
-    public List<ValidationError> validateRuntime(WorkflowConfig config, ExecutionContext ctx) {
-        return runtimeValidator.validate(config, ctx);
     }
 
     private boolean hasParameters(ResolvedDbConfig dbConfig) {
@@ -97,40 +75,39 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
      * Smart parameter processing - acts like a database compiler
      * Automatically infers PostgreSQL types from Java objects
      */
-    private ResolvedDbConfig processParametersWithTypeInference(ResolvedDbConfig dbConfig, NodeLogPublisher logCollector) {
+    private void processParametersWithTypeInference(ResolvedDbConfig dbConfig, NodeLogPublisher logCollector) {
         Map<String, Object> params = dbConfig.getParams();
-        if (params == null) return dbConfig;
+        if (params == null) return;
 
         // If already using indexed parameters, skip inference
         if (params.containsKey("parameters")) {
             logCollector.info("Using explicit indexed parameters");
-            return dbConfig;
+            return;
         }
 
         AtomicInteger startIndex = new AtomicInteger(0);
         // Check if we have a simple parameter array for inference
         if (params.containsKey("values")) {
-            dbConfig = inferParameterTypes(dbConfig, logCollector, false, startIndex);
+            inferParameterTypes(dbConfig, logCollector, false, startIndex);
         }
 
         if (params.containsKey("batchValues") && params.get("batchValues") instanceof List) {
-            dbConfig = inferParameterTypes(dbConfig, logCollector, true, startIndex);
+            inferParameterTypes(dbConfig, logCollector, true, startIndex);
         }
 
-        return dbConfig;
     }
 
     /**
      * Database compiler-style type inference
      * Analyzes Java objects and maps them to PostgreSQL types
      */
-    private ResolvedDbConfig inferParameterTypes(ResolvedDbConfig dbConfig, NodeLogPublisher logCollector, boolean isBatch, AtomicInteger startIndex) {
+    private void inferParameterTypes(ResolvedDbConfig dbConfig, NodeLogPublisher logCollector, boolean isBatch, AtomicInteger startIndex) {
         Map<String, Object> params = dbConfig.getParams();
         Object valuesObj = params.get(isBatch ? "batchValues" : "values");
 
         if (!(valuesObj instanceof List)) {
             logCollector.warning("'values' parameter should be a List for type inference");
-            return dbConfig;
+            return;
         }
 
         @SuppressWarnings("unchecked")
@@ -139,7 +116,7 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
         if (isBatch) {
             if (values.stream().anyMatch(v -> !(v instanceof List))) {
                 logCollector.error("'batchValues' must be a list of lists.");
-                return dbConfig;
+                return;
             }
 
             // For batch processing, create a list of parameter sets, each starting from index 1
@@ -181,7 +158,6 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
         }
 
         logCollector.info("Successfully processed parameter type inference for " + (isBatch ? "batch" : "single") + " operation");
-        return dbConfig;
     }
 
     private void extractParamsTypes(NodeLogPublisher logCollector, List<Map<String, Object>> inferredParameters, Object value, int index, boolean isBatch) {
@@ -337,11 +313,11 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
         return clazz.getDeclaredFields().length > 0;
     }
 
-    private ResolvedDbConfig preprocessPostgresSyntax(ResolvedDbConfig dbConfig, NodeLogPublisher logCollector) {
+    private void preprocessPostgresSyntax(ResolvedDbConfig dbConfig, NodeLogPublisher logCollector) {
         String originalQuery = dbConfig.getQuery();
         Map<String, Object> params = dbConfig.getParams();
 
-        if (params == null) return dbConfig;
+        if (params == null) return;
 
         // Handle UPSERT syntax transformation
         if (originalQuery.toLowerCase().contains("upsert_placeholder")) {
@@ -363,6 +339,5 @@ public class PostgresSqlExecutor implements PluginNodeExecutor {
             logCollector.info("Applied schema qualification: " + schema);
         }
 
-        return dbConfig;
     }
 }

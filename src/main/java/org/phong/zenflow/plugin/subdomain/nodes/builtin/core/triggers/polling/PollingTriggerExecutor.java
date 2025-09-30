@@ -4,7 +4,6 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.services.SharedQuartzSchedulerService;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
-import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.triggers.polling.quartz.PollingTriggerJob;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.triggers.polling.resource.PollingResponseCacheManager;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
@@ -23,17 +22,6 @@ import java.time.OffsetDateTime;
 import java.util.*;
 
 @Component
-@PluginNode(
-        key = "core:polling.trigger",
-        name = "Polling Trigger",
-        version = "1.0.0",
-        description = "Polls an HTTP endpoint at regular intervals using Quartz scheduler and triggers workflows when changes are detected. " +
-                "Uses generic resource management for efficient caching and cleanup.",
-        type = "trigger",
-        triggerType = "polling",
-        tags = {"core", "trigger", "polling", "http", "schedule", "quartz"},
-        icon = "ph:arrow-clockwise"
-)
 @Slf4j
 @AllArgsConstructor
 public class PollingTriggerExecutor implements TriggerExecutor {

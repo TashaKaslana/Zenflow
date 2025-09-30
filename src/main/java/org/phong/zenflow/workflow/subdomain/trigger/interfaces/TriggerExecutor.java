@@ -1,12 +1,12 @@
 package org.phong.zenflow.workflow.subdomain.trigger.interfaces;
 
-import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
-import org.phong.zenflow.workflow.subdomain.trigger.dto.TriggerContext;
+import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.plugin.subdomain.resource.NodeResourcePool;
+import org.phong.zenflow.workflow.subdomain.trigger.dto.TriggerContext;
 
 import java.util.Optional;
 
-public interface TriggerExecutor extends PluginNodeExecutor {
+public interface TriggerExecutor extends NodeExecutor {
     RunningHandle start(TriggerContext triggerCtx, TriggerContextTool contextTool) throws Exception;
 
     /**
