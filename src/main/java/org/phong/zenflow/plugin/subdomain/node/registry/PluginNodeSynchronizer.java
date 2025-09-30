@@ -8,6 +8,8 @@ import org.phong.zenflow.plugin.infrastructure.persistence.entity.Plugin;
 import org.phong.zenflow.plugin.infrastructure.persistence.repository.PluginRepository;
 import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
+import org.phong.zenflow.plugin.subdomain.node.definition.NodeDefinitionProvider;
+import org.phong.zenflow.plugin.subdomain.node.definition.adapter.NodeDefinitionExecutorAdapter;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.entity.PluginNode;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.repository.PluginNodeRepository;
 import org.phong.zenflow.plugin.subdomain.schema.registry.SchemaIndexRegistry;
@@ -144,15 +146,26 @@ public class PluginNodeSynchronizer implements ApplicationRunner {
     }
 
     private void registerNodes(Class<?> clazz, PluginNode saved) {
-        PluginNodeExecutor instance = applicationContext.getBean(clazz.asSubclass(PluginNodeExecutor.class));
-
         registry.register(
                 saved.getId().toString(),
-                () -> instance
+                () -> adaptExecutor(applicationContext.getBean(clazz))
         );
 
         if ("trigger".equalsIgnoreCase(saved.getType())) {
             triggerRegistry.registerTrigger(saved.getId().toString());
         }
     }
+
+    private PluginNodeExecutor adaptExecutor(Object bean) {
+        if (bean instanceof PluginNodeExecutor pluginExecutor) {
+            return pluginExecutor;
+        }
+        if (bean instanceof NodeDefinitionProvider provider) {
+            return new NodeDefinitionExecutorAdapter(provider);
+        }
+        throw new IllegalStateException(
+                "@PluginNode annotated class must implement PluginNodeExecutor or NodeDefinitionProvider"
+        );
+    }
 }
+

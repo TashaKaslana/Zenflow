@@ -348,7 +348,7 @@ public class PluginTest {
         GoogleDrivePlugin drivePlugin = createGoogleDrivePlugin();
         List<PluginProfileDescriptor> driveDescriptors = drivePlugin.getPluginProfiles();
         assertFalse(driveDescriptors.isEmpty(), "Drive plugin should expose at least one profile descriptor");
-        PluginProfileDescriptor descriptor = driveDescriptors.get(0);
+        PluginProfileDescriptor descriptor = driveDescriptors.getFirst();
         assertEquals("oauth-default", descriptor.id());
         assertEquals("Google OAuth Profile", descriptor.displayName());
         assertTrue(descriptor.requiresPreparation());
@@ -357,15 +357,12 @@ public class PluginTest {
         GoogleDocsPlugin docsPlugin = createGoogleDocsPlugin();
         List<PluginProfileDescriptor> docsDescriptors = docsPlugin.getPluginProfiles();
         assertEquals(1, docsDescriptors.size(), "Docs plugin should reuse the shared OAuth descriptor");
-        assertEquals(descriptor.schemaPath(), docsDescriptors.get(0).schemaPath());
+        assertEquals(descriptor.schemaPath(), docsDescriptors.getFirst().schemaPath());
     }
 
     @Test
     void googlePluginSchemasIncludeProfileMetadata() {
         when(pluginRepository.findByKey(anyString())).thenReturn(Optional.empty());
-
-
-
 
         pluginSynchronizer.run(null);
 
@@ -390,7 +387,7 @@ public class PluginTest {
         assertTrue(schema.containsKey("profiles"));
         List<?> profiles = (List<?>) schema.get("profiles");
         assertFalse(profiles.isEmpty());
-        Object firstProfile = profiles.get(0);
+        Object firstProfile = profiles.getFirst();
         assertInstanceOf(Map.class, firstProfile);
         Map<?, ?> profileMap = (Map<?, ?>) firstProfile;
         assertEquals("oauth-default", profileMap.get("id"));
@@ -404,9 +401,9 @@ public class PluginTest {
     @Test
     void testPluginSettingsDescriptors() {
         when(pluginRepository.findByKey(anyString())).thenReturn(Optional.empty());
-        Object bean = applicationContext.getBean(TestPlugin.class);
-        assertTrue(bean instanceof PluginSettingProvider);
-        assertFalse(((PluginSettingProvider) bean).getPluginSettings().isEmpty(),
+        PluginSettingProvider bean = applicationContext.getBean(TestPlugin.class);
+        assertInstanceOf(PluginSettingProvider.class, bean);
+        assertFalse(bean.getPluginSettings().isEmpty(),
                 "Provider should expose test setting descriptors");
 
 
@@ -430,7 +427,7 @@ public class PluginTest {
         assertTrue(schema.containsKey("settings"));
         List<?> settings = (List<?>) schema.get("settings");
         assertFalse(settings.isEmpty());
-        Object firstSetting = settings.get(0);
+        Object firstSetting = settings.getFirst();
         assertInstanceOf(Map.class, firstSetting);
         Map<?, ?> settingsMap = (Map<?, ?>) firstSetting;
         assertEquals("test-settings", settingsMap.get("id"));
