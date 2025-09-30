@@ -10,9 +10,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.phong.zenflow.core.utils.LoadSchemaHelper;
 import org.phong.zenflow.plugin.infrastructure.persistence.entity.Plugin;
 import org.phong.zenflow.plugin.infrastructure.persistence.repository.PluginRepository;
-import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
-import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.repository.PluginNodeRepository;
+import org.phong.zenflow.plugin.subdomain.node.definition.NodeDefinition;
+import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.plugin.subdomain.schema.registry.SchemaIndexRegistry;
 import org.phong.zenflow.workflow.subdomain.trigger.registry.TriggerRegistry;
 import org.springframework.context.ApplicationContext;
@@ -43,7 +43,7 @@ class PluginNodeSynchronizerUuidIntegrationTest {
     private ApplicationContext applicationContext;
 
     @Mock
-    private PluginNodeExecutor mockExecutor;
+    private NodeDefinition nodeDefinition;
 
     @Mock
     private SchemaIndexRegistry schemaIndexRegistry;
@@ -65,7 +65,9 @@ class PluginNodeSynchronizerUuidIntegrationTest {
         lenient().when(objectMapper.readValue(any(java.io.InputStream.class), any(com.fasterxml.jackson.core.type.TypeReference.class)))
                 .thenReturn(createMockSchemaMap());
 
-        lenient().when(applicationContext.getBean(any(Class.class))).thenReturn(mockExecutor);
+        NodeExecutor stubExecutor = (config, ctx) -> null;
+        nodeDefinition = NodeDefinition.builder().nodeExecutor(stubExecutor).build();
+        lenient().when(applicationContext.getBean(any(Class.class))).thenReturn(nodeDefinition);
 
         // Mock SchemaIndexRegistry behavior
         final ConcurrentHashMap<String, SchemaIndexRegistry.SchemaLocation> schemaIndex = new java.util.concurrent.ConcurrentHashMap<>();
@@ -128,7 +130,7 @@ class PluginNodeSynchronizerUuidIntegrationTest {
 
         // Assert
         verify(registry).register(eq(testNodeId1.toString()), any());
-        verify(triggerRegistry).registerTrigger(eq(testNodeId1.toString()));
+        verify(triggerRegistry).registerTrigger(eq(testNodeId1.toString()), any());
 
         assertTrue(schemaIndexRegistry.hasSchemaLocation(testNodeId1.toString()),
                 "Trigger node should be indexed by UUID");
@@ -215,14 +217,14 @@ class PluginNodeSynchronizerUuidIntegrationTest {
         schemaIndexRegistry.getSchemaIndex().put(nodeId.toString(), location);
 
         // Simulate the registry registration (this is what the real implementation does)
-        registry.register(nodeId.toString(), () -> mockExecutor);
+        registry.register(nodeId.toString(), () -> nodeDefinition);
 
         // Determine the node type based on the composite key parts
         String nodeType = parts[1].equalsIgnoreCase("trigger") ? "trigger" : "action";
 
         // If it's a trigger type, register with trigger registry
         if ("trigger".equalsIgnoreCase(nodeType)) {
-            triggerRegistry.registerTrigger(nodeId.toString());
+            triggerRegistry.registerTrigger(nodeId.toString(), mockClass);
         }
     }
 

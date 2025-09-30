@@ -33,7 +33,7 @@ import java.util.Map;
 @Slf4j
 public class SingleNodeExecutionService {
 
-    private final PluginNodeExecutorDispatcher executorDispatcher;
+    private final NodeExecutorDispatcher executorDispatcher;
     private final WorkflowValidationService workflowValidationService;
     private final RuntimeContextManager contextManager;
     private final ApplicationEventPublisher publisher;

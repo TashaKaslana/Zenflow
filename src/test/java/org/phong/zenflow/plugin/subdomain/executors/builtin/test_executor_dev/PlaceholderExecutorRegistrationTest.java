@@ -2,7 +2,9 @@ package org.phong.zenflow.plugin.subdomain.executors.builtin.test_executor_dev;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.test.placeholder.PlaceholderExecutor;
+import org.phong.zenflow.plugin.subdomain.node.definition.NodeDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -37,18 +39,21 @@ class PlaceholderExecutorRegistrationTest {
         // Directly register the PlaceholderExecutor with both UUID and composite key
         // This simulates what the PluginNodeSynchronizer would do when it processes the @PluginNode annotation
         PlaceholderExecutor executor = applicationContext.getBean(PlaceholderExecutor.class);
-        registry.register(placeholderUuid, () -> executor);
-        registry.register(placeholderCompositeKey, () -> executor);
+        NodeDefinition definition = NodeDefinition.builder()
+                .nodeExecutor(executor)
+                .build();
+        registry.register(placeholderUuid, () -> definition);
+        registry.register(placeholderCompositeKey, () -> definition);
     }
 
     @Test
     void placeholderExecutorIsRegistered() {
         // Test UUID-based registration
-        assertTrue(registry.getExecutor(placeholderUuid).isPresent(),
+        assertTrue(registry.getDefinition(placeholderUuid).isPresent(),
                 "Placeholder executor should be registered with UUID");
 
         // Test composite key fallback
-        assertTrue(registry.getExecutor(placeholderCompositeKey).isPresent(),
+        assertTrue(registry.getDefinition(placeholderCompositeKey).isPresent(),
                 "Placeholder executor should be registered with composite key");
     }
 
@@ -58,8 +63,14 @@ class PlaceholderExecutorRegistrationTest {
         Map<String, Object> inputData = Map.of("testKey", "testValue");
         WorkflowConfig config = new WorkflowConfig(inputData, Map.of());
 
-        var executor = registry.getExecutor(placeholderUuid).orElseThrow();
-        var result = executor.execute(config, context);
+        var definition = registry.getDefinition(placeholderUuid).orElseThrow();
+        ExecutionResult result;
+
+        try {
+            result = definition.getNodeExecutor().execute(config, context);
+        } catch (Exception e) {
+            result = null;
+        }
 
         assertNotNull(result);
         assertEquals(inputData, result.getOutput());

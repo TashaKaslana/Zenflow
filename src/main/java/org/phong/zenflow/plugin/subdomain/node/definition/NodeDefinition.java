@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeValidator;
+import org.springframework.lang.Nullable;
 
 @AllArgsConstructor
 @NoArgsConstructor
@@ -13,6 +14,8 @@ import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeValidator;
 @Getter
 public class NodeDefinition {
     NodeExecutor nodeExecutor;
+
+    @Nullable
     NodeValidator nodeValidator;
 
     String name;

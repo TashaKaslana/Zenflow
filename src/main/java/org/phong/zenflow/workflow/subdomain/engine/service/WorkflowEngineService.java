@@ -4,7 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
-import org.phong.zenflow.plugin.subdomain.execution.services.PluginNodeExecutorDispatcher;
+import org.phong.zenflow.plugin.subdomain.execution.services.NodeExecutorDispatcher;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContextKey;
@@ -37,7 +37,7 @@ import java.util.UUID;
 public class WorkflowEngineService {
     private final NodeExecutionService nodeExecutionService;
     private final WorkflowValidationService workflowValidationService;
-    private final PluginNodeExecutorDispatcher executorDispatcher;
+    private final NodeExecutorDispatcher executorDispatcher;
     private final WorkflowNavigatorService workflowNavigatorService;
     private final ApplicationEventPublisher publisher;
     private final RuntimeContextManager contextManager;

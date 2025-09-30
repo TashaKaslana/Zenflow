@@ -6,10 +6,9 @@ import org.json.JSONObject;
 import org.phong.zenflow.core.utils.LoadSchemaHelper;
 import org.phong.zenflow.plugin.infrastructure.persistence.entity.Plugin;
 import org.phong.zenflow.plugin.infrastructure.persistence.repository.PluginRepository;
-import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
 import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
+import org.phong.zenflow.plugin.subdomain.node.definition.NodeDefinition;
 import org.phong.zenflow.plugin.subdomain.node.definition.NodeDefinitionProvider;
-import org.phong.zenflow.plugin.subdomain.node.definition.adapter.NodeDefinitionExecutorAdapter;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.entity.PluginNode;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.repository.PluginNodeRepository;
 import org.phong.zenflow.plugin.subdomain.schema.registry.SchemaIndexRegistry;
@@ -25,6 +24,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Objects;
 
 @Component
 @RequiredArgsConstructor
@@ -148,24 +148,34 @@ public class PluginNodeSynchronizer implements ApplicationRunner {
     private void registerNodes(Class<?> clazz, PluginNode saved) {
         registry.register(
                 saved.getId().toString(),
-                () -> adaptExecutor(applicationContext.getBean(clazz))
+                () -> resolveDefinition(applicationContext.getBean(clazz), clazz)
         );
 
         if ("trigger".equalsIgnoreCase(saved.getType())) {
-            triggerRegistry.registerTrigger(saved.getId().toString());
+            triggerRegistry.registerTrigger(saved.getId().toString(), clazz);
         }
     }
 
-    private PluginNodeExecutor adaptExecutor(Object bean) {
-        if (bean instanceof PluginNodeExecutor pluginExecutor) {
-            return pluginExecutor;
-        }
+    private NodeDefinition resolveDefinition(Object bean, Class<?> clazz) {
+        Objects.requireNonNull(bean, "@PluginNode annotated bean must not be null");
         if (bean instanceof NodeDefinitionProvider provider) {
-            return new NodeDefinitionExecutorAdapter(provider);
+            NodeDefinition definition = provider.definition();
+            if (definition == null) {
+                throw new IllegalStateException("NodeDefinitionProvider returned null definition for " + clazz.getName());
+            }
+            if (definition.getNodeExecutor() == null) {
+                throw new IllegalStateException("NodeDefinition must supply a NodeExecutor before execution: " + clazz.getName());
+            }
+            return definition;
+        }
+        if (bean instanceof NodeDefinition definition) {
+            if (definition.getNodeExecutor() == null) {
+                throw new IllegalStateException("NodeDefinition must supply a NodeExecutor before execution: " + clazz.getName());
+            }
+            return definition;
         }
         throw new IllegalStateException(
-                "@PluginNode annotated class must implement PluginNodeExecutor or NodeDefinitionProvider"
+                "@PluginNode annotated class must implement NodeDefinitionProvider"
         );
     }
 }
-
