@@ -45,3 +45,25 @@ Multiple transformers can be combined using the `data.transformer` node. Each st
 ```
 
 This example filters active items and then aggregates the remaining amounts into a single total.
+
+## Element-wise Transformation
+
+In addition to single-transform and pipeline modes, you can apply a transformer to each item in a list using the `forEach` flag. This is useful when you want the same operation performed on every element of an array.
+
+```json
+{
+  "plugin": "core",
+  "node": "data.transformer",
+  "version": "1.0.0",
+  "config": {
+    "input": {
+      "data": [ {"value": 1}, {"value": 2}, {"value": 3} ],
+      "transformer": "increment",
+      "params": { "amount": 1 },
+      "forEach": true
+    }
+  }
+}
+```
+
+This applies the `increment` transformer to each item in the input list, returning an array of transformed values.
