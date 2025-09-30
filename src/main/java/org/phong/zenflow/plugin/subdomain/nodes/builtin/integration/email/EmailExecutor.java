@@ -3,7 +3,7 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.email;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
-import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
+import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
@@ -11,25 +11,15 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.stereotype.Component;
-import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
-@Slf4j
 @Component
-@PluginNode(
-        key = "integration:email",
-        name = "Email",
-        version = "1.0.0",
-        description = "Sends an email using SMTP configuration provided in the input.",
-        icon = "email",
-        type = "integration.message",
-        tags = {"email", "smtp", "notification"}
-)
+@Slf4j
 @AllArgsConstructor
-public class EmailExecutor implements PluginNodeExecutor {
+public class EmailExecutor implements NodeExecutor {
     private final static int DEFAULT_PORT = 587;
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {

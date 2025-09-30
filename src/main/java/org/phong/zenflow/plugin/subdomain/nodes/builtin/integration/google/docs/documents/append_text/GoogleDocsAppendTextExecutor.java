@@ -8,17 +8,16 @@ import com.google.api.services.docs.v1.model.Request;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
-import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
-import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
+import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
+import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
+import org.springframework.stereotype.Component;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.core.GoogleCredentialsException;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.core.GoogleResourceConfigBuilder;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.docs.GoogleDocsServiceManager;
 import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
-import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.trigger.resource.DefaultResourceConfig;
-import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
 import java.util.List;
@@ -27,16 +26,7 @@ import java.util.Map;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@PluginNode(
-        key = "google-docs:documents.append_text",
-        name = "Google Docs - Append Text",
-        version = "1.0.0",
-        description = "Appends text to the end of a Google Docs document using OAuth2 credentials.",
-        icon = "simple-icons:googledocs",
-        type = "integration.documents",
-        tags = {"google", "docs", "append", "text", "document"}
-)
-public class GoogleDocsAppendTextExecutor implements PluginNodeExecutor {
+public class GoogleDocsAppendTextExecutor implements NodeExecutor {
 
     private final GoogleDocsServiceManager docsServiceManager;
 

@@ -14,24 +14,12 @@ import org.phong.zenflow.workflow.subdomain.trigger.quartz.WorkflowTriggerJob;
 import org.phong.zenflow.core.services.SharedQuartzSchedulerService;
 import org.phong.zenflow.plugin.subdomain.resource.NodeResourcePool;
 import org.springframework.stereotype.Component;
-import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 import org.quartz.*;
 
 import java.time.OffsetDateTime;
 import java.util.*;
 
 @Component
-@PluginNode(
-        key = "core:schedule.trigger",
-        name = "Schedule Trigger",
-        version = "1.0.0",
-        description = "Triggers workflows using a shared Quartz Scheduler for maximum efficiency. " +
-                "Supports both interval and cron-based scheduling with database persistence.",
-        type = "trigger",
-        triggerType = "schedule",
-        tags = {"core", "trigger", "schedule", "quartz", "optimized"},
-        icon = "ph:clock"
-)
 @Slf4j
 @AllArgsConstructor
 public class ScheduleTriggerExecutor implements TriggerExecutor {

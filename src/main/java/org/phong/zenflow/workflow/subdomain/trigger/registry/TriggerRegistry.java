@@ -4,7 +4,9 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
+import org.phong.zenflow.plugin.subdomain.node.definition.NodeDefinition;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
+import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerExecutor;
 import org.springframework.stereotype.Component;
@@ -26,31 +28,29 @@ public class TriggerRegistry {
     // Map from TriggerType to list of trigger keys
     private final Map<TriggerType, List<String>> typeToTriggersMap = new ConcurrentHashMap<>();
 
-    public void registerTrigger(String key) {
+    public void registerTrigger(String key, Class<?> nodeClass) {
         triggerExecutorIds.add(key);
 
-        // Get the executor to access its annotation
-        registry.getExecutor(key).ifPresent(executor -> {
-            Class<?> executorClass = executor.getClass();
-            PluginNode annotation = executorClass.getAnnotation(PluginNode.class);
+        PluginNode annotation = nodeClass.getAnnotation(PluginNode.class);
+        if (annotation == null || !"trigger".equals(annotation.type())) {
+            return;
+        }
 
-            if (annotation != null && "trigger".equals(annotation.type())) {
-                String triggerTypeStr = annotation.triggerType();
-                if (!triggerTypeStr.isEmpty()) {
-                    try {
-                        // Map string trigger type to enum
-                        TriggerType triggerType = mapStringToTriggerType(triggerTypeStr);
+        String triggerTypeStr = annotation.triggerType();
+        if (triggerTypeStr.isEmpty()) {
+            return;
+        }
 
-                        triggerTypeMap.put(key, triggerType);
-                        typeToTriggersMap.computeIfAbsent(triggerType, k -> new ArrayList<>()).add(key);
+        try {
+            TriggerType triggerType = mapStringToTriggerType(triggerTypeStr);
 
-                        log.debug("Registered trigger {} with type {}", key, triggerType);
-                    } catch (IllegalArgumentException e) {
-                        log.warn("Unknown trigger type '{}' for trigger {}, skipping type mapping", triggerTypeStr, key);
-                    }
-                }
-            }
-        });
+            triggerTypeMap.put(key, triggerType);
+            typeToTriggersMap.computeIfAbsent(triggerType, k -> new ArrayList<>()).add(key);
+
+            log.debug("Registered trigger {} with type {}", key, triggerType);
+        } catch (IllegalArgumentException e) {
+            log.warn("Unknown trigger type '{}' for trigger {}, skipping type mapping", triggerTypeStr, key);
+        }
     }
 
     public void unregisterTrigger(String key) {
@@ -70,12 +70,21 @@ public class TriggerRegistry {
     }
 
     public TriggerExecutor getRegistry(String triggerKey) {
-        if (!triggerExecutorIds.contains(triggerKey) && registry.getExecutor(triggerKey).isEmpty()) {
-            log.warn("Trigger not found for key {}", triggerKey);
+        Optional<NodeDefinition> definition = registry.getDefinition(triggerKey);
+        if (definition.isEmpty()) {
+            if (!triggerExecutorIds.contains(triggerKey)) {
+                log.warn("Trigger not found for key {}", triggerKey);
+            }
             return null;
         }
 
-        return (TriggerExecutor) registry.getExecutor(triggerKey).get();
+        NodeExecutor executor = definition.get().getNodeExecutor();
+        if (executor instanceof TriggerExecutor triggerExecutor) {
+            return triggerExecutor;
+        }
+
+        log.warn("Registered trigger {} does not expose a TriggerExecutor", triggerKey);
+        return null;
     }
 
     public Set<String> getAllTriggerKeys() {

@@ -5,8 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
-import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
-import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
+import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.data.data_transformer.dto.TransformStep;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.data.data_transformer.exception.DataTransformerExecutorException;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.data.data_transformer.registry.TransformerRegistry;
@@ -21,20 +20,9 @@ import java.util.List;
 import java.util.Map;
 
 @Component
-@PluginNode(
-        key = "core:data.transformer",
-        name = "Data Transformer",
-        version = "1.0.0",
-        description = "Executes data transformation using registered transformers. Supports both single-transform and pipeline modes.",
-        type = "data_transformation",
-        tags = {"data", "transformation", "pipeline"},
-        icon = "ph:code",
-        schemaPath = "../schema.json",
-        docPath = "../doc.md"
-)
 @AllArgsConstructor
 @Slf4j
-public class DataTransformerExecutor implements PluginNodeExecutor {
+public class DataTransformerExecutor implements NodeExecutor {
     private final TransformerRegistry registry;
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {

@@ -10,7 +10,8 @@ import org.phong.zenflow.plugin.services.PluginService;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
-import org.phong.zenflow.plugin.subdomain.execution.services.PluginNodeExecutorDispatcher;
+import org.phong.zenflow.plugin.subdomain.execution.services.NodeExecutorDispatcher;
+import org.phong.zenflow.plugin.subdomain.node.definition.NodeDefinition;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.test.placeholder.PlaceholderExecutor;
 import org.phong.zenflow.plugin.subdomain.node.interfaces.PluginNodeSchemaProvider;
 import org.phong.zenflow.plugin.subdomain.schema.registry.SchemaIndexRegistry;
@@ -37,7 +38,7 @@ public class PluginNodeTest {
 
     private PluginNodeExecutorRegistry executorRegistry;
     private SchemaRegistry schemaRegistry;
-    private PluginNodeExecutorDispatcher dispatcher;
+    private NodeExecutorDispatcher dispatcher;
     private PlaceholderExecutor placeholderExecutor;
     @Mock
     private SchemaIndexRegistry schemaIndexRegistry;
@@ -52,11 +53,14 @@ public class PluginNodeTest {
         placeholderExecutor = new PlaceholderExecutor();
         PluginDescriptorSchemaService descriptorService = new PluginDescriptorSchemaService(pluginService, schemaIndexRegistry, 3600L, true);
         schemaRegistry = new SchemaRegistry(schemaProvider, pluginService, schemaIndexRegistry, descriptorService, 3600L, true);
-        dispatcher = new PluginNodeExecutorDispatcher(executorRegistry);
+        dispatcher = new NodeExecutorDispatcher(executorRegistry);
 
         // Manually register the placeholder executor for testing
-        executorRegistry.register(placeholderUuid, () -> placeholderExecutor);
-        executorRegistry.register(placeholderCompositeKey, () -> placeholderExecutor);
+        NodeDefinition placeholderDefinition = NodeDefinition.builder()
+                .nodeExecutor(placeholderExecutor)
+                .build();
+        executorRegistry.register(placeholderUuid, () -> placeholderDefinition);
+        executorRegistry.register(placeholderCompositeKey, () -> placeholderDefinition);
 
         // Mock schema index registry for UUID-based lookups
         lenient().when(schemaIndexRegistry.hasSchemaLocation(anyString())).thenReturn(true);
@@ -84,16 +88,16 @@ public class PluginNodeTest {
         // Test that the placeholder plugin node is properly registered
         // Use UUID string for registry lookup (new UUID-based approach)
         assertTrue(
-                executorRegistry.getExecutor(placeholderUuid).isPresent(),
+                executorRegistry.getDefinition(placeholderUuid).isPresent(),
                 "Placeholder executor should be registered in the registry with UUID"
         );
 
-        var executor = executorRegistry.getExecutor(placeholderUuid).orElseThrow();
-        assertInstanceOf(PlaceholderExecutor.class, executor, "Executor should be a PlaceholderExecutor instance");
+        var executor = executorRegistry.getDefinition(placeholderUuid).orElseThrow();
+        assertInstanceOf(PlaceholderExecutor.class, executor.getNodeExecutor(), "Executor should be a PlaceholderExecutor instance");
 
         // Test fallback to composite key if UUID not available
         assertTrue(
-                executorRegistry.getExecutor(placeholderCompositeKey).isPresent(),
+                executorRegistry.getDefinition(placeholderCompositeKey).isPresent(),
                 "Placeholder executor should also be registered with composite key as fallback"
         );
     }
@@ -184,13 +188,13 @@ public class PluginNodeTest {
 
         // Test UUID-based access
         assertTrue(
-                executorRegistry.getExecutor(placeholderUuid).isPresent(),
+                executorRegistry.getDefinition(placeholderUuid).isPresent(),
                 "Should work with UUID"
         );
 
         // Test composite key fallback
         assertTrue(
-                executorRegistry.getExecutor(placeholderCompositeKey).isPresent(),
+                executorRegistry.getDefinition(placeholderCompositeKey).isPresent(),
                 "Should work with composite key as fallback"
         );
 

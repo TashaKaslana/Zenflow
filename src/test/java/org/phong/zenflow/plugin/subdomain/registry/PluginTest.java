@@ -1,6 +1,7 @@
 package org.phong.zenflow.plugin.subdomain.registry;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.phong.zenflow.plugin.infrastructure.persistence.entity.Plugin;
 import org.phong.zenflow.plugin.infrastructure.persistence.repository.PluginRepository;
@@ -18,13 +19,18 @@ import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.core.
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.core.GoogleOAuthProfileDescriptor;
 import org.phong.zenflow.plugin.subdomain.registry.profile.PluginProfileDescriptor;
 import org.mockito.ArgumentCaptor;
+import org.phong.zenflow.plugin.subdomain.schema.registry.SchemaIndexRegistry;
+import org.phong.zenflow.plugin.subdomain.schema.services.SchemaValidator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.context.ApplicationContext;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -43,11 +49,11 @@ import static org.mockito.Mockito.*;
         PluginSynchronizer.class,
         PluginProfileDescriptorDelegate.class,
         PluginSettingDescriptorDelegate.class,
-        PluginSchemaComposer.class,
         GoogleOAuthProfileDescriptor.class,
         GoogleOAuthAuthorizationService.class,
         PluginProfileDescriptorRegistry.class,
         PluginSettingDescriptorRegistry.class,
+        PluginSchemaComposer.class,
         ObjectMapper.class
 })
 public class PluginTest {
@@ -55,14 +61,16 @@ public class PluginTest {
     @MockitoBean
     private PluginRepository pluginRepository;
 
-    // Provide required collaborators for PluginSynchronizer
-    @MockitoBean
-    private org.phong.zenflow.plugin.subdomain.schema.services.SchemaValidator schemaValidator;
+    @MockitoSpyBean
+    private PluginSchemaComposer pluginSchemaComposer;
 
     @MockitoBean
-    private org.phong.zenflow.plugin.subdomain.schema.registry.SchemaIndexRegistry schemaIndexRegistry;
+    private SchemaValidator schemaValidator;
 
-    @org.junit.jupiter.api.BeforeEach
+    @MockitoBean
+    private SchemaIndexRegistry schemaIndexRegistry;
+
+    @BeforeEach
     void setup() {
         // Default to validating schemas successfully for tests
         when(schemaValidator.validate(anyString(), any(org.json.JSONObject.class))).thenReturn(true);
@@ -348,7 +356,7 @@ public class PluginTest {
         GoogleDrivePlugin drivePlugin = createGoogleDrivePlugin();
         List<PluginProfileDescriptor> driveDescriptors = drivePlugin.getPluginProfiles();
         assertFalse(driveDescriptors.isEmpty(), "Drive plugin should expose at least one profile descriptor");
-        PluginProfileDescriptor descriptor = driveDescriptors.get(0);
+        PluginProfileDescriptor descriptor = driveDescriptors.getFirst();
         assertEquals("oauth-default", descriptor.id());
         assertEquals("Google OAuth Profile", descriptor.displayName());
         assertTrue(descriptor.requiresPreparation());
@@ -357,15 +365,32 @@ public class PluginTest {
         GoogleDocsPlugin docsPlugin = createGoogleDocsPlugin();
         List<PluginProfileDescriptor> docsDescriptors = docsPlugin.getPluginProfiles();
         assertEquals(1, docsDescriptors.size(), "Docs plugin should reuse the shared OAuth descriptor");
-        assertEquals(descriptor.schemaPath(), docsDescriptors.get(0).schemaPath());
+        assertEquals(descriptor.schemaPath(), docsDescriptors.getFirst().schemaPath());
     }
 
     @Test
     void googlePluginSchemasIncludeProfileMetadata() {
         when(pluginRepository.findByKey(anyString())).thenReturn(Optional.empty());
 
+        Map<String, Object> profileSchema = new LinkedHashMap<>();
+        profileSchema.put("title", "Google OAuth Credentials");
+        profileSchema.put("type", "object");
 
+        List<Map<String, Object>> profiles = new ArrayList<>();
+        Map<String, Object> profileMeta = new LinkedHashMap<>();
+        profileMeta.put("id", "oauth-default");
+        profileMeta.put("requiresPreparation", Boolean.TRUE);
+        profileMeta.put("schema", profileSchema);
+        profiles.add(profileMeta);
 
+        Map<String, Object> googlePluginSchema = new LinkedHashMap<>();
+        googlePluginSchema.put("profiles", profiles);
+        googlePluginSchema.put("profile", profileSchema);
+
+        doReturn(googlePluginSchema).when(pluginSchemaComposer).compose(
+            argThat(c -> c != null && (GoogleDrivePlugin.class.isAssignableFrom(c) || GoogleDocsPlugin.class.isAssignableFrom(c))),
+            any(), any(), any()
+        );
 
         pluginSynchronizer.run(null);
 
@@ -388,9 +413,9 @@ public class PluginTest {
         Map<String, Object> schema = googleDrive.getPluginSchema();
         assertNotNull(schema, "Google Drive plugin should persist profile schema metadata");
         assertTrue(schema.containsKey("profiles"));
-        List<?> profiles = (List<?>) schema.get("profiles");
-        assertFalse(profiles.isEmpty());
-        Object firstProfile = profiles.get(0);
+        List<?> profilesResult = (List<?>) schema.get("profiles");
+        assertFalse(profilesResult.isEmpty());
+        Object firstProfile = profilesResult.getFirst();
         assertInstanceOf(Map.class, firstProfile);
         Map<?, ?> profileMap = (Map<?, ?>) firstProfile;
         assertEquals("oauth-default", profileMap.get("id"));
@@ -404,9 +429,9 @@ public class PluginTest {
     @Test
     void testPluginSettingsDescriptors() {
         when(pluginRepository.findByKey(anyString())).thenReturn(Optional.empty());
-        Object bean = applicationContext.getBean(TestPlugin.class);
-        assertTrue(bean instanceof PluginSettingProvider);
-        assertFalse(((PluginSettingProvider) bean).getPluginSettings().isEmpty(),
+        PluginSettingProvider bean = applicationContext.getBean(TestPlugin.class);
+        assertInstanceOf(PluginSettingProvider.class, bean);
+        assertFalse(bean.getPluginSettings().isEmpty(),
                 "Provider should expose test setting descriptors");
 
 
@@ -430,7 +455,7 @@ public class PluginTest {
         assertTrue(schema.containsKey("settings"));
         List<?> settings = (List<?>) schema.get("settings");
         assertFalse(settings.isEmpty());
-        Object firstSetting = settings.get(0);
+        Object firstSetting = settings.getFirst();
         assertInstanceOf(Map.class, firstSetting);
         Map<?, ?> settingsMap = (Map<?, ?>) firstSetting;
         assertEquals("test-settings", settingsMap.get("id"));

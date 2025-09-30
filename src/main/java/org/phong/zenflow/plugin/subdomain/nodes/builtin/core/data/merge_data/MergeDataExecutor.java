@@ -5,12 +5,11 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
-import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
+import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
-import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
 import java.lang.reflect.Array;
 import java.util.*;
@@ -18,17 +17,8 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Component
-@PluginNode(
-        key = "core:merge_data",
-        name = "Merge Data",
-        version = "1.0.0",
-        description = "Merges multiple data sources into a single output based on specified strategies.",
-        type = "data_transformation",
-        tags = {"data", "merge", "transformation"},
-        icon = "merge_data"
-)
 @AllArgsConstructor
-public class MergeDataExecutor implements PluginNodeExecutor {
+public class MergeDataExecutor implements NodeExecutor {
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher logPublisher = context.getLogPublisher();

@@ -4,8 +4,7 @@ import com.google.api.services.drive.Drive;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
-import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
-import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
+import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.core.GoogleCredentialsException;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.core.GoogleResourceConfigBuilder;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.drive.GoogleDriveServiceManager;
@@ -22,16 +21,7 @@ import java.util.Map;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@PluginNode(
-        key = "google-drive:files.delete",
-        name = "Google Drive - Delete File",
-        version = "1.0.0",
-        description = "Permanently deletes a file from Google Drive.",
-        icon = "googleDrive",
-        type = "integration.storage",
-        tags = {"google", "drive", "delete", "storage"}
-)
-public class GoogleDriveDeleteExecutor implements PluginNodeExecutor {
+public class GoogleDriveDeleteExecutor implements NodeExecutor {
 
     private final GoogleDriveServiceManager driveServiceManager;
 

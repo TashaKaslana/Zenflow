@@ -5,17 +5,16 @@ import com.google.api.services.drive.model.File;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
-import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
-import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
-import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.core.GoogleCredentialsException;
-import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.core.GoogleResourceConfigBuilder;
-import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.drive.GoogleDriveServiceManager;
-import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
+import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
-import org.phong.zenflow.workflow.subdomain.trigger.resource.DefaultResourceConfig;
 import org.springframework.stereotype.Component;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.core.GoogleCredentialsException;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.core.GoogleResourceConfigBuilder;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.drive.GoogleDriveServiceManager;
+import org.phong.zenflow.workflow.subdomain.trigger.resource.DefaultResourceConfig;
+import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -23,16 +22,7 @@ import java.util.Map;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@PluginNode(
-        key = "google-drive:files.getMetadata",
-        name = "Google Drive - Get File Metadata",
-        version = "1.0.0",
-        description = "Retrieves metadata for a file in Google Drive using OAuth2 credentials.",
-        icon = "googleDrive",
-        type = "integration.storage",
-        tags = {"google", "drive", "metadata", "storage"}
-)
-public class GoogleDriveGetMetadataExecutor implements PluginNodeExecutor {
+public class GoogleDriveGetMetadataExecutor implements NodeExecutor {
 
     private final GoogleDriveServiceManager driveServiceManager;
 

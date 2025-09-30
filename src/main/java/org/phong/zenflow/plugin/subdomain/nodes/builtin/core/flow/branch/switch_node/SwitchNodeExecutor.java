@@ -5,29 +5,19 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
-import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
+import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
-import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
 import java.util.List;
 import java.util.Map;
 
 @Component
-@PluginNode(
-        key = "core:flow.branch.switch",
-        name = "Switch Branch",
-        version = "1.0.0",
-        description = "Executes a branch based on the value of an expression. If no case matches, it uses a default case if provided.",
-        type = "branch",
-        tags = {"core", "flow", "branch", "switch"},
-        icon = "ph:git-branch"
-)
 @Slf4j
 @AllArgsConstructor
-public class SwitchNodeExecutor implements PluginNodeExecutor {
+public class SwitchNodeExecutor implements NodeExecutor {
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher logCollector = context.getLogPublisher();

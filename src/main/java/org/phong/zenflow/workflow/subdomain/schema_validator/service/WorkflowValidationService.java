@@ -176,8 +176,13 @@ public class WorkflowValidationService {
             }
 
             String executorKey = identifier.getNodeId() != null ? identifier.getNodeId().toString() : identifier.toCacheKey();
-            executorRegistry.getExecutor(executorKey).ifPresent(executor -> {
-                List<ValidationError> defErrors = executor.validateDefinition(node.getConfig());
+            executorRegistry.getDefinition(executorKey).ifPresent(definition -> {
+                if (definition.getNodeValidator() == null) {
+                    return;
+                }
+
+                List<ValidationError> defErrors = definition.getNodeValidator()
+                        .validateDefinition(node.getConfig());
                 if (defErrors != null) {
                     defErrors.forEach(error -> {
                         if (error.getNodeKey() == null) {
@@ -274,8 +279,13 @@ public class WorkflowValidationService {
         }
 
         if (executorIdentifier != null) {
-            executorRegistry.getExecutor(executorIdentifier).ifPresent(executor -> {
-                List<ValidationError> runtimeErrors = executor.validateRuntime(resolvedConfig, context);
+            executorRegistry.getDefinition(executorIdentifier).ifPresent(definition -> {
+                if (definition.getNodeValidator() == null) {
+                    return;
+                }
+
+                List<ValidationError> runtimeErrors = definition.getNodeValidator()
+                        .validateRuntime(resolvedConfig, context);
                 if (runtimeErrors != null) {
                     runtimeErrors.forEach(error -> {
                         if (error.getNodeKey() == null) {

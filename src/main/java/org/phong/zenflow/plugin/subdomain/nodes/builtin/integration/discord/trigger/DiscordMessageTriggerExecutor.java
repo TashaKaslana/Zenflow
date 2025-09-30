@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.hooks.EventListener;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
-import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.discord.core.DiscordJdaResourceManager;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
@@ -21,16 +20,6 @@ import org.springframework.stereotype.Component;
 import java.util.*;
 
 @Component
-@PluginNode(
-        key = "discord:message.trigger",
-        name = "Discord Message Trigger",
-        version = "1.0.0",
-        description = "Listens for Discord messages and triggers workflows. Uses centralized hub for O(1) performance.",
-        type = "trigger",
-        triggerType = "event",
-        tags = {"integration", "discord", "trigger", "message"},
-        icon = "simple-icons:discord"
-)
 @Slf4j
 @AllArgsConstructor
 public class DiscordMessageTriggerExecutor implements TriggerExecutor {

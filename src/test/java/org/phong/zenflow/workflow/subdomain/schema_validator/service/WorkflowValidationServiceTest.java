@@ -54,7 +54,7 @@ class WorkflowValidationServiceTest {
         when(schemaValidationService.validateAgainstSchema(any(), any(), any(), any(), any(), anyBoolean())).thenReturn(List.of());
         when(workflowDependencyValidator.validateNodeDependencyLoops(any())).thenReturn(List.of());
         when(schemaTemplateValidationService.validateTemplateType(any(), any(), any(), any(), any())).thenReturn(List.of());
-        when(executorRegistry.getExecutor(any())).thenReturn(java.util.Optional.empty());
+        when(executorRegistry.getDefinition(any())).thenReturn(java.util.Optional.empty());
         when(templateService.extractRefs(any())).thenReturn(Set.of());
     }
 

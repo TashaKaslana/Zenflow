@@ -5,28 +5,18 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
-import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
+import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
-import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
 import java.util.Map;
 
 @Component
-@PluginNode(
-        key = "core:wait",
-        name = "Wait",
-        version = "1.0.0",
-        description = "Waits for specified nodes to reach a certain state before proceeding.",
-        type = "flow.wait",
-        tags = {"core", "flow", "wait"},
-        icon = "wait"
-)
 @Slf4j
 @AllArgsConstructor
-public class WaitExecutor implements PluginNodeExecutor {
+public class WaitExecutor implements NodeExecutor {
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher log = context.getLogPublisher();

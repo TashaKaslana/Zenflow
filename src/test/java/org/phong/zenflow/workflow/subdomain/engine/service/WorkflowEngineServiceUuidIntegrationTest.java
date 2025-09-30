@@ -7,7 +7,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
-import org.phong.zenflow.plugin.subdomain.execution.services.PluginNodeExecutorDispatcher;
+import org.phong.zenflow.plugin.subdomain.execution.services.NodeExecutorDispatcher;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContextManager;
@@ -47,7 +47,7 @@ class WorkflowEngineServiceUuidIntegrationTest {
     private WorkflowValidationService workflowValidationService;
 
     @Mock
-    private PluginNodeExecutorDispatcher executorDispatcher;
+    private NodeExecutorDispatcher executorDispatcher;
 
     @Mock
     private WorkflowNavigatorService workflowNavigatorService;
