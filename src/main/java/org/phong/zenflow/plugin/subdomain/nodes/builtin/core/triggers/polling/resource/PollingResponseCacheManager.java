@@ -2,7 +2,8 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.triggers.polling.r
 
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.resource.BaseNodeResourceManager;
-import org.phong.zenflow.workflow.subdomain.trigger.resource.DefaultResourceConfig;
+import org.phong.zenflow.plugin.subdomain.resource.trigger.BaseTriggerResourceManager;
+import org.phong.zenflow.plugin.subdomain.resource.trigger.VoidResourceConfig;
 import org.springframework.stereotype.Component;
 
 /**
@@ -11,10 +12,9 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-public class PollingResponseCacheManager extends BaseNodeResourceManager<PollingResponseCache, DefaultResourceConfig> {
-
+public class PollingResponseCacheManager extends BaseTriggerResourceManager<PollingResponseCache, VoidResourceConfig> {
     @Override
-    protected PollingResponseCache createResource(String resourceKey, DefaultResourceConfig config) {
+    protected PollingResponseCache createResource(String resourceKey, VoidResourceConfig config) {
         log.info("Creating polling response cache for key: {}", resourceKey);
         return new PollingResponseCache();
     }

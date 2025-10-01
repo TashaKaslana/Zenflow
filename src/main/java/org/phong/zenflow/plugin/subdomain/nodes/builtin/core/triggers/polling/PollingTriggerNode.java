@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import org.phong.zenflow.plugin.subdomain.node.definition.NodeDefinition;
 import org.phong.zenflow.plugin.subdomain.node.definition.NodeDefinitionProvider;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.triggers.polling.resource.PollingResponseCacheManager;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -21,11 +22,13 @@ import org.springframework.stereotype.Component;
 )
 public class PollingTriggerNode implements NodeDefinitionProvider {
     private final PollingTriggerExecutor executor;
+    private final PollingResponseCacheManager resourceManager;
 
     @Override
     public NodeDefinition definition() {
         return NodeDefinition.builder()
                 .nodeExecutor(executor)
+                .nodeResourceManager(resourceManager)
                 .build();
     }
 }

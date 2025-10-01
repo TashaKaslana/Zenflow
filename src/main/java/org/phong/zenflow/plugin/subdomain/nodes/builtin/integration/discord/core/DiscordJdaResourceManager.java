@@ -4,8 +4,8 @@ import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.requests.GatewayIntent;
-import org.phong.zenflow.plugin.subdomain.resource.BaseNodeResourceManager;
-import org.phong.zenflow.workflow.subdomain.trigger.resource.TriggerResourceConfig;
+import org.phong.zenflow.plugin.subdomain.resource.ResourceConfig;
+import org.phong.zenflow.plugin.subdomain.resource.trigger.BaseTriggerResourceManager;
 import org.springframework.stereotype.Component;
 
 /**
@@ -14,10 +14,9 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-public class DiscordJdaResourceManager extends BaseNodeResourceManager<JDA, TriggerResourceConfig> {
-
+public class DiscordJdaResourceManager extends BaseTriggerResourceManager<JDA, ResourceConfig> {
     @Override
-    protected JDA createResource(String resourceKey, TriggerResourceConfig triggerConfig) {
+    protected JDA createResource(String resourceKey, ResourceConfig triggerConfig) {
         try {
             String botToken = triggerConfig.getResourceIdentifier();
             log.info("Creating new JDA instance for bot token: {}...", botToken.substring(0, 8));

@@ -8,7 +8,9 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import lombok.Setter;
 import org.phong.zenflow.core.utils.ObjectConversion;
+import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
 import org.phong.zenflow.secret.exception.SecretDomainException;
 import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
@@ -35,6 +37,9 @@ public class ExecutionContext {
 
     @Getter
     private String nodeKey;
+
+    @Setter
+    private ScopedNodeResource<?> scopedResource;
 
     private final TemplateService templateService;
     private final RuntimeContextManager contextManager;
@@ -101,6 +106,31 @@ public class ExecutionContext {
         if (logPublisher != null) {
             logPublisher.setNodeKey(nodeKey);
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    public <T> T getResource() {
+        if (scopedResource == null) {
+            throw new IllegalStateException("No resource is associated with this execution context");
+        }
+
+        return (T) scopedResource.getResource();
+    }
+
+    public <T> T getResource(Class<T> type) {
+        if (scopedResource == null) {
+            throw new IllegalStateException("No resource is associated with this execution context");
+        }
+        Object resource = scopedResource.getResource();
+
+        if (!type.isInstance(resource)) {
+            throw new ClassCastException(
+                    "Expected resource of type " + type.getName() +
+                            " but got " + resource.getClass().getName()
+            );
+        }
+
+        return type.cast(resource);
     }
 
     /**

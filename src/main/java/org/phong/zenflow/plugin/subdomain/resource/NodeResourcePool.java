@@ -7,7 +7,7 @@ package org.phong.zenflow.plugin.subdomain.resource;
  * @param <T> The type of resource being managed
  * @param <C> Configuration type required to create the resource
  */
-public interface NodeResourcePool<T, C> {
+public interface NodeResourcePool<T, C extends ResourceConfig> {
 
     /**
      * Get or create a resource for the given key.

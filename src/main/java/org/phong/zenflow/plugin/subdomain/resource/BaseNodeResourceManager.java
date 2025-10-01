@@ -6,6 +6,9 @@ import com.github.benmanes.caffeine.cache.Expiry;
 import com.github.benmanes.caffeine.cache.RemovalCause;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
+import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.util.HashMap;
@@ -19,7 +22,8 @@ import java.util.Map;
  * @param <C> configuration type
  */
 @Slf4j
-public abstract class BaseNodeResourceManager<T, C> implements NodeResourcePool<T, C> {
+@Component
+public abstract class BaseNodeResourceManager<T, C extends ResourceConfig> implements NodeResourcePool<T, C> {
     private final Duration idleEviction = Duration.ofMinutes(10);
 
     private final Cache<@NonNull String, Tracked<T>> resourceCache = Caffeine.newBuilder()
@@ -52,6 +56,16 @@ public abstract class BaseNodeResourceManager<T, C> implements NodeResourcePool<
             log.info("Creating new resource for key: {}", k);
             return new Tracked<>(createResource(k, config));
         });
+    }
+
+    public String getKey(C config) {
+        return config.getResourceIdentifier();
+    }
+
+    public ScopedNodeResource<T> acquire(WorkflowConfig cfg, ExecutionContext ctx) {
+        C config = buildConfig(cfg, ctx);
+        String key = getKey(config);
+        return acquire(key, config);
     }
 
     /**
@@ -133,6 +147,11 @@ public abstract class BaseNodeResourceManager<T, C> implements NodeResourcePool<
         }
     }
 
+    public boolean isManual() {
+        return false;
+    }
+
+    public abstract C buildConfig(WorkflowConfig cfg, ExecutionContext ctx);
 
     protected abstract T createResource(String resourceKey, C config);
 

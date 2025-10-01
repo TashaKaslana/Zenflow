@@ -1,14 +1,12 @@
 package org.phong.zenflow.workflow.subdomain.trigger.resource;
 
+import org.phong.zenflow.plugin.subdomain.resource.ResourceConfig;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.TriggerContext;
 
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Default implementation of TriggerResourceConfig that wraps WorkflowTrigger.config
- */
-public class DefaultResourceConfig implements TriggerResourceConfig {
+public class DefaultResourceConfig implements ResourceConfig {
 
     private final Map<String, Object> contextMap;
     private final String resourceIdentifier;

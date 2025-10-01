@@ -4,7 +4,12 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.dto.DbConnectionKey;
 import org.phong.zenflow.plugin.subdomain.resource.BaseNodeResourceManager;
+import org.phong.zenflow.plugin.subdomain.resource.ResourceConfig;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.springframework.stereotype.Component;
+
+import java.util.Map;
 
 /**
  * Global pool for database connections following the {@link BaseNodeResourceManager}
@@ -13,6 +18,11 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class GlobalDbConnectionPool extends BaseNodeResourceManager<HikariDataSource, GlobalDbConnectionPool.DbConfig> {
+    @Override
+    public DbConfig buildConfig(WorkflowConfig cfg, ExecutionContext ctx) {
+        return null;
+    }
+
     @Override
     protected HikariDataSource createResource(String resourceKey, DbConfig config) {
         return createDataSource(config.key(), config.password());
@@ -42,5 +52,16 @@ public class GlobalDbConnectionPool extends BaseNodeResourceManager<HikariDataSo
         };
     }
 
-    public record DbConfig(DbConnectionKey key, String password) {}
+    public record DbConfig(DbConnectionKey key, String password) implements ResourceConfig {
+
+        @Override
+        public String getResourceIdentifier() {
+            return "";
+        }
+
+        @Override
+        public Map<String, Object> getContextMap() {
+            return Map.of();
+        }
+    }
 }

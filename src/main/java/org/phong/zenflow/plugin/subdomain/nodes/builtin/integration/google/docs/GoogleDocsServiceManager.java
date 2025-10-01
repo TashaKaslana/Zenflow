@@ -10,8 +10,11 @@ import com.google.auth.http.HttpCredentialsAdapter;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.auth.oauth2.UserCredentials;
 import lombok.extern.slf4j.Slf4j;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.core.GoogleResourceConfigBuilder;
 import org.phong.zenflow.plugin.subdomain.resource.BaseNodeResourceManager;
-import org.phong.zenflow.workflow.subdomain.trigger.resource.TriggerResourceConfig;
+import org.phong.zenflow.plugin.subdomain.resource.ResourceConfig;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -27,12 +30,17 @@ import java.util.List;
  */
 @Slf4j
 @Component
-public class GoogleDocsServiceManager extends BaseNodeResourceManager<Docs, TriggerResourceConfig> {
+public class GoogleDocsServiceManager extends BaseNodeResourceManager<Docs, ResourceConfig> {
 
     private static final JsonFactory JSON_FACTORY = GsonFactory.getDefaultInstance();
 
     @Override
-    protected Docs createResource(String resourceKey, TriggerResourceConfig config) {
+    public ResourceConfig buildConfig(WorkflowConfig cfg, ExecutionContext ctx) {
+        return GoogleResourceConfigBuilder.build(ctx);
+    }
+
+    @Override
+    protected Docs createResource(String resourceKey, ResourceConfig config) {
         try {
             String clientId = config.getConfigValue("clientId", String.class);
             String clientSecret = config.getConfigValue("clientSecret", String.class);
