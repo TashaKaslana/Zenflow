@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import org.phong.zenflow.plugin.subdomain.node.definition.NodeDefinition;
 import org.phong.zenflow.plugin.subdomain.node.definition.NodeDefinitionProvider;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.docs.GoogleDocsServiceManager;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -19,11 +20,13 @@ import org.springframework.stereotype.Component;
 )
 public class GoogleDocsAppendTextNode implements NodeDefinitionProvider {
     private final GoogleDocsAppendTextExecutor executor;
+    private final GoogleDocsServiceManager resourceManager;
 
     @Override
     public NodeDefinition definition() {
         return NodeDefinition.builder()
                 .nodeExecutor(executor)
+                .nodeResourceManager(resourceManager)
                 .build();
     }
 }
