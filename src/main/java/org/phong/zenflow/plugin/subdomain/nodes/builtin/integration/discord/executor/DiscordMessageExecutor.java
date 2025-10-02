@@ -2,6 +2,7 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.discord.exe
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.MessageEmbed;
@@ -10,88 +11,65 @@ import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
-import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.discord.core.DiscordJdaResourceManager;
-import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
-import org.phong.zenflow.workflow.subdomain.trigger.resource.DefaultResourceConfig;
 import org.springframework.stereotype.Component;
 
 import java.awt.*;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.List;
+import java.util.Map;
 
 @Component
 @Slf4j
 @AllArgsConstructor
 public class DiscordMessageExecutor implements NodeExecutor {
-    private final DiscordJdaResourceManager jdaResourceManager;
 
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher logs = context.getLogPublisher();
 
-        String botToken;
-        try {
-            Map<String, Object> input = config.input();
+        Map<String, Object> input = config.input();
 
-            // Extract required parameters
-            botToken = (String) context.getProfileSecret("BOT_TOKEN");
-            String channelId = (String) input.get("channel_id");
-            String message = (String) input.get("message");
+        String botToken = (String) context.getProfileSecret("BOT_TOKEN");
+        String channelId = (String) input.get("channel_id");
+        String message = (String) input.get("message");
 
-            // Validate required parameters
-            if (botToken == null || botToken.trim().isEmpty()) {
-                return ExecutionResult.error("BOT_TOKEN is required");
-            }
-            if (channelId == null || channelId.trim().isEmpty()) {
-                return ExecutionResult.error("channel_id is required");
-            }
-            if (message == null || message.trim().isEmpty()) {
-                return ExecutionResult.error("message is required");
-            }
-
-            logs.info("Sending Discord message to channel: {}", channelId);
-
-            Map<String, Object> configMap = new HashMap<>();
-            configMap.put("BOT_TOKEN", botToken);
-            DefaultResourceConfig resourceConfig = new DefaultResourceConfig(configMap, "BOT_TOKEN");
-
-            try (ScopedNodeResource<JDA> handle = jdaResourceManager.acquire(botToken, resourceConfig)) {
-                JDA jda = handle.getResource();
-
-                // Get the text channel
-                TextChannel channel = jda.getTextChannelById(channelId);
-                if (channel == null) {
-                    logs.error("Channel not found or bot doesn't have access: {}", channelId);
-                    return ExecutionResult.error("Channel not found or bot doesn't have access to channel: " + channelId);
-                }
-
-                // Create message
-                MessageCreateData messageData = createMessage(input, message);
-
-                // Send message and get response
-                Message sentMessage = channel.sendMessage(messageData).complete();
-
-                logs.success("Message sent successfully to channel: {}", channelId);
-
-                // Return response with message details
-                Map<String, Object> output = new HashMap<>();
-                output.put("message_id", sentMessage.getId());
-                output.put("channel_id", channelId);
-                output.put("timestamp", sentMessage.getTimeCreated().toString());
-                output.put("content", sentMessage.getContentDisplay());
-
-                return ExecutionResult.success(output);
-            }
-
-        } catch (Exception e) {
-            logs.withException(e).error("Failed to send Discord message: {}", e.getMessage());
-            log.error("Discord message send error", e);
-            return ExecutionResult.error("Failed to send Discord message: " + e.getMessage());
+        if (botToken == null || botToken.trim().isEmpty()) {
+            return ExecutionResult.error("BOT_TOKEN is required");
         }
+        if (channelId == null || channelId.trim().isEmpty()) {
+            return ExecutionResult.error("channel_id is required");
+        }
+        if (message == null || message.trim().isEmpty()) {
+            return ExecutionResult.error("message is required");
+        }
+
+        logs.info("Sending Discord message to channel: {}", channelId);
+
+        // Resource is expected to be provided by ResourceDecorator via NodeDefinition.nodeResourceManager
+        JDA jda = context.getResource(JDA.class);
+
+        TextChannel channel = jda.getTextChannelById(channelId);
+        if (channel == null) {
+            logs.error("Channel not found or bot doesn't have access: {}", channelId);
+            return ExecutionResult.error("Channel not found or bot doesn't have access to channel: " + channelId);
+        }
+
+        MessageCreateData messageData = createMessage(input, message);
+        Message sentMessage = channel.sendMessage(messageData).complete();
+
+        logs.success("Message sent successfully to channel: {}", channelId);
+
+        Map<String, Object> output = new HashMap<>();
+        output.put("message_id", sentMessage.getId());
+        output.put("channel_id", channelId);
+        output.put("timestamp", sentMessage.getTimeCreated().toString());
+        output.put("content", sentMessage.getContentDisplay());
+
+        return ExecutionResult.success(output);
+
     }
 
     /**
@@ -120,7 +98,7 @@ public class DiscordMessageExecutor implements NodeExecutor {
     @SuppressWarnings("unchecked")
     private MessageEmbed createEmbed(Map<String, Object> embedConfig) {
         try {
-            net.dv8tion.jda.api.EmbedBuilder embedBuilder = new net.dv8tion.jda.api.EmbedBuilder();
+            EmbedBuilder embedBuilder = new EmbedBuilder();
 
             String title = (String) embedConfig.get("title");
             if (title != null) {
@@ -154,8 +132,8 @@ public class DiscordMessageExecutor implements NodeExecutor {
 
             // Add fields if present
             Object fieldsObj = embedConfig.get("fields");
-            if (fieldsObj instanceof java.util.List) {
-                java.util.List<Map<String, Object>> fields = (List<Map<String, Object>>) fieldsObj;
+            if (fieldsObj instanceof List) {
+                List<Map<String, Object>> fields = (List<Map<String, Object>>) fieldsObj;
                 for (Map<String, Object> field : fields) {
                     String name = (String) field.get("name");
                     String value = (String) field.get("value");

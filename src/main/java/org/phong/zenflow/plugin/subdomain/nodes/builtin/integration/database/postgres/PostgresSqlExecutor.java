@@ -9,8 +9,8 @@ import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.bas
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.BaseSqlExecutor;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.dto.ResolvedDbConfig;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -32,31 +32,26 @@ public class PostgresSqlExecutor implements NodeExecutor {
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher logPublisher = context.getLogPublisher();
-        try {
-            logPublisher.info("Executing Postgres SQL node with config: {}", config);
+        logPublisher.info("Executing Postgres SQL node with config: {}", config);
 
-            config.input().put("driver", "postgresql");
-            ResolvedDbConfig dbConfig = baseDbConnection.establishConnection(config, context);
+        config.input().put("driver", "postgresql");
+        ResolvedDbConfig dbConfig = baseDbConnection.establishConnection(config, context);
 
-            // Pre-process PostgreSQL-specific syntax
-            preprocessPostgresSyntax(dbConfig, logPublisher);
+        // Pre-process PostgreSQL-specific syntax
+        preprocessPostgresSyntax(dbConfig, logPublisher);
 
-            // Intelligent parameter processing - infer types automatically
-            processParametersWithTypeInference(dbConfig, logPublisher);
+        // Intelligent parameter processing - infer types automatically
+        processParametersWithTypeInference(dbConfig, logPublisher);
 
-            // Create PostgreSQL-specific parameter binder and result processor
-            BaseSqlExecutor.ParameterBinder parameterBinder = hasParameters(dbConfig) ?
-                    postgresHandler.createParameterBinder() : null;
+        // Create PostgreSQL-specific parameter binder and result processor
+        BaseSqlExecutor.ParameterBinder parameterBinder = hasParameters(dbConfig) ?
+                postgresHandler.createParameterBinder() : null;
 
-            BaseSqlExecutor.ResultProcessor resultProcessor = postgresHandler.createResultProcessor();
+        BaseSqlExecutor.ResultProcessor resultProcessor = postgresHandler.createResultProcessor();
 
-            // Execute using BaseSqlExecutor with PostgreSQL-specific lambdas
-            return baseSqlExecutor.execute(dbConfig, logPublisher, parameterBinder, resultProcessor);
+        // Execute using BaseSqlExecutor with PostgreSQL-specific lambdas
+        return baseSqlExecutor.execute(dbConfig, logPublisher, parameterBinder, resultProcessor);
 
-        } catch (Exception e) {
-            logPublisher.withException(e).error("Postgres SQL execution failed: {}", e.getMessage());
-            return ExecutionResult.error("Postgres SQL execution failed: " + e.getMessage());
-        }
     }
 
     private boolean hasParameters(ResolvedDbConfig dbConfig) {

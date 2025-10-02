@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import org.phong.zenflow.plugin.subdomain.node.definition.NodeDefinition;
 import org.phong.zenflow.plugin.subdomain.node.definition.NodeDefinitionProvider;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.pool.GlobalDbConnectionPool;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -20,12 +21,14 @@ import org.springframework.stereotype.Component;
 public class PostgresSqlNode implements NodeDefinitionProvider {
     private final PostgresSqlExecutor executor;
     private final PostgresSqlNodeValidator validator;
+    private final GlobalDbConnectionPool resourceManager;
 
     @Override
     public NodeDefinition definition() {
         return NodeDefinition.builder()
                 .nodeExecutor(executor)
                 .nodeValidator(validator)
+                .nodeResourceManager(resourceManager)
                 .build();
     }
 }

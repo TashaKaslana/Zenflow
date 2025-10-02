@@ -19,11 +19,13 @@ import org.springframework.stereotype.Component;
 )
 public class EmailNode implements NodeDefinitionProvider {
     private final EmailExecutor executor;
+    private final EmailResourceManager resourceManager;
 
     @Override
     public NodeDefinition definition() {
         return NodeDefinition.builder()
                 .nodeExecutor(executor)
+                .nodeResourceManager(resourceManager)
                 .build();
     }
 }
