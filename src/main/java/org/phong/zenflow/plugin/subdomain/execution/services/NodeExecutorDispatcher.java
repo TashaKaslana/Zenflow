@@ -8,11 +8,14 @@ import org.phong.zenflow.plugin.subdomain.execution.interfaces.ExternalPluginExe
 import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
 import org.phong.zenflow.plugin.subdomain.node.definition.NodeDefinition;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
+import org.phong.zenflow.plugin.subdomain.node.definition.decorator.ExecutorPipelineFactory;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.logging.core.LogContext;
 import org.phong.zenflow.workflow.subdomain.logging.core.LogContextManager;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.springframework.stereotype.Service;
+
+import java.util.concurrent.Callable;
 
 @Service
 @AllArgsConstructor
@@ -20,6 +23,7 @@ import org.springframework.stereotype.Service;
 public class NodeExecutorDispatcher {
 
     private final PluginNodeExecutorRegistry registry;
+    private final ExecutorPipelineFactory executorPipelineFactory;
 
     public ExecutionResult dispatch(String identifier, String executorType, WorkflowConfig config, ExecutionContext context) {
         NodeDefinition definition;
@@ -43,7 +47,8 @@ public class NodeExecutorDispatcher {
         }
 
         try {
-            return executor.execute(config, context);
+            Callable<ExecutionResult> executionTask = executorPipelineFactory.build(definition, config, context);
+            return executionTask.call();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

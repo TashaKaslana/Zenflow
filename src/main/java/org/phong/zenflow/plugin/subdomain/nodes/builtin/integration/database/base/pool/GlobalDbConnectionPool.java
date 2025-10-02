@@ -3,6 +3,7 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.ba
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.dto.DbConnectionKey;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.dto.ResolvedDbConfig;
 import org.phong.zenflow.plugin.subdomain.resource.BaseNodeResourceManager;
 import org.phong.zenflow.plugin.subdomain.resource.ResourceConfig;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
@@ -20,7 +21,11 @@ import java.util.Map;
 public class GlobalDbConnectionPool extends BaseNodeResourceManager<HikariDataSource, GlobalDbConnectionPool.DbConfig> {
     @Override
     public DbConfig buildConfig(WorkflowConfig cfg, ExecutionContext ctx) {
-        return null;
+        ResolvedDbConfig dbConfig = ResolvedDbConfig.fromInput(cfg.input());
+
+        return new DbConfig(
+                dbConfig.toConnectionKey(), dbConfig.getPassword()
+        );
     }
 
     @Override
@@ -52,11 +57,14 @@ public class GlobalDbConnectionPool extends BaseNodeResourceManager<HikariDataSo
         };
     }
 
-    public record DbConfig(DbConnectionKey key, String password) implements ResourceConfig {
+    private static String getUniqueIdentifier(DbConnectionKey key, String password) {
+        return key.toString() + "#" + Integer.toHexString(password.hashCode());
+    }
 
+    public record DbConfig(DbConnectionKey key, String password) implements ResourceConfig {
         @Override
         public String getResourceIdentifier() {
-            return "";
+            return getUniqueIdentifier(key, password);
         }
 
         @Override
