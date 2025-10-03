@@ -12,6 +12,7 @@ import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
 import org.phong.zenflow.plugin.subdomain.execution.services.NodeExecutorDispatcher;
 import org.phong.zenflow.plugin.subdomain.node.definition.NodeDefinition;
+import org.phong.zenflow.plugin.subdomain.node.definition.decorator.ExecutorPipelineFactory;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.test.placeholder.PlaceholderExecutor;
 import org.phong.zenflow.plugin.subdomain.node.interfaces.PluginNodeSchemaProvider;
 import org.phong.zenflow.plugin.subdomain.schema.registry.SchemaIndexRegistry;
@@ -39,6 +40,7 @@ public class PluginNodeTest {
     private PluginNodeExecutorRegistry executorRegistry;
     private SchemaRegistry schemaRegistry;
     private NodeExecutorDispatcher dispatcher;
+    private ExecutorPipelineFactory executorPipelineFactory;
     private PlaceholderExecutor placeholderExecutor;
     @Mock
     private SchemaIndexRegistry schemaIndexRegistry;
@@ -53,7 +55,7 @@ public class PluginNodeTest {
         placeholderExecutor = new PlaceholderExecutor();
         PluginDescriptorSchemaService descriptorService = new PluginDescriptorSchemaService(pluginService, schemaIndexRegistry, 3600L, true);
         schemaRegistry = new SchemaRegistry(schemaProvider, pluginService, schemaIndexRegistry, descriptorService, 3600L, true);
-        dispatcher = new NodeExecutorDispatcher(executorRegistry);
+        dispatcher = new NodeExecutorDispatcher(executorRegistry, executorPipelineFactory);
 
         // Manually register the placeholder executor for testing
         NodeDefinition placeholderDefinition = NodeDefinition.builder()
