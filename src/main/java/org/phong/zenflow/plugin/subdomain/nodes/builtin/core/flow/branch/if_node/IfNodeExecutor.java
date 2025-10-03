@@ -22,31 +22,26 @@ public class IfNodeExecutor implements NodeExecutor {
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher logCollector = context.getLogPublisher();
-        try {
-            Map<String, Object> input = config.input();
-            String condition = (String) input.get("condition"); // e.g. "true", "1 > 0"
+        Map<String, Object> input = config.input();
+        String condition = (String) input.get("condition"); // e.g. "true", "1 > 0"
 
-            List<String> nextTrue = ObjectConversion.safeConvert(input.get("next_true"), new TypeReference<>() {
-            });
-            List<String> nextFalse = ObjectConversion.safeConvert(input.get("next_false"), new TypeReference<>() {
-            });
+        List<String> nextTrue = ObjectConversion.safeConvert(input.get("next_true"), new TypeReference<>() {
+        });
+        List<String> nextFalse = ObjectConversion.safeConvert(input.get("next_false"), new TypeReference<>() {
+        });
 
-            logCollector.info("Begin if flow with condition: {}", condition);
+        logCollector.info("Begin if flow with condition: {}", condition);
 
-            if (condition == null || condition.isBlank()) {
-                String errorMsg = "If condition is null or blank.";
-                logCollector.error(errorMsg);
-                throw new IllegalArgumentException(errorMsg);
-            }
-
-            log.debug("Evaluating IF condition: {}", condition);
-
-            AviatorEvaluatorInstance evaluator = context.getEvaluator().cloneInstance();
-            return getExpressionExecutionResult(condition, nextTrue, logCollector, nextFalse, context, evaluator);
-        } catch (Exception e) {
-            logCollector.withException(e).error("Failed to process if-node: {}", e.getMessage());
-            return ExecutionResult.error("Failed to process if-node: " + e.getMessage());
+        if (condition == null || condition.isBlank()) {
+            String errorMsg = "If condition is null or blank.";
+            logCollector.error(errorMsg);
+            throw new IllegalArgumentException(errorMsg);
         }
+
+        log.debug("Evaluating IF condition: {}", condition);
+
+        AviatorEvaluatorInstance evaluator = context.getEvaluator().cloneInstance();
+        return getExpressionExecutionResult(condition, nextTrue, logCollector, nextFalse, context, evaluator);
     }
 
     private ExecutionResult getExpressionExecutionResult(String condition, List<String> nextTrue, NodeLogPublisher logCollector, List<String> nextFalse, ExecutionContext context, AviatorEvaluatorInstance evaluator) {

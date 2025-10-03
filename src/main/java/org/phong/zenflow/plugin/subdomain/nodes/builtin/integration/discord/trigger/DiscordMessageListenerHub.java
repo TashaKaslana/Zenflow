@@ -1,9 +1,10 @@
 package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.discord.trigger;
 
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
-import org.jetbrains.annotations.NotNull;
+
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContextTool;
 import org.springframework.stereotype.Component;
 
@@ -35,7 +36,7 @@ public class DiscordMessageListenerHub extends ListenerAdapter {
     }
 
     @Override
-    public void onMessageReceived(@NotNull MessageReceivedEvent event) {
+    public void onMessageReceived(@NonNull MessageReceivedEvent event) {
         UUID triggerId = null;
         String channelId = event.getChannel().getId();
         log.info("Received message in channel {} in listener hub: {}", channelId, event.getMessage().getContentDisplay());
@@ -86,7 +87,7 @@ public class DiscordMessageListenerHub extends ListenerAdapter {
                 !event.getAuthor().getId().equals(event.getJDA().getSelfUser().getId());
     }
 
-    @NotNull
+    @NonNull
     private static Map<String, Object> getPayload(MessageReceivedEvent event) {
         Map<String, Object> payload = new HashMap<>();
         payload.put("message_id", event.getMessageId());

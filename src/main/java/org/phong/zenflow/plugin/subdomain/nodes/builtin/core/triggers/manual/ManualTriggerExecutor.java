@@ -43,37 +43,32 @@ public class ManualTriggerExecutor implements TriggerExecutor {
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher logs = context.getLogPublisher();
-        try {
-            logs.info("Executing ManualTriggerExecutor with config: {}", config);
-            logs.info("Manual trigger started at {}", OffsetDateTime.now());
+        logs.info("Executing ManualTriggerExecutor with config: {}", config);
+        logs.info("Manual trigger started at {}", OffsetDateTime.now());
 
-            Map<String, Object> input = config.input();
-            Object payload = input.get("payload");
+        Map<String, Object> input = config.input();
+        Object payload = input.get("payload");
 
-            Map<String, Object> output = new HashMap<>();
-            output.put("trigger_type", "manual");
-            output.put("triggered_at", OffsetDateTime.now().toString());
-            output.put("trigger_source", "manual_execution");
+        Map<String, Object> output = new HashMap<>();
+        output.put("trigger_type", "manual");
+        output.put("triggered_at", OffsetDateTime.now().toString());
+        output.put("trigger_source", "manual_execution");
 
-            if (payload != null) {
-                output.put("payload", payload);
-                logs.info("Payload received: {}", payload);
-            } else {
-                logs.info("No payload provided");
-            }
-
-            input.forEach((key, value) -> {
-                if (!"payload".equals(key)) {
-                    output.put("input_" + key, value);
-                }
-            });
-
-            logs.success("Manual trigger completed successfully");
-            return ExecutionResult.success(output);
-        } catch (Exception e) {
-            logs.withException(e).error("Unexpected error occurred during manual trigger execution: {}", e.getMessage());
-            return ExecutionResult.error(e.getMessage());
+        if (payload != null) {
+            output.put("payload", payload);
+            logs.info("Payload received: {}", payload);
+        } else {
+            logs.info("No payload provided");
         }
+
+        input.forEach((key, value) -> {
+            if (!"payload".equals(key)) {
+                output.put("input_" + key, value);
+            }
+        });
+
+        logs.success("Manual trigger completed successfully");
+        return ExecutionResult.success(output);
     }
 
     /**

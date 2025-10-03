@@ -14,7 +14,6 @@ import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
 
 import java.util.HashMap;
@@ -30,35 +29,25 @@ public class HttpRequestExecutor implements NodeExecutor {
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher logs = context.getLogPublisher();
-        try {
-            Map<String, Object> input = config.input();
+        Map<String, Object> input = config.input();
 
-            String url = (String) input.get("url");
-            HttpMethod method = HttpMethod.valueOf((String) input.get("method"));
-            Object body = input.getOrDefault("body", Map.of());
-            Map<String, Object> headers = ObjectConversion.convertObjectToMap(input.getOrDefault("headers", Map.of()));
+        String url = (String) input.get("url");
+        HttpMethod method = HttpMethod.valueOf((String) input.get("method"));
+        Object body = input.getOrDefault("body", Map.of());
+        Map<String, Object> headers = ObjectConversion.convertObjectToMap(input.getOrDefault("headers", Map.of()));
 
-            logs.info("Sending HTTP request to {} with method {}", url, method);
+        logs.info("Sending HTTP request to {} with method {}", url, method);
 
-            Map<String, Object> response = webClient.method(method)
-                    .uri(url)
-                    .bodyValue(body)
-                    .headers(httpHeaders -> getHeaders(logs, httpHeaders, headers))
-                    .exchangeToMono(this::handleResponse)
-                    .block();
+        Map<String, Object> response = webClient.method(method)
+                .uri(url)
+                .bodyValue(body)
+                .headers(httpHeaders -> getHeaders(logs, httpHeaders, headers))
+                .exchangeToMono(this::handleResponse)
+                .block();
 
-            logs.success("Received response successfully");
+        logs.success("Received response successfully");
 
-            return ExecutionResult.success(response);
-        } catch (WebClientResponseException e) {
-            logs.withException(e).error("HTTP error with status {}", e.getStatusCode());
-            log.debug("HTTP error with status {}", e.getStatusCode());
-            return ExecutionResult.error(e.getResponseBodyAsString());
-        } catch (Exception e) {
-            logs.withException(e).error("Unexpected error occurred: {}", e.getMessage());
-            log.debug("Unexpected error during HTTP request execution", e);
-            return ExecutionResult.error(e.getMessage());
-        }
+        return ExecutionResult.success(response);
     }
 
     private Mono<Map<String, Object>> handleResponse(ClientResponse response) {

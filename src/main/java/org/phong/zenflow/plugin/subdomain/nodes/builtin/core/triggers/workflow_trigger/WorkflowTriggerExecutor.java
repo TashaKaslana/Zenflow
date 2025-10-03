@@ -56,68 +56,62 @@ public class WorkflowTriggerExecutor implements TriggerExecutor {
     @Transactional
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher logs = context.getLogPublisher();
-        try {
-            logs.info("Workflow trigger started at {}", OffsetDateTime.now());
+        logs.info("Workflow trigger started at {}", OffsetDateTime.now());
 
-            Map<String, Object> input = config.input();
+        Map<String, Object> input = config.input();
 
-            //TODO: ensure trigger workflow is enabled, exists and is owned by the user
-            UUID workflowRunId = UUID.fromString(input.get("workflow_run_id").toString());
-            UUID workflowId = UUID.fromString(input.get("workflow_id").toString());
-            boolean isAsync = (boolean) input.getOrDefault("is_async", false);
-            String startFromNodeKey = (String) input.get("start_from_node_key");
-            String callbackUrl = (String) input.get("callback_url");
-            Object payload = input.get("payload");
+        UUID workflowRunId = UUID.fromString(input.get("workflow_run_id").toString());
+        UUID workflowId = UUID.fromString(input.get("workflow_id").toString());
+        boolean isAsync = (boolean) input.getOrDefault("is_async", false);
+        String startFromNodeKey = (String) input.get("start_from_node_key");
+        String callbackUrl = (String) input.get("callback_url");
+        Object payload = input.get("payload");
 
-            logs.info("Triggering workflow with ID: {} and run ID: {}", workflowId, workflowRunId);
+        logs.info("Triggering workflow with ID: {} and run ID: {}", workflowId, workflowRunId);
 
-            WorkflowRunnerRequest runnerRequest;
-            if (startFromNodeKey != null) {
-                runnerRequest = new WorkflowRunnerRequest(
-                    callbackUrl,
-                    startFromNodeKey
-                );
-
-                if (payload != null) {
-                    logs.info("Payload will be available in workflow context: {}", payload);
-                }
-            } else {
-                log.warn("No start_from_node_key provided, can't start the workflow.");
-                return ExecutionResult.error("'start_from_node_key' is required to trigger the workflow.");
-            }
-
-            eventPublisher.publishEvent(new WorkflowTriggerEvent(
-                    workflowRunId,
-                    isAsync ? TriggerType.EVENT : TriggerType.MANUAL,
-                    workflowId,
-                    runnerRequest
-            ));
-
-            Map<String, Object> output = new HashMap<>();
-            output.put("trigger_type", "workflow");
-            output.put("triggered_at", OffsetDateTime.now().toString());
-            output.put("trigger_source", "workflow_trigger");
-            output.put("target_workflow_id", workflowId.toString());
-            output.put("workflow_run_id", workflowRunId.toString());
-            output.put("is_async", isAsync);
-
-            output.put("start_from_node_key", startFromNodeKey);
-
-            if (callbackUrl != null) {
-                output.put("callback_url", callbackUrl);
-            }
+        WorkflowRunnerRequest runnerRequest;
+        if (startFromNodeKey != null) {
+            runnerRequest = new WorkflowRunnerRequest(
+                callbackUrl,
+                startFromNodeKey
+            );
 
             if (payload != null) {
-                output.put("payload", payload);
-                logs.info("Payload included: {}", payload);
+                logs.info("Payload will be available in workflow context: {}", payload);
             }
-
-            logs.success("Workflow trigger event published successfully");
-            return ExecutionResult.success(output);
-        } catch (Exception e) {
-            logs.withException(e).error("Unexpected error occurred during workflow trigger execution: {}", e.getMessage());
-            return ExecutionResult.error(e.getMessage());
+        } else {
+            log.warn("No start_from_node_key provided, can't start the workflow.");
+            return ExecutionResult.error("'start_from_node_key' is required to trigger the workflow.");
         }
+
+        eventPublisher.publishEvent(new WorkflowTriggerEvent(
+                workflowRunId,
+                isAsync ? TriggerType.EVENT : TriggerType.MANUAL,
+                workflowId,
+                runnerRequest
+        ));
+
+        Map<String, Object> output = new HashMap<>();
+        output.put("trigger_type", "workflow");
+        output.put("triggered_at", OffsetDateTime.now().toString());
+        output.put("trigger_source", "workflow_trigger");
+        output.put("target_workflow_id", workflowId.toString());
+        output.put("workflow_run_id", workflowRunId.toString());
+        output.put("is_async", isAsync);
+
+        output.put("start_from_node_key", startFromNodeKey);
+
+        if (callbackUrl != null) {
+            output.put("callback_url", callbackUrl);
+        }
+
+        if (payload != null) {
+            output.put("payload", payload);
+            logs.info("Payload included: {}", payload);
+        }
+
+        logs.success("Workflow trigger event published successfully");
+        return ExecutionResult.success(output);
     }
 
     /**

@@ -23,51 +23,45 @@ public class WhileLoopExecutor implements NodeExecutor {
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher logCollector = context.getLogPublisher();
-        try {
-            Map<String, Object> input = config.input();
+        Map<String, Object> input = config.input();
 
-            AviatorEvaluatorInstance evaluator = context.getEvaluator().cloneInstance();
+        AviatorEvaluatorInstance evaluator = context.getEvaluator().cloneInstance();
 
-            boolean shouldContinue = evalCondition(input.get("condition"), input, context, logCollector, evaluator);
-            logCollector.info("While loop condition evaluated to [{}]", shouldContinue);
+        boolean shouldContinue = evalCondition(input.get("condition"), input, context, logCollector, evaluator);
+        logCollector.info("While loop condition evaluated to [{}]", shouldContinue);
 
-            if (!shouldContinue) {
-                List<String> loopEnd = ObjectConversion.safeConvert(input.get("loopEnd"), new TypeReference<>() {});
-                logCollector.info("While loop completed.");
-                if (loopEnd.isEmpty()) {
-                    logCollector.warning("loopEnd is empty, no next node to proceed to after completion.");
-                    return ExecutionResult.loopEnd(null, input);
-                }
-                return ExecutionResult.loopEnd(loopEnd.getFirst(), input);
+        if (!shouldContinue) {
+            List<String> loopEnd = ObjectConversion.safeConvert(input.get("loopEnd"), new TypeReference<>() {});
+            logCollector.info("While loop completed.");
+            if (loopEnd.isEmpty()) {
+                logCollector.warning("loopEnd is empty, no next node to proceed to after completion.");
+                return ExecutionResult.loopEnd(null, input);
             }
-
-            if (evalCondition(input.get("breakCondition"), input, context, logCollector, evaluator)) {
-                List<String> loopEnd = ObjectConversion.safeConvert(input.get("loopEnd"), new TypeReference<>() {});
-                logCollector.info("Break condition met, exiting while loop.");
-                if (loopEnd.isEmpty()) {
-                    logCollector.warning("loopEnd is empty, no next node to proceed to after break condition.");
-                    return ExecutionResult.loopBreak(null, input);
-                }
-                return ExecutionResult.loopBreak(loopEnd.getFirst(), input);
-            }
-
-            if (evalCondition(input.get("continueCondition"), input, context, logCollector, evaluator)) {
-                logCollector.info("Continue condition met, skipping to next iteration.");
-                return ExecutionResult.loopContinue(input);
-            }
-
-            List<String> next = ObjectConversion.safeConvert(input.get("next"), new TypeReference<>() {});
-            logCollector.info("Proceeding to while loop body.");
-            if (next.isEmpty()) {
-                logCollector.warning("next is empty, no next node to proceed to for loop body.");
-                return ExecutionResult.loopNext(null, input);
-            }
-            return ExecutionResult.loopNext(next.getFirst(), input);
-
-        } catch (Exception e) {
-            logCollector.withException(e).error("Failed to process while-loop: {}", e.getMessage());
-            return ExecutionResult.error("Failed to process while-loop: " + e.getMessage());
+            return ExecutionResult.loopEnd(loopEnd.getFirst(), input);
         }
+
+        if (evalCondition(input.get("breakCondition"), input, context, logCollector, evaluator)) {
+            List<String> loopEnd = ObjectConversion.safeConvert(input.get("loopEnd"), new TypeReference<>() {});
+            logCollector.info("Break condition met, exiting while loop.");
+            if (loopEnd.isEmpty()) {
+                logCollector.warning("loopEnd is empty, no next node to proceed to after break condition.");
+                return ExecutionResult.loopBreak(null, input);
+            }
+            return ExecutionResult.loopBreak(loopEnd.getFirst(), input);
+        }
+
+        if (evalCondition(input.get("continueCondition"), input, context, logCollector, evaluator)) {
+            logCollector.info("Continue condition met, skipping to next iteration.");
+            return ExecutionResult.loopContinue(input);
+        }
+
+        List<String> next = ObjectConversion.safeConvert(input.get("next"), new TypeReference<>() {});
+        logCollector.info("Proceeding to while loop body.");
+        if (next.isEmpty()) {
+            logCollector.warning("next is empty, no next node to proceed to for loop body.");
+            return ExecutionResult.loopNext(null, input);
+        }
+        return ExecutionResult.loopNext(next.getFirst(), input);
     }
 
     private boolean evalCondition(Object rawExpr, Map<String, Object> context, ExecutionContext execCtx, NodeLogPublisher logCollector, AviatorEvaluatorInstance evaluator) {

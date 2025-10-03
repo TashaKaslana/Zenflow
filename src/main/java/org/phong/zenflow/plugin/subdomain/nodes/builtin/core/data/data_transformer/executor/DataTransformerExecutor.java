@@ -30,44 +30,38 @@ public class DataTransformerExecutor implements NodeExecutor {
         log.debug("Executing DataTransformerExecutor with config: {}", config);
         logPublisher.info("Executing DataTransformerExecutor with config: " + config);
 
-        try {
-            Object rawInput = config.input();
-            if (rawInput == null) {
-                log.debug("Configuration input is missing.");
-                logPublisher.error("Configuration input is missing.");
-                throw new DataTransformerExecutorException("Configuration input is missing.");
-            }
-            Map<String, Object> input = ObjectConversion.convertObjectToMap(rawInput);
-
-            Object nameObj = input.get("name");
-            if (nameObj != null && !(nameObj instanceof String)) {
-                log.debug("Transformer name must be a string.");
-                logPublisher.error("Transformer name must be a string.");
-                throw new DataTransformerExecutorException("Transformer name must be a string.");
-            }
-            String transformerName = (String) nameObj;
-
-            Object inputValue = input.get("data");
-            if (inputValue == null) {
-                log.debug("Data is missing in the configuration.");
-                logPublisher.error("Data is missing in the configuration.");
-                throw new DataTransformerExecutorException("Data is missing in the configuration.");
-            }
-
-            Map<String, Object> params = ObjectConversion.convertObjectToMap(input.get("params"));
-            // Defaults to single-transform mode when "isPipeline" flag is absent
-            boolean isPipeline = Boolean.TRUE.equals(input.get("isPipeline"));
-            boolean forEach = Boolean.TRUE.equals(input.get("forEach"));
-            Object result;
-
-            result = getResult(forEach, inputValue, logPublisher, input, isPipeline, transformerName, params);
-
-            return ExecutionResult.success(Map.of("result", result));
-        } catch (Exception e) {
-            logPublisher.error("Error occurred during data transformation: " + e.getMessage());
-            log.debug("Data transformation failed {}", e.getMessage(), e);
-            return ExecutionResult.error(e.getMessage());
+        Object rawInput = config.input();
+        if (rawInput == null) {
+            log.debug("Configuration input is missing.");
+            logPublisher.error("Configuration input is missing.");
+            throw new DataTransformerExecutorException("Configuration input is missing.");
         }
+        Map<String, Object> input = ObjectConversion.convertObjectToMap(rawInput);
+
+        Object nameObj = input.get("name");
+        if (nameObj != null && !(nameObj instanceof String)) {
+            log.debug("Transformer name must be a string.");
+            logPublisher.error("Transformer name must be a string.");
+            throw new DataTransformerExecutorException("Transformer name must be a string.");
+        }
+        String transformerName = (String) nameObj;
+
+        Object inputValue = input.get("data");
+        if (inputValue == null) {
+            log.debug("Data is missing in the configuration.");
+            logPublisher.error("Data is missing in the configuration.");
+            throw new DataTransformerExecutorException("Data is missing in the configuration.");
+        }
+
+        Map<String, Object> params = ObjectConversion.convertObjectToMap(input.get("params"));
+        // Defaults to single-transform mode when "isPipeline" flag is absent
+        boolean isPipeline = Boolean.TRUE.equals(input.get("isPipeline"));
+        boolean forEach = Boolean.TRUE.equals(input.get("forEach"));
+        Object result;
+
+        result = getResult(forEach, inputValue, logPublisher, input, isPipeline, transformerName, params);
+
+        return ExecutionResult.success(Map.of("result", result));
     }
 
     private Object getResult(boolean forEach, Object inputValue, NodeLogPublisher logPublisher, Map<String, Object> input, boolean isPipeline, String transformerName, Map<String, Object> params) {

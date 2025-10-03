@@ -20,60 +20,54 @@ public class WaitExecutor implements NodeExecutor {
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher log = context.getLogPublisher();
-        try {
-            log.info("Starting wait node execution");
-            String mode = (String) config.input().getOrDefault("mode", "any");
-            int threshold = 1;
-            if (mode.equals("threshold")) {
-                threshold = ((Number) config.input().get("threshold")).intValue();
-            }
-            Map<String, Boolean> waitingNodes = ObjectConversion.convertObjectToMap(config.input().get("waitingNodes"), Boolean.class);
+        log.info("Starting wait node execution");
+        String mode = (String) config.input().getOrDefault("mode", "any");
+        int threshold = 1;
+        if (mode.equals("threshold")) {
+            threshold = ((Number) config.input().get("threshold")).intValue();
+        }
+        Map<String, Boolean> waitingNodes = ObjectConversion.convertObjectToMap(config.input().get("waitingNodes"), Boolean.class);
 
-            if (waitingNodes == null || waitingNodes.isEmpty()) {
-                log.error("No waiting nodes provided in the input.");
-                return ExecutionResult.error("No waiting nodes provided");
-            }
+        if (waitingNodes == null || waitingNodes.isEmpty()) {
+            log.error("No waiting nodes provided in the input.");
+            return ExecutionResult.error("No waiting nodes provided");
+        }
 
-            boolean isReady = isReady(waitingNodes, mode, threshold);
-            log.info("Status of waiting nodes: {}", waitingNodes);
-            Map<String, Object> output = Map.of(
-                "waitingNodes", waitingNodes,
-                "mode", mode,
-                "threshold", threshold,
-                "isReady", isReady
-            );
+        boolean isReady = isReady(waitingNodes, mode, threshold);
+        log.info("Status of waiting nodes: {}", waitingNodes);
+        Map<String, Object> output = Map.of(
+            "waitingNodes", waitingNodes,
+            "mode", mode,
+            "threshold", threshold,
+            "isReady", isReady
+        );
 
-            if (!isReady) {
-                Long timeoutMs = extractTimeout(config);
-                ExecutionStatus fallbackStatus = extractFallbackStatus(config);
+        if (!isReady) {
+            Long timeoutMs = extractTimeout(config);
+            ExecutionStatus fallbackStatus = extractFallbackStatus(config);
 
-                if (timeoutMs != null) {
-                    String timerKey = buildTimerKey(config);
-                    Long start = context.read(timerKey, Long.class);
-                    if (start == null) {
-                        start = System.currentTimeMillis();
-                        context.write(timerKey, start);
-                    }
-
-                    long elapsed = System.currentTimeMillis() - start;
-                    if (elapsed >= timeoutMs) {
-                        String message = String.format("Timeout after %dms", timeoutMs);
-                        if (fallbackStatus != null && fallbackStatus != ExecutionStatus.ERROR) {
-                            return buildFallbackResult(fallbackStatus, output, message);
-                        }
-                        return ExecutionResult.error(message);
-                    }
+            if (timeoutMs != null) {
+                String timerKey = buildTimerKey(config);
+                Long start = context.read(timerKey, Long.class);
+                if (start == null) {
+                    start = System.currentTimeMillis();
+                    context.write(timerKey, start);
                 }
 
-                return ExecutionResult.uncommit(output);
+                long elapsed = System.currentTimeMillis() - start;
+                if (elapsed >= timeoutMs) {
+                    String message = String.format("Timeout after %dms", timeoutMs);
+                    if (fallbackStatus != null && fallbackStatus != ExecutionStatus.ERROR) {
+                        return buildFallbackResult(fallbackStatus, output, message);
+                    }
+                    return ExecutionResult.error(message);
+                }
             }
 
-            return ExecutionResult.commit(output);
-        } catch (Exception e) {
-            log.error("Failed to process wait node", e);
-            log.withException(e).error("Failed to process wait node: " + e.getMessage());
-            return ExecutionResult.error("Failed to process wait node: " + e.getMessage());
+            return ExecutionResult.uncommit(output);
         }
+
+        return ExecutionResult.commit(output);
     }
 
     public boolean isReady(Map<String, Boolean> waitingNodes, String mode, int threshold) {
