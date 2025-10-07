@@ -22,7 +22,11 @@ public class ResourceDecoratorHandler implements ExecutorDecorator {
                                               WorkflowConfig cfg,
                                               ExecutionContext ctx) {
         BaseNodeResourceManager<?, ?> nodeResourceManager = def.getNodeResourceManager();
-        if (nodeResourceManager == null || nodeResourceManager.isManual()) {
+        if (nodeResourceManager == null) {
+            return inner;
+        }
+
+        if (nodeResourceManager.isManual() || !def.shouldAutoAcquireResource()) {
             return inner;
         }
 

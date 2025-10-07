@@ -7,7 +7,10 @@ import lombok.NoArgsConstructor;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeValidator;
 import org.phong.zenflow.plugin.subdomain.resource.BaseNodeResourceManager;
+import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerExecutor;
 import org.springframework.lang.Nullable;
+
+import java.util.Objects;
 
 @AllArgsConstructor
 @NoArgsConstructor
@@ -27,4 +30,18 @@ public class NodeDefinition {
     String icon;
     String type;
     String[] tags;
+
+    @Nullable
+    Boolean autoAcquireResource;
+
+    public boolean shouldAutoAcquireResource() {
+        if (nodeResourceManager == null) {
+            return false;
+        }
+
+        return Objects.requireNonNullElseGet(
+                autoAcquireResource,
+                () -> !(nodeExecutor instanceof TriggerExecutor)
+        );
+    }
 }
