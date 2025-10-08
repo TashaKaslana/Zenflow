@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.entity.PluginNode;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContextImpl;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContextManager;
 import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
@@ -57,7 +58,7 @@ public class SingleNodeExecutionService {
                 .userId(null)
                 .build();
 
-        ExecutionContext execCtx = ExecutionContext.builder()
+        ExecutionContext execCtx = ExecutionContextImpl.builder()
                 .workflowId(workflowId)
                 .workflowRunId(runId)
                 .traceId(LogContextManager.snapshot().traceId())

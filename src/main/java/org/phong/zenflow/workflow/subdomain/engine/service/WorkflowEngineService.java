@@ -8,6 +8,7 @@ import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.plugin.subdomain.execution.services.NodeExecutorDispatcher;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContextImpl;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContextKey;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContextManager;
@@ -68,7 +69,7 @@ public class WorkflowEngineService {
                     .userId(userIdFromContext)
                     .build();
 
-            ExecutionContext execCtx = ExecutionContext.builder()
+            ExecutionContext execCtx = ExecutionContextImpl.builder()
                     .workflowId(workflow.getId())
                     .workflowRunId(workflowRunId)
                     .traceId(LogContextManager.snapshot().traceId())
