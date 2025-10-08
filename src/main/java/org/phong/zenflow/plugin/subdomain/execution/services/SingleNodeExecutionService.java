@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.entity.PluginNode;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContextImpl;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContextManager;
 import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
@@ -15,8 +16,6 @@ import java.util.UUID;
 
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
-import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
-import org.phong.zenflow.workflow.subdomain.schema_validator.service.WorkflowValidationService;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
@@ -33,8 +32,7 @@ import java.util.Map;
 @Slf4j
 public class SingleNodeExecutionService {
 
-    private final PluginNodeExecutorDispatcher executorDispatcher;
-    private final WorkflowValidationService workflowValidationService;
+    private final NodeExecutorDispatcher executorDispatcher;
     private final RuntimeContextManager contextManager;
     private final ApplicationEventPublisher publisher;
     private final TemplateService templateService;
@@ -60,7 +58,7 @@ public class SingleNodeExecutionService {
                 .userId(null)
                 .build();
 
-        ExecutionContext execCtx = ExecutionContext.builder()
+        ExecutionContext execCtx = ExecutionContextImpl.builder()
                 .workflowId(workflowId)
                 .workflowRunId(runId)
                 .traceId(LogContextManager.snapshot().traceId())
@@ -70,27 +68,16 @@ public class SingleNodeExecutionService {
                 .templateService(templateService)
                 .build();
 
-        execCtx.setNodeKey(pluginNode.getCompositeKey());
+        execCtx.setNodeKey(node.getKey());
+        execCtx.setPluginNodeId(pluginNode.getId());
         WorkflowConfig config = node.getConfig();
         WorkflowConfig safeConfig = (config != null) ? config : new WorkflowConfig();
-        WorkflowConfig resolvedConfig = execCtx.resolveConfig(pluginNode.getCompositeKey(), safeConfig);
+        WorkflowConfig resolvedConfig = execCtx.resolveConfig(node.getKey(), safeConfig);
 
-        return LogContextManager.withComponent(pluginNode.getCompositeKey(), () -> {
+        return LogContextManager.withComponent(node.getKey(), () -> {
             LogContext ctx = LogContextManager.snapshot();
             log.info("[traceId={}] [hierarchy={}] Node started", ctx.traceId(), ctx.hierarchy());
-            execCtx.setNodeKey(pluginNode.getCompositeKey());
 
-            ValidationResult validationResult = workflowValidationService.validateRuntime(
-                    node.getKey(),
-                    resolvedConfig,
-                    pluginNode.getId().toString(),
-                    execCtx
-            );
-            if (!validationResult.isValid()) {
-                log.warn("Validation failed for node {}: {}", pluginNode.getCompositeKey(), validationResult.getErrors());
-                log.info("[traceId={}] [hierarchy={}] Node finished", ctx.traceId(), ctx.hierarchy());
-                return ExecutionResult.validationError(validationResult, pluginNode.getCompositeKey());
-            }
             ExecutionResult result = executorDispatcher.dispatch(
                     pluginNode.getId().toString(),
                     pluginNode.getExecutorType(),

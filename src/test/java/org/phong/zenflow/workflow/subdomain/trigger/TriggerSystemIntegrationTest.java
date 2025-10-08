@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.*;
 import org.phong.zenflow.core.services.SharedQuartzSchedulerService;
 import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
+import org.phong.zenflow.plugin.subdomain.node.definition.NodeDefinition;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.triggers.schedule.ScheduleTriggerExecutor;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
@@ -55,11 +56,14 @@ public class TriggerSystemIntegrationTest {
         // Register the schedule trigger executor with UUID (cast to string) as you mentioned
         scheduleExecutorId = generateDeterministicExecutorId("core:schedule.trigger:1.0.0");
 
+        NodeDefinition scheduleDefinition = NodeDefinition.builder()
+                .nodeExecutor(new ScheduleTriggerExecutor(sharedQuartzSchedulerService))
+                .build();
         registry.register(
                 scheduleExecutorId.toString(),
-                () -> new ScheduleTriggerExecutor(sharedQuartzSchedulerService)
+                () -> scheduleDefinition
         );
-        triggerRegistry.registerTrigger(scheduleExecutorId.toString());
+        triggerRegistry.registerTrigger(scheduleExecutorId.toString(), ScheduleTriggerExecutor.class);
 
         log.info("✅ Registered schedule trigger executor with UUID: {} (SHARED FOR ALL TESTS)", scheduleExecutorId);
         log.info("=== SHARED TRIGGER SYSTEM READY - TESTS WILL RUN EFFICIENTLY ===");

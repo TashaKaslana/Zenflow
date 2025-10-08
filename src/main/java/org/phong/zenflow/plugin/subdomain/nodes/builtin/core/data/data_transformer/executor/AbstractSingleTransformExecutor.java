@@ -2,7 +2,7 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.data.data_transfor
 
 import lombok.AllArgsConstructor;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
-import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
+import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 
@@ -14,7 +14,7 @@ import java.util.Map;
  * the caller to specify the transformer name in the configuration.
  */
 @AllArgsConstructor
-public abstract class AbstractSingleTransformExecutor implements PluginNodeExecutor {
+public abstract class AbstractSingleTransformExecutor implements NodeExecutor {
     private final DataTransformerExecutor delegate;
 
     protected abstract String transformerName();

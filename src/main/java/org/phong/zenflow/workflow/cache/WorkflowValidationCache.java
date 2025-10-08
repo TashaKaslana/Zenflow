@@ -2,6 +2,7 @@ package org.phong.zenflow.workflow.cache;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import lombok.NonNull;
 import org.phong.zenflow.workflow.dto.WorkflowDefinitionUpdateResult;
 import org.springframework.stereotype.Component;
 
@@ -10,7 +11,7 @@ import java.util.concurrent.TimeUnit;
 
 @Component
 public class WorkflowValidationCache {
-    private final Cache<UUID, WorkflowDefinitionUpdateResult> cache = Caffeine.newBuilder()
+    private final Cache<@NonNull UUID, WorkflowDefinitionUpdateResult> cache = Caffeine.newBuilder()
             .expireAfterWrite(5, TimeUnit.MINUTES)
             .maximumSize(1_000)
             .build();

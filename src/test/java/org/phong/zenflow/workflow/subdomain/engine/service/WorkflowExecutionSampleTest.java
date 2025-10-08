@@ -2,9 +2,11 @@ package org.phong.zenflow.workflow.subdomain.engine.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
-import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
+import org.phong.zenflow.plugin.subdomain.node.definition.NodeDefinition;
+import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.branch.if_node.IfNodeExecutor;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.branch.switch_node.SwitchCase;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.branch.switch_node.SwitchNodeExecutor;
@@ -50,24 +52,36 @@ class WorkflowExecutionSampleTest {
         ForLoopExecutor forLoopExecutor = applicationContext.getBean(ForLoopExecutor.class);
         // Define UUIDs for each executor (following the UUID pattern used elsewhere)
         String forLoopUuid = "223e4567-e89b-12d3-a456-426614174003";
-        registry.register(forLoopUuid, () -> forLoopExecutor);
-        registry.register("core:flow.loop.for:1.0.0", () -> forLoopExecutor);
+        NodeDefinition forLoopDefinition = NodeDefinition.builder()
+                .nodeExecutor(forLoopExecutor)
+                .build();
+        registry.register(forLoopUuid, () -> forLoopDefinition);
+        registry.register("core:flow.loop.for:1.0.0", () -> forLoopDefinition);
 
         IfNodeExecutor ifNodeExecutor = applicationContext.getBean(IfNodeExecutor.class);
+        NodeDefinition ifDefinition = NodeDefinition.builder()
+                .nodeExecutor(ifNodeExecutor)
+                .build();
         String ifNodeUuid = "323e4567-e89b-12d3-a456-426614174004";
-        registry.register(ifNodeUuid, () -> ifNodeExecutor);
-        registry.register("core:flow.branch.if:1.0.0", () -> ifNodeExecutor);
+        registry.register(ifNodeUuid, () -> ifDefinition);
+        registry.register("core:flow.branch.if:1.0.0", () -> ifDefinition);
 
         SwitchNodeExecutor switchNodeExecutor = applicationContext.getBean(SwitchNodeExecutor.class);
+        NodeDefinition switchDefinition = NodeDefinition.builder()
+                .nodeExecutor(switchNodeExecutor)
+                .build();
         String switchNodeUuid = "423e4567-e89b-12d3-a456-426614174005";
-        registry.register(switchNodeUuid, () -> switchNodeExecutor);
-        registry.register("core:flow.branch.switch:1.0.0", () -> switchNodeExecutor);
+        registry.register(switchNodeUuid, () -> switchDefinition);
+        registry.register("core:flow.branch.switch:1.0.0", () -> switchDefinition);
 
         PlaceholderExecutor placeholderExecutor = applicationContext.getBean(PlaceholderExecutor.class);
+        NodeDefinition placeholderDefinition = NodeDefinition.builder()
+                .nodeExecutor(placeholderExecutor)
+                .build();
         // Same as other tests
         String placeholderUuid = "123e4567-e89b-12d3-a456-426614174001";
-        registry.register(placeholderUuid, () -> placeholderExecutor);
-        registry.register("test:placeholder:1.0.0", () -> placeholderExecutor);
+        registry.register(placeholderUuid, () -> placeholderDefinition);
+        registry.register("test:placeholder:1.0.0", () -> placeholderDefinition);
     }
 
     @Test
@@ -99,7 +113,8 @@ class WorkflowExecutionSampleTest {
         for (String key : nodeKeys) {
             // Use the key directly as it should now be a UUID string after our refactoring
             // If we have composite keys, we need to handle the conversion properly
-            PluginNodeExecutor executor = registry.getExecutor(key).orElseThrow();
+            NodeDefinition definition = registry.getDefinition(key).orElseThrow();
+            NodeExecutor executor = definition.getNodeExecutor();
             WorkflowConfig config;
             switch (key) {
                 case "core:flow.loop.for:1.0.0" -> config = new WorkflowConfig(new HashMap<>(loopParams), Map.of());
@@ -119,7 +134,12 @@ class WorkflowExecutionSampleTest {
                 }
                 default -> config = new WorkflowConfig(Map.of(), Map.of());
             }
-            var result = executor.execute(config, context);
+            ExecutionResult result;
+            try {
+                result = executor.execute(config, context);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
             switch (key) {
                 case "core:flow.loop.for:1.0.0" -> {
                     assertTrue(result.getStatus() == ExecutionStatus.LOOP_NEXT || result.getStatus() == ExecutionStatus.LOOP_END);

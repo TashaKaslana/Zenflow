@@ -5,8 +5,12 @@ import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import org.phong.zenflow.plugin.subdomain.resource.BaseNodeResourceManager;
-import org.phong.zenflow.workflow.subdomain.trigger.resource.TriggerResourceConfig;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.trigger.resource.DefaultResourceConfig;
 import org.springframework.stereotype.Component;
+
+import java.util.Map;
 
 /**
  * Discord JDA Resource Manager - handles sharing JDA instances across multiple triggers.
@@ -14,13 +18,29 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-public class DiscordJdaResourceManager extends BaseNodeResourceManager<JDA, TriggerResourceConfig> {
+public class DiscordJdaResourceManager extends BaseNodeResourceManager<JDA, DefaultResourceConfig> {
+    private static final String BOT_TOKEN_KEY = "BOT_TOKEN";
 
     @Override
-    protected JDA createResource(String resourceKey, TriggerResourceConfig triggerConfig) {
+    public DefaultResourceConfig buildConfig(WorkflowConfig cfg, ExecutionContext ctx) {
+        if (ctx == null) {
+            throw new IllegalStateException("Execution context is required to build Discord resource configuration");
+        }
+
+        Object secret = ctx.getProfileSecret(BOT_TOKEN_KEY);
+        if (!(secret instanceof String token) || token.isBlank()) {
+            throw new IllegalStateException("BOT_TOKEN profile secret is required to acquire Discord JDA resource");
+        }
+
+        return new DefaultResourceConfig(Map.of(BOT_TOKEN_KEY, token), BOT_TOKEN_KEY);
+    }
+
+    @Override
+    protected JDA createResource(String resourceKey, DefaultResourceConfig triggerConfig) {
         try {
             String botToken = triggerConfig.getResourceIdentifier();
-            log.info("Creating new JDA instance for bot token: {}...", botToken.substring(0, 8));
+            String redactedToken = botToken.length() > 8 ? botToken.substring(0, 8) : botToken;
+            log.info("Creating new JDA instance for bot token: {}...", redactedToken);
 
             JDA jda = JDABuilder.createDefault(botToken)
                     .enableIntents(
@@ -30,7 +50,7 @@ public class DiscordJdaResourceManager extends BaseNodeResourceManager<JDA, Trig
                     )
                     .build();
 
-            log.info("JDA instance is building for token: {}...", botToken.substring(0, 8));
+            log.info("JDA instance is building for token: {}...", redactedToken);
             return jda;
 
         } catch (Exception e) {

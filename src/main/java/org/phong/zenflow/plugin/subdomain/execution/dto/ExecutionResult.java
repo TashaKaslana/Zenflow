@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionError;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
 
@@ -15,6 +16,8 @@ import java.util.Map;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class ExecutionResult {
     private ExecutionStatus status;
+    private ExecutionError errorType;
+    private String errorLabel;
     private String error;
     private Map<String, Object> output;
     private String nextNodeKey;
@@ -30,6 +33,24 @@ public class ExecutionResult {
     public static ExecutionResult error(String errorMessage) {
         ExecutionResult result = new ExecutionResult();
         result.setStatus(ExecutionStatus.ERROR);
+        result.setError(errorMessage);
+        return result;
+    }
+
+    public static ExecutionResult error(ExecutionError errorType, String errorLabel, String errorMessage) {
+        ExecutionResult result = new ExecutionResult();
+        result.setStatus(ExecutionStatus.ERROR);
+        result.setErrorType(errorType);
+        result.setErrorLabel(errorLabel != null ? errorLabel : errorType.getMessage());
+        result.setError(errorMessage);
+        return result;
+    }
+
+    public static ExecutionResult error(ExecutionError errorType, String errorMessage) {
+        ExecutionResult result = new ExecutionResult();
+        result.setStatus(ExecutionStatus.ERROR);
+        result.setErrorType(errorType);
+        result.setErrorLabel(errorType.getMessage());
         result.setError(errorMessage);
         return result;
     }

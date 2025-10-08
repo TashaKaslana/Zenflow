@@ -1,14 +1,14 @@
 package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.core;
 
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.trigger.resource.DefaultTriggerResourceConfig;
+import org.phong.zenflow.workflow.subdomain.trigger.resource.DefaultResourceConfig;
 
 import java.util.HashMap;
 import java.util.Map;
 
 public class GoogleResourceConfigBuilder {
 
-    public static DefaultTriggerResourceConfig build(ExecutionContext context) {
+    public static DefaultResourceConfig build(ExecutionContext context) {
         String clientId = (String) context.getProfileSecret("CLIENT_ID");
         String clientSecret = (String) context.getProfileSecret("CLIENT_SECRET");
         String refreshToken = (String) context.getProfileSecret("CLIENT_REFRESH_TOKEN");
@@ -21,6 +21,6 @@ public class GoogleResourceConfigBuilder {
         cfg.put("clientId", clientId);
         cfg.put("clientSecret", clientSecret);
         cfg.put("refreshToken", refreshToken);
-        return new DefaultTriggerResourceConfig(cfg, "refreshToken");
+        return new DefaultResourceConfig(cfg, "refreshToken");
     }
 }

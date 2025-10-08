@@ -2,6 +2,7 @@ package org.phong.zenflow.plugin.subdomain.schema.services;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
 import org.phong.zenflow.core.utils.LoadSchemaHelper;
@@ -27,8 +28,8 @@ public class PluginDescriptorSchemaService {
 
     private final PluginService pluginService;
     private final SchemaIndexRegistry schemaIndexRegistry;
-    private final Cache<String, JSONObject> profileCache;
-    private final Cache<String, JSONObject> settingCache;
+    private final Cache<@NonNull String, JSONObject> profileCache;
+    private final Cache<@NonNull String, JSONObject> settingCache;
     private final boolean useFileBasedLoading;
 
     public PluginDescriptorSchemaService(
@@ -62,7 +63,7 @@ public class PluginDescriptorSchemaService {
                                            String pluginKey,
                                            String descriptorId,
                                            String section,
-                                           Cache<String, JSONObject> cache) {
+                                           Cache<@NonNull String, JSONObject> cache) {
         if (descriptorId == null || descriptorId.isBlank()) {
             throw new PluginException("Descriptor id must be provided");
         }
@@ -96,7 +97,7 @@ public class PluginDescriptorSchemaService {
             }
         }
 
-        Map<String, Object> pluginSchema = null;
+        Map<String, Object> pluginSchema;
         if (pluginId != null) {
             pluginSchema = pluginService.findPluginById(pluginId).getPluginSchema();
         } else {
@@ -115,7 +116,7 @@ public class PluginDescriptorSchemaService {
         throw new NodeSchemaMissingException("No schema found for descriptor", List.of(descriptorId));
     }
 
-    private void cacheLoadedDescriptors(Cache<String, JSONObject> cache,
+    private void cacheLoadedDescriptors(Cache<@NonNull String, JSONObject> cache,
                                         List<String> bases,
                                         String section,
                                         String descriptorId,

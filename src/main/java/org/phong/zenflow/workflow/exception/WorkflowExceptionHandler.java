@@ -4,7 +4,6 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.responses.ApiErrorResponse;
 import org.phong.zenflow.core.responses.RestApiResponse;
-import org.phong.zenflow.plugin.exception.PluginException;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;

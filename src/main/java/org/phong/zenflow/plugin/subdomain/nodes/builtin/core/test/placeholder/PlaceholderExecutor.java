@@ -2,8 +2,7 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.test.placeholder;
 
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
-import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
-import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
+import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
@@ -12,16 +11,7 @@ import org.springframework.stereotype.Component;
 import java.util.Map;
 
 @Component
-@PluginNode(
-        key = "test:placeholder",
-        name = "Placeholder Node",
-        version = "1.0.0",
-        description = "A placeholder node that echoes its input as output.",
-        icon = "ph:placeholder",
-        tags = {"data", "placeholder"},
-        type = "data"
-)
-public class PlaceholderExecutor implements PluginNodeExecutor {
+public class PlaceholderExecutor implements NodeExecutor {
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher logCollector = context.getLogPublisher();

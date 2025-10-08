@@ -5,12 +5,11 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
-import org.phong.zenflow.plugin.subdomain.execution.interfaces.PluginNodeExecutor;
+import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
-import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 
 import java.lang.reflect.Array;
 import java.util.*;
@@ -18,61 +17,41 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Component
-@PluginNode(
-        key = "core:merge_data",
-        name = "Merge Data",
-        version = "1.0.0",
-        description = "Merges multiple data sources into a single output based on specified strategies.",
-        type = "data_transformation",
-        tags = {"data", "merge", "transformation"},
-        icon = "merge_data"
-)
 @AllArgsConstructor
-public class MergeDataExecutor implements PluginNodeExecutor {
+public class MergeDataExecutor implements NodeExecutor {
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher logPublisher = context.getLogPublisher();
-        try {
-            logPublisher.info("Starting data merge operation");
-            log.debug("Executing MergeDataExecutor with config: {}", config);
+        logPublisher.info("Starting data merge operation");
+        log.debug("Executing MergeDataExecutor with config: {}", config);
 
-            Map<String, Object> input = config.input();
-            if (input == null || input.isEmpty()) {
-                logPublisher.error("Input configuration is missing or empty");
-                return ExecutionResult.error("Input configuration is required");
-            }
-
-            // Extract and validate sources
-            List<Map<String, Object>> sources = extractSources(input, logPublisher);
-            if (sources.isEmpty()) {
-                return ExecutionResult.error("No valid source data provided");
-            }
-
-            // Extract and validate strategy
-            MergeStrategy strategy = extractStrategy(input, logPublisher);
-
-            // Additional merge options
-            MergeOptions options = extractMergeOptions(input);
-
-            logPublisher.info("Merging {} sources using {} strategy", sources.size(), strategy);
-
-            // Perform the merge operation
-            Map<String, Object> result = performMerge(sources, strategy, options, logPublisher);
-
-            logPublisher.success("Data merge completed successfully. Result contains {} items",
-                        result.containsKey("data") ? getDataSize(result.get("data")) : 0);
-
-            return ExecutionResult.success(result);
-
-        } catch (IllegalArgumentException e) {
-            logPublisher.error("Invalid configuration: {}", e.getMessage());
-            log.debug("Configuration validation failed", e);
-            return ExecutionResult.error("Configuration error: " + e.getMessage());
-        } catch (Exception e) {
-            logPublisher.error("Unexpected error during data merge: {}", e.getMessage());
-            log.error("Data merge operation failed", e);
-            return ExecutionResult.error("Merge operation failed: " + e.getMessage());
+        Map<String, Object> input = config.input();
+        if (input == null || input.isEmpty()) {
+            logPublisher.error("Input configuration is missing or empty");
+            return ExecutionResult.error("Input configuration is required");
         }
+
+        // Extract and validate sources
+        List<Map<String, Object>> sources = extractSources(input, logPublisher);
+        if (sources.isEmpty()) {
+            return ExecutionResult.error("No valid source data provided");
+        }
+
+        // Extract and validate strategy
+        MergeStrategy strategy = extractStrategy(input, logPublisher);
+
+        // Additional merge options
+        MergeOptions options = extractMergeOptions(input);
+
+        logPublisher.info("Merging {} sources using {} strategy", sources.size(), strategy);
+
+        // Perform the merge operation
+        Map<String, Object> result = performMerge(sources, strategy, options, logPublisher);
+
+        logPublisher.success("Data merge completed successfully. Result contains {} items",
+                    result.containsKey("data") ? getDataSize(result.get("data")) : 0);
+
+        return ExecutionResult.success(result);
     }
 
     private List<Map<String, Object>> extractSources(Map<String, Object> input, NodeLogPublisher logPublisher) {

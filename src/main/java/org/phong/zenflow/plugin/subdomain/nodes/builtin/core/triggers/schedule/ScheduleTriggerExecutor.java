@@ -14,24 +14,12 @@ import org.phong.zenflow.workflow.subdomain.trigger.quartz.WorkflowTriggerJob;
 import org.phong.zenflow.core.services.SharedQuartzSchedulerService;
 import org.phong.zenflow.plugin.subdomain.resource.NodeResourcePool;
 import org.springframework.stereotype.Component;
-import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 import org.quartz.*;
 
 import java.time.OffsetDateTime;
 import java.util.*;
 
 @Component
-@PluginNode(
-        key = "core:schedule.trigger",
-        name = "Schedule Trigger",
-        version = "1.0.0",
-        description = "Triggers workflows using a shared Quartz Scheduler for maximum efficiency. " +
-                "Supports both interval and cron-based scheduling with database persistence.",
-        type = "trigger",
-        triggerType = "schedule",
-        tags = {"core", "trigger", "schedule", "quartz", "optimized"},
-        icon = "ph:clock"
-)
 @Slf4j
 @AllArgsConstructor
 public class ScheduleTriggerExecutor implements TriggerExecutor {
@@ -116,49 +104,44 @@ public class ScheduleTriggerExecutor implements TriggerExecutor {
     @Override
     public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
         NodeLogPublisher logs = context.getLogPublisher();
-        try {
-            logs.info("Executing ScheduleTriggerExecutor with config: {}", config);
-            logs.info("Schedule trigger started at {}", OffsetDateTime.now());
+        logs.info("Executing ScheduleTriggerExecutor with config: {}", config);
+        logs.info("Schedule trigger started at {}", OffsetDateTime.now());
 
-            Map<String, Object> input = config.input();
-            Object payload = input.get("payload");
-            String cronExpression = (String) input.get("cron_expression");
-            String scheduleDescription = (String) input.get("schedule_description");
+        Map<String, Object> input = config.input();
+        Object payload = input.get("payload");
+        String cronExpression = (String) input.get("cron_expression");
+        String scheduleDescription = (String) input.get("schedule_description");
 
-            Map<String, Object> output = new HashMap<>();
-            output.put("trigger_type", "schedule");
-            output.put("triggered_at", OffsetDateTime.now().toString());
-            output.put("trigger_source", "scheduled_execution");
-            output.put("scheduler", "shared-quartz");
+        Map<String, Object> output = new HashMap<>();
+        output.put("trigger_type", "schedule");
+        output.put("triggered_at", OffsetDateTime.now().toString());
+        output.put("trigger_source", "scheduled_execution");
+        output.put("scheduler", "shared-quartz");
 
-            if (cronExpression != null) {
-                output.put("cron_expression", cronExpression);
-                logs.info("Schedule triggered with cron: {}", cronExpression);
-            }
-
-            if (scheduleDescription != null) {
-                output.put("schedule_description", scheduleDescription);
-            }
-
-            if (payload != null) {
-                output.put("payload", payload);
-                logs.info("Payload received: {}", payload);
-            } else {
-                logs.info("No payload provided");
-            }
-
-            input.forEach((key, value) -> {
-                if (!Set.of("payload", "cron_expression", "schedule_description").contains(key)) {
-                    output.put("input_" + key, value);
-                }
-            });
-
-            logs.success("Schedule trigger completed successfully");
-            return ExecutionResult.success(output);
-        } catch (Exception e) {
-            logs.withException(e).error("Unexpected error occurred during schedule trigger execution: {}", e.getMessage());
-            return ExecutionResult.error(e.getMessage());
+        if (cronExpression != null) {
+            output.put("cron_expression", cronExpression);
+            logs.info("Schedule triggered with cron: {}", cronExpression);
         }
+
+        if (scheduleDescription != null) {
+            output.put("schedule_description", scheduleDescription);
+        }
+
+        if (payload != null) {
+            output.put("payload", payload);
+            logs.info("Payload received: {}", payload);
+        } else {
+            logs.info("No payload provided");
+        }
+
+        input.forEach((key, value) -> {
+            if (!Set.of("payload", "cron_expression", "schedule_description").contains(key)) {
+                output.put("input_" + key, value);
+            }
+        });
+
+        logs.success("Schedule trigger completed successfully");
+        return ExecutionResult.success(output);
     }
 
     /**

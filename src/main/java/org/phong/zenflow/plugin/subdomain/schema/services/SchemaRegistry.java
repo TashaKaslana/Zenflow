@@ -3,6 +3,7 @@ package org.phong.zenflow.plugin.subdomain.schema.services;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
 import org.phong.zenflow.core.utils.LoadSchemaHelper;
@@ -32,9 +33,9 @@ public class SchemaRegistry {
     private final PluginService pluginService;
     private final SchemaIndexRegistry schemaIndexRegistry;
 
-    private final Cache<String, JSONObject> builtinCache;
-    private final Cache<String, JSONObject> pluginCache;
-    private final Cache<String, JSONObject> pluginSchemaCache;
+    private final Cache<@NonNull String, JSONObject> builtinCache;
+    private final Cache<@NonNull String, JSONObject> pluginCache;
+    private final Cache<@NonNull String, JSONObject> pluginSchemaCache;
 
     // Performance optimization: use file-based loading by default
     private final boolean useFileBasedLoading;
