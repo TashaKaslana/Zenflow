@@ -2,6 +2,7 @@ package org.phong.zenflow.workflow.subdomain.engine.service;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.phong.zenflow.core.services.AuthService;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.plugin.subdomain.execution.services.NodeExecutorDispatcher;
@@ -22,8 +23,6 @@ import org.phong.zenflow.workflow.subdomain.node_definition.definitions.Workflow
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowNodes;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_execution.service.NodeExecutionService;
-import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
-import org.phong.zenflow.workflow.subdomain.schema_validator.service.WorkflowValidationService;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,12 +35,12 @@ import java.util.UUID;
 @Slf4j
 public class WorkflowEngineService {
     private final NodeExecutionService nodeExecutionService;
-    private final WorkflowValidationService workflowValidationService;
     private final NodeExecutorDispatcher executorDispatcher;
     private final WorkflowNavigatorService workflowNavigatorService;
     private final ApplicationEventPublisher publisher;
     private final RuntimeContextManager contextManager;
     private final TemplateService templateService;
+    private final AuthService authService;
     
 
     @Transactional
@@ -60,19 +59,20 @@ public class WorkflowEngineService {
                 throw new WorkflowEngineException("Start node key is required");
             }
             BaseWorkflowNode workingNode = workflowNodes.findByInstanceKey(startFromNodeKey);
+            UUID userIdFromContext = authService.getUserIdFromContext();
 
             NodeLogPublisher logPublisher = NodeLogPublisher.builder()
                     .publisher(publisher)
                     .workflowId(workflow.getId())
                     .runId(workflowRunId)
-                    .userId(null)
+                    .userId(userIdFromContext)
                     .build();
 
             ExecutionContext execCtx = ExecutionContext.builder()
                     .workflowId(workflow.getId())
                     .workflowRunId(workflowRunId)
                     .traceId(LogContextManager.snapshot().traceId())
-                    .userId(null)
+                    .userId(userIdFromContext)
                     .contextManager(contextManager)
                     .logPublisher(logPublisher)
                     .templateService(templateService)
@@ -114,6 +114,7 @@ public class WorkflowEngineService {
         nodeExecutionService.startNode(workflowRunId, workingNode.getKey());
 
         execCtx.setNodeKey(workingNode.getKey());
+        execCtx.setPluginNodeId(workingNode.getPluginNode().getNodeId());
         WorkflowConfig config = workingNode.getConfig() != null ? workingNode.getConfig() : new WorkflowConfig();
         WorkflowConfig resolvedConfig = execCtx.resolveConfig(workingNode.getKey(), config);
 
@@ -125,12 +126,16 @@ public class WorkflowEngineService {
         } else {
             log.warn("Output of node {} is null, skipping putting into context", workingNode.getKey());
         }
+
+        String callbackUrl = contextManager.getOrCreate(workflowRunId.toString())
+                .get(ExecutionContextKey.CALLBACK_URL.key())
+                .toString();
         nodeExecutionService.resolveNodeExecution(
                 workflowId,
                 workflowRunId,
                 workingNode,
                 result,
-                execCtx.read(ExecutionContextKey.CALLBACK_URL.key(), String.class)
+                callbackUrl
         );
 
         if (result.getStatus() == ExecutionStatus.COMMIT) {
@@ -147,28 +152,9 @@ public class WorkflowEngineService {
             LogContext ctx = LogContextManager.snapshot();
             log.info("[traceId={}] [hierarchy={}] Node started", ctx.traceId(), ctx.hierarchy());
 
-            // Use UUID if available, fallback to a composite key
-            String templateString = workingNode.getPluginNode().getNodeId() != null ?
-                workingNode.getPluginNode().getNodeId().toString() :
-                workingNode.getPluginNode().toCacheKey();
-
-            ValidationResult validationResult = workflowValidationService.validateRuntime(
-                    workingNode.getKey(),
-                    resolvedConfig,
-                    templateString,
-                    execCtx
-            );
-            if (!validationResult.isValid()) {
-                log.info("[traceId={}] [hierarchy={}] Node finished", ctx.traceId(), ctx.hierarchy());
-                return ExecutionResult.validationError(validationResult, workingNode.getKey());
-            }
-
             execCtx.setNodeKey(workingNode.getKey());
 
-            // Use UUID for dispatcher if available, fallback to a composite key
-            String executorKey = workingNode.getPluginNode().getNodeId() != null ?
-                workingNode.getPluginNode().getNodeId().toString() :
-                workingNode.getPluginNode().toCacheKey();
+            String executorKey = workingNode.getPluginNode().getNodeId().toString();
 
             String executorType = workingNode.getPluginNode().getExecutorType();
             if (executorType == null) {
@@ -177,7 +163,7 @@ public class WorkflowEngineService {
 
             ExecutionResult result = executorDispatcher.dispatch(
                     executorKey,
-                    workingNode.getPluginNode().getExecutorType(),
+                    executorType,
                     resolvedConfig,
                     execCtx
             );

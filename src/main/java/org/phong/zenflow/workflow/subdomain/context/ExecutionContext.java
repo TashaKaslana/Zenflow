@@ -38,6 +38,10 @@ public class ExecutionContext {
     @Getter
     private String nodeKey;
 
+    @Getter
+    @Setter
+    private UUID pluginNodeId;
+
     @Setter
     private ScopedNodeResource<?> scopedResource;
 

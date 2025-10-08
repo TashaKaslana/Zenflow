@@ -15,7 +15,7 @@ import java.util.concurrent.Callable;
 public class ExceptionDecoratorHandler implements ExecutorDecorator {
     @Override
     public int order() {
-        return 0;
+        return 100;
     }
 
     @Override
