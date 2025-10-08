@@ -1,5 +1,6 @@
 package org.phong.zenflow.workflow.subdomain.context;
 
+import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
 import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
@@ -25,6 +26,8 @@ public interface ExecutionContext {
     UUID getPluginNodeId();
 
     void setPluginNodeId(UUID pluginNodeId);
+
+    void setScopedResource(ScopedNodeResource<?> resource);
 
     <T> T read(String key, Class<T> clazz);
 
