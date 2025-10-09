@@ -48,6 +48,14 @@ public class ExecutionContextImpl implements ExecutionContext {
     private final TemplateService templateService;
     private final RuntimeContextManager contextManager;
 
+    @Getter
+    @Setter
+    private WorkflowConfig currentConfig;
+
+    @Getter
+    @Setter
+    private transient Thread executionThread;
+
     /**
      * Reads a value from the runtime context with template resolution and type-safe casting.
      * <p>
@@ -103,6 +111,11 @@ public class ExecutionContextImpl implements ExecutionContext {
         if (context != null) {
             context.remove(key);
         }
+    }
+
+    @Override
+    public String taskId() {
+            return workflowRunId + "-" + nodeKey;
     }
 
     public void setNodeKey(String nodeKey) {

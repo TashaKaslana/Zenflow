@@ -152,6 +152,7 @@ public class WorkflowEngineService {
         return LogContextManager.withComponent(workingNode.getKey(), () -> {
             LogContext ctx = LogContextManager.snapshot();
             log.info("[traceId={}] [hierarchy={}] Node started", ctx.traceId(), ctx.hierarchy());
+            execCtx.setCurrentConfig(resolvedConfig);
 
             execCtx.setNodeKey(workingNode.getKey());
 

@@ -73,6 +73,7 @@ public class SingleNodeExecutionService {
         WorkflowConfig config = node.getConfig();
         WorkflowConfig safeConfig = (config != null) ? config : new WorkflowConfig();
         WorkflowConfig resolvedConfig = execCtx.resolveConfig(node.getKey(), safeConfig);
+        execCtx.setCurrentConfig(resolvedConfig);
 
         return LogContextManager.withComponent(node.getKey(), () -> {
             LogContext ctx = LogContextManager.snapshot();
