@@ -1,11 +1,11 @@
 package org.phong.zenflow.workflow.subdomain.worker.gateway;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.services.NodeExecutorDispatcher;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.worker.ExecutionTaskRegistry;
-import org.phong.zenflow.workflow.subdomain.worker.router.ExecutionRouter;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
@@ -17,14 +17,22 @@ import java.util.concurrent.Executor;
 @Slf4j
 public class ExecutionGatewayImpl implements ExecutionGateway {
     private final ExecutionTaskRegistry registry;
-    private final ExecutionRouter executionRouter;
     private final NodeExecutorDispatcher nodeExecutorDispatcher;
     @Qualifier("virtualThreadExecutor")
     private final Executor taskExecutor;
 
     @Override
     public CompletableFuture<ExecutionResult> executeAsync(ExecutionContext context) {
-        ExecutionRouter.ExecutionRoute route = executionRouter.route(context);
+        if (context.getPluginNodeId() == null) {
+            throw new IllegalStateException("Execution context is missing plugin node identifier");
+        }
+        if (context.getExecutorType() == null || context.getExecutorType().isBlank()) {
+            throw new IllegalStateException("Execution context is missing executor type");
+        }
+        if (context.getCurrentConfig() == null) {
+            throw new IllegalStateException("Execution context is missing resolved workflow configuration");
+        }
+
         String taskId = context.taskId();
         CompletableFuture<ExecutionResult> future = new CompletableFuture<>();
 
@@ -43,9 +51,9 @@ public class ExecutionGatewayImpl implements ExecutionGateway {
                 }
 
                 ExecutionResult result = nodeExecutorDispatcher.dispatch(
-                        route.identifier(),
-                        route.executorType(),
-                        route.config(),
+                        context.getPluginNodeId().toString(),
+                        context.getExecutorType(),
+                        context.getCurrentConfig(),
                         context
                 );
                 future.complete(result);

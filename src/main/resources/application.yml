@@ -74,6 +74,22 @@ zenflow:
     # Time-to-live for schema cache entries in seconds
     cache-ttl-seconds: 3600
 
+  execution:
+    policy:
+      timeout:
+        default-duration: PT30M
+        max-duration: PT1H
+      retry:
+        default-max-attempts: 1
+        max-attempts: 5
+        default-wait-duration: PT0S
+        max-wait-duration: PT5M
+      rate-limit:
+        default-limit-for-period: 0
+        max-limit-for-period: 1000
+        default-refresh-period: PT60S
+        default-timeout-duration: PT5S
+
   # Performance-optimized logging configuration
   logging:
     durable:

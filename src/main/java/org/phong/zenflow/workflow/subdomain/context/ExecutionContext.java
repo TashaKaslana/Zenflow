@@ -29,6 +29,10 @@ public interface ExecutionContext {
 
     void setPluginNodeId(UUID pluginNodeId);
 
+    String getExecutorType();
+
+    void setExecutorType(String executorType);
+
     void setScopedResource(ScopedNodeResource<?> resource);
 
     <T> T read(String key, Class<T> clazz);

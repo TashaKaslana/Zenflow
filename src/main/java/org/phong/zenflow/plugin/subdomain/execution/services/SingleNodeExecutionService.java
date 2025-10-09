@@ -12,40 +12,40 @@ import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.logging.core.LogContextManager;
 import org.phong.zenflow.workflow.subdomain.logging.core.LogContext;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
-import java.util.UUID;
-
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.worker.gateway.ExecutionGateway;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Service for executing a single plugin node outside a workflow context.
  * This mimics the execution behavior of a node within a workflow by
  * performing runtime validation and dispatching through the standard
- * executor dispatcher.
+ * execution gateway.
  */
 @Service
 @AllArgsConstructor
 @Slf4j
 public class SingleNodeExecutionService {
 
-    private final NodeExecutorDispatcher executorDispatcher;
+    private final ExecutionGateway executionGateway;
     private final RuntimeContextManager contextManager;
     private final ApplicationEventPublisher publisher;
     private final TemplateService templateService;
 
     /**
-     * Execute a pluginNode node with the provided configuration.
+     * Execute a plugin node with the provided configuration.
      *
-     * @param pluginNode the pluginNode node to execute
+     * @param pluginNode the plugin node to execute
      * @param node the instance node
      * @return the {@link ExecutionResult} returned by the node's executor
      */
     public ExecutionResult executeNode(PluginNode pluginNode, BaseWorkflowNode node) {
-        // Initialize runtime context similar to workflow runs
         RuntimeContext context = new RuntimeContext();
         context.initialize(Map.of(), Map.of(), Map.of());
         UUID workflowId = UUID.randomUUID();
@@ -70,6 +70,8 @@ public class SingleNodeExecutionService {
 
         execCtx.setNodeKey(node.getKey());
         execCtx.setPluginNodeId(pluginNode.getId());
+        execCtx.setExecutorType(pluginNode.getExecutorType());
+
         WorkflowConfig config = node.getConfig();
         WorkflowConfig safeConfig = (config != null) ? config : new WorkflowConfig();
         WorkflowConfig resolvedConfig = execCtx.resolveConfig(node.getKey(), safeConfig);
@@ -78,16 +80,20 @@ public class SingleNodeExecutionService {
         return LogContextManager.withComponent(node.getKey(), () -> {
             LogContext ctx = LogContextManager.snapshot();
             log.info("[traceId={}] [hierarchy={}] Node started", ctx.traceId(), ctx.hierarchy());
-
-            ExecutionResult result = executorDispatcher.dispatch(
-                    pluginNode.getId().toString(),
-                    pluginNode.getExecutorType(),
-                    resolvedConfig,
-                    execCtx
-            );
-            log.info("[traceId={}] [hierarchy={}] Node finished", ctx.traceId(), ctx.hierarchy());
-            return result;
+            try {
+                ExecutionResult result = executionGateway.executeAsync(execCtx).get();
+                log.info("[traceId={}] [hierarchy={}] Node finished", ctx.traceId(), ctx.hierarchy());
+                return result;
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("Execution interrupted for node: " + node.getKey(), e);
+            } catch (ExecutionException e) {
+                Throwable cause = e.getCause();
+                if (cause instanceof RuntimeException runtimeException) {
+                    throw runtimeException;
+                }
+                throw new RuntimeException("Execution failed for node: " + node.getKey(), cause);
+            }
         });
     }
 }
-

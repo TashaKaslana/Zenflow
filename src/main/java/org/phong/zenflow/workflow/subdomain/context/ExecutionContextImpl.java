@@ -42,6 +42,10 @@ public class ExecutionContextImpl implements ExecutionContext {
     @Setter
     private UUID pluginNodeId;
 
+    @Getter
+    @Setter
+    private String executorType;
+
     @Setter
     private ScopedNodeResource<?> scopedResource;
 

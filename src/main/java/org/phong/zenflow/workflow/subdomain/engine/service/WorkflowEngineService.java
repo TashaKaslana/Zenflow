@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.services.AuthService;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
-import org.phong.zenflow.plugin.subdomain.execution.services.NodeExecutorDispatcher;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContextImpl;
@@ -24,25 +23,26 @@ import org.phong.zenflow.workflow.subdomain.node_definition.definitions.Workflow
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowNodes;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_execution.service.NodeExecutionService;
+import org.phong.zenflow.workflow.subdomain.worker.gateway.ExecutionGateway;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 
 @Service
 @AllArgsConstructor
 @Slf4j
 public class WorkflowEngineService {
     private final NodeExecutionService nodeExecutionService;
-    private final NodeExecutorDispatcher executorDispatcher;
+    private final ExecutionGateway executionGateway;
     private final WorkflowNavigatorService workflowNavigatorService;
     private final ApplicationEventPublisher publisher;
     private final RuntimeContextManager contextManager;
     private final TemplateService templateService;
     private final AuthService authService;
-    
 
     @Transactional
     public WorkflowExecutionStatus runWorkflow(Workflow workflow,
@@ -105,7 +105,6 @@ public class WorkflowEngineService {
         return executionStatus;
     }
 
-
     private ExecutionResult setupAndExecutionWorkflow(UUID workflowId,
                                                       UUID workflowRunId,
                                                       RuntimeContext context,
@@ -153,24 +152,28 @@ public class WorkflowEngineService {
             LogContext ctx = LogContextManager.snapshot();
             log.info("[traceId={}] [hierarchy={}] Node started", ctx.traceId(), ctx.hierarchy());
             execCtx.setCurrentConfig(resolvedConfig);
-
             execCtx.setNodeKey(workingNode.getKey());
-
-            String executorKey = workingNode.getPluginNode().getNodeId().toString();
 
             String executorType = workingNode.getPluginNode().getExecutorType();
             if (executorType == null) {
                 throw new WorkflowEngineException("Executor type is not defined for node: " + workingNode.getKey());
             }
+            execCtx.setExecutorType(executorType);
 
-            ExecutionResult result = executorDispatcher.dispatch(
-                    executorKey,
-                    executorType,
-                    resolvedConfig,
-                    execCtx
-            );
-            log.info("[traceId={}] [hierarchy={}] Node finished", ctx.traceId(), ctx.hierarchy());
-            return result;
+            try {
+                ExecutionResult result = executionGateway.executeAsync(execCtx).get();
+                log.info("[traceId={}] [hierarchy={}] Node finished", ctx.traceId(), ctx.hierarchy());
+                return result;
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new WorkflowEngineException("Execution interrupted for node: " + workingNode.getKey(), e);
+            } catch (ExecutionException e) {
+                Throwable cause = e.getCause();
+                if (cause instanceof RuntimeException runtimeException) {
+                    throw runtimeException;
+                }
+                throw new WorkflowEngineException("Execution failed for node: " + workingNode.getKey(), cause);
+            }
         });
     }
 }
