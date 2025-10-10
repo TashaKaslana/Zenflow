@@ -1,3 +1,4 @@
+
 package org.phong.zenflow.plugin.subdomain.execution.services;
 
 import lombok.AllArgsConstructor;
@@ -9,10 +10,9 @@ import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorR
 import org.phong.zenflow.plugin.subdomain.node.definition.NodeDefinition;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.plugin.subdomain.node.definition.decorator.ExecutorPipelineFactory;
-import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.logging.core.LogContext;
 import org.phong.zenflow.workflow.subdomain.logging.core.LogContextManager;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.worker.model.ExecutionTaskEnvelope;
 import org.springframework.stereotype.Service;
 
 import java.util.concurrent.Callable;
@@ -25,7 +25,9 @@ public class NodeExecutorDispatcher {
     private final PluginNodeExecutorRegistry registry;
     private final ExecutorPipelineFactory executorPipelineFactory;
 
-    public ExecutionResult dispatch(String identifier, String executorType, WorkflowConfig config, ExecutionContext context) {
+    public ExecutionResult dispatch(ExecutionTaskEnvelope envelope) {
+        String executorType = envelope.getExecutorType();
+        String identifier = envelope.getExecutorIdentifier();
         NodeDefinition definition;
         switch (executorType.toLowerCase()) {
             case "builtin" -> {
@@ -47,7 +49,7 @@ public class NodeExecutorDispatcher {
         }
 
         try {
-            Callable<ExecutionResult> executionTask = executorPipelineFactory.build(definition, config, context);
+            Callable<ExecutionResult> executionTask = executorPipelineFactory.build(definition, envelope);
             return executionTask.call();
         } catch (Exception e) {
             throw new RuntimeException(e);

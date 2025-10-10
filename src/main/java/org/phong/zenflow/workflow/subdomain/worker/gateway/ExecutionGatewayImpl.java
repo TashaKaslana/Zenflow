@@ -5,8 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionError;
 import org.phong.zenflow.plugin.subdomain.execution.services.NodeExecutorDispatcher;
-import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.worker.ExecutionTaskRegistry;
+import org.phong.zenflow.workflow.subdomain.worker.model.ExecutionTaskEnvelope;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
@@ -23,54 +23,55 @@ public class ExecutionGatewayImpl implements ExecutionGateway {
     private final Executor taskExecutor;
 
     @Override
-    public CompletableFuture<ExecutionResult> executeAsync(ExecutionContext context) {
-        if (context.getPluginNodeId() == null) {
-            throw new IllegalStateException("Execution context is missing plugin node identifier");
+    public CompletableFuture<ExecutionResult> executeAsync(ExecutionTaskEnvelope envelope) {
+        if (envelope == null) {
+            throw new IllegalArgumentException("Execution envelope must not be null");
         }
-        if (context.getExecutorType() == null || context.getExecutorType().isBlank()) {
-            throw new IllegalStateException("Execution context is missing executor type");
+        if (envelope.getExecutorIdentifier() == null || envelope.getExecutorIdentifier().isBlank()) {
+            throw new IllegalStateException("Missing executor identifier in envelope");
         }
-        if (context.getCurrentConfig() == null) {
-            throw new IllegalStateException("Execution context is missing resolved workflow configuration");
+        if (envelope.getExecutorType() == null || envelope.getExecutorType().isBlank()) {
+            throw new IllegalStateException("Missing executor type in envelope");
+        }
+        if (envelope.getConfig() == null) {
+            throw new IllegalStateException("Missing resolved workflow configuration in envelope");
         }
 
-        String taskId = context.taskId();
         CompletableFuture<ExecutionResult> future = new CompletableFuture<>();
-
-        if (!registry.registerTask(taskId, future, context)) {
-            IllegalStateException ex = new IllegalStateException("Task already registered: " + taskId);
+        if (!registry.registerTask(envelope, future)) {
+            IllegalStateException ex = new IllegalStateException("Task already registered: " + envelope.getTaskId());
             future.completeExceptionally(ex);
             return future;
         }
 
-        taskExecutor.execute(() -> runTask(context, future, taskId));
+        taskExecutor.execute(() -> runTask(envelope, future));
         return future;
     }
 
-    private void runTask(ExecutionContext context,
-                         CompletableFuture<ExecutionResult> future,
-                         String taskId) {
-        Thread previousThread = context.getExecutionThread();
-        context.setExecutionThread(Thread.currentThread());
+    private void runTask(ExecutionTaskEnvelope envelope,
+                         CompletableFuture<ExecutionResult> future) {
+        Thread previousThread = envelope.currentThread();
+        envelope.attachThread(Thread.currentThread());
         try {
             if (future.isCancelled()) {
                 completeCancelled(future);
                 return;
             }
 
-            ExecutionResult result = nodeExecutorDispatcher.dispatch(
-                    context.getPluginNodeId().toString(),
-                    context.getExecutorType(),
-                    context.getCurrentConfig(),
-                    context
-            );
+            ExecutionResult result = nodeExecutorDispatcher.dispatch(envelope);
             future.complete(result);
         } catch (Throwable throwable) {
-            log.warn("Asynchronous execution task {} failed", taskId, throwable);
-            future.complete(ExecutionResult.error(ExecutionError.NON_RETRIABLE, throwable.getMessage()));
+            if (isInterrupted(throwable)) {
+                Thread.currentThread().interrupt();
+                log.debug("Execution task {} interrupted", envelope.getTaskId(), throwable);
+                future.complete(ExecutionResult.interruptedResult("Execution interrupted"));
+            } else {
+                log.warn("Asynchronous execution task {} failed", envelope.getTaskId(), throwable);
+                future.complete(ExecutionResult.error(ExecutionError.NON_RETRIABLE, throwable.getMessage()));
+            }
         } finally {
-            context.setExecutionThread(previousThread);
-            registry.unregisterTask(taskId);
+            envelope.restoreThread(previousThread);
+            registry.unregisterTask(envelope.getTaskId());
         }
     }
 
@@ -80,8 +81,19 @@ public class ExecutionGatewayImpl implements ExecutionGateway {
         }
     }
 
+    private boolean isInterrupted(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof InterruptedException) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
     @Override
-    public boolean cancelAsync(ExecutionContext context) {
-        return registry.cancelTask(context.taskId());
+    public boolean cancelAsync(ExecutionTaskEnvelope envelope) {
+        return registry.cancelTask(envelope.getTaskId());
     }
 }

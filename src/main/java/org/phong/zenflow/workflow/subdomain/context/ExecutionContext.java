@@ -29,10 +29,6 @@ public interface ExecutionContext {
 
     void setPluginNodeId(UUID pluginNodeId);
 
-    String getExecutorType();
-
-    void setExecutorType(String executorType);
-
     void setScopedResource(ScopedNodeResource<?> resource);
 
     <T> T read(String key, Class<T> clazz);
@@ -40,10 +36,6 @@ public interface ExecutionContext {
     WorkflowConfig getCurrentConfig();
 
     void setCurrentConfig(WorkflowConfig config);
-
-    Thread getExecutionThread();
-
-    void setExecutionThread(Thread thread);
 
     void write(String key, Object value);
 

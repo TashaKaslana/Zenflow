@@ -42,10 +42,6 @@ public class ExecutionContextImpl implements ExecutionContext {
     @Setter
     private UUID pluginNodeId;
 
-    @Getter
-    @Setter
-    private String executorType;
-
     @Setter
     private ScopedNodeResource<?> scopedResource;
 
@@ -55,10 +51,6 @@ public class ExecutionContextImpl implements ExecutionContext {
     @Getter
     @Setter
     private WorkflowConfig currentConfig;
-
-    @Getter
-    @Setter
-    private transient Thread executionThread;
 
     /**
      * Reads a value from the runtime context with template resolution and type-safe casting.

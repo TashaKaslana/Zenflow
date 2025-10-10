@@ -24,6 +24,7 @@ import org.phong.zenflow.workflow.subdomain.node_definition.definitions.Workflow
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_execution.service.NodeExecutionService;
 import org.phong.zenflow.workflow.subdomain.worker.gateway.ExecutionGateway;
+import org.phong.zenflow.workflow.subdomain.worker.model.ExecutionTaskEnvelope;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -157,9 +158,17 @@ public class WorkflowEngineService {
             if (executorType == null) {
                 throw new WorkflowEngineException("Executor type is not defined for node: " + workingNode.getKey());
             }
-            execCtx.setExecutorType(executorType);
 
-            ExecutionResult result = executionGateway.executeAsync(execCtx).join();
+            ExecutionTaskEnvelope envelope = ExecutionTaskEnvelope.builder()
+                    .taskId(execCtx.taskId())
+                    .executorIdentifier(workingNode.getPluginNode().getNodeId().toString())
+                    .executorType(executorType)
+                    .config(resolvedConfig)
+                    .context(execCtx)
+                    .pluginNodeId(workingNode.getPluginNode().getNodeId())
+                    .build();
+
+            ExecutionResult result = executionGateway.executeAsync(envelope).join();
             log.info("[traceId={}] [hierarchy={}] Node finished", ctx.traceId(), ctx.hierarchy());
             return result;
         });

@@ -7,8 +7,7 @@ import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionError;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.plugin.subdomain.node.definition.NodeDefinition;
 import org.phong.zenflow.plugin.subdomain.node.definition.decorator.ExecutorDecorator;
-import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.worker.model.ExecutionTaskEnvelope;
 import org.phong.zenflow.workflow.subdomain.worker.policy.ExecutionPolicyResolver;
 import org.phong.zenflow.workflow.subdomain.worker.policy.ResolvedExecutionPolicy;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -22,7 +21,6 @@ import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
 import io.github.resilience4j.timelimiter.TimeLimiter;
 import io.github.resilience4j.timelimiter.TimeLimiterConfig;
-import java.util.concurrent.TimeoutException;
 
 import java.time.Duration;
 import java.util.Optional;
@@ -31,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeoutException;
 
 @Component
 @RequiredArgsConstructor
@@ -49,15 +48,14 @@ public class ResiliencePolicyDecorator implements ExecutorDecorator {
     @Override
     public Callable<ExecutionResult> decorate(Callable<ExecutionResult> inner,
                                               NodeDefinition def,
-                                              WorkflowConfig cfg,
-                                              ExecutionContext ctx) {
-        ResolvedExecutionPolicy policy = policyResolver.resolve(def, cfg);
+                                              ExecutionTaskEnvelope envelope) {
+        ResolvedExecutionPolicy policy = policyResolver.resolve(def, envelope.getConfig());
         if (policy.isEmpty()) {
             return inner;
         }
 
         Callable<ExecutionResult> wrapped = inner;
-        String policyKey = resolvePolicyKey(ctx, def);
+        String policyKey = resolvePolicyKey(envelope, def);
 
         if (policy.hasRateLimit()) {
             RateLimiterConfig rateLimiterConfig = RateLimiterConfig.custom()
@@ -79,7 +77,6 @@ public class ResiliencePolicyDecorator implements ExecutorDecorator {
                 retryBuilder.waitDuration(waitDuration);
             }
 
-            // treat explicit RETRY status as failure to trigger retry
             retryBuilder.retryOnResult(result -> result != null && result.getStatus() == ExecutionStatus.RETRY);
 
             Retry retry = Retry.of(policyKey + "-retry", retryBuilder.build());
@@ -93,7 +90,7 @@ public class ResiliencePolicyDecorator implements ExecutorDecorator {
                     .build();
             TimeLimiter timeLimiter = TimeLimiter.of(policyKey + "-timeout", timeLimiterConfig);
             Callable<ExecutionResult> delegate = wrapped;
-            wrapped = () -> executeWithTimeout(timeLimiter, delegate, ctx);
+            wrapped = () -> executeWithTimeout(timeLimiter, delegate, envelope);
         }
 
         Callable<ExecutionResult> finalWrapped = wrapped;
@@ -102,26 +99,26 @@ public class ResiliencePolicyDecorator implements ExecutorDecorator {
                 return finalWrapped.call();
             } catch (TimeoutException e) {
                 String message = "Execution timed out after " + policy.getTimeout();
-                log.warn("[policyKey={}] {}", policyKey, message);
+                logPolicyWarning(policyKey, message);
                 return ExecutionResult.error(ExecutionError.TIMEOUT, message);
             } catch (RequestNotPermitted e) {
                 String message = "Rate limit exceeded for node execution";
-                log.warn("[policyKey={}] {}", policyKey, message);
+                logPolicyWarning(policyKey, message);
                 return ExecutionResult.error(ExecutionError.RETRIABLE, message);
             } catch (MaxRetriesExceededException e) {
                 String message = "Maximum retry attempts exhausted";
-                log.warn("[policyKey={}] {}", policyKey, message, e);
+                logPolicyWarning(policyKey, message, e);
                 return ExecutionResult.error(ExecutionError.RETRIABLE, message);
             } catch (CompletionException e) {
                 Throwable cause = Optional.ofNullable(e.getCause()).orElse(e);
-                if (cause instanceof TimeoutException timeoutException) {
+                if (cause instanceof TimeoutException) {
                     String message = "Execution timed out after " + policy.getTimeout();
-                    log.warn("[policyKey={}] {}", policyKey, message);
+                    logPolicyWarning(policyKey, message);
                     return ExecutionResult.error(ExecutionError.TIMEOUT, message);
                 }
-                if (cause instanceof RequestNotPermitted requestNotPermitted) {
+                if (cause instanceof RequestNotPermitted) {
                     String message = "Rate limit exceeded for node execution";
-                    log.warn("[policyKey={}] {}", policyKey, message);
+                    logPolicyWarning(policyKey, message);
                     return ExecutionResult.error(ExecutionError.RETRIABLE, message);
                 }
                 throw cause instanceof Exception ? (Exception) cause : new RuntimeException(cause);
@@ -131,22 +128,20 @@ public class ResiliencePolicyDecorator implements ExecutorDecorator {
 
     private ExecutionResult executeWithTimeout(TimeLimiter timeLimiter,
                                                Callable<ExecutionResult> callable,
-                                               ExecutionContext ctx) throws Exception {
+                                               ExecutionTaskEnvelope envelope) throws Exception {
+        Callable<ExecutionResult> timedCallable = TimeLimiter.decorateFutureSupplier(timeLimiter, () ->
+                CompletableFuture.supplyAsync(() -> {
+                    Thread previous = envelope.currentThread();
+                    envelope.attachThread(Thread.currentThread());
+                    try {
+                        return callInner(callable);
+                    } finally {
+                        envelope.restoreThread(previous);
+                    }
+                }, asyncExecutor)
+        );
         try {
-            return timeLimiter.executeFutureSupplier(() ->
-                    CompletableFuture.supplyAsync(() -> {
-                        Thread previous = ctx.getExecutionThread();
-                        ctx.setExecutionThread(Thread.currentThread());
-                        try {
-                            return callInner(callable);
-                        } finally {
-                            ctx.setExecutionThread(previous);
-                        }
-                    }, asyncExecutor)
-            );
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw e;
+            return timedCallable.call();
         } catch (ExecutionException e) {
             Throwable cause = e.getCause();
             if (cause instanceof TimeoutException timeoutException) {
@@ -169,13 +164,21 @@ public class ResiliencePolicyDecorator implements ExecutorDecorator {
         }
     }
 
-    private String resolvePolicyKey(ExecutionContext ctx, NodeDefinition definition) {
-        if (ctx != null && ctx.getPluginNodeId() != null) {
-            return ctx.getPluginNodeId().toString();
+    private String resolvePolicyKey(ExecutionTaskEnvelope envelope, NodeDefinition definition) {
+        if (envelope.getPluginNodeId() != null) {
+            return envelope.getPluginNodeId().toString();
         }
         if (definition != null && definition.getName() != null) {
             return definition.getName();
         }
         return "node";
+    }
+
+    private void logPolicyWarning(String policyKey, String message) {
+        log.warn("[policyKey={}] {}", policyKey, message);
+    }
+
+    private void logPolicyWarning(String policyKey, String message, Throwable throwable) {
+        log.warn("[policyKey={}] {}", policyKey, message, throwable);
     }
 }
