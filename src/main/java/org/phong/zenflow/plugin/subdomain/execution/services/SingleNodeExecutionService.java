@@ -3,6 +3,7 @@ package org.phong.zenflow.plugin.subdomain.execution.services;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
+import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionError;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.entity.PluginNode;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContextImpl;
@@ -20,7 +21,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Service for executing a single plugin node outside a workflow context.
@@ -80,20 +81,16 @@ public class SingleNodeExecutionService {
         return LogContextManager.withComponent(node.getKey(), () -> {
             LogContext ctx = LogContextManager.snapshot();
             log.info("[traceId={}] [hierarchy={}] Node started", ctx.traceId(), ctx.hierarchy());
-            try {
-                ExecutionResult result = executionGateway.executeAsync(execCtx).get();
-                log.info("[traceId={}] [hierarchy={}] Node finished", ctx.traceId(), ctx.hierarchy());
-                return result;
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new RuntimeException("Execution interrupted for node: " + node.getKey(), e);
-            } catch (ExecutionException e) {
-                Throwable cause = e.getCause();
-                if (cause instanceof RuntimeException runtimeException) {
-                    throw runtimeException;
-                }
-                throw new RuntimeException("Execution failed for node: " + node.getKey(), cause);
+
+            CompletableFuture<ExecutionResult> future = executionGateway.executeAsync(execCtx);
+            ExecutionResult result = future.join();
+
+            if (result.getErrorType() == ExecutionError.INTERRUPTED) {
+                log.warn("Execution interrupted for node: {}", node.getKey());
             }
+
+            log.info("[traceId={}] [hierarchy={}] Node finished", ctx.traceId(), ctx.hierarchy());
+            return result;
         });
     }
 }

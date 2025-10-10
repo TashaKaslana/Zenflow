@@ -30,7 +30,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 
 @Service
 @AllArgsConstructor
@@ -160,20 +159,9 @@ public class WorkflowEngineService {
             }
             execCtx.setExecutorType(executorType);
 
-            try {
-                ExecutionResult result = executionGateway.executeAsync(execCtx).get();
-                log.info("[traceId={}] [hierarchy={}] Node finished", ctx.traceId(), ctx.hierarchy());
-                return result;
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new WorkflowEngineException("Execution interrupted for node: " + workingNode.getKey(), e);
-            } catch (ExecutionException e) {
-                Throwable cause = e.getCause();
-                if (cause instanceof RuntimeException runtimeException) {
-                    throw runtimeException;
-                }
-                throw new WorkflowEngineException("Execution failed for node: " + workingNode.getKey(), cause);
-            }
+            ExecutionResult result = executionGateway.executeAsync(execCtx).join();
+            log.info("[traceId={}] [hierarchy={}] Node finished", ctx.traceId(), ctx.hierarchy());
+            return result;
         });
     }
 }

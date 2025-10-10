@@ -137,4 +137,22 @@ public class ExecutionResult {
         result.setOutput(output);
         return result;
     }
+
+    public static ExecutionResult cancelledResult(String message) {
+        ExecutionResult result = new ExecutionResult();
+        result.setStatus(ExecutionStatus.ERROR);
+        result.setErrorType(ExecutionError.CANCELLED);
+        result.setError(message);
+        result.setErrorLabel(ExecutionError.CANCELLED.getMessage());
+        return result;
+    }
+
+    public static ExecutionResult interruptedResult(String message) {
+        ExecutionResult result = new ExecutionResult();
+        result.setStatus(ExecutionStatus.ERROR);
+        result.setErrorType(ExecutionError.INTERRUPTED);
+        result.setErrorLabel(ExecutionError.INTERRUPTED.getMessage());
+        result.setError(message);
+        return result;
+    }
 }

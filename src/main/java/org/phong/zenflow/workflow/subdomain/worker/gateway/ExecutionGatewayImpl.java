@@ -3,6 +3,7 @@ package org.phong.zenflow.workflow.subdomain.worker.gateway;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
+import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionError;
 import org.phong.zenflow.plugin.subdomain.execution.services.NodeExecutorDispatcher;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.worker.ExecutionTaskRegistry;
@@ -42,31 +43,41 @@ public class ExecutionGatewayImpl implements ExecutionGateway {
             return future;
         }
 
-        taskExecutor.execute(() -> {
-            Thread previousThread = context.getExecutionThread();
-            context.setExecutionThread(Thread.currentThread());
-            try {
-                if (future.isCancelled()) {
-                    return;
-                }
-
-                ExecutionResult result = nodeExecutorDispatcher.dispatch(
-                        context.getPluginNodeId().toString(),
-                        context.getExecutorType(),
-                        context.getCurrentConfig(),
-                        context
-                );
-                future.complete(result);
-            } catch (Throwable throwable) {
-                log.warn("Asynchronous execution task {} failed", taskId, throwable);
-                future.completeExceptionally(throwable);
-            } finally {
-                context.setExecutionThread(previousThread);
-                registry.unregisterTask(taskId);
-            }
-        });
-
+        taskExecutor.execute(() -> runTask(context, future, taskId));
         return future;
+    }
+
+    private void runTask(ExecutionContext context,
+                         CompletableFuture<ExecutionResult> future,
+                         String taskId) {
+        Thread previousThread = context.getExecutionThread();
+        context.setExecutionThread(Thread.currentThread());
+        try {
+            if (future.isCancelled()) {
+                completeCancelled(future);
+                return;
+            }
+
+            ExecutionResult result = nodeExecutorDispatcher.dispatch(
+                    context.getPluginNodeId().toString(),
+                    context.getExecutorType(),
+                    context.getCurrentConfig(),
+                    context
+            );
+            future.complete(result);
+        } catch (Throwable throwable) {
+            log.warn("Asynchronous execution task {} failed", taskId, throwable);
+            future.complete(ExecutionResult.error(ExecutionError.NON_RETRIABLE, throwable.getMessage()));
+        } finally {
+            context.setExecutionThread(previousThread);
+            registry.unregisterTask(taskId);
+        }
+    }
+
+    private void completeCancelled(CompletableFuture<ExecutionResult> future) {
+        if (!future.isDone()) {
+            future.complete(ExecutionResult.cancelledResult("Execution cancelled"));
+        }
     }
 
     @Override
