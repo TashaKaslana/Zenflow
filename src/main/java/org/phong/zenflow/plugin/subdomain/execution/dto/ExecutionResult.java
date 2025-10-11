@@ -68,6 +68,14 @@ public class ExecutionResult {
         return result;
     }
 
+    public static ExecutionResult retry(String errLabel, String debugInfo) {
+        ExecutionResult result = new ExecutionResult();
+        result.setStatus(ExecutionStatus.RETRY);
+        result.setErrorLabel(errLabel);
+        result.setError(debugInfo);
+        return result;
+    }
+
     public static ExecutionResult nextNode(String nextNodeKey) {
         ExecutionResult result = new ExecutionResult();
         result.setStatus(ExecutionStatus.NEXT);
@@ -135,6 +143,24 @@ public class ExecutionResult {
         ExecutionResult result = new ExecutionResult();
         result.setStatus(ExecutionStatus.UNCOMMIT);
         result.setOutput(output);
+        return result;
+    }
+
+    public static ExecutionResult cancelledResult(String message) {
+        ExecutionResult result = new ExecutionResult();
+        result.setStatus(ExecutionStatus.ERROR);
+        result.setErrorType(ExecutionError.CANCELLED);
+        result.setError(message);
+        result.setErrorLabel(ExecutionError.CANCELLED.getMessage());
+        return result;
+    }
+
+    public static ExecutionResult interruptedResult(String message) {
+        ExecutionResult result = new ExecutionResult();
+        result.setStatus(ExecutionStatus.ERROR);
+        result.setErrorType(ExecutionError.INTERRUPTED);
+        result.setErrorLabel(ExecutionError.INTERRUPTED.getMessage());
+        result.setError(message);
         return result;
     }
 }

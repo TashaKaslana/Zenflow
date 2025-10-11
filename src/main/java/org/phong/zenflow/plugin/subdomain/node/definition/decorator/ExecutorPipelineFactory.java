@@ -3,8 +3,7 @@ package org.phong.zenflow.plugin.subdomain.node.definition.decorator;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.node.definition.NodeDefinition;
-import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.worker.model.ExecutionTaskEnvelope;
 import org.springframework.stereotype.Component;
 
 import java.util.Comparator;
@@ -23,18 +22,19 @@ public class ExecutorPipelineFactory {
     }
 
     public Callable<ExecutionResult> build(NodeDefinition def,
-                                           WorkflowConfig cfg,
-                                           ExecutionContext ctx) throws Exception {
+                                           ExecutionTaskEnvelope envelope) throws Exception {
         if (def.getNodeExecutor() == null) {
             log.error("Node executor is not defined for node type: {}", def.getType());
             throw new Exception("Node executor is not defined for node type: " + def.getType());
         }
-        // core = node’s happy path
+        var cfg = envelope.getConfig();
+        var ctx = envelope.getContext();
+        // core = node's happy path
         Callable<ExecutionResult> pipeline = () -> def.getNodeExecutor().execute(cfg, ctx);
 
         // wrap in order
         for (ExecutorDecorator decorator : decorators) {
-            pipeline = decorator.decorate(pipeline, def, cfg, ctx);
+            pipeline = decorator.decorate(pipeline, def, envelope);
         }
 
         return pipeline;

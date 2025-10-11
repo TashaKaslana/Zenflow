@@ -13,6 +13,7 @@ import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorR
 import org.phong.zenflow.plugin.subdomain.execution.services.NodeExecutorDispatcher;
 import org.phong.zenflow.plugin.subdomain.node.definition.NodeDefinition;
 import org.phong.zenflow.plugin.subdomain.node.definition.decorator.ExecutorPipelineFactory;
+import org.phong.zenflow.plugin.subdomain.node.definition.decorator.handler.execption.ExceptionDecoratorHandler;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.test.placeholder.PlaceholderExecutor;
 import org.phong.zenflow.plugin.subdomain.node.interfaces.PluginNodeSchemaProvider;
 import org.phong.zenflow.plugin.subdomain.schema.registry.SchemaIndexRegistry;
@@ -21,7 +22,9 @@ import org.phong.zenflow.plugin.subdomain.schema.services.PluginDescriptorSchema
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.TestExecutionContextUtils;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.worker.model.ExecutionTaskEnvelope;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -40,8 +43,6 @@ public class PluginNodeTest {
     private PluginNodeExecutorRegistry executorRegistry;
     private SchemaRegistry schemaRegistry;
     private NodeExecutorDispatcher dispatcher;
-    private ExecutorPipelineFactory executorPipelineFactory;
-    private PlaceholderExecutor placeholderExecutor;
     @Mock
     private SchemaIndexRegistry schemaIndexRegistry;
 
@@ -52,9 +53,12 @@ public class PluginNodeTest {
     void setUp() {
         // Initialize test components
         executorRegistry = new PluginNodeExecutorRegistry();
-        placeholderExecutor = new PlaceholderExecutor();
+        PlaceholderExecutor placeholderExecutor = new PlaceholderExecutor();
         PluginDescriptorSchemaService descriptorService = new PluginDescriptorSchemaService(pluginService, schemaIndexRegistry, 3600L, true);
         schemaRegistry = new SchemaRegistry(schemaProvider, pluginService, schemaIndexRegistry, descriptorService, 3600L, true);
+        ExecutorPipelineFactory executorPipelineFactory = new ExecutorPipelineFactory(List.of(
+                new ExceptionDecoratorHandler()
+        ));
         dispatcher = new NodeExecutorDispatcher(executorRegistry, executorPipelineFactory);
 
         // Manually register the placeholder executor for testing
@@ -171,7 +175,15 @@ public class PluginNodeTest {
         ExecutionContext context = TestExecutionContextUtils.createExecutionContext();
 
         // Test dispatch execution with UUID and correct executor type "builtin"
-        ExecutionResult result = dispatcher.dispatch(placeholderUuid, "builtin", config, context);
+        ExecutionTaskEnvelope envelope = ExecutionTaskEnvelope.builder()
+                .taskId(context.taskId())
+                .executorIdentifier(placeholderUuid)
+                .executorType("builtin")
+                .config(config)
+                .context(context)
+                .pluginNodeId(null)
+                .build();
+        ExecutionResult result = dispatcher.dispatch(envelope);
 
         assertNotNull(result, "Execution result should not be null");
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus(), "Execution should be successful");

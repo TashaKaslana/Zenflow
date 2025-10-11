@@ -2,11 +2,12 @@ package org.phong.zenflow.workflow.subdomain.runner.service;
 
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.phong.zenflow.log.auditlog.annotations.AuditLog;
-import org.phong.zenflow.log.auditlog.enums.AuditAction;
 import org.phong.zenflow.core.utils.MapUtils;
 import org.phong.zenflow.core.utils.ObjectConversion;
+import org.phong.zenflow.log.auditlog.annotations.AuditLog;
+import org.phong.zenflow.log.auditlog.enums.AuditAction;
 import org.phong.zenflow.secret.subdomain.aggregate.AggregatedSecretButchDto;
 import org.phong.zenflow.secret.subdomain.aggregate.SecretAggregateService;
 import org.phong.zenflow.workflow.exception.WorkflowException;
@@ -38,32 +39,16 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class WorkflowRunnerService {
     private final WorkflowEngineService workflowEngineService;
     private final WorkflowRunService workflowRunService;
     private final WebClient webClient;
     private final WorkflowService workflowService;
     private final SecretAggregateService secretAggregateService;
+    @Qualifier("virtualThreadExecutor")
     private final Executor executor;
     private final RuntimeContextManager contextManager;
-
-    public WorkflowRunnerService(
-            WorkflowEngineService workflowEngineService,
-            WorkflowRunService workflowRunService,
-            WebClient webClient,
-            WorkflowService workflowService,
-            SecretAggregateService secretAggregateService,
-            @Qualifier("virtualThreadExecutor") Executor executor,
-            RuntimeContextManager contextManager
-    ) {
-        this.workflowEngineService = workflowEngineService;
-        this.workflowRunService = workflowRunService;
-        this.webClient = webClient;
-        this.workflowService = workflowService;
-        this.secretAggregateService = secretAggregateService;
-        this.executor = executor;
-        this.contextManager = contextManager;
-    }
 
     @AuditLog(
             action = AuditAction.WORKFLOW_EXECUTE,
@@ -259,7 +244,7 @@ public class WorkflowRunnerService {
         }
 
         if (request.startFromNodeKey() != null && nodes.findByInstanceKey(request.startFromNodeKey()) == null) {
-                throw new IllegalArgumentException("Invalid startFromNodeKey: " + request.startFromNodeKey());
+            throw new IllegalArgumentException("Invalid startFromNodeKey: " + request.startFromNodeKey());
         } else {
             return request.startFromNodeKey();
         }

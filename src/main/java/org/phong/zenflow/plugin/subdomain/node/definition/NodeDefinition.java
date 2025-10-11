@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeValidator;
+import org.phong.zenflow.plugin.subdomain.node.definition.policy.NodeExecutionPolicy;
 import org.phong.zenflow.plugin.subdomain.resource.BaseNodeResourceManager;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerExecutor;
 import org.springframework.lang.Nullable;
@@ -24,6 +25,9 @@ public class NodeDefinition {
 
     @Nullable
     NodeValidator nodeValidator;
+
+    @Nullable
+    NodeExecutionPolicy executionPolicy;
 
     String name;
     String description;

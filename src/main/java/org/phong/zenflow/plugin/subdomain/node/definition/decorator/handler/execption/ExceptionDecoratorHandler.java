@@ -4,8 +4,7 @@ import lombok.AllArgsConstructor;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.node.definition.NodeDefinition;
 import org.phong.zenflow.plugin.subdomain.node.definition.decorator.ExecutorDecorator;
-import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.worker.model.ExecutionTaskEnvelope;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.Callable;
@@ -21,13 +20,12 @@ public class ExceptionDecoratorHandler implements ExecutorDecorator {
     @Override
     public Callable<ExecutionResult> decorate(Callable<ExecutionResult> inner,
                                               NodeDefinition def,
-                                              WorkflowConfig cfg,
-                                              ExecutionContext ctx) {
+                                              ExecutionTaskEnvelope envelope) {
         return () -> {
             try {
                 return inner.call();
             } catch (Exception e) {
-                return ExceptionMapping.mapException(e, ctx.getLogPublisher());
+                return ExceptionMapping.mapException(e, envelope.getContext().getLogPublisher());
             }
         };
     }

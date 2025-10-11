@@ -9,6 +9,8 @@ import java.util.Map;
 import java.util.UUID;
 
 public interface ExecutionContext {
+    String taskId();
+
     UUID getWorkflowRunId();
 
     UUID getWorkflowId();
@@ -30,6 +32,10 @@ public interface ExecutionContext {
     void setScopedResource(ScopedNodeResource<?> resource);
 
     <T> T read(String key, Class<T> clazz);
+
+    WorkflowConfig getCurrentConfig();
+
+    void setCurrentConfig(WorkflowConfig config);
 
     void write(String key, Object value);
 

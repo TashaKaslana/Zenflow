@@ -5,8 +5,7 @@ import org.phong.zenflow.plugin.subdomain.node.definition.NodeDefinition;
 import org.phong.zenflow.plugin.subdomain.node.definition.decorator.ExecutorDecorator;
 import org.phong.zenflow.plugin.subdomain.resource.BaseNodeResourceManager;
 import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
-import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.worker.model.ExecutionTaskEnvelope;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.Callable;
@@ -19,8 +18,7 @@ public class ResourceDecoratorHandler implements ExecutorDecorator {
     @Override
     public Callable<ExecutionResult> decorate(Callable<ExecutionResult> inner,
                                               NodeDefinition def,
-                                              WorkflowConfig cfg,
-                                              ExecutionContext ctx) {
+                                              ExecutionTaskEnvelope envelope) {
         BaseNodeResourceManager<?, ?> nodeResourceManager = def.getNodeResourceManager();
         if (nodeResourceManager == null) {
             return inner;
@@ -31,8 +29,8 @@ public class ResourceDecoratorHandler implements ExecutorDecorator {
         }
 
         return () -> {
-            try (ScopedNodeResource<?> h = nodeResourceManager.acquire(cfg, ctx)) {
-                ctx.setScopedResource(h);
+            try (ScopedNodeResource<?> h = nodeResourceManager.acquire(envelope.getConfig(), envelope.getContext())) {
+                envelope.getContext().setScopedResource(h);
                 return inner.call();
             }
         };

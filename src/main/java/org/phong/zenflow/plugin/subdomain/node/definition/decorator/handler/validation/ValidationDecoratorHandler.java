@@ -5,8 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.node.definition.NodeDefinition;
 import org.phong.zenflow.plugin.subdomain.node.definition.decorator.ExecutorDecorator;
-import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.worker.model.ExecutionTaskEnvelope;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
 import org.phong.zenflow.workflow.subdomain.schema_validator.service.WorkflowValidationService;
 import org.springframework.stereotype.Component;
@@ -27,25 +26,24 @@ public class ValidationDecoratorHandler implements ExecutorDecorator {
     @Override
     public Callable<ExecutionResult> decorate(Callable<ExecutionResult> inner,
                                               NodeDefinition def,
-                                              WorkflowConfig cfg,
-                                              ExecutionContext ctx) {
-        if (def.getNodeValidator() == null || ctx.getPluginNodeId() == null) {
+                                              ExecutionTaskEnvelope envelope) {
+        if (def.getNodeValidator() == null || envelope.getPluginNodeId() == null) {
             return inner;
         }
 
         return () -> {
             ValidationResult validationResult = workflowValidationService.validateRuntime(
-                    ctx.getNodeKey(),
-                    cfg,
-                    ctx.getPluginNodeId().toString(),
-                    ctx
+                    envelope.getContext().getNodeKey(),
+                    envelope.getConfig(),
+                    envelope.getPluginNodeId().toString(),
+                    envelope.getContext()
             );
 
             if (!validationResult.isValid()) {
                 log.warn("Validation failed for node {}, plugin node id {}: {}",
-                        ctx.getNodeKey(), ctx.getPluginNodeId(), validationResult.getErrors()
+                        envelope.getContext().getNodeKey(), envelope.getPluginNodeId(), validationResult.getErrors()
                 );
-                return ExecutionResult.validationError(validationResult, ctx.getNodeKey());
+                return ExecutionResult.validationError(validationResult, envelope.getContext().getNodeKey());
             }
 
             return inner.call();
