@@ -3,12 +3,14 @@ package org.phong.zenflow.workflow.subdomain.worker.policy;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 
 @Getter
 @Setter
 @ConfigurationProperties(prefix = "zenflow.execution.policy")
+@Component
 public class PlatformExecutionPolicyProperties {
 
     private TimeoutProperties timeout = new TimeoutProperties();

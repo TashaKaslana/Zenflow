@@ -14,11 +14,15 @@ import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorR
 import org.phong.zenflow.plugin.subdomain.node.definition.NodeDefinition;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.plugin.subdomain.schema.registry.SchemaIndexRegistry;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.worker.model.ExecutionTaskEnvelope;
 import org.phong.zenflow.workflow.subdomain.trigger.registry.TriggerRegistry;
 import org.springframework.context.ApplicationContext;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -50,12 +54,14 @@ class PluginNodeSynchronizerUuidIntegrationTest {
 
     private UUID testNodeId1;
     private UUID testNodeId2;
+    private Map<String, Supplier<NodeDefinition>> registeredDefinitions;
 
     @BeforeEach
     @SuppressWarnings("unchecked")
     void setUp() throws Exception {
         testNodeId1 = UUID.fromString("123e4567-e89b-12d3-a456-426614174001");
         testNodeId2 = UUID.fromString("123e4567-e89b-12d3-a456-426614174002");
+        registeredDefinitions = new ConcurrentHashMap<>();
 
         // Mock common dependencies with lenient stubbing since not all tests use all mocks
         Plugin mockPlugin = new Plugin();
@@ -71,10 +77,22 @@ class PluginNodeSynchronizerUuidIntegrationTest {
 
         // Mock SchemaIndexRegistry behavior
         final ConcurrentHashMap<String, SchemaIndexRegistry.SchemaLocation> schemaIndex = new java.util.concurrent.ConcurrentHashMap<>();
-        lenient().when(schemaIndexRegistry.getSchemaIndex()).thenReturn(schemaIndex);
         lenient().when(schemaIndexRegistry.getSchemaIndexSize()).thenAnswer(i -> schemaIndex.size());
         lenient().when(schemaIndexRegistry.hasSchemaLocation(anyString())).thenAnswer(i -> schemaIndex.containsKey(i.getArgument(0)));
         lenient().when(schemaIndexRegistry.getSchemaLocation(anyString())).thenAnswer(i -> schemaIndex.get(i.getArgument(0)));
+        lenient().when(schemaIndexRegistry.addSchemaLocation(anyString(), any())).thenAnswer(invocation -> {
+            String key = invocation.getArgument(0);
+            SchemaIndexRegistry.SchemaLocation location = invocation.getArgument(1);
+            schemaIndex.put(key, location);
+            return true;
+        });
+
+        lenient().doAnswer(invocation -> {
+            String key = invocation.getArgument(0);
+            Supplier<NodeDefinition> supplier = invocation.getArgument(1);
+            registeredDefinitions.put(key, supplier);
+            return null;
+        }).when(registry).register(anyString(), any());
     }
 
     @Test
@@ -100,6 +118,18 @@ class PluginNodeSynchronizerUuidIntegrationTest {
         // Verify executor registry was called with UUIDs
         verify(registry).register(eq(testNodeId1.toString()), any());
         verify(registry).register(eq(testNodeId2.toString()), any());
+
+        ExecutionTaskEnvelope envelope1 = getTestEnvelope(testNodeId1);
+        ExecutionTaskEnvelope envelope2 = getTestEnvelope(testNodeId2);
+
+        assertTrue(registeredDefinitions.containsKey(envelope1.getExecutorIdentifier()),
+                "Execution envelope identifier should map to a registered definition for node 1");
+        assertSame(nodeDefinition, registeredDefinitions.get(envelope1.getExecutorIdentifier()).get(),
+                "Envelope should resolve the same node definition for node 1");
+        assertTrue(registeredDefinitions.containsKey(envelope2.getExecutorIdentifier()),
+                "Execution envelope identifier should map to a registered definition for node 2");
+        assertSame(nodeDefinition, registeredDefinitions.get(envelope2.getExecutorIdentifier()).get(),
+                "Envelope should resolve the same node definition for node 2");
     }
 
     @Test
@@ -191,6 +221,17 @@ class PluginNodeSynchronizerUuidIntegrationTest {
         assertNotNull(location, "Schema location should be updated");
     }
 
+    private ExecutionTaskEnvelope getTestEnvelope(UUID nodeId) {
+        return ExecutionTaskEnvelope.builder()
+                .taskId("task-" + nodeId)
+                .executorIdentifier(nodeId.toString())
+                .executorType("builtin")
+                .config(mock(WorkflowConfig.class))
+                .context(mock(ExecutionContext.class))
+                .pluginNodeId(nodeId)
+                .build();
+    }
+
     private Map<String, Object> createMockSchemaMap() {
         return Map.of(
                 "type", "object",
@@ -214,7 +255,7 @@ class PluginNodeSynchronizerUuidIntegrationTest {
         // Simulate the schema indexing
         SchemaIndexRegistry.SchemaLocation location =
                 new SchemaIndexRegistry.SchemaLocation(mockClass, "");
-        schemaIndexRegistry.getSchemaIndex().put(nodeId.toString(), location);
+        schemaIndexRegistry.addSchemaLocation(nodeId.toString(), location);
 
         // Simulate the registry registration (this is what the real implementation does)
         registry.register(nodeId.toString(), () -> nodeDefinition);

@@ -4,8 +4,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.phong.zenflow.core.services.AuthService;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.services.NodeExecutorDispatcher;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
@@ -25,6 +27,9 @@ import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
 import org.phong.zenflow.workflow.subdomain.node_execution.service.NodeExecutionService;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
 import org.phong.zenflow.workflow.subdomain.schema_validator.service.WorkflowValidationService;
+import org.phong.zenflow.workflow.subdomain.worker.ExecutionTaskRegistry;
+import org.phong.zenflow.workflow.subdomain.worker.gateway.ExecutionGatewayImpl;
+import org.phong.zenflow.workflow.subdomain.worker.model.ExecutionTaskEnvelope;
 import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.*;
@@ -61,8 +66,13 @@ class WorkflowEngineServiceUuidIntegrationTest {
     @Mock
     private RuntimeContext runtimeContext;
 
+    @Mock
+    private AuthService authService;
+
+    @Mock
+    private ExecutionTaskRegistry taskRegistry;
+
     private WorkflowEngineService workflowEngineService;
-    private TemplateService templateService;
 
     private UUID workflowId;
     private UUID workflowRunId;
@@ -71,15 +81,21 @@ class WorkflowEngineServiceUuidIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        templateService = new TemplateService(new AviatorFunctionRegistry(List.of(new StringContainsFunction())));
+        TemplateService templateService = new TemplateService(new AviatorFunctionRegistry(List.of(new StringContainsFunction())));
+        // Direct executor for testing
+        ExecutionGatewayImpl executionGateway = new ExecutionGatewayImpl(
+                taskRegistry,
+                executorDispatcher,
+                Runnable::run // Direct executor for testing
+        );
         workflowEngineService = new WorkflowEngineService(
                 nodeExecutionService,
-                workflowValidationService,
-                executorDispatcher,
+                executionGateway,
                 workflowNavigatorService,
                 publisher,
                 contextManager,
-                templateService
+                templateService,
+                authService
         );
 
         workflowId = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
@@ -89,6 +105,7 @@ class WorkflowEngineServiceUuidIntegrationTest {
 
         // Fix: Add proper stubbing for RuntimeContextManager to return a mock RuntimeContext
         when(contextManager.getOrCreate(anyString())).thenReturn(runtimeContext);
+        when(taskRegistry.registerTask(any(), any())).thenReturn(true);
     }
 
     @Test
@@ -103,7 +120,7 @@ class WorkflowEngineServiceUuidIntegrationTest {
 
         when(workflowValidationService.validateRuntime(any(), any(), any(), any()))
                 .thenReturn(new ValidationResult("runtime", List.of()));
-        when(executorDispatcher.dispatch(eq(testNodeId1.toString()), eq("builtin"), any(), any()))
+        when(executorDispatcher.dispatch(any(ExecutionTaskEnvelope.class)))
                 .thenReturn(ExecutionResult.success(Map.of("result", "success")));
         when(workflowNavigatorService.handleExecutionResult(any(), any(), any(), any(), any(), any()))
                 .thenReturn(new WorkflowNavigatorService.ExecutionStepOutcome(null,
@@ -114,87 +131,9 @@ class WorkflowEngineServiceUuidIntegrationTest {
 
         // Assert
         assertEquals(WorkflowExecutionStatus.COMPLETED, result);
-        verify(executorDispatcher).dispatch(eq(testNodeId1.toString()), eq("builtin"), any(), any());
-        verify(workflowValidationService).validateRuntime(eq("node1"), any(), eq(testNodeId1.toString()), any());
-    }
-
-    @Test
-    @DisplayName("Should fall back to composite key when UUID is not available")
-    void shouldFallBackToCompositeKeyWhenUuidNotAvailable() {
-        // Arrange
-        PluginNodeIdentifier identifier = createPluginNodeIdentifier("email", "send", "1.0.0", null);
-        BaseWorkflowNode node = createWorkflowNode("node1", identifier);
-
-        WorkflowDefinition definition = new WorkflowDefinition(new WorkflowNodes(List.of(node)), new WorkflowMetadata());
-        Workflow workflow = createWorkflow(workflowId, definition);
-
-        String expectedCompositeKey = "email:send:1.0.0";
-
-        when(workflowValidationService.validateRuntime(any(), any(), any(), any()))
-                .thenReturn(new ValidationResult("runtime", List.of()));
-        when(executorDispatcher.dispatch(eq(expectedCompositeKey), eq("builtin"), any(), any()))
-                .thenReturn(ExecutionResult.success(Map.of("result", "success")));
-        when(workflowNavigatorService.handleExecutionResult(any(), any(), any(), any(), any(), any()))
-                .thenReturn(new WorkflowNavigatorService.ExecutionStepOutcome(null,
-                        WorkflowExecutionStatus.COMPLETED));
-
-        // Act
-        var result = workflowEngineService.runWorkflow(workflow, workflowRunId, "node1", runtimeContext);
-
-        // Assert
-        assertEquals(WorkflowExecutionStatus.COMPLETED, result);
-        verify(executorDispatcher).dispatch(eq(expectedCompositeKey), eq("builtin"), any(), any());
-        verify(workflowValidationService).validateRuntime(eq("node1"), any(), eq(expectedCompositeKey), any());
-    }
-
-    @Test
-    @DisplayName("Should handle mixed UUID and composite key nodes in same workflow")
-    void shouldHandleMixedUuidAndCompositeKeyNodes() {
-        // Arrange
-        PluginNodeIdentifier uuidIdentifier = createPluginNodeIdentifier("email", "send", "1.0.0", testNodeId1);
-        PluginNodeIdentifier compositeIdentifier = createPluginNodeIdentifier("slack", "message", "2.1.0", null);
-
-        BaseWorkflowNode uuidNode = createWorkflowNode("uuid-node", uuidIdentifier);
-        BaseWorkflowNode compositeNode = createWorkflowNode("composite-node", compositeIdentifier);
-
-        uuidNode.setNext(List.of("composite-node"));
-        compositeNode.setNext(List.of());
-
-        WorkflowDefinition definition = new WorkflowDefinition(
-                new WorkflowNodes(Arrays.asList(uuidNode, compositeNode)),
-                new WorkflowMetadata()
-        );
-        Workflow workflow = createWorkflow(workflowId, definition);
-
-        when(workflowValidationService.validateRuntime(any(), any(), any(), any()))
-                .thenReturn(new ValidationResult("runtime", List.of()));
-
-        when(executorDispatcher.dispatch(eq(testNodeId1.toString()), eq("builtin"), any(), any()))
-                .thenReturn(ExecutionResult.success(Map.of("step", 1)));
-        when(executorDispatcher.dispatch(eq("slack:message:2.1.0"), eq("builtin"), any(), any()))
-                .thenReturn(ExecutionResult.success(Map.of("step", 2)));
-
-        when(workflowNavigatorService.handleExecutionResult(eq(workflowId), eq(workflowRunId),
-                eq(uuidNode), any(), any(), any()))
-                .thenReturn(new WorkflowNavigatorService.ExecutionStepOutcome(compositeNode,
-                        WorkflowExecutionStatus.HALTED));
-
-        when(workflowNavigatorService.handleExecutionResult(eq(workflowId), eq(workflowRunId),
-                eq(compositeNode), any(), any(), any()))
-                .thenReturn(new WorkflowNavigatorService.ExecutionStepOutcome(null,
-                        WorkflowExecutionStatus.COMPLETED));
-
-        // Act
-        var result = workflowEngineService.runWorkflow(workflow, workflowRunId, "uuid-node", runtimeContext);
-
-        // Assert
-        assertEquals(WorkflowExecutionStatus.COMPLETED, result);
-
-        verify(executorDispatcher).dispatch(eq(testNodeId1.toString()), eq("builtin"), any(), any());
-        verify(executorDispatcher).dispatch(eq("slack:message:2.1.0"), eq("builtin"), any(), any());
-
-        verify(workflowValidationService).validateRuntime(eq("uuid-node"), any(), eq(testNodeId1.toString()), any());
-        verify(workflowValidationService).validateRuntime(eq("composite-node"), any(), eq("slack:message:2.1.0"), any());
+        ArgumentCaptor<ExecutionTaskEnvelope> envelopeCaptor = ArgumentCaptor.forClass(ExecutionTaskEnvelope.class);
+        verify(executorDispatcher).dispatch(envelopeCaptor.capture());
+        assertEquals(testNodeId1.toString(), envelopeCaptor.getValue().getExecutorIdentifier());
     }
 
     @Test
@@ -215,7 +154,7 @@ class WorkflowEngineServiceUuidIntegrationTest {
 
         when(workflowValidationService.validateRuntime(any(), any(), any(), any()))
                 .thenReturn(new ValidationResult("runtime", List.of()));
-        when(executorDispatcher.dispatch(eq(testNodeId2.toString()), eq("builtin"), any(), any()))
+        when(executorDispatcher.dispatch(any(ExecutionTaskEnvelope.class)))
                 .thenReturn(ExecutionResult.success(expectedOutput));
         when(workflowNavigatorService.handleExecutionResult(any(), any(), any(), any(), any(), any()))
                 .thenReturn(new WorkflowNavigatorService.ExecutionStepOutcome(null,
@@ -229,7 +168,10 @@ class WorkflowEngineServiceUuidIntegrationTest {
         // Assert
         assertEquals(WorkflowExecutionStatus.COMPLETED, result);
 
-        verify(executorDispatcher).dispatch(eq(testNodeId2.toString()), eq("builtin"), any(), any());
+        ArgumentCaptor<ExecutionTaskEnvelope> envelopeCaptor = ArgumentCaptor.forClass(ExecutionTaskEnvelope.class);
+        verify(executorDispatcher).dispatch(envelopeCaptor.capture());
+        assertEquals(testNodeId2.toString(), envelopeCaptor.getValue().getExecutorIdentifier());
+        
         verify(runtimeContext).processOutputWithMetadata(eq("transform-node.output"), eq(expectedOutput));
         verify(nodeExecutionService).startNode(workflowRunId, "transform-node");
         verify(nodeExecutionService).resolveNodeExecution(eq(workflowId), eq(workflowRunId), eq(node), any(), isNull());

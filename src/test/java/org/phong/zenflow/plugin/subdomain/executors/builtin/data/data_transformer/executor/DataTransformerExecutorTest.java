@@ -6,21 +6,33 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.phong.zenflow.TestExecutionContextUtils;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
+import org.phong.zenflow.plugin.subdomain.node.definition.decorator.ExecutorPipelineFactory;
+import org.phong.zenflow.plugin.subdomain.node.definition.decorator.handler.execption.ExceptionDecoratorHandler;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.data.data_transformer.DataTransformerNode;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.data.data_transformer.executor.DataTransformerExecutor;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.data.data_transformer.interfaces.DataTransformer;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.data.data_transformer.registry.TransformerRegistry;
-import org.phong.zenflow.TestExecutionContextUtils;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.worker.model.ExecutionTaskEnvelope;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Callable;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class DataTransformerExecutorTest {
@@ -65,10 +77,58 @@ class DataTransformerExecutorTest {
 
     private DataTransformerExecutor executor;
 
+    private ExecutorPipelineFactory pipelineFactory;
+
+    private static @NotNull WorkflowConfig getWorkflowConfig(Map<String, Object> originalData) {
+        List<Map<String, Object>> steps = Arrays.asList(
+                Map.of("transformer", "set_field", "params", Map.of("field", "timestamp", "value", "2024-01-01T10:00:00")),
+                Map.of("transformer", "set_field", "params", Map.of("field", "processed", "value", true)),
+                Map.of("transformer", "get_field", "params", Map.of("field", "name"))
+        );
+
+        Map<String, Object> input = Map.of(
+                "data", originalData,
+                "isPipeline", true,
+                "steps", steps
+        );
+
+        return new WorkflowConfig(input);
+    }
+
+    private static @NotNull WorkflowConfig getWorkflowConfigForGroupBy(List<Map<String, Object>> employees) {
+        List<Map<String, Object>> steps = Arrays.asList(
+                Map.of("transformer", "filter", "params", Map.of("expression", "active == true", "mode", "include")),
+                Map.of("transformer", "sort", "params", Map.of("field", "salary", "direction", "desc")),
+                Map.of("transformer", "group_by", "params", Map.of(
+                        "groupBy", "department"
+                )),
+                Map.of("transformer", "aggregate", "params", Map.of(
+                        "aggregations", Arrays.asList(
+                                Map.of("field", "salary", "function", "avg", "alias", "avg_salary"),
+                                Map.of("field", "name", "function", "count", "alias", "employee_count")
+                        )
+                ))
+        );
+
+        Map<String, Object> input = Map.of(
+                "data", employees,
+                "isPipeline", true,
+                "steps", steps
+        );
+        return new WorkflowConfig(input);
+    }
+
+    // ===========================================
+    // BASIC PIPELINE TESTS
+    // ===========================================
+
     @BeforeEach
     void setUp() {
         executor = new DataTransformerExecutor(registry);
         runtimeContext = TestExecutionContextUtils.createExecutionContext();
+        pipelineFactory = new ExecutorPipelineFactory(List.of(
+                new ExceptionDecoratorHandler()
+        ));
     }
 
     @Test
@@ -96,23 +156,19 @@ class DataTransformerExecutorTest {
         assertEquals(List.of(Map.of("value", 2)), result.getOutput().get("result"));
     }
 
-    // ===========================================
-    // BASIC PIPELINE TESTS
-    // ===========================================
-
     @Test
     void testSimpleStringProcessingPipeline() {
         // Pipeline: trim -> uppercase -> concat
         List<Map<String, Object>> steps = Arrays.asList(
-            Map.of("transformer", "trim", "params", Map.of()),
-            Map.of("transformer", "uppercase", "params", Map.of()),
-            Map.of("transformer", "concat", "params", Map.of("suffix", "!"))
+                Map.of("transformer", "trim", "params", Map.of()),
+                Map.of("transformer", "uppercase", "params", Map.of()),
+                Map.of("transformer", "concat", "params", Map.of("suffix", "!"))
         );
 
         Map<String, Object> input = Map.of(
-            "data", "  hello world  ",
-            "isPipeline", true,
-            "steps", steps
+                "data", "  hello world  ",
+                "isPipeline", true,
+                "steps", steps
         );
         WorkflowConfig config = new WorkflowConfig(input);
 
@@ -136,6 +192,10 @@ class DataTransformerExecutorTest {
         verify(uppercaseTransformer).transform("hello world", Map.of());
         verify(concatTransformer).transform("HELLO WORLD", Map.of("suffix", "!"));
     }
+
+    // ===========================================
+    // DATA AGGREGATION PIPELINE TESTS
+    // ===========================================
 
     @Test
     void testDataEnrichmentPipeline() {
@@ -164,34 +224,14 @@ class DataTransformerExecutorTest {
         assertEquals("John", result.getOutput().get("result"));
     }
 
-    private static @NotNull WorkflowConfig getWorkflowConfig(Map<String, Object> originalData) {
-        List<Map<String, Object>> steps = Arrays.asList(
-            Map.of("transformer", "set_field", "params", Map.of("field", "timestamp", "value", "2024-01-01T10:00:00")),
-            Map.of("transformer", "set_field", "params", Map.of("field", "processed", "value", true)),
-            Map.of("transformer", "get_field", "params", Map.of("field", "name"))
-        );
-
-        Map<String, Object> input = Map.of(
-            "data", originalData,
-            "isPipeline", true,
-            "steps", steps
-        );
-
-        return new WorkflowConfig(input);
-    }
-
-    // ===========================================
-    // DATA AGGREGATION PIPELINE TESTS
-    // ===========================================
-
     @Test
     void testDataAnalyticsPipeline() {
         // Pipeline: filter (active users) -> sort (by salary desc) -> group_by (department) -> aggregate (avg salary, count)
         List<Map<String, Object>> employees = Arrays.asList(
-            Map.of("name", "John", "department", "IT", "salary", 70000, "active", true),
-            Map.of("name", "Jane", "department", "HR", "salary", 60000, "active", false),
-            Map.of("name", "Bob", "department", "IT", "salary", 80000, "active", true),
-            Map.of("name", "Alice", "department", "HR", "salary", 65000, "active", true)
+                Map.of("name", "John", "department", "IT", "salary", 70000, "active", true),
+                Map.of("name", "Jane", "department", "HR", "salary", 60000, "active", false),
+                Map.of("name", "Bob", "department", "IT", "salary", 80000, "active", true),
+                Map.of("name", "Alice", "department", "HR", "salary", 65000, "active", true)
         );
 
         WorkflowConfig config = getWorkflowConfigForGroupBy(employees);
@@ -203,30 +243,30 @@ class DataTransformerExecutorTest {
 
         // Mock pipeline transformations
         List<Map<String, Object>> afterFilter = Arrays.asList(
-            Map.of("name", "John", "department", "IT", "salary", 70000, "active", true),
-            Map.of("name", "Bob", "department", "IT", "salary", 80000, "active", true),
-            Map.of("name", "Alice", "department", "HR", "salary", 65000, "active", true)
+                Map.of("name", "John", "department", "IT", "salary", 70000, "active", true),
+                Map.of("name", "Bob", "department", "IT", "salary", 80000, "active", true),
+                Map.of("name", "Alice", "department", "HR", "salary", 65000, "active", true)
         );
 
         List<Map<String, Object>> afterSort = Arrays.asList(
-            Map.of("name", "Bob", "department", "IT", "salary", 80000, "active", true),
-            Map.of("name", "John", "department", "IT", "salary", 70000, "active", true),
-            Map.of("name", "Alice", "department", "HR", "salary", 65000, "active", true)
+                Map.of("name", "Bob", "department", "IT", "salary", 80000, "active", true),
+                Map.of("name", "John", "department", "IT", "salary", 70000, "active", true),
+                Map.of("name", "Alice", "department", "HR", "salary", 65000, "active", true)
         );
 
         List<Map<String, Object>> grouped = Arrays.asList(
-            Map.of("department", "IT", "items", Arrays.asList(
-                Map.of("name", "Bob", "department", "IT", "salary", 80000, "active", true),
-                Map.of("name", "John", "department", "IT", "salary", 70000, "active", true)
-            )),
-            Map.of("department", "HR", "items", List.of(
-                Map.of("name", "Alice", "department", "HR", "salary", 65000, "active", true)
-            ))
+                Map.of("department", "IT", "items", Arrays.asList(
+                        Map.of("name", "Bob", "department", "IT", "salary", 80000, "active", true),
+                        Map.of("name", "John", "department", "IT", "salary", 70000, "active", true)
+                )),
+                Map.of("department", "HR", "items", List.of(
+                        Map.of("name", "Alice", "department", "HR", "salary", 65000, "active", true)
+                ))
         );
 
         List<Map<String, Object>> finalResult = Arrays.asList(
-            Map.of("department", "IT", "avg_salary", 75000.0, "employee_count", 2),
-            Map.of("department", "HR", "avg_salary", 65000.0, "employee_count", 1)
+                Map.of("department", "IT", "avg_salary", 75000.0, "employee_count", 2),
+                Map.of("department", "HR", "avg_salary", 65000.0, "employee_count", 1)
         );
 
         when(filterTransformer.transform(eq(employees), any())).thenReturn(afterFilter);
@@ -240,29 +280,6 @@ class DataTransformerExecutorTest {
         assertEquals(finalResult, result.getOutput().get("result"));
     }
 
-    private static @NotNull WorkflowConfig getWorkflowConfigForGroupBy(List<Map<String, Object>> employees) {
-        List<Map<String, Object>> steps = Arrays.asList(
-            Map.of("transformer", "filter", "params", Map.of("expression", "active == true", "mode", "include")),
-            Map.of("transformer", "sort", "params", Map.of("field", "salary", "direction", "desc")),
-            Map.of("transformer", "group_by", "params", Map.of(
-                "groupBy", "department"
-            )),
-            Map.of("transformer", "aggregate", "params", Map.of(
-                "aggregations", Arrays.asList(
-                    Map.of("field", "salary", "function", "avg", "alias", "avg_salary"),
-                    Map.of("field", "name", "function", "count", "alias", "employee_count")
-                )
-            ))
-        );
-
-        Map<String, Object> input = Map.of(
-            "data", employees,
-            "isPipeline", true,
-            "steps", steps
-        );
-        return new WorkflowConfig(input);
-    }
-
     // ===========================================
     // FORMAT & EXPORT PIPELINE TESTS
     // ===========================================
@@ -271,27 +288,27 @@ class DataTransformerExecutorTest {
     void testDataFormattingAndExportPipeline() {
         // Pipeline: format_number (salary) -> set_field (add formatted date) -> to_json
         Map<String, Object> employeeData = Map.of(
-            "name", "John",
-            "salary", 75000,
-            "department", "Engineering"
+                "name", "John",
+                "salary", 75000,
+                "department", "Engineering"
         );
 
         List<Map<String, Object>> steps = Arrays.asList(
-            Map.of("transformer", "format_number", "params", Map.of(
-                "field", "salary",
-                "type", "currency"
-            )),
-            Map.of("transformer", "set_field", "params", Map.of(
-                "field", "report_date",
-                "value", "2024-01-01"
-            )),
-            Map.of("transformer", "to_json", "params", Map.of())
+                Map.of("transformer", "format_number", "params", Map.of(
+                        "field", "salary",
+                        "type", "currency"
+                )),
+                Map.of("transformer", "set_field", "params", Map.of(
+                        "field", "report_date",
+                        "value", "2024-01-01"
+                )),
+                Map.of("transformer", "to_json", "params", Map.of())
         );
 
         Map<String, Object> input = Map.of(
-            "data", employeeData,
-            "isPipeline", true,
-            "steps", steps
+                "data", employeeData,
+                "isPipeline", true,
+                "steps", steps
         );
         WorkflowConfig config = new WorkflowConfig(input);
 
@@ -301,16 +318,16 @@ class DataTransformerExecutorTest {
 
         // Mock pipeline transformations
         Map<String, Object> afterFormatNumber = Map.of(
-            "name", "John",
-            "salary", "$75,000.00",
-            "department", "Engineering"
+                "name", "John",
+                "salary", "$75,000.00",
+                "department", "Engineering"
         );
 
         Map<String, Object> afterSetField = Map.of(
-            "name", "John",
-            "salary", "$75,000.00",
-            "department", "Engineering",
-            "report_date", "2024-01-01"
+                "name", "John",
+                "salary", "$75,000.00",
+                "department", "Engineering",
+                "report_date", "2024-01-01"
         );
 
         String jsonResult = "{\"name\":\"John\",\"salary\":\"$75,000.00\",\"department\":\"Engineering\",\"report_date\":\"2024-01-01\"}";
@@ -333,23 +350,23 @@ class DataTransformerExecutorTest {
     void testForEachWithComplexPipeline() {
         // Apply pipeline to each employee: trim name -> uppercase -> concat title
         List<Map<String, Object>> employees = Arrays.asList(
-            Map.of("name", "  john  ", "department", "IT"),
-            Map.of("name", "  jane  ", "department", "HR"),
-            Map.of("name", "  bob   ", "department", "Finance")
+                Map.of("name", "  john  ", "department", "IT"),
+                Map.of("name", "  jane  ", "department", "HR"),
+                Map.of("name", "  bob   ", "department", "Finance")
         );
 
         List<Map<String, Object>> steps = Arrays.asList(
-            Map.of("transformer", "get_field", "params", Map.of("field", "name")),
-            Map.of("transformer", "trim", "params", Map.of()),
-            Map.of("transformer", "uppercase", "params", Map.of()),
-            Map.of("transformer", "concat", "params", Map.of("suffix", " - Employee"))
+                Map.of("transformer", "get_field", "params", Map.of("field", "name")),
+                Map.of("transformer", "trim", "params", Map.of()),
+                Map.of("transformer", "uppercase", "params", Map.of()),
+                Map.of("transformer", "concat", "params", Map.of("suffix", " - Employee"))
         );
 
         Map<String, Object> input = Map.of(
-            "data", employees,
-            "isPipeline", true,
-            "forEach", true,
-            "steps", steps
+                "data", employees,
+                "isPipeline", true,
+                "forEach", true,
+                "steps", steps
         );
         WorkflowConfig config = new WorkflowConfig(input);
 
@@ -398,24 +415,24 @@ class DataTransformerExecutorTest {
         // 5. Export to JSON
 
         List<Map<String, Object>> salesData = Arrays.asList(
-            Map.of("id", 1, "amount", 1000, "active", true, "customer", "Acme Corp"),
-            Map.of("id", 2, "amount", 500, "active", false, "customer", "Beta Inc"),
-            Map.of("id", 3, "amount", 1500, "active", true, "customer", "Gamma LLC")
+                Map.of("id", 1, "amount", 1000, "active", true, "customer", "Acme Corp"),
+                Map.of("id", 2, "amount", 500, "active", false, "customer", "Beta Inc"),
+                Map.of("id", 3, "amount", 1500, "active", true, "customer", "Gamma LLC")
         );
 
         List<Map<String, Object>> steps = Arrays.asList(
-            Map.of("transformer", "filter", "params", Map.of("expression", "active == true", "mode", "include")),
-            Map.of("transformer", "set_field", "params", Map.of("field", "tax", "value", "calculated_tax")),
-            Map.of("transformer", "set_field", "params", Map.of("field", "total", "value", "calculated_total")),
-            Map.of("transformer", "sort", "params", Map.of("field", "total", "direction", "desc")),
-            Map.of("transformer", "format_number", "params", Map.of("field", "amount", "type", "currency")),
-            Map.of("transformer", "to_json", "params", Map.of())
+                Map.of("transformer", "filter", "params", Map.of("expression", "active == true", "mode", "include")),
+                Map.of("transformer", "set_field", "params", Map.of("field", "tax", "value", "calculated_tax")),
+                Map.of("transformer", "set_field", "params", Map.of("field", "total", "value", "calculated_total")),
+                Map.of("transformer", "sort", "params", Map.of("field", "total", "direction", "desc")),
+                Map.of("transformer", "format_number", "params", Map.of("field", "amount", "type", "currency")),
+                Map.of("transformer", "to_json", "params", Map.of())
         );
 
         Map<String, Object> input = Map.of(
-            "data", salesData,
-            "isPipeline", true,
-            "steps", steps
+                "data", salesData,
+                "isPipeline", true,
+                "steps", steps
         );
         WorkflowConfig config = new WorkflowConfig(input);
 
@@ -427,8 +444,8 @@ class DataTransformerExecutorTest {
 
         // Mock the complex pipeline execution
         List<Map<String, Object>> filteredData = Arrays.asList(
-            Map.of("id", 1, "amount", 1000, "active", true, "customer", "Acme Corp"),
-            Map.of("id", 3, "amount", 1500, "active", true, "customer", "Gamma LLC")
+                Map.of("id", 1, "amount", 1000, "active", true, "customer", "Acme Corp"),
+                Map.of("id", 3, "amount", 1500, "active", true, "customer", "Gamma LLC")
         );
 
         String finalJson = "[{\"id\":3,\"amount\":\"$1,500.00\",\"customer\":\"Gamma LLC\"},{\"id\":1,\"amount\":\"$1,000.00\",\"customer\":\"Acme Corp\"}]";
@@ -468,16 +485,27 @@ class DataTransformerExecutorTest {
     @Test
     void testPipelineWithMissingSteps() {
         Map<String, Object> input = Map.of(
-            "data", "test data",
-            "isPipeline", true
-            // Missing "steps" parameter
+                "data", "test data",
+                "isPipeline", true
+                // Missing "steps" parameter
         );
         WorkflowConfig config = new WorkflowConfig(input);
-
-        ExecutionResult result = executor.execute(config, runtimeContext);
-
+        ExecutionResult result = getExecutionResult(config);
         assertEquals(ExecutionStatus.ERROR, result.getStatus());
-        assertTrue(result.getError().contains("Pipeline steps are missing"));
+        assertTrue(result.getErrorLabel().contains("Pipeline steps are missing"));
+    }
+
+    private ExecutionResult getExecutionResult(WorkflowConfig config) {
+        try {
+            Callable<ExecutionResult> callable = pipelineFactory.build(new DataTransformerNode(executor).definition(), ExecutionTaskEnvelope.builder()
+                    .config(config)
+                    .context(runtimeContext)
+                    .build());
+            return callable.call();
+        } catch (Exception e) {
+            fail("Failed to add pipeline decorator: " + e.getMessage());
+            return ExecutionResult.error("Failed to add pipeline decorator: " + e.getMessage());
+        }
     }
 
     @Test
@@ -487,16 +515,16 @@ class DataTransformerExecutorTest {
         );
 
         Map<String, Object> input = Map.of(
-            "data", "test data",
-            "isPipeline", true,
-            "steps", steps
+                "data", "test data",
+                "isPipeline", true,
+                "steps", steps
         );
         WorkflowConfig config = new WorkflowConfig(input);
 
-        ExecutionResult result = executor.execute(config, runtimeContext);
+        ExecutionResult result = getExecutionResult(config);
 
         assertEquals(ExecutionStatus.ERROR, result.getStatus());
-        assertTrue(result.getError().contains("Transformer name is missing"));
+        assertTrue(result.getErrorLabel().contains("Transformer name is missing"));
     }
 
     @Test
@@ -506,16 +534,16 @@ class DataTransformerExecutorTest {
         );
 
         Map<String, Object> input = Map.of(
-            "data", "test data",
-            "isPipeline", true,
-            "steps", steps
+                "data", "test data",
+                "isPipeline", true,
+                "steps", steps
         );
         WorkflowConfig config = new WorkflowConfig(input);
 
-        ExecutionResult result = executor.execute(config, runtimeContext);
+        ExecutionResult result = getExecutionResult(config);
 
         assertEquals(ExecutionStatus.ERROR, result.getStatus());
-        assertTrue(result.getError().contains("Params are missing"));
+        assertTrue(result.getErrorLabel().contains("Params are missing"));
     }
 
     // ===========================================
@@ -525,9 +553,9 @@ class DataTransformerExecutorTest {
     @Test
     void testSingleTransformerExecution() {
         Map<String, Object> input = Map.of(
-            "name", "uppercase",
-            "data", "hello world",
-            "params", Map.of()
+                "name", "uppercase",
+                "data", "hello world",
+                "params", Map.of()
         );
         WorkflowConfig config = new WorkflowConfig(input);
 
@@ -545,10 +573,10 @@ class DataTransformerExecutorTest {
     void testForEachSingleTransformer() {
         List<String> inputData = Arrays.asList("hello", "world", "test");
         Map<String, Object> input = Map.of(
-            "name", "uppercase",
-            "data", inputData,
-            "params", Map.of(),
-            "forEach", true
+                "name", "uppercase",
+                "data", inputData,
+                "params", Map.of(),
+                "forEach", true
         );
         WorkflowConfig config = new WorkflowConfig(input);
 

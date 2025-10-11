@@ -1,6 +1,7 @@
 package org.phong.zenflow;
 
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContextImpl;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContextManager;
 import org.phong.zenflow.workflow.subdomain.evaluator.functions.AviatorFunctionRegistry;
@@ -23,7 +24,7 @@ public class TestExecutionContextUtils {
         UUID workflowId = UUID.randomUUID();
         UUID runId = UUID.randomUUID();
         manager.assign(runId.toString(), runtimeContext);
-        return ExecutionContext.builder()
+        return ExecutionContextImpl.builder()
                 .workflowId(workflowId)
                 .workflowRunId(runId)
                 .traceId("trace")

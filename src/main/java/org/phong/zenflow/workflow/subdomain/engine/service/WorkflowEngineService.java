@@ -127,15 +127,14 @@ public class WorkflowEngineService {
             log.warn("Output of node {} is null, skipping putting into context", workingNode.getKey());
         }
 
-        String callbackUrl = contextManager.getOrCreate(workflowRunId.toString())
-                .get(ExecutionContextKey.CALLBACK_URL.key())
-                .toString();
+        Object callbackUrl = contextManager.getOrCreate(workflowRunId.toString())
+                .get(ExecutionContextKey.CALLBACK_URL.key());
         nodeExecutionService.resolveNodeExecution(
                 workflowId,
                 workflowRunId,
                 workingNode,
                 result,
-                callbackUrl
+                callbackUrl != null ? callbackUrl.toString() : null
         );
 
         if (result.getStatus() == ExecutionStatus.COMMIT) {
@@ -157,6 +156,8 @@ public class WorkflowEngineService {
             String executorType = workingNode.getPluginNode().getExecutorType();
             if (executorType == null) {
                 throw new WorkflowEngineException("Executor type is not defined for node: " + workingNode.getKey());
+            } else if (workingNode.getPluginNode().getNodeId() == null) {
+                throw new WorkflowEngineException("Plugin node ID is not defined for node: " + workingNode.getKey());
             }
 
             ExecutionTaskEnvelope envelope = ExecutionTaskEnvelope.builder()

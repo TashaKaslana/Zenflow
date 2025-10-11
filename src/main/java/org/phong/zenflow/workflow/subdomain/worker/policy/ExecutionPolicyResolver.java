@@ -71,6 +71,7 @@ public class ExecutionPolicyResolver {
                 normalizedAttempts(authorRetry),
                 defaultAttempts
         );
+        attempts = attempts != null ? attempts : defaultAttempts;
 
         if (attempts > maxAllowed) {
             log.debug("Requested retry attempts {} exceed platform maximum {}, capping value", attempts, maxAllowed);
@@ -286,33 +287,20 @@ public class ExecutionPolicyResolver {
     }
 
     private Duration parseDuration(Object candidate, Map<?, ?> context) {
-        if (candidate == null) {
-            return null;
-        }
-
-        if (candidate instanceof Number number) {
-            return normalizeDurationMillis(number.longValue());
-        }
-
-        if (candidate instanceof String str) {
-            Duration parsed = parseDurationString(str.trim());
-            if (parsed != null) {
-                return parsed;
+        return switch (candidate) {
+            case null -> null;
+            case Number number -> normalizeDurationMillis(number.longValue());
+            case String str -> parseDurationString(str.trim());
+            case Map<?, ?> map -> {
+                Object value = map.get("value");
+                Object unit = map.get("unit");
+                yield parseDurationFromValueUnit(value, unit);
             }
-        }
-
-        // allow nested map format { value: 1000, unit: "ms" }
-        if (candidate instanceof Map<?, ?> map) {
-            Object value = map.get("value");
-            Object unit = map.get("unit");
-            Duration parsed = parseDurationFromValueUnit(value, unit);
-            if (parsed != null) {
-                return parsed;
+            default -> {
+                log.debug("Unsupported duration format: {} (context keys: {})", candidate, context != null ? context.keySet() : "unknown");
+                yield null;
             }
-        }
-
-        log.debug("Unsupported duration format: {} (context keys: {})", candidate, context != null ? context.keySet() : "unknown");
-        return null;
+        };
     }
 
     private Duration parseDurationFromValueUnit(Object value, Object unit) {
@@ -353,14 +341,15 @@ public class ExecutionPolicyResolver {
             if (candidate.endsWith("ms")) {
                 return normalizeDurationMillis(Long.parseLong(candidate.substring(0, candidate.length() - 2).trim()));
             }
+            String trimStrSub1 = candidate.substring(0, candidate.length() - 1).trim();
             if (candidate.endsWith("s")) {
-                return normalizeDurationSeconds(candidate.substring(0, candidate.length() - 1).trim());
+                return normalizeDurationSeconds(trimStrSub1);
             }
             if (candidate.endsWith("m")) {
-                return normalizeDurationMinutes(candidate.substring(0, candidate.length() - 1).trim());
+                return normalizeDurationMinutes(trimStrSub1);
             }
             if (candidate.endsWith("h")) {
-                return normalizeDurationHours(candidate.substring(0, candidate.length() - 1).trim());
+                return normalizeDurationHours(trimStrSub1);
             }
             return normalizedDuration(Duration.parse(candidate));
         } catch (NumberFormatException | DateTimeParseException ex) {
@@ -401,18 +390,22 @@ public class ExecutionPolicyResolver {
     }
 
     private Integer parseInteger(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof Number number) {
-            return number.intValue();
-        }
-        if (value instanceof String str && !str.isBlank()) {
-            try {
-                return Integer.parseInt(str.trim());
-            } catch (NumberFormatException ex) {
-                log.debug("Failed to parse integer '{}': {}", str, ex.getMessage());
+        switch (value) {
+            case null -> {
                 return null;
+            }
+            case Number number -> {
+                return number.intValue();
+            }
+            case String str when !str.isBlank() -> {
+                try {
+                    return Integer.parseInt(str.trim());
+                } catch (NumberFormatException ex) {
+                    log.debug("Failed to parse integer '{}': {}", str, ex.getMessage());
+                    return null;
+                }
+            }
+            default -> {
             }
         }
         return null;

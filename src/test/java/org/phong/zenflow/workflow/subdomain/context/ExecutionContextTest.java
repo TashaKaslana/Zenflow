@@ -20,7 +20,7 @@ public class ExecutionContextTest {
         UUID workflowId = UUID.randomUUID();
         UUID runId = UUID.randomUUID();
         manager.assign(runId.toString(), new RuntimeContext());
-        ExecutionContext ctx = ExecutionContext.builder()
+        ExecutionContext ctx = ExecutionContextImpl.builder()
                 .workflowId(workflowId)
                 .workflowRunId(runId)
                 .traceId("trace")
@@ -49,7 +49,7 @@ public class ExecutionContextTest {
         manager.assign(runId.toString(), new RuntimeContext());
 
         final LogEntry[] captured = new LogEntry[1];
-        ExecutionContext ctx = ExecutionContext.builder()
+        ExecutionContext ctx = ExecutionContextImpl.builder()
                 .workflowId(workflowId)
                 .workflowRunId(runId)
                 .traceId("trace")

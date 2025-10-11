@@ -39,7 +39,8 @@ public class ExecutionGatewayImpl implements ExecutionGateway {
 
         CompletableFuture<ExecutionResult> future = new CompletableFuture<>();
         if (!registry.registerTask(envelope, future)) {
-            IllegalStateException ex = new IllegalStateException("Task already registered: " + envelope.getTaskId());
+            IllegalStateException ex = new IllegalStateException("Task already registered: " + envelope.getTaskId() + ", cannot execute");
+            log.error("Failed to register execution task {}", envelope.getTaskId(), ex);
             future.completeExceptionally(ex);
             return future;
         }

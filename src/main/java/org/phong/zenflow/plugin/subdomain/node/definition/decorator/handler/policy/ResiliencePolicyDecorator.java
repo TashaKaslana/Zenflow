@@ -57,6 +57,46 @@ public class ResiliencePolicyDecorator implements ExecutorDecorator {
         Callable<ExecutionResult> wrapped = inner;
         String policyKey = resolvePolicyKey(envelope, def);
 
+        wrapped = resolveHierarchyPolicy(envelope, policy, policyKey, wrapped);
+
+        Callable<ExecutionResult> finalWrapped = wrapped;
+        return getAppliedPolicyWrapper(finalWrapped, policy, policyKey);
+    }
+
+    private Callable<ExecutionResult> getAppliedPolicyWrapper(Callable<ExecutionResult> finalWrapped, ResolvedExecutionPolicy policy, String policyKey) {
+        return () -> {
+            try {
+                return finalWrapped.call();
+            } catch (TimeoutException e) {
+                String message = "Execution timed out after " + policy.getTimeout();
+                logPolicyWarning(policyKey, message);
+                return ExecutionResult.error(ExecutionError.TIMEOUT, message);
+            } catch (RequestNotPermitted e) {
+                String message = "Rate limit exceeded for node execution";
+                logPolicyWarning(policyKey, message);
+                return ExecutionResult.error(ExecutionError.RETRIABLE, message);
+            } catch (MaxRetriesExceededException e) {
+                String message = "Maximum retry attempts exhausted";
+                logPolicyWarning(policyKey, message, e);
+                return ExecutionResult.error(ExecutionError.RETRIABLE, message);
+            } catch (CompletionException e) {
+                Throwable cause = Optional.ofNullable(e.getCause()).orElse(e);
+                if (cause instanceof TimeoutException) {
+                    String message = "Execution timed out after " + policy.getTimeout();
+                    logPolicyWarning(policyKey, message);
+                    return ExecutionResult.error(ExecutionError.TIMEOUT, message);
+                }
+                if (cause instanceof RequestNotPermitted) {
+                    String message = "Rate limit exceeded for node execution";
+                    logPolicyWarning(policyKey, message);
+                    return ExecutionResult.error(ExecutionError.RETRIABLE, message);
+                }
+                throw cause instanceof Exception ? (Exception) cause : new RuntimeException(cause);
+            }
+        };
+    }
+
+    private Callable<ExecutionResult> resolveHierarchyPolicy(ExecutionTaskEnvelope envelope, ResolvedExecutionPolicy policy, String policyKey, Callable<ExecutionResult> wrapped) {
         if (policy.hasRateLimit()) {
             RateLimiterConfig rateLimiterConfig = RateLimiterConfig.custom()
                     .limitForPeriod(policy.getRateLimit().getLimitForPeriod())
@@ -92,38 +132,7 @@ public class ResiliencePolicyDecorator implements ExecutorDecorator {
             Callable<ExecutionResult> delegate = wrapped;
             wrapped = () -> executeWithTimeout(timeLimiter, delegate, envelope);
         }
-
-        Callable<ExecutionResult> finalWrapped = wrapped;
-        return () -> {
-            try {
-                return finalWrapped.call();
-            } catch (TimeoutException e) {
-                String message = "Execution timed out after " + policy.getTimeout();
-                logPolicyWarning(policyKey, message);
-                return ExecutionResult.error(ExecutionError.TIMEOUT, message);
-            } catch (RequestNotPermitted e) {
-                String message = "Rate limit exceeded for node execution";
-                logPolicyWarning(policyKey, message);
-                return ExecutionResult.error(ExecutionError.RETRIABLE, message);
-            } catch (MaxRetriesExceededException e) {
-                String message = "Maximum retry attempts exhausted";
-                logPolicyWarning(policyKey, message, e);
-                return ExecutionResult.error(ExecutionError.RETRIABLE, message);
-            } catch (CompletionException e) {
-                Throwable cause = Optional.ofNullable(e.getCause()).orElse(e);
-                if (cause instanceof TimeoutException) {
-                    String message = "Execution timed out after " + policy.getTimeout();
-                    logPolicyWarning(policyKey, message);
-                    return ExecutionResult.error(ExecutionError.TIMEOUT, message);
-                }
-                if (cause instanceof RequestNotPermitted) {
-                    String message = "Rate limit exceeded for node execution";
-                    logPolicyWarning(policyKey, message);
-                    return ExecutionResult.error(ExecutionError.RETRIABLE, message);
-                }
-                throw cause instanceof Exception ? (Exception) cause : new RuntimeException(cause);
-            }
-        };
+        return wrapped;
     }
 
     private ExecutionResult executeWithTimeout(TimeLimiter timeLimiter,
