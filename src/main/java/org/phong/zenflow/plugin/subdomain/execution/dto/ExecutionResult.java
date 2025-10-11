@@ -68,6 +68,14 @@ public class ExecutionResult {
         return result;
     }
 
+    public static ExecutionResult retry(String errLabel, String debugInfo) {
+        ExecutionResult result = new ExecutionResult();
+        result.setStatus(ExecutionStatus.RETRY);
+        result.setErrorLabel(errLabel);
+        result.setError(debugInfo);
+        return result;
+    }
+
     public static ExecutionResult nextNode(String nextNodeKey) {
         ExecutionResult result = new ExecutionResult();
         result.setStatus(ExecutionStatus.NEXT);

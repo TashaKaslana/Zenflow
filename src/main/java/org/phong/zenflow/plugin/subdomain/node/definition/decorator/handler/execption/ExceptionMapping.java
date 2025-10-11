@@ -21,11 +21,11 @@ class ExceptionMapping {
             }
             case SocketTimeoutException ste -> {
                 log.warn("Network timeout occurred: " + ste.getMessage());
-                yield ExecutionResult.error(ExecutionError.NETWORK_TIMEOUT, ste.getMessage(), debug(ste));
+                yield ExecutionResult.retry(ste.getMessage(), debug(e));
             }
             case IOException ioe -> {
                 log.warn("IO error occurred: " + ioe.getMessage());
-                yield ExecutionResult.error(ExecutionError.RETRIABLE, ioe.getMessage(), debug(ioe));
+                yield ExecutionResult.retry(ioe.getMessage(), debug(e));
             }
             default -> {
                 log.error("Non-retriable error occurred: " + e.getMessage());
