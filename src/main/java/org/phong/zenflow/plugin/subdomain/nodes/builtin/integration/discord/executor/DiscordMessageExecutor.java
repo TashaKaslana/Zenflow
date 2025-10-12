@@ -13,7 +13,6 @@ import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.springframework.stereotype.Component;
 
 import java.awt.*;
@@ -27,14 +26,15 @@ import java.util.Map;
 public class DiscordMessageExecutor implements NodeExecutor {
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
+    public ExecutionResult execute(ExecutionContext context) {
         NodeLogPublisher logs = context.getLogPublisher();
 
-        Map<String, Object> input = config.input();
-
         String botToken = (String) context.getProfileSecret("BOT_TOKEN");
-        String channelId = (String) input.get("channel_id");
-        String message = (String) input.get("message");
+        String channelId = context.read("channel_id", String.class);
+        String message = context.read("message", String.class);
+        
+        @SuppressWarnings("unchecked")
+        Map<String, Object> embed = context.read("embed", Map.class);
 
         if (botToken == null || botToken.trim().isEmpty()) {
             return ExecutionResult.error("BOT_TOKEN is required");
@@ -57,7 +57,7 @@ public class DiscordMessageExecutor implements NodeExecutor {
             return ExecutionResult.error("Channel not found or bot doesn't have access to channel: " + channelId);
         }
 
-        MessageCreateData messageData = createMessage(input, message);
+        MessageCreateData messageData = createMessage(message, embed);
         Message sentMessage = channel.sendMessage(messageData).complete();
 
         logs.success("Message sent successfully to channel: {}", channelId);
@@ -75,13 +75,11 @@ public class DiscordMessageExecutor implements NodeExecutor {
     /**
      * Creates a message with optional embed support
      */
-    @SuppressWarnings("unchecked")
-    private MessageCreateData createMessage(Map<String, Object> input, String message) {
+    private MessageCreateData createMessage(String message, Map<String, Object> embed) {
         MessageCreateBuilder builder = new MessageCreateBuilder();
         builder.setContent(message);
 
         // Check if embed is requested
-        Map<String, Object> embed = (Map<String, Object>) input.get("embed");
         if (embed != null) {
             MessageEmbed messageEmbed = createEmbed(embed);
             if (messageEmbed != null) {

@@ -21,7 +21,7 @@ import java.util.Map;
 public class GlobalDbConnectionPool extends BaseNodeResourceManager<HikariDataSource, GlobalDbConnectionPool.DbConfig> {
     @Override
     public DbConfig buildConfig(WorkflowConfig cfg, ExecutionContext ctx) {
-        ResolvedDbConfig dbConfig = ResolvedDbConfig.fromInput(cfg.input());
+        ResolvedDbConfig dbConfig = ResolvedDbConfig.fromInput(ctx);
 
         return new DbConfig(
                 dbConfig.toConnectionKey(), dbConfig.getPassword()
