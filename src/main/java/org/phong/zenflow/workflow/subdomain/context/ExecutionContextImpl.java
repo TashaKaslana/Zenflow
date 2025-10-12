@@ -19,7 +19,6 @@ import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.W
 
 @Builder
 public class ExecutionContextImpl implements ExecutionContext {
-    private final static String PROHIBITED_KEY_PREFIX = "__zenflow_";
 
     @Getter
     private final UUID workflowId;
@@ -68,7 +67,7 @@ public class ExecutionContextImpl implements ExecutionContext {
      */
     public <T> T read(String key, Class<T> clazz) {
         // Allow internal reads for allowlisted reserved keys used by the engine
-        boolean isReserved = key.startsWith(PROHIBITED_KEY_PREFIX);
+        boolean isReserved = key.startsWith(ExecutionContextKey.PROHIBITED_KEY_PREFIX.key());
         boolean isWhitelisted = ExecutionContextKey.CALLBACK_URL.matches(key);
         if (isReserved && !isWhitelisted) {
             throw new IllegalArgumentException("Access to reserved context keys is prohibited: " + key);
@@ -81,9 +80,9 @@ public class ExecutionContextImpl implements ExecutionContext {
         if (templateService != null && templateService.isTemplate(key)) {
             o = templateService.resolve(key, this);
         } else {
-            o = context.getAndClean(nodeKey, key);
+            o = ExecutionContextLookupResolver.readFromRuntimeContext(key, context, nodeKey);
             if (o == null) {
-                o = readFromCurrentConfig(key);
+                o = ExecutionContextLookupResolver.readFromCurrentConfig(key, currentConfig, nodeKey);
             }
         }
 
@@ -212,60 +211,19 @@ public class ExecutionContextImpl implements ExecutionContext {
         return value;
     }
 
-    private Object readFromCurrentConfig(String key) {
-        if (currentConfig == null || key == null) {
-            return null;
-        }
-
-        Map<String, Object> input = currentConfig.input();
-        Object candidate = extractValue(input, key);
-        if (candidate != null) {
-            return candidate;
-        }
-
-        if ("profileKeys".equals(key) || "profile".equals(key)) {
-            return currentConfig.profile();
-        }
-
-        if ("output".equals(key)) {
-            return currentConfig.output();
-        }
-
-        return null;
-    }
-
-    @SuppressWarnings("unchecked")
-    private Object extractValue(Map<String, Object> source, String path) {
-        if (source == null || path == null) {
-            return null;
-        }
-
-        if (!path.contains(".")) {
-            return source.get(path);
-        }
-
-        String[] parts = path.split("\\.");
-        Object current = source;
-        for (String part : parts) {
-            if (current instanceof Map<?, ?> currentMap) {
-                current = currentMap.get(part);
-            } else {
-                return null;
-            }
-
-            if (current == null) {
-                return null;
-            }
-        }
-
-        return current;
-    }
-
-
     @SuppressWarnings("unchecked")
     public Map<String, Object> getCurrentNodeEntrypoint() {
         RuntimeContext context = getContext();
-        return (Map<String, Object>) context.get(ExecutionContextKey.ENTRYPOINT_LIST_KEY + nodeKey);
+        Map<String, Object> entrypoint = context != null
+                ? (Map<String, Object>) context.get(ExecutionContextKey.ENTRYPOINT_LIST_KEY + nodeKey)
+                : null;
+        if (entrypoint != null) {
+            return entrypoint;
+        }
+        if (currentConfig != null && currentConfig.input() != null) {
+            return new HashMap<>(currentConfig.input());
+        }
+        return Map.of();
     }
 
     @SuppressWarnings("unchecked")
@@ -313,8 +271,10 @@ public class ExecutionContextImpl implements ExecutionContext {
         RuntimeContext context = getContext();
         if (context == null) return false;
 
-        if (context.hasValue(key)) {
-            return true;
+        for (String candidate : ExecutionContextLookupResolver.resolveRuntimeLookupOrder(key, nodeKey)) {
+            if (context.hasValue(candidate)) {
+                return true;
+            }
         }
 
         return false;
