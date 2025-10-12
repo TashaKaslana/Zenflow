@@ -20,14 +20,105 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 @Slf4j
 public class RuntimeContext {
+    private static final String RESERVED_KEY_PREFIX = "__zenflow_";
+
     @Getter
     private final Map<String, Object> context = new ConcurrentHashMap<>();
+    private final ContextPathAccessor pathAccessor = new ContextPathAccessor(context);
     private final Map<String, AtomicInteger> consumers = new ConcurrentHashMap<>();
     private final Map<String, String> aliases = new ConcurrentHashMap<>();
 
     // Loop-aware cleanup management
     private final Map<String, Map<String, Set<String>>> pendingLoopCleanup = new ConcurrentHashMap<>();
     private final Set<String> activeLoops = new HashSet<>();
+
+    private boolean isReservedKey(String key) {
+        return key != null && key.startsWith(RESERVED_KEY_PREFIX);
+    }
+
+    private Object sanitizeValue(Object value) {
+        if (value instanceof Map<?, ?> map) {
+            return sanitizeMap(map);
+        }
+        if (value instanceof List<?> list) {
+            List<Object> copy = new ArrayList<>(list.size());
+            for (Object item : list) {
+                copy.add(sanitizeValue(item));
+            }
+            return copy;
+        }
+        return value;
+    }
+
+    private Map<String, Object> sanitizeMap(Map<?, ?> map) {
+        Map<String, Object> sanitized = new ConcurrentHashMap<>();
+        map.forEach((k, v) -> sanitized.put(String.valueOf(k), sanitizeValue(v)));
+        return sanitized;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> asMap(Map<?, ?> map) {
+        return (Map<String, Object>) map;
+    }
+
+    private void storeValue(String key, Object value) {
+        Object sanitized = sanitizeValue(value);
+        if (isReservedKey(key)) {
+            context.put(key, sanitized);
+        } else {
+            pathAccessor.put(key, sanitized);
+        }
+    }
+
+    private Object readValue(String key) {
+        if (isReservedKey(key)) {
+            return context.get(key);
+        }
+        return pathAccessor.get(key);
+    }
+
+    private boolean hasValue(String key) {
+        if (isReservedKey(key)) {
+            return context.containsKey(key);
+        }
+        return pathAccessor.has(key);
+    }
+
+    private Object removeValue(String key) {
+        if (isReservedKey(key)) {
+            return context.remove(key);
+        }
+        return pathAccessor.remove(key);
+    }
+
+    private void ingestInitialEntry(String key, Object value) {
+        if (key == null) {
+            return;
+        }
+
+        if (!isReservedKey(key) && value instanceof Map<?, ?> map && !key.contains(".")) {
+            context.put(key, sanitizeMap(map));
+            return;
+        }
+
+        storeValue(key, value);
+    }
+
+    private void collectLeafPaths(String prefix, Map<String, Object> node, List<String> collector) {
+        node.forEach((entryKey, entryValue) -> {
+            String path = prefix.isEmpty() ? entryKey : prefix + "." + entryKey;
+
+            if (isReservedKey(path)) {
+                return;
+            }
+
+            if (entryValue instanceof Map<?, ?> childMap && !childMap.isEmpty()) {
+                collectLeafPaths(path, asMap(childMap), collector);
+            } else {
+                collector.add(path);
+            }
+        });
+    }
 
     public void initialize(Map<String, Object> initialContext,
                            Map<String, Set<String>> initialConsumers,
@@ -40,7 +131,7 @@ public class RuntimeContext {
             });
         }
         if (initialContext != null) {
-            context.putAll(initialContext);
+            initialContext.forEach(this::ingestInitialEntry);
         }
         if (initialAliases != null) {
             aliases.putAll(
@@ -56,17 +147,20 @@ public class RuntimeContext {
     }
 
     public void put(String key, Object value) {
-        context.put(key, value);
+        if (key == null) {
+            return;
+        }
+        storeValue(key, value);
     }
 
     public void putAll(Map<String, Object> entries) {
         if (entries != null) {
-            context.putAll(entries);
+            entries.forEach(this::put);
         }
     }
 
     public Object get(String key) {
-        return context.get(key);
+        return readValue(key);
     }
 
     /**
@@ -101,7 +195,7 @@ public class RuntimeContext {
             }
 
             // Store the value as it has consumers
-            context.put(currentOutputKey, value);
+            storeValue(currentOutputKey, value);
             log.debug("Stored context-guided output '{}' with value type '{}' for remaining consumers: {}",
                     currentOutputKey, value != null ? value.getClass().getSimpleName() : "null", getConsumerCount(currentOutputKey));
         }
@@ -134,11 +228,11 @@ public class RuntimeContext {
      * @return The value, or null if not found
      */
     private Object getAndMarkConsumed(String nodeKey, String key) {
-        if (!context.containsKey(key)) {
+        if (!hasValue(key)) {
             return null;
         }
 
-        Object value = context.get(key);
+        Object value = readValue(key);
 
         // Remove the current node from the consumers list for this key
         removeConsumer(key, nodeKey);
@@ -158,11 +252,11 @@ public class RuntimeContext {
      * @return The value, or null if not found
      */
     private Object getAndMarkConsumedInLoop(String nodeKey, String key) {
-        if (!context.containsKey(key)) {
+        if (!hasValue(key)) {
             return null;
         }
 
-        Object value = context.get(key);
+        Object value = readValue(key);
         String activeLoop = getActiveLoop();
         if (activeLoop != null) {
             pendingLoopCleanup
@@ -213,16 +307,16 @@ public class RuntimeContext {
     private void performGarbageCollection(String key) {
         AtomicInteger remainingConsumers = consumers.get(key);
 
-        if (remainingConsumers == null || remainingConsumers.get() <= 0) {
-            Object removedValue = context.remove(key);
-            if (removedValue != null) {
-                log.debug("Garbage collected key '{}' from context", key);
-            }
-            if (remainingConsumers != null) {
-                consumers.remove(key, remainingConsumers);
-            } else {
-                consumers.remove(key);
-            }
+        if (remainingConsumers != null && remainingConsumers.get() > 0) {
+            return;
+        }
+
+        Object removedValue = removeValue(key);
+        if (removedValue != null) {
+            log.debug("Garbage collected key '{}' from context", key);
+        }
+        if (remainingConsumers != null) {
+            consumers.remove(key, remainingConsumers);
         }
     }
 
@@ -246,22 +340,25 @@ public class RuntimeContext {
      * Manual garbage collection for all keys without consumers
      */
     public void garbageCollect() {
-        List<String> keysToRemove = new ArrayList<>();
+        List<String> candidateKeys = new ArrayList<>();
+        collectLeafPaths("", context, candidateKeys);
 
-        for (String key : context.keySet()) {
-            if (isConsumersEmpty(key)) {
-                keysToRemove.add(key);
+        int removedCount = 0;
+        for (String key : candidateKeys) {
+            AtomicInteger consumerEntry = consumers.get(key);
+            if (consumerEntry == null || consumerEntry.get() > 0) {
+                continue;
+            }
+            Object removed = removeValue(key);
+            consumers.remove(key);
+            if (removed != null) {
+                log.debug("Manual garbage collection removed key '{}'", key);
+                removedCount++;
             }
         }
 
-        for (String key : keysToRemove) {
-            context.remove(key);
-            consumers.remove(key);
-            log.debug("Manual garbage collection removed key '{}'", key);
-        }
-
-        if (!keysToRemove.isEmpty()) {
-            log.info("Manual garbage collection removed {} unused context entries", keysToRemove.size());
+        if (removedCount > 0) {
+            log.info("Manual garbage collection removed {} unused context entries", removedCount);
         }
     }
 
@@ -285,7 +382,7 @@ public class RuntimeContext {
      * @param key The key to remove
      */
     public void remove(String key) {
-        context.remove(key);
+        removeValue(key);
         consumers.remove(key);
         pendingLoopCleanup.values().forEach(loopMap -> loopMap.remove(key));
         log.debug("Removed key '{}' from context and consumers", key);
@@ -351,9 +448,9 @@ public class RuntimeContext {
                     }
                 }
 
-                boolean hadValue = context.containsKey(key);
+                boolean hadValue = hasValue(key);
                 performGarbageCollection(key);
-                if (hadValue && !context.containsKey(key)) {
+                if (hadValue && !hasValue(key)) {
                     cleanedCount++;
                 }
             }

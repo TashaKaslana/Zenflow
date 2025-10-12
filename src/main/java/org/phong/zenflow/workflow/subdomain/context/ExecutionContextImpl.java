@@ -49,7 +49,6 @@ public class ExecutionContextImpl implements ExecutionContext {
     private final RuntimeContextManager contextManager;
 
     @Getter
-    @Setter
     private WorkflowConfig currentConfig;
 
     /**
@@ -79,6 +78,9 @@ public class ExecutionContextImpl implements ExecutionContext {
             o = templateService.resolve(key, this);
         } else {
             o = context.getAndClean(nodeKey, key);
+            if (o == null) {
+                o = readFromCurrentConfig(key);
+            }
         }
 
         if (o == null) {
@@ -168,6 +170,10 @@ public class ExecutionContextImpl implements ExecutionContext {
         return new WorkflowConfig(resolvedInput, config.profile(), config.output());
     }
 
+    public void setCurrentConfig(WorkflowConfig config) {
+        this.currentConfig = config;
+    }
+
     private Map<String, Object> resolveMap(Map<String, Object> map) {
         if (map == null || map.isEmpty()) {
             return map;
@@ -191,6 +197,56 @@ public class ExecutionContextImpl implements ExecutionContext {
 
         return value;
     }
+
+    private Object readFromCurrentConfig(String key) {
+        if (currentConfig == null || key == null) {
+            return null;
+        }
+
+        Map<String, Object> input = currentConfig.input();
+        Object candidate = extractValue(input, key);
+        if (candidate != null) {
+            return candidate;
+        }
+
+        if ("profileKeys".equals(key) || "profile".equals(key)) {
+            return currentConfig.profile();
+        }
+
+        if ("output".equals(key)) {
+            return currentConfig.output();
+        }
+
+        return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Object extractValue(Map<String, Object> source, String path) {
+        if (source == null || path == null) {
+            return null;
+        }
+
+        if (!path.contains(".")) {
+            return source.get(path);
+        }
+
+        String[] parts = path.split("\\.");
+        Object current = source;
+        for (String part : parts) {
+            if (current instanceof Map<?, ?> currentMap) {
+                current = currentMap.get(part);
+            } else {
+                return null;
+            }
+
+            if (current == null) {
+                return null;
+            }
+        }
+
+        return current;
+    }
+
 
     @SuppressWarnings("unchecked")
     public Map<String, Object> getCurrentNodeEntrypoint() {
