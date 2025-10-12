@@ -2,10 +2,8 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.triggers.webhook;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.TriggerContext;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
@@ -49,18 +47,18 @@ public class WebhookTriggerExecutor implements TriggerExecutor {
     }
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
+    public ExecutionResult execute(ExecutionContext context) {
         NodeLogPublisher logs = context.getLogPublisher();
-        logs.info("Executing WebhookTriggerExecutor with config: {}", config);
+        logs.info("Executing WebhookTriggerExecutor with config: {}", context.getCurrentConfig());
         logs.info("Webhook trigger started at {}", OffsetDateTime.now());
 
-        Map<String, Object> input = config.input();
-        Object payload = input.get("payload");
-        Map<String, Object> headers = ObjectConversion.convertObjectToMap(input.get("headers"));
-        String httpMethod = (String) input.get("http_method");
-        String sourceIp = (String) input.get("source_ip");
-        String userAgent = (String) input.get("user_agent");
-        String webhookId = (String) input.get("webhook_id");
+        Object payload = context.read("payload", Object.class);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> headers = context.read("headers", Map.class);
+        String httpMethod = context.read("http_method", String.class);
+        String sourceIp = context.read("source_ip", String.class);
+        String userAgent = context.read("user_agent", String.class);
+        String webhookId = context.read("webhook_id", String.class);
 
         Map<String, Object> output = new HashMap<>();
         output.put("trigger_type", "webhook");
@@ -98,11 +96,6 @@ public class WebhookTriggerExecutor implements TriggerExecutor {
         }
 
         Set<String> excludedKeys = Set.of("payload", "headers", "http_method", "source_ip", "user_agent", "webhook_id");
-        input.forEach((key, value) -> {
-            if (!excludedKeys.contains(key)) {
-                output.put("input_" + key, value);
-            }
-        });
 
         logs.success("Webhook trigger completed successfully");
         return ExecutionResult.success(output);

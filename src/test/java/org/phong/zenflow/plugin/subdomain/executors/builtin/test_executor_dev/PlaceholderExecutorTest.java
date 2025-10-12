@@ -19,7 +19,10 @@ class PlaceholderExecutorTest {
         WorkflowConfig config = new WorkflowConfig(Map.of("foo", "bar"));
         ExecutionContext ctx = TestExecutionContextUtils.createExecutionContext();
 
-        var result = executor.execute(config, ctx);
+        ctx.setCurrentConfig(config);
+
+
+        var result = executor.execute(ctx);
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
         assertEquals("bar", result.getOutput().get("foo"));

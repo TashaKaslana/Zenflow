@@ -22,7 +22,8 @@ class NumberValidatorExecutorTest {
                         "threshold", 10
                 )
         );
-        var result = executor.execute(config, TestExecutionContextUtils.createExecutionContext());
+        var context = TestExecutionContextUtils.createExecutionContext(config);
+        var result = executor.execute(context);
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
         assertTrue((Boolean) result.getOutput().get("valid"));
@@ -36,7 +37,8 @@ class NumberValidatorExecutorTest {
                         "threshold", 10
                 )
         );
-        var result = executor.execute(config, TestExecutionContextUtils.createExecutionContext());
+        var context = TestExecutionContextUtils.createExecutionContext(config);
+        var result = executor.execute(context);
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
         assertFalse((Boolean) result.getOutput().get("valid"));

@@ -67,7 +67,8 @@ class PlaceholderExecutorRegistrationTest {
         ExecutionResult result;
 
         try {
-            result = definition.getNodeExecutor().execute(config, context);
+            context.setCurrentConfig(config);
+            result = definition.getNodeExecutor().execute(context);
         } catch (Exception e) {
             result = null;
         }

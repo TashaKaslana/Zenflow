@@ -8,7 +8,6 @@ import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 
@@ -20,10 +19,10 @@ import java.util.Map;
 @AllArgsConstructor
 public class ConditionNodeExecutor implements NodeExecutor {
     @Override
-    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
+    public ExecutionResult execute(ExecutionContext context) {
         NodeLogPublisher log = context.getLogPublisher();
-        Map<String, Object> input = config.input();
-        List<ConditionalCase> cases = ObjectConversion.safeConvert(input.get("cases"), new TypeReference<>() {});
+        Object casesObj = context.read("cases", Object.class);
+        List<ConditionalCase> cases = ObjectConversion.safeConvert(casesObj, new TypeReference<List<ConditionalCase>>() {});
 
         log.info("Begin condition flow with cases: {}", cases.toString());
 
@@ -51,12 +50,13 @@ public class ConditionNodeExecutor implements NodeExecutor {
         }
 
         log.info("No conditions matched, executing default case.");
-        if (!input.containsKey("default_case")) {
+        String defaultCase = context.read("default_case", String.class);
+        if (defaultCase == null) {
             log.warn("No default case provided in the input.");
             log.warning("No default case provided. Return null instead.");
             return ExecutionResult.nextNode(null);
         } else {
-            return ExecutionResult.nextNode(input.get("default_case").toString());
+            return ExecutionResult.nextNode(defaultCase);
         }
     }
 }

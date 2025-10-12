@@ -307,4 +307,16 @@ public class ExecutionContextImpl implements ExecutionContext {
 
         return null;
     }
+
+    @Override
+    public boolean containsKey(String key) {
+        RuntimeContext context = getContext();
+        if (context == null) return false;
+
+        if (context.hasValue(key)) {
+            return true;
+        }
+
+        return false;
+    }
 }

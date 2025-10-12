@@ -31,7 +31,9 @@ class ForLoopExecutorTest {
         int iterations = 0;
         while (true) {
             WorkflowConfig config = new WorkflowConfig(new HashMap<>(input));
-            var result = executor.execute(config, context);
+            context.setCurrentConfig(config);
+
+            var result = executor.execute(context);
 
             if (result.getStatus() == ExecutionStatus.LOOP_NEXT) {
                 iterations++;

@@ -23,7 +23,8 @@ class TextProcessorExecutorTest {
                         "flag", true
                 )
         );
-        var result = executor.execute(config, TestExecutionContextUtils.createExecutionContext());
+        var context = TestExecutionContextUtils.createExecutionContext(config);
+        var result = executor.execute(context);
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
         assertEquals("Processed text: hello", result.getOutput().get("result"));

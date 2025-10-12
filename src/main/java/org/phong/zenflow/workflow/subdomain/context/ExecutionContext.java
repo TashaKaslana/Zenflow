@@ -33,6 +33,8 @@ public interface ExecutionContext {
 
     <T> T read(String key, Class<T> clazz);
 
+    boolean containsKey(String key);
+
     WorkflowConfig getCurrentConfig();
 
     void setCurrentConfig(WorkflowConfig config);

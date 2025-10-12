@@ -27,7 +27,10 @@ class SwitchNodeExecutorTest {
                 "default_case", "default"
         ));
 
-        var result = executor.execute(config, context);
+        context.setCurrentConfig(config);
+
+
+        var result = executor.execute(context);
 
         assertEquals(ExecutionStatus.NEXT, result.getStatus());
         assertEquals("b", result.getNextNodeKey());
@@ -43,7 +46,10 @@ class SwitchNodeExecutorTest {
                 "default_case", "default"
         ));
 
-        var result = executor.execute(config, context);
+        context.setCurrentConfig(config);
+
+
+        var result = executor.execute(context);
 
         assertEquals(ExecutionStatus.NEXT, result.getStatus());
         assertEquals("default", result.getNextNodeKey());

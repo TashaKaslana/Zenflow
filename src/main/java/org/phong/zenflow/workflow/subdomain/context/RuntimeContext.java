@@ -77,7 +77,7 @@ public class RuntimeContext {
         return pathAccessor.get(key);
     }
 
-    private boolean hasValue(String key) {
+    public boolean hasValue(String key) {
         if (isReservedKey(key)) {
             return context.containsKey(key);
         }

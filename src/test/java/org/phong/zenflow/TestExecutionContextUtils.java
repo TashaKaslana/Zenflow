@@ -24,7 +24,7 @@ public class TestExecutionContextUtils {
         UUID workflowId = UUID.randomUUID();
         UUID runId = UUID.randomUUID();
         manager.assign(runId.toString(), runtimeContext);
-        return ExecutionContextImpl.builder()
+        ExecutionContext context = ExecutionContextImpl.builder()
                 .workflowId(workflowId)
                 .workflowRunId(runId)
                 .traceId("trace")
@@ -38,5 +38,14 @@ public class TestExecutionContextUtils {
                         .build())
                 .templateService(new TemplateService(new AviatorFunctionRegistry(List.of(new StringContainsFunction()))))
                 .build();
+        context.setNodeKey("test-node");
+        return context;
+    }
+
+    public static ExecutionContext createExecutionContext(org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig config) {
+        ExecutionContext context = createExecutionContext();
+        context.setCurrentConfig(config);
+        return context;
     }
 }
+
