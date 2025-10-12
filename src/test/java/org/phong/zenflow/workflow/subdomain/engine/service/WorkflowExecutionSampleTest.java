@@ -136,7 +136,8 @@ class WorkflowExecutionSampleTest {
             }
             ExecutionResult result;
             try {
-                result = executor.execute(config, context);
+                context.setCurrentConfig(config);
+                result = executor.execute(context);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }

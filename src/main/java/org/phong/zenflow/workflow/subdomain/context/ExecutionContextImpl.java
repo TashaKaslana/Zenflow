@@ -3,6 +3,7 @@ package org.phong.zenflow.workflow.subdomain.context;
 import lombok.Builder;
 import lombok.Getter;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -47,6 +48,9 @@ public class ExecutionContextImpl implements ExecutionContext {
 
     private final TemplateService templateService;
     private final RuntimeContextManager contextManager;
+
+    @Builder.Default
+    private Map<String, WorkflowConfig> nodeConfigs = new HashMap<>();
 
     @Getter
     private WorkflowConfig currentConfig;
@@ -121,6 +125,9 @@ public class ExecutionContextImpl implements ExecutionContext {
         if (logPublisher != null) {
             logPublisher.setNodeKey(nodeKey);
         }
+        if (nodeConfigs != null) {
+            this.currentConfig = nodeConfigs.get(nodeKey);
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -172,6 +179,13 @@ public class ExecutionContextImpl implements ExecutionContext {
 
     public void setCurrentConfig(WorkflowConfig config) {
         this.currentConfig = config;
+        if (nodeKey != null && nodeConfigs != null) {
+            if (config != null) {
+                nodeConfigs.put(nodeKey, config);
+            } else {
+                nodeConfigs.remove(nodeKey);
+            }
+        }
     }
 
     private Map<String, Object> resolveMap(Map<String, Object> map) {

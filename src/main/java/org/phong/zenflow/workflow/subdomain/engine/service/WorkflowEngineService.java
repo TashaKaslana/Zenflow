@@ -29,6 +29,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -69,6 +70,8 @@ public class WorkflowEngineService {
                     .userId(userIdFromContext)
                     .build();
 
+            Map<String, WorkflowConfig> nodeConfigs = new HashMap<>(workflowNodes.getAllNodeConfigs());
+
             ExecutionContext execCtx = ExecutionContextImpl.builder()
                     .workflowId(workflow.getId())
                     .workflowRunId(workflowRunId)
@@ -77,6 +80,7 @@ public class WorkflowEngineService {
                     .contextManager(contextManager)
                     .logPublisher(logPublisher)
                     .templateService(templateService)
+                    .nodeConfigs(nodeConfigs)
                     .build();
 
             return getWorkflowExecutionStatus(workflow.getId(), workflowRunId, context, workingNode, workflowNodes, execCtx);

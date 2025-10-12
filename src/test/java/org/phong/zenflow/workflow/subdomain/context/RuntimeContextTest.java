@@ -37,10 +37,10 @@ class RuntimeContextTest {
     }
 
     @Test
-    void getAndCleanDoesNotRemoveValuesWithoutConsumers() {
+    void getAndCleanRemovesValuesWithoutConsumers() {
         context.put("node.config.input.foo", "bar");
 
         assertEquals("bar", context.getAndClean("node", "node.config.input.foo"));
-        assertEquals("bar", context.getAndClean("node", "node.config.input.foo"));
+        assertEquals(null, context.getAndClean("node", "node.config.input.foo"));
     }
 }

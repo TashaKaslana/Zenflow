@@ -11,7 +11,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -25,13 +24,15 @@ import java.io.IOException;
 public class GoogleDocsFormatTextExecutor implements NodeExecutor {
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) throws IOException {
-        Map<String, Object> input = config.input();
-        String documentId = (String) input.get("documentId");
-        Number start = (Number) input.get("startIndex");
-        Number end = (Number) input.get("endIndex");
-        Boolean bold = (Boolean) input.getOrDefault("bold", Boolean.FALSE);
-        Number fontSize = (Number) input.get("fontSize");
+    public ExecutionResult execute(ExecutionContext context) throws IOException  {
+        String documentId = context.read("documentId", String.class);
+        Number start = context.read("startIndex", Number.class);
+        Number end = context.read("endIndex", Number.class);
+        Boolean bold = context.read("bold", Boolean.class);
+        if (bold == null) {
+            bold = Boolean.FALSE;
+        }
+        Number fontSize = context.read("fontSize", Number.class);
 
         Docs docs = context.getResource(Docs.class);
 

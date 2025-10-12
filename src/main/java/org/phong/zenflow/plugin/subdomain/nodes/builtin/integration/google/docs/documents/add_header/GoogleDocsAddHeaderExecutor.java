@@ -12,7 +12,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -26,10 +25,12 @@ import java.io.IOException;
 public class GoogleDocsAddHeaderExecutor implements NodeExecutor {
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) throws IOException {
-        Map<String, Object> input = config.input();
-        String documentId = (String) input.get("documentId");
-        String text = (String) input.getOrDefault("text", "");
+    public ExecutionResult execute(ExecutionContext context) throws IOException  {
+        String documentId = context.read("documentId", String.class);
+        String text = context.read("text", String.class);
+        if (text == null) {
+            text = "";
+        }
 
         Docs docs = context.getResource(Docs.class);
 
@@ -38,7 +39,7 @@ public class GoogleDocsAddHeaderExecutor implements NodeExecutor {
                 new BatchUpdateDocumentRequest().setRequests(List.of(createHeader))).execute();
         String headerId = response.getReplies().getFirst().getCreateHeader().getHeaderId();
 
-        if (text != null && !text.isEmpty()) {
+        if (!text.isEmpty()) {
             InsertTextRequest insert = new InsertTextRequest()
                     .setText(text)
                     .setLocation(new Location().setSegmentId(headerId).setIndex(0));

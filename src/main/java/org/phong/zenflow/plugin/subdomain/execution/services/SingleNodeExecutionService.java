@@ -22,6 +22,7 @@ import org.phong.zenflow.workflow.subdomain.worker.model.ExecutionTaskEnvelope;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -50,6 +51,11 @@ public class SingleNodeExecutionService {
                 .userId(authService.getUserIdFromContext())
                 .build();
 
+        WorkflowConfig config = node.getConfig();
+        WorkflowConfig safeConfig = (config != null) ? config : new WorkflowConfig();
+        Map<String, WorkflowConfig> nodeConfigs = new HashMap<>();
+        nodeConfigs.put(node.getKey(), safeConfig);
+
         ExecutionContext execCtx = ExecutionContextImpl.builder()
                 .workflowId(workflowId)
                 .workflowRunId(runId)
@@ -58,13 +64,12 @@ public class SingleNodeExecutionService {
                 .contextManager(contextManager)
                 .logPublisher(logPublisher)
                 .templateService(templateService)
+                .nodeConfigs(nodeConfigs)
                 .build();
 
         execCtx.setNodeKey(node.getKey());
         execCtx.setPluginNodeId(pluginNode.getId());
 
-        WorkflowConfig config = node.getConfig();
-        WorkflowConfig safeConfig = (config != null) ? config : new WorkflowConfig();
         WorkflowConfig resolvedConfig = execCtx.resolveConfig(node.getKey(), safeConfig);
         execCtx.setCurrentConfig(resolvedConfig);
 

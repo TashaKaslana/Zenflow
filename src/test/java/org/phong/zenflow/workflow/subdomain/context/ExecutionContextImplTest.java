@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -54,5 +55,27 @@ class ExecutionContextImplTest {
         context.setCurrentConfig(new WorkflowConfig(Map.of()));
 
         assertNull(context.read("missing", String.class));
+    }
+
+    @Test
+    void setNodeKeyLoadsConfigFromRegisteredNodes() {
+        RuntimeContextManager manager = new RuntimeContextManager();
+        Map<String, WorkflowConfig> nodeConfigs = new HashMap<>();
+        nodeConfigs.put("sample", new WorkflowConfig(Map.of("foo", "bar")));
+
+        ExecutionContextImpl localCtx = ExecutionContextImpl.builder()
+                .workflowId(UUID.randomUUID())
+                .workflowRunId(UUID.randomUUID())
+                .traceId("trace")
+                .userId(UUID.randomUUID())
+                .contextManager(manager)
+                .templateService(null)
+                .logPublisher(null)
+                .nodeConfigs(nodeConfigs)
+                .build();
+
+        localCtx.setNodeKey("sample");
+
+        assertEquals("bar", localCtx.read("foo", String.class));
     }
 }

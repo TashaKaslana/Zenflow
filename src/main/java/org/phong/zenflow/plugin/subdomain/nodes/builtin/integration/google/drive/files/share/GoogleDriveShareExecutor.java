@@ -7,7 +7,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -23,12 +22,11 @@ import java.util.Map;
 public class GoogleDriveShareExecutor implements NodeExecutor {
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) throws IOException {
-        Map<String, Object> input = config.input();
-        String fileId = (String) input.get("fileId");
-        String role = (String) input.get("role");
-        String type = (String) input.get("type");
-        String emailAddress = (String) input.get("emailAddress");
+    public ExecutionResult execute(ExecutionContext context) throws IOException  {
+        String fileId = context.read("fileId", String.class);
+        String role = context.read("role", String.class);
+        String type = context.read("type", String.class);
+        String emailAddress = context.read("emailAddress", String.class);
 
         Drive drive = context.getResource(Drive.class);
 
