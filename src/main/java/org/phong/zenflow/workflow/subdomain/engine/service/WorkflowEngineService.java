@@ -6,6 +6,7 @@ import org.phong.zenflow.core.services.AuthService;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
+import org.phong.zenflow.workflow.subdomain.context.resolution.ContextValueResolver;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContextImpl;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContextKey;
@@ -44,6 +45,7 @@ public class WorkflowEngineService {
     private final RuntimeContextManager contextManager;
     private final TemplateService templateService;
     private final AuthService authService;
+    private final ContextValueResolver contextValueResolver;
 
     @Transactional
     public WorkflowExecutionStatus runWorkflow(Workflow workflow,
@@ -80,6 +82,7 @@ public class WorkflowEngineService {
                     .contextManager(contextManager)
                     .logPublisher(logPublisher)
                     .templateService(templateService)
+                    .contextValueResolver(contextValueResolver)
                     .nodeConfigs(nodeConfigs)
                     .build();
 

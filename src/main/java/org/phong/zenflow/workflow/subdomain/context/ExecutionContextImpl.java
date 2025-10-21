@@ -8,11 +8,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.concurrent.ConcurrentHashMap;
 
 import lombok.Setter;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
 import org.phong.zenflow.secret.exception.SecretDomainException;
+import org.phong.zenflow.workflow.subdomain.context.resolution.ContextValueResolver;
 import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
@@ -47,9 +49,10 @@ public class ExecutionContextImpl implements ExecutionContext {
 
     private final TemplateService templateService;
     private final RuntimeContextManager contextManager;
+    private final ContextValueResolver contextValueResolver;
 
     @Builder.Default
-    private Map<String, WorkflowConfig> nodeConfigs = new HashMap<>();
+    private Map<String, WorkflowConfig> nodeConfigs = new ConcurrentHashMap<>();
 
     @Getter
     private WorkflowConfig currentConfig;
@@ -74,26 +77,25 @@ public class ExecutionContextImpl implements ExecutionContext {
         }
 
         RuntimeContext context = getContext();
-        if (context == null) return null;
 
-        Object o;
-        if (templateService != null && templateService.isTemplate(key)) {
-            o = templateService.resolve(key, this);
-        } else {
-            o = ExecutionContextLookupResolver.readFromRuntimeContext(key, context, nodeKey);
-            if (o == null) {
-                o = ExecutionContextLookupResolver.readFromCurrentConfig(key, currentConfig, nodeKey);
-            }
-        }
+        Object value;
+        value = contextValueResolver.resolve(
+                workflowRunId,
+                nodeKey,
+                key,
+                currentConfig,
+                context,
+                templateService,
+                this
+        );
 
-        if (o == null) {
+        if (value == null) {
             return null;
         }
-        if (clazz.isInstance(o)) {
-            return clazz.cast(o);
-        } else {
-            throw new ClassCastException("Cannot cast context value to " + clazz.getName());
+        if (clazz.isInstance(value)) {
+            return clazz.cast(value);
         }
+        throw new ClassCastException("Cannot cast context value to " + clazz.getName());
     }
 
     private RuntimeContext getContext() {
@@ -269,14 +271,9 @@ public class ExecutionContextImpl implements ExecutionContext {
     @Override
     public boolean containsKey(String key) {
         RuntimeContext context = getContext();
-        if (context == null) return false;
-
-        for (String candidate : ExecutionContextLookupResolver.resolveRuntimeLookupOrder(key, nodeKey)) {
-            if (context.hasValue(candidate)) {
-                return true;
-            }
+        if (contextValueResolver.hasConfigValue(nodeKey, key, currentConfig)) {
+            return true;
         }
-
-        return false;
+        return context != null && context.containsKey(key);
     }
 }

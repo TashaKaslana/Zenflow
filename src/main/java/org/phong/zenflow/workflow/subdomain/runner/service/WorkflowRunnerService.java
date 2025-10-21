@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.phong.zenflow.core.utils.MapUtils;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.log.auditlog.annotations.AuditLog;
 import org.phong.zenflow.log.auditlog.enums.AuditAction;
@@ -12,6 +13,7 @@ import org.phong.zenflow.secret.subdomain.aggregate.SecretAggregateService;
 import org.phong.zenflow.workflow.exception.WorkflowException;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.service.WorkflowService;
+import org.phong.zenflow.workflow.subdomain.context.resolution.ContextValueResolver;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContextKey;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContextManager;
@@ -48,6 +50,7 @@ public class WorkflowRunnerService {
     @Qualifier("virtualThreadExecutor")
     private final Executor executor;
     private final RuntimeContextManager contextManager;
+    private final ContextValueResolver contextValueResolver;
 
     @AuditLog(
             action = AuditAction.WORKFLOW_EXECUTE,
@@ -98,7 +101,7 @@ public class WorkflowRunnerService {
             Map<String, Set<String>> consumers = metadata.nodeConsumers().entrySet().stream()
                     .collect(Collectors.toMap(
                             Map.Entry::getKey,
-                            entry -> Set.of(entry.getValue().toString())
+                            entry -> entry.getValue().getConsumers()
                     ));
             Map<String, String> aliasMap = metadata.aliases();
 
@@ -119,6 +122,7 @@ public class WorkflowRunnerService {
             }
         } finally {
             contextManager.remove(workflowRunId.toString());
+            contextValueResolver.invalidateWorkflow(workflowRunId);
         }
     }
 
@@ -175,7 +179,10 @@ public class WorkflowRunnerService {
 
             if (request != null && request.payload() != null && startNodeKey != null) {
                 Map<String, Object> payload = ObjectConversion.convertObjectToMap(request.payload());
-                initialContext.put(String.format("%s.output.payload", startNodeKey), payload);
+                Map<String, Object> flattenedPayload = MapUtils.flattenMap(payload);
+                for (Map.Entry<String, Object> entry : flattenedPayload.entrySet()) {
+                    initialContext.put(String.format("%s.output.payload.%s", startNodeKey, entry.getKey()), entry.getValue());
+                }
             }
 
             context.initialize(initialContext, consumers, aliasMap);

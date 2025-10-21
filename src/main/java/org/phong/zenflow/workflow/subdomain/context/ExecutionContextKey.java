@@ -16,9 +16,7 @@ public enum ExecutionContextKey {
     ENTRYPOINT_LIST_KEY("__zenflow_entrypoint_list"),
     PROFILE_KEY("__zenflow__profiles"),
     SECRET_KEY("__zenflow_secrets"),
-    
-    PROHIBITED_KEY_PREFIX("__zenflow_"),
-    INPUT_SCOPE_SEGMENT("input");
+    PROHIBITED_KEY_PREFIX("__zenflow_");
 
     private final String key;
 

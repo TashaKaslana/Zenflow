@@ -11,8 +11,10 @@ import org.phong.zenflow.core.services.AuthService;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.services.NodeExecutorDispatcher;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
+import org.phong.zenflow.workflow.subdomain.context.resolution.ContextValueResolver;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContextManager;
+import org.phong.zenflow.workflow.subdomain.context.resolution.SystemLoadMonitor;
 import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.evaluator.functions.AviatorFunctionRegistry;
 import org.phong.zenflow.workflow.subdomain.evaluator.functions.string.StringContainsFunction;
@@ -88,6 +90,7 @@ class WorkflowEngineServiceUuidIntegrationTest {
                 executorDispatcher,
                 Runnable::run // Direct executor for testing
         );
+        ContextValueResolver contextValueResolver = new ContextValueResolver(new SystemLoadMonitor());
         workflowEngineService = new WorkflowEngineService(
                 nodeExecutionService,
                 executionGateway,
@@ -95,7 +98,8 @@ class WorkflowEngineServiceUuidIntegrationTest {
                 publisher,
                 contextManager,
                 templateService,
-                authService
+                authService,
+                contextValueResolver
         );
 
         workflowId = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
