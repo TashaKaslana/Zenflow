@@ -123,9 +123,8 @@ public class WorkflowEngineService {
         execCtx.setNodeKey(workingNode.getKey());
         execCtx.setPluginNodeId(workingNode.getPluginNode().getNodeId());
         WorkflowConfig config = workingNode.getConfig() != null ? workingNode.getConfig() : new WorkflowConfig();
-        WorkflowConfig resolvedConfig = execCtx.resolveConfig(workingNode.getKey(), config);
 
-        result = executeWorkingNode(workingNode, resolvedConfig, execCtx);
+        result = executeWorkingNode(workingNode, config, execCtx);
 
         Map<String, Object> output = result.getOutput();
         if (output != null) {

@@ -23,24 +23,27 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Centralized resolver for configuration/context lookups with adaptive cost-aware caching.
  * <p>
- * Caching is enabled for template resolution when initial refs > 5 or (refs >= 2 and cost reaches expensive threshold).
- * Uses dynamic TTL based on observed resolution cost and reference count to optimize cache retention.
+ * <b>Caching Strategy:</b> Only caches expensive <b>template resolution</b> (e.g., {@code {{node.output}}}),
+ * not plain config lookups which are already fast. Caching activates when:
+ * <ul>
+ *   <li>refs > 5 (always cache high-use templates), OR</li>
+ *   <li>refs ≥ 2 AND average cost ≥ 10 ms (cache expensive templates)</li>
+ * </ul>
  * <p>
  * <b>Reference Tracking:</b> Leverages pre-computed consumer counts from {@link RuntimeContext} which are
- * calculated during workflow analysis. This eliminates redundant tracking and directly reflects how many
- * downstream nodes will consume each value.
+ * calculated during workflow analysis. The {@link Tracked#refs()} method queries RuntimeContext live,
+ * ensuring cache TTL reflects current consumer count in real-time.
  * <p>
  * <b>Dynamic TTL Formula:</b>
  * <ul>
- *   <li>If refs > 0 (pinned): TTL = clamp(cost × 20, 1s, 15min)</li>
- *   <li>If refs = 0 (idle): TTL = clamp(cost × 20, 1s, 5min)</li>
- *   <li>Under memory pressure ≥ 90%: TTL = 1s (emergency mode)</li>
+ *   <li>If refs == 0: TTL = 0 (immediate eviction - no consumers left)</li>
+ *   <li>If refs > 0: TTL = clamp (cost × 20, 1 s, 15 min)</li>
+ *   <li>Under memory pressure ≥ 90%: TTL = 1 s (emergency mode)</li>
  * </ul>
  */
 @Component
@@ -50,10 +53,9 @@ public class ContextValueResolver {
     private static final Duration MIN_TTL = Duration.ofSeconds(1);
     private static final Duration MAX_TTL_PINNED = Duration.ofMinutes(15);
     private static final double TTL_FACTOR = 20.0; // K: "how many times the cost" to retain
-    
+
     // Cost tracking for template resolution
-    private static final double ALPHA = 0.2; // EMA smoothing factor
-    private static final long EXPENSIVE_THRESHOLD_NANOS = Duration.ofMillis(10).toNanos(); // Consider expensive if > 10ms
+    private static final long EXPENSIVE_THRESHOLD_NANOS = Duration.ofMillis(10).toNanos(); // Consider expensive if > 10 ms
 
     private final Cache<@NonNull CacheKey, Tracked<Object>> cache;
     private final ConcurrentMap<UUID, ConcurrentMap<String, Set<CacheKey>>> indexByWorkflow = new ConcurrentHashMap<>();
@@ -62,7 +64,7 @@ public class ContextValueResolver {
 
     public ContextValueResolver(SystemLoadMonitor systemLoadMonitor) {
         this.systemLoadMonitor = systemLoadMonitor;
-        RemovalListener<@NonNull CacheKey, Tracked<Object>> listener = (key, value, cause) -> {
+        RemovalListener<@NonNull CacheKey, @NonNull Tracked<Object>> listener = (key, value, cause) -> {
             if (key != null) {
                 unregisterKey(key);
             }
@@ -70,7 +72,7 @@ public class ContextValueResolver {
         this.cache = Caffeine.newBuilder()
                 .maximumSize(500)
                 .scheduler(Scheduler.systemScheduler())
-                .expireAfter(new Expiry<CacheKey, Tracked<Object>>() {
+                .expireAfter(new Expiry<@NonNull CacheKey, @NonNull Tracked<Object>>() {
                     @Override
                     public long expireAfterCreate(@NonNull CacheKey key, @NonNull Tracked<Object> value, long currentTime) {
                         return calculateTtlNanos(value);
@@ -91,6 +93,10 @@ public class ContextValueResolver {
                 .build();
     }
 
+    private static long clampNanos(long value, long min, long max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
     /**
      * Calculate dynamic TTL based on cost, refs, and memory pressure.
      * If refs reach 0, return 0 to immediately evict (no consumers left).
@@ -98,34 +104,31 @@ public class ContextValueResolver {
     private long calculateTtlNanos(Tracked<Object> tracked) {
         int refs = tracked.refs().get();
         long cost = tracked.emaCostNanos().get();
-        
+
         // If no consumers left, evict immediately
         if (refs <= 0) {
             return 0L;
         }
-        
+
         // Memory pressure guardrail
         double memoryPressure = systemLoadMonitor.readMemoryPressure();
         if (memoryPressure >= 0.90) {
             return MIN_TTL.toNanos();
         }
-        
+
         // Calculate base TTL from cost
-        long baseTtl = (cost == 0L) 
-            ? MIN_TTL.toNanos() 
-            : (long) (cost * TTL_FACTOR);
-        
+        long baseTtl = (cost == 0L)
+                ? MIN_TTL.toNanos()
+                : (long) (cost * TTL_FACTOR);
+
         // Apply cap based on pinning status (refs > 0 since we already handled refs <= 0)
         return clampNanos(baseTtl, MIN_TTL.toNanos(), MAX_TTL_PINNED.toNanos());
     }
 
-    private static long clampNanos(long value, long min, long max) {
-        return Math.max(min, Math.min(max, value));
-    }
-
     /**
-     * Resolve the value associated with {@code key} from the provided sources. Config values take priority,
-     * and are cached according to consumer count and system load. Runtime values act as the fallback.
+     * Resolve the value associated with {@code key} from the provided sources. Config values take priority
+     * and are cached according to consumer count and cost. Runtime values act as the fallback.
+     * Only template resolution is cached since it's expensive; plain config lookups are fast and not cached.
      */
     public Object resolve(UUID workflowRunId,
                           String nodeKey,
@@ -134,26 +137,27 @@ public class ContextValueResolver {
                           RuntimeContext runtimeContext,
                           TemplateService templateService,
                           ExecutionContext executionContext) {
-        if (templateService != null && templateService.isTemplate(key)) {
-            return templateService.resolve(key, executionContext);
-        }
-
+        // Config lookup - cache if the value contains templates and meets criteria
         ConfigLookup lookup = lookupConfig(nodeKey, key, currentConfig);
         Object rawConfigValue = lookup.rawValue();
         String normalizedKey = lookup.normalizedKey();
 
-        int consumerCount = determineConsumerCount(runtimeContext, key, normalizedKey);
-        boolean shouldCache = shouldCache(consumerCount, normalizedKey);
+        if (rawConfigValue != null && templateService.isTemplate(rawConfigValue.toString()) && workflowRunId != null) {
 
-        if (rawConfigValue != null) {
-            Object resolved = shouldCache && workflowRunId != null
-                    ? resolveWithCache(workflowRunId, normalizedKey, key, rawConfigValue, templateService, executionContext, runtimeContext, consumerCount)
-                    : resolveValue(rawConfigValue, templateService, executionContext);
+            int consumerCount = determineConsumerCount(runtimeContext, key, normalizedKey);
+            boolean shouldCache = shouldCache(consumerCount, normalizedKey);
 
+            if (shouldCache) {
+                return resolveConfigValueWithCache(workflowRunId, normalizedKey, key, rawConfigValue,
+                        templateService, executionContext, runtimeContext);
+            }
+
+            Object resolved = resolveValue(rawConfigValue, templateService, executionContext);
             maybeInvalidateIfNoConsumers(runtimeContext, workflowRunId, normalizedKey, key);
             return resolved;
         }
 
+        // Fallback to runtime context
         Object runtimeValue = resolveRuntimeValue(nodeKey, key, runtimeContext, templateService, executionContext);
         maybeInvalidateIfNoConsumers(runtimeContext, workflowRunId, normalizedKey, key);
         return runtimeValue;
@@ -182,21 +186,6 @@ public class ContextValueResolver {
                 .forEach(cache::invalidate);
     }
 
-    /**
-     * Clears cached entries when the runtime context indicates the value no longer has consumers.
-     */
-    public void invalidateIfConsumersDepleted(UUID workflowRunId,
-                                              String nodeKey,
-                                              String key,
-                                              RuntimeContext runtimeContext) {
-        if (runtimeContext == null || workflowRunId == null) {
-            return;
-        }
-        ConfigLookup lookup = lookupConfig(nodeKey, key, null);
-        String normalizedKey = lookup.normalizedKey();
-        maybeInvalidateIfNoConsumers(runtimeContext, workflowRunId, normalizedKey, key);
-    }
-
     private Object resolveRuntimeValue(String nodeKey,
                                        String key,
                                        RuntimeContext runtimeContext,
@@ -209,49 +198,47 @@ public class ContextValueResolver {
         return resolveValue(raw, templateService, executionContext);
     }
 
-    private Object resolveWithCache(UUID workflowRunId,
-                                    String normalizedKey,
-                                    String originalKey,
-                                    Object rawValue,
-                                    TemplateService templateService,
-                                    ExecutionContext executionContext,
-                                    RuntimeContext runtimeContext,
-                                    int initialConsumerCount) {
+    /**
+     * Resolve a config value that contains templates with cost-aware caching.
+     * Handles both pure templates and composite strings with embedded templates.
+     */
+    private Object resolveConfigValueWithCache(UUID workflowRunId,
+                                               String normalizedKey,
+                                               String originalKey,
+                                               Object rawValue,
+                                               TemplateService templateService,
+                                               ExecutionContext executionContext,
+                                               RuntimeContext runtimeContext) {
         CacheKey cacheKey = new CacheKey(workflowRunId, normalizedKey, originalKey, rawValue);
         Tracked<Object> tracked = cache.getIfPresent(cacheKey);
-        
+
         if (tracked != null) {
-            // Cache hit - update last used time
+            // Cache hit - return cached resolved value
             tracked.lastUsedNanos().set(System.nanoTime());
             return tracked.resource();
         }
-        
+
         // Cache miss - resolve with profiling
         long t0 = System.nanoTime();
         Object resolved = resolveValue(rawValue, templateService, executionContext);
         long elapsed = System.nanoTime() - t0;
-        
+
         if (resolved != null) {
-            // Create tracked entry with cost and live reference to RuntimeContext.
-            // The refs() method will query RuntimeContext.getConsumerCount() on each TTL calculation,
-            // ensuring the cache reflects the current number of consumers in real-time.
-            // When refs reach 0 (no consumers left), TTL becomes 0 and entry is evicted immediately.
             Tracked<Object> newTracked = new Tracked<>(
                     resolved,
-                    runtimeContext,      // Live reference for querying consumer count
-                    normalizedKey,       // Key to query
-                    originalKey,         // Alternative key to query
-                    new AtomicLong(0L),  // Cost will be recorded next
+                    runtimeContext,
+                    normalizedKey,
+                    originalKey,
+                    new AtomicLong(0L),
                     new AtomicLong(System.nanoTime())
             );
             newTracked.recordCost(elapsed);
-            
-            // Record cost stats for admission decision
+
             if (normalizedKey != null) {
                 costByKey.computeIfAbsent(normalizedKey, k -> new CostStats())
                         .record(elapsed);
             }
-            
+
             cache.put(cacheKey, newTracked);
             indexKey(cacheKey);
         }
@@ -261,20 +248,24 @@ public class ContextValueResolver {
     private Object resolveValue(Object value,
                                 TemplateService templateService,
                                 ExecutionContext executionContext) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof String str) {
-            if (templateService != null && templateService.isTemplate(str)) {
-                return templateService.resolve(str, executionContext);
+        switch (value) {
+            case null -> {
+                return null;
             }
-            return str;
-        }
-        if (value instanceof Map<?, ?> map) {
-            return resolveMap(ObjectConversion.convertObjectToMap(map), templateService, executionContext);
-        }
-        if (value instanceof List<?> list) {
-            return resolveList(list, templateService, executionContext);
+            case String str -> {
+                if (templateService != null && templateService.isTemplate(str)) {
+                    return templateService.resolve(str, executionContext);
+                }
+                return str;
+            }
+            case Map<?, ?> map -> {
+                return resolveMap(ObjectConversion.convertObjectToMap(map), templateService, executionContext);
+            }
+            case List<?> list -> {
+                return resolveList(list, templateService, executionContext);
+            }
+            default -> {
+            }
         }
         return value;
     }
@@ -395,7 +386,7 @@ public class ContextValueResolver {
         if (consumerCount > 5) {
             return true;
         }
-        
+
         // For refs >= 2, check if historically expensive
         if (consumerCount >= 2) {
             CostStats stats = costByKey.get(normalizedKey);
@@ -406,7 +397,7 @@ public class ContextValueResolver {
             // No history yet, cache it to start tracking
             return true;
         }
-        
+
         return false;
     }
 
@@ -487,59 +478,7 @@ public class ContextValueResolver {
         }
     }
 
-    private record ConfigLookup(String normalizedKey, Object rawValue) { }
-
-    /**
-     * Wrapper that tracks cost and live reference count for cached resources.
-     * References are queried live from RuntimeContext to ensure accurate consumer tracking.
-     */
-    record Tracked<T>(
-            T resource,
-            RuntimeContext runtimeContext,  // Live reference to RuntimeContext
-            String normalizedKey,           // Key to query consumer count
-            String originalKey,             // Alternative key to query consumer count
-            AtomicLong emaCostNanos,        // exponential moving average of compute time
-            AtomicLong lastUsedNanos        // diagnostics/observability
-    ) {
-        /**
-         * Get live reference count from RuntimeContext.
-         * Returns the maximum consumer count between normalized and original keys.
-         */
-        AtomicInteger refs() {
-            if (runtimeContext == null) {
-                return new AtomicInteger(0);
-            }
-            int count = Math.max(
-                normalizedKey != null ? runtimeContext.getConsumerCount(normalizedKey) : 0,
-                originalKey != null ? runtimeContext.getConsumerCount(originalKey) : 0
-            );
-            return new AtomicInteger(count);
-        }
-        
-        void recordCost(long nanos) {
-            long prev = emaCostNanos.get();
-            long next = (prev == 0L) ? nanos : (long) (ALPHA * nanos + (1 - ALPHA) * prev);
-            emaCostNanos.set(next);
-            lastUsedNanos.set(System.nanoTime());
-        }
-    }
-
-    /**
-     * Tracks resolution cost statistics for profiling
-     */
-    static class CostStats {
-        private final AtomicLong totalCostNanos = new AtomicLong(0L);
-        private final AtomicInteger count = new AtomicInteger(0);
-
-        void record(long nanos) {
-            totalCostNanos.addAndGet(nanos);
-            count.incrementAndGet();
-        }
-
-        long getAverageCostNanos() {
-            int n = count.get();
-            return n == 0 ? 0L : totalCostNanos.get() / n;
-        }
+    private record ConfigLookup(String normalizedKey, Object rawValue) {
     }
 
     private static final class CacheKey {

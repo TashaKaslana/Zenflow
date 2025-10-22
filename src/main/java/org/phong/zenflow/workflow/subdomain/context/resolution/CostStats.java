@@ -1,14 +1,23 @@
 package org.phong.zenflow.workflow.subdomain.context.resolution;
 
-final class CostStats {
-    private static final double ALPHA = 0.2; // smoothing
-    private volatile double emaWallMs = 0.0;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+
+/**
+ * Tracks resolution cost statistics for profiling and admission decisions.
+ * Maintains total cost and count to calculate average resolution time.
+ */
+class CostStats {
+    private final AtomicLong totalCostNanos = new AtomicLong(0L);
+    private final AtomicInteger count = new AtomicInteger(0);
 
     void record(long nanos) {
-        double ms = nanos / 1_000_000.0;
-        double prev = emaWallMs;
-        emaWallMs = (prev == 0.0) ? ms : (ALPHA * ms + (1 - ALPHA) * prev);
+        totalCostNanos.addAndGet(nanos);
+        count.incrementAndGet();
     }
 
-    double wallMs() { return emaWallMs; }
+    long getAverageCostNanos() {
+        int n = count.get();
+        return n == 0 ? 0L : totalCostNanos.get() / n;
+    }
 }

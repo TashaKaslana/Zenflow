@@ -73,14 +73,13 @@ public class SingleNodeExecutionService {
         execCtx.setNodeKey(node.getKey());
         execCtx.setPluginNodeId(pluginNode.getId());
 
-        WorkflowConfig resolvedConfig = execCtx.resolveConfig(node.getKey(), safeConfig);
-        execCtx.setCurrentConfig(resolvedConfig);
+        execCtx.setCurrentConfig(safeConfig);
 
         ExecutionTaskEnvelope envelope = ExecutionTaskEnvelope.builder()
                 .taskId(execCtx.taskId())
                 .executorIdentifier(pluginNode.getId().toString())
                 .executorType(pluginNode.getExecutorType())
-                .config(resolvedConfig)
+                .config(safeConfig)
                 .context(execCtx)
                 .pluginNodeId(pluginNode.getId())
                 .build();

@@ -49,8 +49,6 @@ public interface ExecutionContext {
 
     TemplateService.ImmutableEvaluator getEvaluator();
 
-    WorkflowConfig resolveConfig(String nodeKey, WorkflowConfig config);
-
     Map<String, Object> getCurrentNodeEntrypoint();
 
     Object getProfileSecret(String key);

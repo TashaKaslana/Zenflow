@@ -4,14 +4,11 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import java.util.concurrent.ConcurrentHashMap;
 
 import lombok.Setter;
-import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
 import org.phong.zenflow.secret.exception.SecretDomainException;
 import org.phong.zenflow.workflow.subdomain.context.resolution.ContextValueResolver;
@@ -166,18 +163,6 @@ public class ExecutionContextImpl implements ExecutionContext {
         return templateService != null ? templateService.getEvaluator() : null;
     }
 
-    public WorkflowConfig resolveConfig(String nodeKey, WorkflowConfig config) {
-        if (config == null || config.input() == null) {
-            return config;
-        }
-        String previous = this.nodeKey;
-        this.nodeKey = nodeKey;
-        Map<String, Object> resolvedInput = resolveMap(config.input());
-        this.nodeKey = previous;
-
-        return new WorkflowConfig(resolvedInput, config.profile(), config.output());
-    }
-
     public void setCurrentConfig(WorkflowConfig config) {
         this.currentConfig = config;
         if (nodeKey != null && nodeConfigs != null) {
@@ -189,29 +174,6 @@ public class ExecutionContextImpl implements ExecutionContext {
         }
     }
 
-    private Map<String, Object> resolveMap(Map<String, Object> map) {
-        if (map == null || map.isEmpty()) {
-            return map;
-        }
-
-        return map.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> resolveValue(e.getValue())));
-    }
-
-    private Object resolveValue(Object value) {
-        if (value instanceof String str) {
-            if (templateService != null && templateService.isTemplate(str)) {
-                return templateService.resolve(str, this);
-            }
-            return str;
-        } else if (value instanceof Map<?, ?> m) {
-            return resolveMap(ObjectConversion.convertObjectToMap(m));
-        } else if (value instanceof List<?> list) {
-            return list.stream().map(this::resolveValue).toList();
-        }
-
-        return value;
-    }
 
     @SuppressWarnings("unchecked")
     public Map<String, Object> getCurrentNodeEntrypoint() {
