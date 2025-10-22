@@ -15,7 +15,8 @@ public enum ExecutionContextKey {
     PARENT_WORKFLOW_ID("__zenflow_parent_workflow_id"),
     ENTRYPOINT_LIST_KEY("__zenflow_entrypoint_list"),
     PROFILE_KEY("__zenflow__profiles"),
-    SECRET_KEY("__zenflow_secrets");
+    SECRET_KEY("__zenflow_secrets"),
+    PROHIBITED_KEY_PREFIX("__zenflow_");
 
     private final String key;
 

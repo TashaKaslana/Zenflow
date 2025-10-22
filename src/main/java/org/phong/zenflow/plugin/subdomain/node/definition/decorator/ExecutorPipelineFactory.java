@@ -27,10 +27,9 @@ public class ExecutorPipelineFactory {
             log.error("Node executor is not defined for node type: {}", def.getType());
             throw new Exception("Node executor is not defined for node type: " + def.getType());
         }
-        var cfg = envelope.getConfig();
         var ctx = envelope.getContext();
         // core = node's happy path
-        Callable<ExecutionResult> pipeline = () -> def.getNodeExecutor().execute(cfg, ctx);
+        Callable<ExecutionResult> pipeline = () -> def.getNodeExecutor().execute(ctx);
 
         // wrap in order
         for (ExecutorDecorator decorator : decorators) {

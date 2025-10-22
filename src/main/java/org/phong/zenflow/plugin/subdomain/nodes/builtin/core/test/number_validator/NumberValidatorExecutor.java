@@ -1,10 +1,8 @@
 package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.test.number_validator;
 
-import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 
@@ -13,12 +11,11 @@ import java.util.Map;
 @Component
 public class NumberValidatorExecutor implements NodeExecutor {
     @Override
-    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
+    public ExecutionResult execute(ExecutionContext context) {
         NodeLogPublisher logCollector = context.getLogPublisher();
-        Map<String, Object> input = ObjectConversion.convertObjectToMap(config.input());
         
-        Integer number = (Integer) input.get("number");
-        Integer threshold = (Integer) input.get("threshold");
+        Integer number = context.read("number", Integer.class);
+        Integer threshold = context.read("threshold", Integer.class);
         
         logCollector.info("Number Validator started with number: {}, threshold: {}", number, threshold);
         

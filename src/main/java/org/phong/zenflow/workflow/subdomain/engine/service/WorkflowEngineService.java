@@ -6,6 +6,7 @@ import org.phong.zenflow.core.services.AuthService;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
+import org.phong.zenflow.workflow.subdomain.context.resolution.ContextValueResolver;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContextImpl;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContextKey;
@@ -29,6 +30,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -43,6 +45,7 @@ public class WorkflowEngineService {
     private final RuntimeContextManager contextManager;
     private final TemplateService templateService;
     private final AuthService authService;
+    private final ContextValueResolver contextValueResolver;
 
     @Transactional
     public WorkflowExecutionStatus runWorkflow(Workflow workflow,
@@ -69,6 +72,8 @@ public class WorkflowEngineService {
                     .userId(userIdFromContext)
                     .build();
 
+            Map<String, WorkflowConfig> nodeConfigs = new HashMap<>(workflowNodes.getAllNodeConfigs());
+
             ExecutionContext execCtx = ExecutionContextImpl.builder()
                     .workflowId(workflow.getId())
                     .workflowRunId(workflowRunId)
@@ -77,6 +82,8 @@ public class WorkflowEngineService {
                     .contextManager(contextManager)
                     .logPublisher(logPublisher)
                     .templateService(templateService)
+                    .contextValueResolver(contextValueResolver)
+                    .nodeConfigs(nodeConfigs)
                     .build();
 
             return getWorkflowExecutionStatus(workflow.getId(), workflowRunId, context, workingNode, workflowNodes, execCtx);
@@ -116,9 +123,8 @@ public class WorkflowEngineService {
         execCtx.setNodeKey(workingNode.getKey());
         execCtx.setPluginNodeId(workingNode.getPluginNode().getNodeId());
         WorkflowConfig config = workingNode.getConfig() != null ? workingNode.getConfig() : new WorkflowConfig();
-        WorkflowConfig resolvedConfig = execCtx.resolveConfig(workingNode.getKey(), config);
 
-        result = executeWorkingNode(workingNode, resolvedConfig, execCtx);
+        result = executeWorkingNode(workingNode, config, execCtx);
 
         Map<String, Object> output = result.getOutput();
         if (output != null) {

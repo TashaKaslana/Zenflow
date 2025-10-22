@@ -26,7 +26,10 @@ class WaitExecutorTest {
         input.put("waitingNodes", Map.of("A", true, "B", true));
         WorkflowConfig config = new WorkflowConfig(input);
 
-        ExecutionResult result = executor.execute(config, context);
+        context.setCurrentConfig(config);
+
+
+        ExecutionResult result = executor.execute(context);
 
         assertEquals(ExecutionStatus.COMMIT, result.getStatus());
         assertTrue((Boolean) result.getOutput().get("isReady"));
@@ -41,12 +44,18 @@ class WaitExecutorTest {
         input.put("timeoutMs", 100L);
         WorkflowConfig config = new WorkflowConfig(input);
 
-        ExecutionResult first = executor.execute(config, context);
+        context.setCurrentConfig(config);
+
+
+        ExecutionResult first = executor.execute(context);
         assertEquals(ExecutionStatus.UNCOMMIT, first.getStatus());
 
         Thread.sleep(150);
 
-        ExecutionResult second = executor.execute(config, context);
+        context.setCurrentConfig(config);
+
+
+        ExecutionResult second = executor.execute(context);
         assertEquals(ExecutionStatus.ERROR, second.getStatus());
     }
 
@@ -60,12 +69,18 @@ class WaitExecutorTest {
         input.put("fallbackStatus", "UNCOMMIT");
         WorkflowConfig config = new WorkflowConfig(input);
 
-        ExecutionResult first = executor.execute(config, context);
+        context.setCurrentConfig(config);
+
+
+        ExecutionResult first = executor.execute(context);
         assertEquals(ExecutionStatus.UNCOMMIT, first.getStatus());
 
         Thread.sleep(150);
 
-        ExecutionResult second = executor.execute(config, context);
+        context.setCurrentConfig(config);
+
+
+        ExecutionResult second = executor.execute(context);
         assertEquals(ExecutionStatus.UNCOMMIT, second.getStatus());
     }
 }

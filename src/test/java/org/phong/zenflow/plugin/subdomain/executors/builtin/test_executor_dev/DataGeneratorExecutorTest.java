@@ -22,7 +22,8 @@ class DataGeneratorExecutorTest {
                         "format", "json"
                 )
         );
-        var result = executor.execute(config, TestExecutionContextUtils.createExecutionContext());
+        var context = TestExecutionContextUtils.createExecutionContext(config);
+        var result = executor.execute(context);
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
         assertEquals("test+tag@very-long-domain-name.example.org", result.getOutput().get("user_email"));

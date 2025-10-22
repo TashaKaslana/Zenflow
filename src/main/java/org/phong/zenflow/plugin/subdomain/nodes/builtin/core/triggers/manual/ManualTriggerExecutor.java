@@ -3,7 +3,6 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.triggers.manual;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.TriggerContext;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
@@ -41,13 +40,12 @@ public class ManualTriggerExecutor implements TriggerExecutor {
     }
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
+    public ExecutionResult execute(ExecutionContext context) {
         NodeLogPublisher logs = context.getLogPublisher();
-        logs.info("Executing ManualTriggerExecutor with config: {}", config);
+        logs.info("Executing ManualTriggerExecutor with config: {}", context.getCurrentConfig());
         logs.info("Manual trigger started at {}", OffsetDateTime.now());
 
-        Map<String, Object> input = config.input();
-        Object payload = input.get("payload");
+        Object payload = context.read("payload", Object.class);
 
         Map<String, Object> output = new HashMap<>();
         output.put("trigger_type", "manual");
@@ -60,12 +58,6 @@ public class ManualTriggerExecutor implements TriggerExecutor {
         } else {
             logs.info("No payload provided");
         }
-
-        input.forEach((key, value) -> {
-            if (!"payload".equals(key)) {
-                output.put("input_" + key, value);
-            }
-        });
 
         logs.success("Manual trigger completed successfully");
         return ExecutionResult.success(output);

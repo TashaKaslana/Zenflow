@@ -8,7 +8,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -25,13 +24,12 @@ import java.util.Map;
 public class GoogleDriveUpdateExecutor implements NodeExecutor {
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) throws IOException {
-        Map<String, Object> input = config.input();
-        String fileId = (String) input.get("fileId");
-        String name = (String) input.get("name");
-        String description = (String) input.get("description");
-        String mimeType = (String) input.get("mimeType");
-        String contentBase64 = (String) input.get("contentBase64");
+    public ExecutionResult execute(ExecutionContext context) throws IOException  {
+        String fileId = context.read("fileId", String.class);
+        String name = context.read("name", String.class);
+        String description = context.read("description", String.class);
+        String mimeType = context.read("mimeType", String.class);
+        String contentBase64 = context.read("contentBase64", String.class);
 
         Drive drive = context.getResource(Drive.class);
 

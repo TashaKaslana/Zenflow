@@ -2,6 +2,7 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.ba
 
 import lombok.Data;
 import org.phong.zenflow.core.utils.ObjectConversion;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 
 import javax.sql.DataSource;
 import java.util.HashMap;
@@ -22,19 +23,19 @@ public class ResolvedDbConfig {
 
     private DataSource dataSource;
 
-    public static ResolvedDbConfig fromInput(Map<String, Object> input) {
+    public static ResolvedDbConfig fromInput(ExecutionContext context) {
         ResolvedDbConfig cfg = new ResolvedDbConfig();
-        cfg.driver = (String) input.get("driver"); // e.g. "postgresql"
-        cfg.host = (String) input.get("host");
-        cfg.port = (int) input.get("port");
-        cfg.database = (String) input.get("database");
-        cfg.username = (String) input.get("username");
-        cfg.password = (String) input.get("password");
-        cfg.query = (String) input.get("query");
-        cfg.returnType = (String) input.get("returnType");
+        cfg.driver = (String) context.read("driver", String.class); // e.g. "postgresql"
+        cfg.host = (String) context.read("host", String.class);
+        cfg.port = (int) context.read("port", Integer.class);
+        cfg.database = (String) context.read("database", String.class);
+        cfg.username = (String) context.read("username", String.class);
+        cfg.password = (String) context.read("password", String.class);
+        cfg.query = (String) context.read("query", String.class);
+        cfg.returnType = (String) context.read("returnType", String.class);
 
         // Handle params extraction - support both nested and direct structure
-        Object paramsObj = input.get("params");
+        Object paramsObj = context.read("params", Object.class);
         if (paramsObj != null) {
             // Legacy: nested params structure
             cfg.params = ObjectConversion.convertObjectToMap(paramsObj);
@@ -43,55 +44,55 @@ public class ResolvedDbConfig {
             Map<String, Object> extractedParams = new HashMap<>();
 
             // Extract parameter arrays
-            if (input.containsKey("parameters")) {
-                extractedParams.put("parameters", input.get("parameters"));
+            if (context.containsKey("parameters")) {
+                extractedParams.put("parameters", context.read("parameters", Object.class));
             }
-            if (input.containsKey("values")) {
-                extractedParams.put("values", input.get("values"));
+            if (context.containsKey("values")) {
+                extractedParams.put("values", context.read("values", Object.class));
             }
-            if (input.containsKey("jsonbParams")) {
-                extractedParams.put("jsonbParams", input.get("jsonbParams"));
+            if (context.containsKey("jsonbParams")) {
+                extractedParams.put("jsonbParams", context.read("jsonbParams", Object.class));
             }
-            if (input.containsKey("arrayParams")) {
-                extractedParams.put("arrayParams", input.get("arrayParams"));
+            if (context.containsKey("arrayParams")) {
+                extractedParams.put("arrayParams", context.read("arrayParams", Object.class));
             }
-            if (input.containsKey("uuidParams")) {
-                extractedParams.put("uuidParams", input.get("uuidParams"));
+            if (context.containsKey("uuidParams")) {
+                extractedParams.put("uuidParams", context.read("uuidParams", Object.class));
             }
 
             // Extract PostgreSQL-specific fields
-            if (input.containsKey("schema")) {
-                extractedParams.put("schema", input.get("schema"));
+            if (context.containsKey("schema")) {
+                extractedParams.put("schema", context.read("schema", Object.class));
             }
-            if (input.containsKey("conflictColumns")) {
-                extractedParams.put("conflictColumns", input.get("conflictColumns"));
+            if (context.containsKey("conflictColumns")) {
+                extractedParams.put("conflictColumns", context.read("conflictColumns", Object.class));
             }
-            if (input.containsKey("updateAction")) {
-                extractedParams.put("updateAction", input.get("updateAction"));
+            if (context.containsKey("updateAction")) {
+                extractedParams.put("updateAction", context.read("updateAction", Object.class));
             }
-            if (input.containsKey("timeout")) {
-                extractedParams.put("timeout", input.get("timeout"));
+            if (context.containsKey("timeout")) {
+                extractedParams.put("timeout", context.read("timeout", Object.class));
             }
-            if (input.containsKey("maxRows")) {
-                extractedParams.put("maxRows", input.get("maxRows"));
+            if (context.containsKey("maxRows")) {
+                extractedParams.put("maxRows", context.read("maxRows", Object.class));
             }
-            if (input.containsKey("enableTransaction")) {
-                extractedParams.put("enableTransaction", input.get("enableTransaction"));
+            if (context.containsKey("enableTransaction")) {
+                extractedParams.put("enableTransaction", context.read("enableTransaction", Object.class));
             }
 
             // Handle batch query parameters
-            if (input.containsKey("batchValues")) {
-                extractedParams.put("batchValues", input.get("batchValues"));
+            if (context.containsKey("batchValues")) {
+                extractedParams.put("batchValues", context.read("batchValues", Object.class));
             }
-            if (input.containsKey("batchSize")) {
-                extractedParams.put("batchSize", input.get("batchSize"));
+            if (context.containsKey("batchSize")) {
+                extractedParams.put("batchSize", context.read("batchSize", Object.class));
             }
 
             cfg.params = extractedParams.isEmpty() ? null : extractedParams;
         }
 
         // Set connection ID if provided
-        cfg.connectionId = (String) input.get("connectionId");
+        cfg.connectionId = (String) context.read("connectionId", String.class);
 
         return cfg;
     }

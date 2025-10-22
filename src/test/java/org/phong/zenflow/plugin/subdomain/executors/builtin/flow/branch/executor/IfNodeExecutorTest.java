@@ -25,7 +25,10 @@ class IfNodeExecutorTest {
                 "next_false", List.of("false")
         ));
 
-        var result = executor.execute(config, context);
+        context.setCurrentConfig(config);
+
+
+        var result = executor.execute(context);
 
         assertEquals(ExecutionStatus.NEXT, result.getStatus());
         assertEquals("true", result.getNextNodeKey());
@@ -40,7 +43,10 @@ class IfNodeExecutorTest {
                 "next_false", List.of("false")
         ));
 
-        var result = executor.execute(config, context);
+        context.setCurrentConfig(config);
+
+
+        var result = executor.execute(context);
 
         assertEquals(ExecutionStatus.NEXT, result.getStatus());
         assertEquals("false", result.getNextNodeKey());

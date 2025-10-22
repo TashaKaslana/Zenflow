@@ -7,6 +7,7 @@ import org.phong.zenflow.core.services.AuthService;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionError;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.entity.PluginNode;
+import org.phong.zenflow.workflow.subdomain.context.resolution.ContextValueResolver;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContextImpl;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
@@ -22,6 +23,7 @@ import org.phong.zenflow.workflow.subdomain.worker.model.ExecutionTaskEnvelope;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -36,6 +38,7 @@ public class SingleNodeExecutionService {
     private final ApplicationEventPublisher publisher;
     private final TemplateService templateService;
     private final AuthService authService;
+    private final ContextValueResolver contextValueResolver;
 
     public ExecutionResult executeNode(PluginNode pluginNode, BaseWorkflowNode node) {
         RuntimeContext context = new RuntimeContext();
@@ -50,6 +53,11 @@ public class SingleNodeExecutionService {
                 .userId(authService.getUserIdFromContext())
                 .build();
 
+        WorkflowConfig config = node.getConfig();
+        WorkflowConfig safeConfig = (config != null) ? config : new WorkflowConfig();
+        Map<String, WorkflowConfig> nodeConfigs = new HashMap<>();
+        nodeConfigs.put(node.getKey(), safeConfig);
+
         ExecutionContext execCtx = ExecutionContextImpl.builder()
                 .workflowId(workflowId)
                 .workflowRunId(runId)
@@ -58,21 +66,20 @@ public class SingleNodeExecutionService {
                 .contextManager(contextManager)
                 .logPublisher(logPublisher)
                 .templateService(templateService)
+                .contextValueResolver(contextValueResolver)
+                .nodeConfigs(nodeConfigs)
                 .build();
 
         execCtx.setNodeKey(node.getKey());
         execCtx.setPluginNodeId(pluginNode.getId());
 
-        WorkflowConfig config = node.getConfig();
-        WorkflowConfig safeConfig = (config != null) ? config : new WorkflowConfig();
-        WorkflowConfig resolvedConfig = execCtx.resolveConfig(node.getKey(), safeConfig);
-        execCtx.setCurrentConfig(resolvedConfig);
+        execCtx.setCurrentConfig(safeConfig);
 
         ExecutionTaskEnvelope envelope = ExecutionTaskEnvelope.builder()
                 .taskId(execCtx.taskId())
                 .executorIdentifier(pluginNode.getId().toString())
                 .executorType(pluginNode.getExecutorType())
-                .config(resolvedConfig)
+                .config(safeConfig)
                 .context(execCtx)
                 .pluginNodeId(pluginNode.getId())
                 .build();

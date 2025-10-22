@@ -7,7 +7,6 @@ import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.triggers.polling.quartz.PollingTriggerJob;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.triggers.polling.resource.PollingResponseCacheManager;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.TriggerContext;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
@@ -108,15 +107,14 @@ public class PollingTriggerExecutor implements TriggerExecutor {
     }
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
+    public ExecutionResult execute(ExecutionContext context) {
         NodeLogPublisher logs = context.getLogPublisher();
-        logs.info("Executing PollingTriggerExecutor with config: {}", config);
+        logs.info("Executing PollingTriggerExecutor with config: {}", context.getCurrentConfig());
 
-        Map<String, Object> input = config.input();
-        Object responseData = input.get("response_data");
-        Object previousData = input.get("previous_data");
-        String pollingUrl = (String) input.get("polling_url");
-        String changeType = (String) input.get("change_type");
+        Object responseData = context.read("response_data", Object.class);
+        Object previousData = context.read("previous_data", Object.class);
+        String pollingUrl = context.read("polling_url", String.class);
+        String changeType = context.read("change_type", String.class);
 
         Map<String, Object> output = new HashMap<>();
         output.put("trigger_type", "polling");
@@ -140,13 +138,6 @@ public class PollingTriggerExecutor implements TriggerExecutor {
         if (previousData != null) {
             output.put("previous_response", previousData);
         }
-
-        // Add any additional input parameters
-        input.forEach((key, value) -> {
-            if (!Set.of("response_data", "previous_data", "polling_url", "change_type").contains(key)) {
-                output.put("input_" + key, value);
-            }
-        });
 
         logs.success("Polling trigger completed successfully using Quartz scheduler");
         return ExecutionResult.success(output);

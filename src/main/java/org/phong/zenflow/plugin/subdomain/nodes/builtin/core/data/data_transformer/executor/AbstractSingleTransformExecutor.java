@@ -20,10 +20,22 @@ public abstract class AbstractSingleTransformExecutor implements NodeExecutor {
     protected abstract String transformerName();
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
+    public ExecutionResult execute(ExecutionContext context) throws Exception {
+        WorkflowConfig config = context.getCurrentConfig();
+        if (config == null) {
+            config = new WorkflowConfig();
+        }
+
         Map<String, Object> input = new HashMap<>(config.input());
         input.put("name", transformerName());
         WorkflowConfig updated = new WorkflowConfig(input, config.output());
-        return delegate.execute(updated, context);
+
+        WorkflowConfig previous = context.getCurrentConfig();
+        context.setCurrentConfig(updated);
+        try {
+            return delegate.execute(context);
+        } finally {
+            context.setCurrentConfig(previous);
+        }
     }
 }

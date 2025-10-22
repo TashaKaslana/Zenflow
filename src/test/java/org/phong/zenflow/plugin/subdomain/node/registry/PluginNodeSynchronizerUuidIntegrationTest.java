@@ -10,6 +10,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.phong.zenflow.core.utils.LoadSchemaHelper;
 import org.phong.zenflow.plugin.infrastructure.persistence.entity.Plugin;
 import org.phong.zenflow.plugin.infrastructure.persistence.repository.PluginRepository;
+import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
 import org.phong.zenflow.plugin.subdomain.node.definition.NodeDefinition;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
@@ -71,7 +72,12 @@ class PluginNodeSynchronizerUuidIntegrationTest {
         lenient().when(objectMapper.readValue(any(java.io.InputStream.class), any(com.fasterxml.jackson.core.type.TypeReference.class)))
                 .thenReturn(createMockSchemaMap());
 
-        NodeExecutor stubExecutor = (config, ctx) -> null;
+        NodeExecutor stubExecutor = new NodeExecutor() {
+            @Override
+            public ExecutionResult execute(ExecutionContext context) {
+                return null;
+            }
+        };
         nodeDefinition = NodeDefinition.builder().nodeExecutor(stubExecutor).build();
         lenient().when(applicationContext.getBean(any(Class.class))).thenReturn(nodeDefinition);
 

@@ -9,7 +9,6 @@ import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -21,18 +20,29 @@ import java.util.Map;
 @AllArgsConstructor
 public class ForEachLoopExecutor implements NodeExecutor {
     @Override
-    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
+    public ExecutionResult execute(ExecutionContext context) {
         NodeLogPublisher logCollector = context.getLogPublisher();
-        Map<String, Object> input = config.input();
-        List<Object> items = ObjectConversion.safeConvert(input.get("items"), new TypeReference<>() {});
-        int index = (int) input.getOrDefault("index", 0);
+
+        Object itemsObj = context.read("items", Object.class);
+        List<Object> items = ObjectConversion.safeConvert(itemsObj, new TypeReference<List<Object>>() {});
+        if (items == null) {
+            items = List.of();
+        }
+        Integer indexAsInteger = context.read("index", Integer.class);
+        int index = indexAsInteger != null ? indexAsInteger : 0;
+
+        Object loopEndObj = context.read("loopEnd", Object.class);
+        List<String> loopEnd = ObjectConversion.safeConvert(loopEndObj, new TypeReference<List<String>>() {});
+        Object nextObj = context.read("next", Object.class);
+        List<String> next = ObjectConversion.safeConvert(nextObj, new TypeReference<List<String>>() {});
+        String breakCondition = context.read("breakCondition", String.class);
+        String continueCondition = context.read("continueCondition", String.class);
 
         AviatorEvaluatorInstance evaluator = context.getEvaluator().cloneInstance();
 
         if (index >= items.size()) {
-            List<String> loopEnd = ObjectConversion.safeConvert(input.get("loopEnd"), new TypeReference<>() {});
             logCollector.info("Loop completed after {} iterations", items.size());
-            if (loopEnd.isEmpty()) {
+            if (loopEnd == null || loopEnd.isEmpty()) {
                 logCollector.warning("loopEnd is empty, no next node to proceed to after completion.");
                 return ExecutionResult.loopEnd(null);
             }
@@ -45,42 +55,46 @@ public class ForEachLoopExecutor implements NodeExecutor {
         Map<String, Object> output = new HashMap<>();
         // Preserve original input data
         output.put("items", items);
-        output.put("loopEnd", input.get("loopEnd"));
-        output.put("next", input.get("next"));
-        output.put("breakCondition", input.get("breakCondition"));
-        output.put("continueCondition", input.get("continueCondition"));
+        output.put("loopEnd", loopEnd);
+        output.put("next", next);
+        output.put("breakCondition", breakCondition);
+        output.put("continueCondition", continueCondition);
         // Add current iteration data
         output.put("item", currentItem);
         output.put("index", index);
 
-        if (evalCondition(input.get("breakCondition"), output, context, logCollector, evaluator)) {
-            List<String> loopEnd = ObjectConversion.safeConvert(input.get("loopEnd"), new TypeReference<>() {});
+        if (evalCondition(breakCondition, output, context, logCollector, evaluator)) {
             logCollector.info("Break condition met at index {}, exiting loop", index);
-            if (loopEnd.isEmpty()) {
+            if (loopEnd == null || loopEnd.isEmpty()) {
                 logCollector.warning("loopEnd is empty, no next node to proceed to after break condition.");
                 return ExecutionResult.loopBreak(null, output);
             }
             return ExecutionResult.loopBreak(loopEnd.getFirst(), output);
         }
 
-        if (evalCondition(input.get("continueCondition"), output, context, logCollector, evaluator)) {
+        if (evalCondition(continueCondition, output, context, logCollector, evaluator)) {
             output.put("index", index + 1);
             logCollector.info("Continue condition met at index {}, skipping to next", index);
             return ExecutionResult.loopContinue(output);
         }
 
-        List<String> next = ObjectConversion.safeConvert(input.get("next"), new TypeReference<>() {});
         output.put("index", index + 1); // Prepare for next iteration
 
         logCollector.info("Processing item {} of {}: {}", index + 1, items.size(), currentItem);
-        if (next.isEmpty()) {
+        if (next == null || next.isEmpty()) {
             logCollector.warning("next is empty, no next node to proceed to for loop body.");
             return ExecutionResult.loopNext(null, output);
         }
         return ExecutionResult.loopNext(next.getFirst(), output);
     }
 
-    private boolean evalCondition(Object rawExpr, Map<String, Object> context, ExecutionContext execCtx, NodeLogPublisher logCollector, AviatorEvaluatorInstance evaluator) {
+    private boolean evalCondition(
+        Object rawExpr, 
+        Map<String, Object> context, 
+        ExecutionContext execCtx, 
+        NodeLogPublisher logCollector,
+        AviatorEvaluatorInstance evaluator
+    ) {
         if (rawExpr instanceof String expr && !expr.isBlank()) {
             try {
                 Map<String, Object> env = new HashMap<>(context);

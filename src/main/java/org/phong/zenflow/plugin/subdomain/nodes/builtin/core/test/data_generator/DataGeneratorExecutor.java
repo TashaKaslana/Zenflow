@@ -1,10 +1,8 @@
 package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.test.data_generator;
 
-import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 
@@ -13,12 +11,11 @@ import java.util.Map;
 @Component
 public class DataGeneratorExecutor implements NodeExecutor {
     @Override
-    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
+    public ExecutionResult execute(ExecutionContext context) {
         NodeLogPublisher logCollector = context.getLogPublisher();
-        Map<String, Object> input = ObjectConversion.convertObjectToMap(config.input());
         
-        Integer seed = (Integer) input.get("seed");
-        String format = (String) input.get("format");
+        Integer seed = context.read("seed", Integer.class);
+        String format = context.read("format", String.class);
         
         logCollector.info("Data Generator started with seed: {} and format: {}", seed, format);
         

@@ -33,6 +33,8 @@ public interface ExecutionContext {
 
     <T> T read(String key, Class<T> clazz);
 
+    boolean containsKey(String key);
+
     WorkflowConfig getCurrentConfig();
 
     void setCurrentConfig(WorkflowConfig config);
@@ -46,8 +48,6 @@ public interface ExecutionContext {
     <T> T getResource(Class<T> type);
 
     TemplateService.ImmutableEvaluator getEvaluator();
-
-    WorkflowConfig resolveConfig(String nodeKey, WorkflowConfig config);
 
     Map<String, Object> getCurrentNodeEntrypoint();
 

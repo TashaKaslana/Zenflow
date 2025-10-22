@@ -6,7 +6,6 @@ import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Component;
@@ -20,15 +19,14 @@ import java.util.Map;
 public class EmailExecutor implements NodeExecutor {
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
+    public ExecutionResult execute(ExecutionContext context) {
         NodeLogPublisher logCollector = context.getLogPublisher();
         logCollector.info("Starting email executor");
-        logCollector.info("Executing email node with config: {}", config);
         JavaMailSender mailSender = context.getResource();
 
-        String to = (String) config.input().get("to");
-        String subject = (String) config.input().get("subject");
-        String body = (String) config.input().get("body");
+        String to = context.read("to", String.class);
+        String subject = context.read("subject", String.class);
+        String body = context.read("body", String.class);
 
         SimpleMailMessage mailMessage = new SimpleMailMessage();
         mailMessage.setTo(to);

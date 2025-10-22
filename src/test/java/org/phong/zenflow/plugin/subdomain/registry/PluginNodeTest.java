@@ -173,6 +173,7 @@ public class PluginNodeTest {
         );
         WorkflowConfig config = new WorkflowConfig(inputData, Map.of());
         ExecutionContext context = TestExecutionContextUtils.createExecutionContext();
+        context.setCurrentConfig(config);
 
         // Test dispatch execution with UUID and correct executor type "builtin"
         ExecutionTaskEnvelope envelope = ExecutionTaskEnvelope.builder()

@@ -6,7 +6,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -19,9 +18,8 @@ import java.util.Map;
 public class GoogleDriveDeleteExecutor implements NodeExecutor {
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) throws IOException {
-        Map<String, Object> input = config.input();
-        String fileId = (String) input.get("fileId");
+    public ExecutionResult execute(ExecutionContext context) throws IOException  {
+        String fileId = context.read("fileId", String.class);
 
         Drive drive = context.getResource(Drive.class);
         drive.files().delete(fileId).execute();

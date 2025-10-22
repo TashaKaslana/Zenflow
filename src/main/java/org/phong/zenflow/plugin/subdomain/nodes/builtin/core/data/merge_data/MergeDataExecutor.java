@@ -7,7 +7,6 @@ import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 
@@ -20,28 +19,22 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 public class MergeDataExecutor implements NodeExecutor {
     @Override
-    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
+    public ExecutionResult execute(ExecutionContext context) {
         NodeLogPublisher logPublisher = context.getLogPublisher();
         logPublisher.info("Starting data merge operation");
-        log.debug("Executing MergeDataExecutor with config: {}", config);
-
-        Map<String, Object> input = config.input();
-        if (input == null || input.isEmpty()) {
-            logPublisher.error("Input configuration is missing or empty");
-            return ExecutionResult.error("Input configuration is required");
-        }
+        log.debug("Executing MergeDataExecutor with config: {}", context.getCurrentConfig());
 
         // Extract and validate sources
-        List<Map<String, Object>> sources = extractSources(input, logPublisher);
+        List<Map<String, Object>> sources = extractSources(context, logPublisher);
         if (sources.isEmpty()) {
             return ExecutionResult.error("No valid source data provided");
         }
 
         // Extract and validate strategy
-        MergeStrategy strategy = extractStrategy(input, logPublisher);
+        MergeStrategy strategy = extractStrategy(context, logPublisher);
 
         // Additional merge options
-        MergeOptions options = extractMergeOptions(input);
+        MergeOptions options = extractMergeOptions(context);
 
         logPublisher.info("Merging {} sources using {} strategy", sources.size(), strategy);
 
@@ -54,12 +47,12 @@ public class MergeDataExecutor implements NodeExecutor {
         return ExecutionResult.success(result);
     }
 
-    private List<Map<String, Object>> extractSources(Map<String, Object> input, NodeLogPublisher logPublisher) {
-        Object sourcesObj = input.get("sources");
+    private List<Map<String, Object>> extractSources(ExecutionContext context, NodeLogPublisher logPublisher) {
+        Object sourcesObj = context.read("sources", Object.class);
         if (sourcesObj == null) {
             logPublisher.warning("No 'sources' field found in input, checking for direct data fields");
             // Support alternative input format where data is provided directly
-            return extractDirectSources(input, logPublisher);
+            return extractDirectSources(context, logPublisher);
         }
 
         List<Map<String, Object>> sources = ObjectConversion.safeConvert(sourcesObj, new TypeReference<>() {});
@@ -82,16 +75,16 @@ public class MergeDataExecutor implements NodeExecutor {
         return validSources;
     }
 
-    private List<Map<String, Object>> extractDirectSources(Map<String, Object> input, NodeLogPublisher logPublisher) {
+    private List<Map<String, Object>> extractDirectSources(ExecutionContext context, NodeLogPublisher logPublisher) {
         List<Map<String, Object>> sources = new ArrayList<>();
 
         // Look for common data field names
         String[] possibleDataFields = {"data", "items", "values", "content", "payload"};
 
         for (String field : possibleDataFields) {
-            if (input.containsKey(field)) {
+            if (context.containsKey(field)) {
                 Map<String, Object> source = new HashMap<>();
-                source.put("data", input.get(field));
+                source.put("data", context.read(field, Object.class));
                 source.put("source_field", field);
                 sources.add(source);
                 logPublisher.info("Found data in field: {}", field);
@@ -101,8 +94,8 @@ public class MergeDataExecutor implements NodeExecutor {
         return sources;
     }
 
-    private MergeStrategy extractStrategy(Map<String, Object> input, NodeLogPublisher logPublisher) {
-        Object strategyObj = input.get("strategy");
+    private MergeStrategy extractStrategy(ExecutionContext context, NodeLogPublisher logPublisher) {
+        Object strategyObj = context.read("strategy", Object.class);
 
         switch (strategyObj) {
             case null -> {
@@ -128,20 +121,20 @@ public class MergeDataExecutor implements NodeExecutor {
                 + strategyObj.getClass().getName());
     }
 
-    private MergeOptions extractMergeOptions(Map<String, Object> input) {
+    private MergeOptions extractMergeOptions(ExecutionContext context) {
         MergeOptions options = new MergeOptions();
 
         // Extract options from input
-        if (input.containsKey("preserve_order")) {
-            options.preserveOrder = Boolean.TRUE.equals(input.get("preserve_order"));
+        if (context.containsKey("preserve_order")) {
+            options.preserveOrder = Boolean.TRUE.equals(context.read("preserve_order", Object.class));
         }
 
-        if (input.containsKey("ignore_nulls")) {
-            options.ignoreNulls = Boolean.TRUE.equals(input.get("ignore_nulls"));
+        if (context.containsKey("ignore_nulls")) {
+            options.ignoreNulls = Boolean.TRUE.equals(context.read("ignore_nulls", Object.class));
         }
 
-        if (input.containsKey("conflict_resolution")) {
-            Object conflictObj = input.get("conflict_resolution");
+        if (context.containsKey("conflict_resolution")) {
+            Object conflictObj = context.read("conflict_resolution", Object.class);
             try {
                 if (conflictObj instanceof ConflictResolution cr) {
                     options.conflictResolution = cr;
@@ -158,8 +151,8 @@ public class MergeDataExecutor implements NodeExecutor {
             }
         }
 
-        if (input.containsKey("max_depth")) {
-            Object maxDepthObj = input.get("max_depth");
+        if (context.containsKey("max_depth")) {
+            Object maxDepthObj = context.read("max_depth", Object.class);
             try {
                 Integer maxDepth = ObjectConversion.safeConvert(maxDepthObj, Integer.class);
                 if (maxDepth == null) {

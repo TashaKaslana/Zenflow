@@ -8,7 +8,6 @@ import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 
@@ -20,15 +19,15 @@ import java.util.Map;
 @AllArgsConstructor
 public class IfNodeExecutor implements NodeExecutor {
     @Override
-    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
+    public ExecutionResult execute(ExecutionContext context) {
         NodeLogPublisher logCollector = context.getLogPublisher();
-        Map<String, Object> input = config.input();
-        String condition = (String) input.get("condition"); // e.g. "true", "1 > 0"
+        String condition = context.read("condition", String.class); // e.g. "true", "1 > 0"
 
-        List<String> nextTrue = ObjectConversion.safeConvert(input.get("next_true"), new TypeReference<>() {
-        });
-        List<String> nextFalse = ObjectConversion.safeConvert(input.get("next_false"), new TypeReference<>() {
-        });
+        Object nextTrueObj = context.read("next_true", Object.class);
+        List<String> nextTrue = ObjectConversion.safeConvert(nextTrueObj, new TypeReference<List<String>>() {});
+
+        Object nextFalseObj = context.read("next_false", Object.class);
+        List<String> nextFalse = ObjectConversion.safeConvert(nextFalseObj, new TypeReference<List<String>>() {});
 
         logCollector.info("Begin if flow with condition: {}", condition);
 

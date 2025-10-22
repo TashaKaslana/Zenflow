@@ -13,6 +13,7 @@ import org.phong.zenflow.secret.subdomain.aggregate.SecretAggregateService;
 import org.phong.zenflow.workflow.exception.WorkflowException;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.service.WorkflowService;
+import org.phong.zenflow.workflow.subdomain.context.resolution.ContextValueResolver;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContextKey;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContextManager;
@@ -49,6 +50,7 @@ public class WorkflowRunnerService {
     @Qualifier("virtualThreadExecutor")
     private final Executor executor;
     private final RuntimeContextManager contextManager;
+    private final ContextValueResolver contextValueResolver;
 
     @AuditLog(
             action = AuditAction.WORKFLOW_EXECUTE,
@@ -99,7 +101,7 @@ public class WorkflowRunnerService {
             Map<String, Set<String>> consumers = metadata.nodeConsumers().entrySet().stream()
                     .collect(Collectors.toMap(
                             Map.Entry::getKey,
-                            entry -> Set.of(entry.getValue().toString())
+                            entry -> entry.getValue().getConsumers()
                     ));
             Map<String, String> aliasMap = metadata.aliases();
 
@@ -120,6 +122,7 @@ public class WorkflowRunnerService {
             }
         } finally {
             contextManager.remove(workflowRunId.toString());
+            contextValueResolver.invalidateWorkflow(workflowRunId);
         }
     }
 

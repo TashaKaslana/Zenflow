@@ -7,7 +7,6 @@ import net.dv8tion.jda.api.hooks.EventListener;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.discord.core.DiscordJdaResourceManager;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.TriggerContext;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContextTool;
@@ -92,7 +91,7 @@ public class DiscordMessageTriggerExecutor implements TriggerExecutor {
     }
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
+    public ExecutionResult execute(ExecutionContext context) {
         // This is called when the trigger fires (not for starting the trigger)
         Map<String, Object> output = new HashMap<>();
         output.put("trigger_type", "discord_message");

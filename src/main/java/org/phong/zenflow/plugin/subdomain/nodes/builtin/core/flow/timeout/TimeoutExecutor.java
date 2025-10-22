@@ -4,11 +4,9 @@ import lombok.RequiredArgsConstructor;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 
-import java.util.Map;
 import java.util.UUID;
 
 @Component
@@ -17,13 +15,12 @@ public class TimeoutExecutor implements NodeExecutor {
 
     private final TimeoutScheduler timeoutScheduler;
     @Override
-    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
+    public ExecutionResult execute(ExecutionContext context) {
         NodeLogPublisher logCollector = context.getLogPublisher();
         logCollector.info("Starting timeout node execution");
 
-        Map<String, Object> input = config.input();
-        String duration = (String) input.get("duration");
-        String unit = (String) input.get("unit");
+        String duration = context.read("duration", String.class);
+        String unit = context.read("unit", String.class);
 
         if (duration == null || unit == null) {
             logCollector.error("Timeout duration and unit must be specified.");
@@ -32,9 +29,9 @@ public class TimeoutExecutor implements NodeExecutor {
 
         long millis = parseDuration(duration, unit);
 
-        UUID workflowId = UUID.fromString(input.get("workflowId").toString());
-        UUID workflowRunId = UUID.fromString(input.get("workflowRunId").toString());
-        String nodeKey = (String) input.get("nodeKey");
+        UUID workflowId = context.getWorkflowId();
+        UUID workflowRunId = context.getWorkflowRunId();
+        String nodeKey = context.getNodeKey();
 
         timeoutScheduler.scheduleTimeout(workflowId, workflowRunId, nodeKey, millis);
         logCollector.info("Timeout scheduled for {} {} ({} milliseconds)", duration, unit, millis);

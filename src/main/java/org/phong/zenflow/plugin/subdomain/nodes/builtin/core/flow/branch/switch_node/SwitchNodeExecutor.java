@@ -7,43 +7,34 @@ import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.Map;
 
 @Component
 @Slf4j
 @AllArgsConstructor
 public class SwitchNodeExecutor implements NodeExecutor {
     @Override
-    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
+    public ExecutionResult execute(ExecutionContext context) {
         NodeLogPublisher logCollector = context.getLogPublisher();
-        Map<String, Object> input = config.input();
 
-        if (!input.containsKey("expression")) {
+        String value = context.read("expression", String.class);
+        if (value == null) {
             String errorMsg = "Switch expression is missing in the input.";
             logCollector.error(errorMsg);
             throw new IllegalArgumentException(errorMsg);
         }
 
-        String value = input.get("expression") != null ? input.get("expression").toString() : null;
         List<SwitchCase> cases;
-
         try {
-            cases = ObjectConversion.safeConvert(input.get("cases"), new TypeReference<>() {});
+            Object casesObj = context.read("cases", Object.class);
+            cases = ObjectConversion.safeConvert(casesObj, new TypeReference<List<SwitchCase>>() {});
             logCollector.info("Begin switch flow with expression: {} and {} cases", value, cases.size());
         } catch (Exception e) {
             logCollector.withException(e).error("Failed to parse switch cases: {}", e.getMessage());
             return ExecutionResult.error("Invalid switch cases format");
-        }
-
-        if (value == null) {
-            logCollector.warning("Switch expression is null");
-
-            return getFallbackResult(logCollector, input);
         }
 
         for (SwitchCase c : cases) {
@@ -56,15 +47,15 @@ public class SwitchNodeExecutor implements NodeExecutor {
         // No matches found, use a default case
         logCollector.info("No matching case found for value: {}", value);
 
-        return getFallbackResult(logCollector, input);
+        return getFallbackResult(logCollector, context);
     }
 
-    private ExecutionResult getFallbackResult(NodeLogPublisher logCollector, Map<String, Object> input) {
-        if (!input.containsKey("default_case")) {
+    private ExecutionResult getFallbackResult(NodeLogPublisher logCollector, ExecutionContext context) {
+        String defaultCase = context.read("default_case", String.class);
+        if (defaultCase == null) {
             logCollector.warning("No default case provided. Return null instead.");
             return ExecutionResult.nextNode(null);
         } else {
-            String defaultCase = input.get("default_case") != null ? input.get("default_case").toString() : null;
             logCollector.info("Using default case: {}", defaultCase);
             return ExecutionResult.nextNode(defaultCase);
         }

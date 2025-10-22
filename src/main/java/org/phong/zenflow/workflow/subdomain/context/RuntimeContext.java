@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * RuntimeContext is a singleton component that manages a shared context
@@ -21,7 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class RuntimeContext {
     @Getter
     private final Map<String, Object> context = new ConcurrentHashMap<>();
-    private final Map<String, Set<String>> consumers = new ConcurrentHashMap<>();
+    private final Map<String, AtomicInteger> consumers = new ConcurrentHashMap<>();
     private final Map<String, String> aliases = new ConcurrentHashMap<>();
 
     // Loop-aware cleanup management
@@ -34,7 +35,7 @@ public class RuntimeContext {
         if (initialConsumers != null) {
             initialConsumers.forEach((key, value) -> {
                 if (value != null) {
-                    consumers.put(key, new HashSet<>(value));
+                    consumers.put(key, new AtomicInteger(value.size()));
                 }
             });
         }
@@ -66,6 +67,10 @@ public class RuntimeContext {
 
     public Object get(String key) {
         return context.get(key);
+    }
+
+    public boolean containsKey(String key) {
+        return context.containsKey(key);
     }
 
     /**
@@ -101,8 +106,8 @@ public class RuntimeContext {
 
             // Store the value as it has consumers
             context.put(currentOutputKey, value);
-            log.debug("Stored context-guided output '{}' with value type '{}' for consumers: {}",
-                    currentOutputKey, value != null ? value.getClass().getSimpleName() : "null", getConsumers(currentOutputKey));
+            log.debug("Stored context-guided output '{}' with value type '{}' for remaining consumers: {}",
+                    currentOutputKey, value != null ? value.getClass().getSimpleName() : "null", getConsumerCount(currentOutputKey));
         }
     }
 
@@ -192,16 +197,17 @@ public class RuntimeContext {
      * Remove a specific consumer from a key's consumer list
      */
     private void removeConsumer(String key, String nodeKey) {
-        Set<String> keyConsumers = consumers.get(key);
-        if (keyConsumers != null) {
-            keyConsumers.remove(nodeKey);
-            log.debug("Removed consumer '{}' from key '{}'", nodeKey, key);
+        AtomicInteger remainingConsumers = consumers.get(key);
+        if (remainingConsumers == null) {
+            return;
+        }
 
-            // If no more consumers, remove the entry completely
-            if (keyConsumers.isEmpty()) {
-                consumers.remove(key);
-                log.debug("No more consumers for key '{}', removed from consumers map", key);
-            }
+        int updated = remainingConsumers.decrementAndGet();
+        log.debug("Removed consumer '{}' from key '{}', remaining consumers: {}", nodeKey, key, Math.max(updated, 0));
+
+        if (updated <= 0) {
+            consumers.remove(key);
+            log.debug("No more consumers for key '{}', removed from consumers map", key);
         }
     }
 
@@ -209,13 +215,17 @@ public class RuntimeContext {
      * Perform garbage collection by removing context entries that have no consumers
      */
     private void performGarbageCollection(String key) {
-        Set<String> keyConsumers = consumers.get(key);
+        AtomicInteger remainingConsumers = consumers.get(key);
 
-        // If there are no consumers left for this key, remove it from context
-        if (keyConsumers == null || keyConsumers.isEmpty()) {
+        if (remainingConsumers == null || remainingConsumers.get() <= 0) {
             Object removedValue = context.remove(key);
             if (removedValue != null) {
                 log.debug("Garbage collected key '{}' from context", key);
+            }
+            if (remainingConsumers != null) {
+                consumers.remove(key, remainingConsumers);
+            } else {
+                consumers.remove(key);
             }
         }
     }
@@ -224,16 +234,16 @@ public class RuntimeContext {
      * Check if a key has any remaining consumers
      */
     public boolean isConsumersEmpty(String key) {
-        Set<String> keyConsumers = consumers.get(key);
-        return keyConsumers == null || keyConsumers.isEmpty();
+        AtomicInteger keyConsumers = consumers.get(key);
+        return keyConsumers == null || keyConsumers.get() <= 0;
     }
 
     /**
-     * Get the list of consumers for a specific key
+     * Get the remaining consumer count for a specific key
      */
-    public List<String> getConsumers(String key) {
-        Set<String> keyConsumers = consumers.get(key);
-        return keyConsumers != null ? new ArrayList<>(keyConsumers) : new ArrayList<>();
+    public int getConsumerCount(String key) {
+        AtomicInteger keyConsumers = consumers.get(key);
+        return keyConsumers != null ? Math.max(keyConsumers.get(), 0) : 0;
     }
 
     /**
@@ -250,6 +260,7 @@ public class RuntimeContext {
 
         for (String key : keysToRemove) {
             context.remove(key);
+            consumers.remove(key);
             log.debug("Manual garbage collection removed key '{}'", key);
         }
 
@@ -280,6 +291,7 @@ public class RuntimeContext {
     public void remove(String key) {
         context.remove(key);
         consumers.remove(key);
+        pendingLoopCleanup.values().forEach(loopMap -> loopMap.remove(key));
         log.debug("Removed key '{}' from context and consumers", key);
     }
 
@@ -328,24 +340,25 @@ public class RuntimeContext {
             int cleanedCount = 0;
             for (Map.Entry<String, Set<String>> entry : pendingCleanup.entrySet()) {
                 String key = entry.getKey();
-                Set<String> consumersToRemove = entry.getValue();
+                Set<String> nodesConsumed = entry.getValue();
+                int consumersToRemove = nodesConsumed != null ? nodesConsumed.size() : 0;
 
-                // Remove all pending consumers for this key
-                Set<String> keyConsumers = consumers.get(key);
+                if (consumersToRemove == 0) {
+                    continue;
+                }
+
+                AtomicInteger keyConsumers = consumers.get(key);
                 if (keyConsumers != null) {
-                    keyConsumers.removeAll(consumersToRemove);
-                    if (keyConsumers.isEmpty()) {
-                        consumers.remove(key);
+                    int updated = keyConsumers.updateAndGet(current -> Math.max(current - consumersToRemove, 0));
+                    if (updated == 0) {
+                        consumers.remove(key, keyConsumers);
                     }
                 }
 
-                // Perform garbage collection for this key
-                if (isConsumersEmpty(key)) {
-                    Object removedValue = context.remove(key);
-                    if (removedValue != null) {
-                        cleanedCount++;
-                        log.debug("Loop cleanup removed key '{}' from context", key);
-                    }
+                boolean hadValue = context.containsKey(key);
+                performGarbageCollection(key);
+                if (hadValue && !context.containsKey(key)) {
+                    cleanedCount++;
                 }
             }
 

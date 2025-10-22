@@ -7,13 +7,13 @@ import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.http.exception.HttpExecutorException;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
+
 import reactor.core.publisher.Mono;
 
 import java.util.HashMap;
@@ -26,15 +26,22 @@ import java.util.regex.Pattern;
 public class HttpRequestExecutor implements NodeExecutor {
     private static final Pattern VALID_HEADER_NAME = Pattern.compile("^[!#$%&'*+.^_`|~0-9a-zA-Z-]+$");
     private final WebClient webClient;
-    @Override
-    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
-        NodeLogPublisher logs = context.getLogPublisher();
-        Map<String, Object> input = config.input();
 
-        String url = (String) input.get("url");
-        HttpMethod method = HttpMethod.valueOf((String) input.get("method"));
-        Object body = input.getOrDefault("body", Map.of());
-        Map<String, Object> headers = ObjectConversion.convertObjectToMap(input.getOrDefault("headers", Map.of()));
+    @Override
+    public ExecutionResult execute(ExecutionContext context) {
+        NodeLogPublisher logs = context.getLogPublisher();
+
+        String url = context.read("url", String.class);
+        String methodRaw = context.read("method", String.class);
+        HttpMethod method = HttpMethod.valueOf(methodRaw != null ? methodRaw : "GET");
+        Object body = context.read("body", Object.class);
+        if (body == null) {
+            body = Map.of();
+        }
+        
+        @SuppressWarnings("unchecked")
+        Map<String, Object> rawHeaders = (Map<String, Object>) context.read("headers", Map.class);
+        Map<String, Object> headers = ObjectConversion.convertObjectToMap(rawHeaders != null ? rawHeaders : Map.of());
 
         logs.info("Sending HTTP request to {} with method {}", url, method);
 

@@ -4,7 +4,6 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.TriggerContext;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
@@ -83,6 +82,10 @@ public class ScheduleTriggerExecutor implements TriggerExecutor {
                             .withMisfireHandlingInstructionDoNothing())
                     .build();
         } else {
+            if (intervalSeconds == null || intervalSeconds < 1) {
+                throw new IllegalArgumentException("interval_seconds must be a positive integer");
+            }
+
             quartzTrigger = TriggerBuilder.newTrigger()
                     .withIdentity("trigger-" + trigger.getId(), "workflow-triggers")
                     .startNow()
@@ -102,15 +105,14 @@ public class ScheduleTriggerExecutor implements TriggerExecutor {
     }
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
+    public ExecutionResult execute(ExecutionContext context) {
         NodeLogPublisher logs = context.getLogPublisher();
-        logs.info("Executing ScheduleTriggerExecutor with config: {}", config);
+        logs.info("Executing ScheduleTriggerExecutor with config: {}", context.getCurrentConfig());
         logs.info("Schedule trigger started at {}", OffsetDateTime.now());
 
-        Map<String, Object> input = config.input();
-        Object payload = input.get("payload");
-        String cronExpression = (String) input.get("cron_expression");
-        String scheduleDescription = (String) input.get("schedule_description");
+        Object payload = context.read("payload", Object.class);
+        String cronExpression = context.read("cron_expression", String.class);
+        String scheduleDescription = context.read("schedule_description", String.class);
 
         Map<String, Object> output = new HashMap<>();
         output.put("trigger_type", "schedule");
@@ -133,12 +135,6 @@ public class ScheduleTriggerExecutor implements TriggerExecutor {
         } else {
             logs.info("No payload provided");
         }
-
-        input.forEach((key, value) -> {
-            if (!Set.of("payload", "cron_expression", "schedule_description").contains(key)) {
-                output.put("input_" + key, value);
-            }
-        });
 
         logs.success("Schedule trigger completed successfully");
         return ExecutionResult.success(output);

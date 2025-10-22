@@ -10,7 +10,6 @@ import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.bas
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.dto.ResolvedDbConfig;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -30,12 +29,12 @@ public class PostgresSqlExecutor implements NodeExecutor {
     private final ObjectMapper objectMapper;
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
+    public ExecutionResult execute(ExecutionContext context) {
         NodeLogPublisher logPublisher = context.getLogPublisher();
-        logPublisher.info("Executing Postgres SQL node with config: {}", config);
 
-        config.input().put("driver", "postgresql");
-        ResolvedDbConfig dbConfig = baseDbConnection.establishConnection(config, context);
+        logPublisher.info("Executing Postgres SQL node with config: {}", context.getCurrentConfig());
+
+        ResolvedDbConfig dbConfig = baseDbConnection.establishConnection(context);
 
         // Pre-process PostgreSQL-specific syntax
         preprocessPostgresSyntax(dbConfig, logPublisher);

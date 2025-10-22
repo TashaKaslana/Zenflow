@@ -4,7 +4,6 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.TriggerContext;
@@ -54,18 +53,16 @@ public class WorkflowTriggerExecutor implements TriggerExecutor {
 
     @Override
     @Transactional
-    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
+    public ExecutionResult execute(ExecutionContext context) {
         NodeLogPublisher logs = context.getLogPublisher();
         logs.info("Workflow trigger started at {}", OffsetDateTime.now());
 
-        Map<String, Object> input = config.input();
-
-        UUID workflowRunId = UUID.fromString(input.get("workflow_run_id").toString());
-        UUID workflowId = UUID.fromString(input.get("workflow_id").toString());
-        boolean isAsync = (boolean) input.getOrDefault("is_async", false);
-        String startFromNodeKey = (String) input.get("start_from_node_key");
-        String callbackUrl = (String) input.get("callback_url");
-        Object payload = input.get("payload");
+        UUID workflowRunId = context.read("workflow_run_id", UUID.class);
+        UUID workflowId = context.read("workflow_id", UUID.class);
+        boolean isAsync = context.read("is_async", Boolean.class);
+        String startFromNodeKey = context.read("start_from_node_key", String.class);
+        String callbackUrl = context.read("callback_url", String.class);
+        Object payload = context.read("payload", Object.class);
 
         logs.info("Triggering workflow with ID: {} and run ID: {}", workflowId, workflowRunId);
 

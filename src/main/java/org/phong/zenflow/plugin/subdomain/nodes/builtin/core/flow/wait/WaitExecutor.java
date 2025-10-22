@@ -1,5 +1,6 @@
 package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.wait;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
@@ -7,10 +8,10 @@ import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @Component
@@ -18,15 +19,25 @@ import java.util.Map;
 @AllArgsConstructor
 public class WaitExecutor implements NodeExecutor {
     @Override
-    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) {
+    public ExecutionResult execute(ExecutionContext context) {
         NodeLogPublisher log = context.getLogPublisher();
         log.info("Starting wait node execution");
-        String mode = (String) config.input().getOrDefault("mode", "any");
-        int threshold = 1;
-        if (mode.equals("threshold")) {
-            threshold = ((Number) config.input().get("threshold")).intValue();
+
+        String mode = context.read("mode", String.class);
+        if (mode == null) {
+            mode = "any";
         }
-        Map<String, Boolean> waitingNodes = ObjectConversion.convertObjectToMap(config.input().get("waitingNodes"), Boolean.class);
+        Integer thresholdAsInteger = context.read("threshold", Integer.class);
+        int threshold = thresholdAsInteger != null ? thresholdAsInteger : 1;
+        if (mode.equals("threshold")) {
+            if (thresholdAsInteger == null) {
+                // threshold is required for threshold mode, but let's default to 1 to avoid NPE
+                threshold = 1;
+            }
+        }
+
+        Object waitingNodesObj = context.read("waitingNodes", Object.class);
+        Map<String, Boolean> waitingNodes = ObjectConversion.safeConvert(waitingNodesObj, new TypeReference<Map<String, Boolean>>() {});
 
         if (waitingNodes == null || waitingNodes.isEmpty()) {
             log.error("No waiting nodes provided in the input.");
@@ -35,19 +46,20 @@ public class WaitExecutor implements NodeExecutor {
 
         boolean isReady = isReady(waitingNodes, mode, threshold);
         log.info("Status of waiting nodes: {}", waitingNodes);
-        Map<String, Object> output = Map.of(
-            "waitingNodes", waitingNodes,
-            "mode", mode,
-            "threshold", threshold,
-            "isReady", isReady
-        );
+        Map<String, Object> output = new HashMap<>();
+        output.put("waitingNodes", waitingNodes);
+        output.put("mode", mode);
+        output.put("threshold", threshold);
+        output.put("isReady", isReady);
+
 
         if (!isReady) {
-            Long timeoutMs = extractTimeout(config);
-            ExecutionStatus fallbackStatus = extractFallbackStatus(config);
+            Long timeoutMs = context.read("timeoutMs", Long.class);
+            String fallbackStatusStr = context.read("fallbackStatus", String.class);
+            ExecutionStatus fallbackStatus = fallbackStatusStr != null ? ExecutionStatus.fromString(fallbackStatusStr) : null;
 
             if (timeoutMs != null) {
-                String timerKey = buildTimerKey(config);
+                String timerKey = "wait:start:" + context.getNodeKey(); // build a timer key based on node key
                 Long start = context.read(timerKey, Long.class);
                 if (start == null) {
                     start = System.currentTimeMillis();
@@ -82,26 +94,6 @@ public class WaitExecutor implements NodeExecutor {
             case "threshold" -> committed >= threshold;
             default -> false;
         };
-    }
-
-    private Long extractTimeout(WorkflowConfig config) {
-        Object timeoutObj = config.input().get("timeoutMs");
-        if (timeoutObj instanceof Number number) {
-            return number.longValue();
-        }
-        return null;
-    }
-
-    private ExecutionStatus extractFallbackStatus(WorkflowConfig config) {
-        Object fallbackObj = config.input().get("fallbackStatus");
-        if (fallbackObj == null) {
-            return null;
-        }
-        return ExecutionStatus.fromString(fallbackObj.toString());
-    }
-
-    private String buildTimerKey(WorkflowConfig config) {
-        return "wait:start:" + config.input().hashCode();
     }
 
     private ExecutionResult buildFallbackResult(ExecutionStatus status,

@@ -7,7 +7,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -20,9 +19,8 @@ import java.io.IOException;
 public class GoogleDocsGetExecutor implements NodeExecutor {
 
     @Override
-    public ExecutionResult execute(WorkflowConfig config, ExecutionContext context) throws IOException {
-        Map<String, Object> input = config.input();
-        String documentId = (String) input.get("documentId");
+    public ExecutionResult execute(ExecutionContext context) throws IOException  {
+        String documentId = context.read("documentId", String.class);
 
         Docs docs = context.getResource(Docs.class);
 

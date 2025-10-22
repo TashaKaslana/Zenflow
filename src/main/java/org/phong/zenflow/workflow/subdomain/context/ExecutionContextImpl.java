@@ -3,22 +3,21 @@ package org.phong.zenflow.workflow.subdomain.context;
 import lombok.Builder;
 import lombok.Getter;
 
-import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
+import java.util.concurrent.ConcurrentHashMap;
 
 import lombok.Setter;
-import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
 import org.phong.zenflow.secret.exception.SecretDomainException;
+import org.phong.zenflow.workflow.subdomain.context.resolution.ContextValueResolver;
 import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 
 @Builder
 public class ExecutionContextImpl implements ExecutionContext {
-    private final static String PROHIBITED_KEY_PREFIX = "__zenflow_";
 
     @Getter
     private final UUID workflowId;
@@ -47,9 +46,12 @@ public class ExecutionContextImpl implements ExecutionContext {
 
     private final TemplateService templateService;
     private final RuntimeContextManager contextManager;
+    private final ContextValueResolver contextValueResolver;
+
+    @Builder.Default
+    private Map<String, WorkflowConfig> nodeConfigs = new ConcurrentHashMap<>();
 
     @Getter
-    @Setter
     private WorkflowConfig currentConfig;
 
     /**
@@ -65,30 +67,32 @@ public class ExecutionContextImpl implements ExecutionContext {
      */
     public <T> T read(String key, Class<T> clazz) {
         // Allow internal reads for allowlisted reserved keys used by the engine
-        boolean isReserved = key.startsWith(PROHIBITED_KEY_PREFIX);
+        boolean isReserved = key.startsWith(ExecutionContextKey.PROHIBITED_KEY_PREFIX.key());
         boolean isWhitelisted = ExecutionContextKey.CALLBACK_URL.matches(key);
         if (isReserved && !isWhitelisted) {
             throw new IllegalArgumentException("Access to reserved context keys is prohibited: " + key);
         }
 
         RuntimeContext context = getContext();
-        if (context == null) return null;
 
-        Object o;
-        if (templateService != null && templateService.isTemplate(key)) {
-            o = templateService.resolve(key, this);
-        } else {
-            o = context.getAndClean(nodeKey, key);
-        }
+        Object value;
+        value = contextValueResolver.resolve(
+                workflowRunId,
+                nodeKey,
+                key,
+                currentConfig,
+                context,
+                templateService,
+                this
+        );
 
-        if (o == null) {
+        if (value == null) {
             return null;
         }
-        if (clazz.isInstance(o)) {
-            return clazz.cast(o);
-        } else {
-            throw new ClassCastException("Cannot cast context value to " + clazz.getName());
+        if (clazz.isInstance(value)) {
+            return clazz.cast(value);
         }
+        throw new ClassCastException("Cannot cast context value to " + clazz.getName());
     }
 
     private RuntimeContext getContext() {
@@ -118,6 +122,9 @@ public class ExecutionContextImpl implements ExecutionContext {
         this.nodeKey = nodeKey;
         if (logPublisher != null) {
             logPublisher.setNodeKey(nodeKey);
+        }
+        if (nodeConfigs != null) {
+            this.currentConfig = nodeConfigs.get(nodeKey);
         }
     }
 
@@ -156,46 +163,31 @@ public class ExecutionContextImpl implements ExecutionContext {
         return templateService != null ? templateService.getEvaluator() : null;
     }
 
-    public WorkflowConfig resolveConfig(String nodeKey, WorkflowConfig config) {
-        if (config == null || config.input() == null) {
-            return config;
-        }
-        String previous = this.nodeKey;
-        this.nodeKey = nodeKey;
-        Map<String, Object> resolvedInput = resolveMap(config.input());
-        this.nodeKey = previous;
-
-        return new WorkflowConfig(resolvedInput, config.profile(), config.output());
-    }
-
-    private Map<String, Object> resolveMap(Map<String, Object> map) {
-        if (map == null || map.isEmpty()) {
-            return map;
-        }
-
-        return map.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> resolveValue(e.getValue())));
-    }
-
-    private Object resolveValue(Object value) {
-        if (value instanceof String str) {
-            if (templateService != null && templateService.isTemplate(str)) {
-                return templateService.resolve(str, this);
+    public void setCurrentConfig(WorkflowConfig config) {
+        this.currentConfig = config;
+        if (nodeKey != null && nodeConfigs != null) {
+            if (config != null) {
+                nodeConfigs.put(nodeKey, config);
+            } else {
+                nodeConfigs.remove(nodeKey);
             }
-            return str;
-        } else if (value instanceof Map<?, ?> m) {
-            return resolveMap(ObjectConversion.convertObjectToMap(m));
-        } else if (value instanceof List<?> list) {
-            return list.stream().map(this::resolveValue).toList();
         }
-
-        return value;
     }
+
 
     @SuppressWarnings("unchecked")
     public Map<String, Object> getCurrentNodeEntrypoint() {
         RuntimeContext context = getContext();
-        return (Map<String, Object>) context.get(ExecutionContextKey.ENTRYPOINT_LIST_KEY + nodeKey);
+        Map<String, Object> entrypoint = context != null
+                ? (Map<String, Object>) context.get(ExecutionContextKey.ENTRYPOINT_LIST_KEY + nodeKey)
+                : null;
+        if (entrypoint != null) {
+            return entrypoint;
+        }
+        if (currentConfig != null && currentConfig.input() != null) {
+            return new HashMap<>(currentConfig.input());
+        }
+        return Map.of();
     }
 
     @SuppressWarnings("unchecked")
@@ -236,5 +228,14 @@ public class ExecutionContextImpl implements ExecutionContext {
         }
 
         return null;
+    }
+
+    @Override
+    public boolean containsKey(String key) {
+        RuntimeContext context = getContext();
+        if (contextValueResolver.hasConfigValue(nodeKey, key, currentConfig)) {
+            return true;
+        }
+        return context != null && context.containsKey(key);
     }
 }

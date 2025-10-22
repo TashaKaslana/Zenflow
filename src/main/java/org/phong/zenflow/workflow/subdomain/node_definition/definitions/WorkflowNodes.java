@@ -17,6 +17,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.BiConsumer;
 
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
+
 /**
  * Container for workflow nodes that provides efficient map-based lookup
  * while still serializing as a list for backwards compatibility.
@@ -143,5 +145,12 @@ public class WorkflowNodes implements Serializable {
         Set<UUID> ids = new HashSet<>(nodeMap.size());
         nodeMap.forEach((key, node) -> ids.add(node.getPluginNode().getNodeId()));
         return ids;
+    }
+
+    @JsonIgnore
+    public Map<String, WorkflowConfig> getAllNodeConfigs() {
+        Map<String, WorkflowConfig> configs = new HashMap<>(nodeMap.size());
+        nodeMap.forEach((key, node) -> configs.put(key, node.getConfig()));
+        return configs;
     }
 }
