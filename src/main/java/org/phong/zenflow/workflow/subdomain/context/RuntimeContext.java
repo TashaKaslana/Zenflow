@@ -1,8 +1,8 @@
 package org.phong.zenflow.workflow.subdomain.context;
 
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
+import org.phong.zenflow.workflow.subdomain.context.refvalue.RefValue;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -14,20 +14,53 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * RuntimeContext is a singleton component that manages a shared context
- * and consumer relationships for workflow execution.
- * It allows storing, retrieving, and cleaning up context data based on consumer usage.
+ * RuntimeContext manages shared context and consumer relationships for workflow execution.
+ * 
+ * <p><b>RefValue Integration</b>: Internally uses {@link RefValue} for efficient storage
+ * of large payloads (JSON, files, streams) without exhausting heap memory. Legacy APIs
+ * transparently convert between Object and RefValue for backward compatibility.
+ * 
+ * <p>Storage is automatically optimized:
+ * <ul>
+ *   <li>Small values (< 1MB) → Memory</li>
+ *   <li>Medium JSON (1-2MB) → Parsed tree with JsonPointer queries</li>
+ *   <li>Large payloads (> 1MB) → Temp files on disk</li>
+ * </ul>
+ * 
+ * @see RefValue
+ * @see RuntimeContextRefValueSupport
  */
 @Slf4j
 public class RuntimeContext {
-    @Getter
-    private final Map<String, Object> context = new ConcurrentHashMap<>();
+    
+    // Core storage: values are now RefValue instances for efficient memory management
+    private final Map<String, RefValue> context = new ConcurrentHashMap<>();
+    
+    // Consumer tracking and aliases remain unchanged
     private final Map<String, AtomicInteger> consumers = new ConcurrentHashMap<>();
     private final Map<String, String> aliases = new ConcurrentHashMap<>();
 
     // Loop-aware cleanup management
     private final Map<String, Map<String, Set<String>>> pendingLoopCleanup = new ConcurrentHashMap<>();
     private final Set<String> activeLoops = new HashSet<>();
+    
+    private final RuntimeContextRefValueSupport refValueSupport;
+    
+    /**
+     * Constructor with optional RefValue support injection.
+     * 
+     * @param refValueSupport support layer for RefValue operations (null = create default)
+     */
+    public RuntimeContext(RuntimeContextRefValueSupport refValueSupport) {
+        this.refValueSupport = refValueSupport != null ? refValueSupport : new RuntimeContextRefValueSupport();
+    }
+    
+    /**
+     * Default constructor.
+     */
+    public RuntimeContext() {
+        this(null);
+    }
 
     public void initialize(Map<String, Object> initialContext,
                            Map<String, Set<String>> initialConsumers,
@@ -40,7 +73,9 @@ public class RuntimeContext {
             });
         }
         if (initialContext != null) {
-            context.putAll(initialContext);
+            for (Map.Entry<String, Object> entry : initialContext.entrySet()) {
+                context.put(entry.getKey(), refValueSupport.objectToRefValue(entry.getKey(), entry.getValue()));
+            }
         }
         if (initialAliases != null) {
             aliases.putAll(
@@ -56,17 +91,56 @@ public class RuntimeContext {
     }
 
     public void put(String key, Object value) {
-        context.put(key, value);
+        RefValue refValue = refValueSupport.objectToRefValue(key, value);
+        context.put(key, refValue);
     }
 
     public void putAll(Map<String, Object> entries) {
         if (entries != null) {
-            context.putAll(entries);
+            for (Map.Entry<String, Object> entry : entries.entrySet()) {
+                put(entry.getKey(), entry.getValue());
+            }
         }
     }
 
+    /**
+     * Retrieves a value from the context by key.
+     * RefValue is automatically materialized to Object for backward compatibility.
+     *
+     * @param key context key
+     * @return the value associated with the key, or null if not present
+     */
     public Object get(String key) {
-        return context.get(key);
+        String resolvedKey = aliases.getOrDefault(key, key);
+        RefValue refValue = context.get(resolvedKey);
+        return refValueSupport.refValueToObject(resolvedKey, refValue);
+    }
+    
+    /**
+     * Retrieves the RefValue directly without materialization.
+     * Use this for streaming access to large payloads without loading into memory.
+     * 
+     * @param key context key
+     * @return the RefValue associated with the key, or null if not present
+     */
+    public RefValue getRef(String key) {
+        String resolvedKey = aliases.getOrDefault(key, key);
+        return context.get(resolvedKey);
+    }
+    
+    /**
+     * Get the raw internal context map (for legacy compatibility).
+     * 
+     * @return materialized map of context values
+     * @deprecated Use get() or getRef() for individual values
+     */
+    @Deprecated
+    public Map<String, Object> getContext() {
+        Map<String, Object> materialized = new HashMap<>();
+        for (Map.Entry<String, RefValue> entry : context.entrySet()) {
+            materialized.put(entry.getKey(), refValueSupport.refValueToObject(entry.getKey(), entry.getValue()));
+        }
+        return materialized;
     }
 
     public boolean containsKey(String key) {
@@ -105,7 +179,8 @@ public class RuntimeContext {
             }
 
             // Store the value as it has consumers
-            context.put(currentOutputKey, value);
+            RefValue refValue = refValueSupport.objectToRefValue(currentOutputKey, value);
+            context.put(currentOutputKey, refValue);
             log.debug("Stored context-guided output '{}' with value type '{}' for remaining consumers: {}",
                     currentOutputKey, value != null ? value.getClass().getSimpleName() : "null", getConsumerCount(currentOutputKey));
         }
@@ -142,7 +217,8 @@ public class RuntimeContext {
             return null;
         }
 
-        Object value = context.get(key);
+        RefValue refValue = context.get(key);
+        Object value = refValueSupport.refValueToObject(key, refValue);
 
         // Remove the current node from the consumers list for this key
         removeConsumer(key, nodeKey);
@@ -166,7 +242,9 @@ public class RuntimeContext {
             return null;
         }
 
-        Object value = context.get(key);
+        RefValue refValue = context.get(key);
+        Object value = refValueSupport.refValueToObject(key, refValue);
+        
         String activeLoop = getActiveLoop();
         if (activeLoop != null) {
             pendingLoopCleanup
@@ -218,9 +296,10 @@ public class RuntimeContext {
         AtomicInteger remainingConsumers = consumers.get(key);
 
         if (remainingConsumers == null || remainingConsumers.get() <= 0) {
-            Object removedValue = context.remove(key);
+            RefValue removedValue = context.remove(key);
             if (removedValue != null) {
                 log.debug("Garbage collected key '{}' from context", key);
+                refValueSupport.releaseRefValue(key, removedValue);
             }
             if (remainingConsumers != null) {
                 consumers.remove(key, remainingConsumers);
