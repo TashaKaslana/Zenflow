@@ -119,6 +119,20 @@ zenflow:
         maximum-pool-size: 12
         keep-alive-time-ms: 60000  # 1 minute
         queue-capacity: 1000
+    # RefValue storage configuration for context values
+    context:
+      refvalue:
+        # Directory for file-backed values (relative to working dir)
+        file-storage-dir: ./data/context-files
+        # Thresholds optimized for million-request scale
+        memory-threshold-bytes: 1048576      # 1 MB
+        json-threshold-bytes: 2097152        # 2 MB  
+        base64-threshold-bytes: 524288       # 512 KB
+        # Metrics and monitoring
+        metrics-enabled: true
+        file-leak-warning-ms: 3600000        # 1 hour
+        temp-file-prefix: zenflow-ctx-
+        checksum-enabled: false
 
 # Enable actuator endpoints for monitoring
 management:
