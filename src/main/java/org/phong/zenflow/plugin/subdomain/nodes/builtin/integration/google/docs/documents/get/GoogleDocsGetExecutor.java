@@ -24,7 +24,6 @@ public class GoogleDocsGetExecutor implements NodeExecutor {
 
         Document document = docs.documents().get(documentId).execute();
 
-        // Write outputs explicitly to context
         context.write("documentId", document.getDocumentId());
         context.write("title", document.getTitle());
         context.write("document", document);

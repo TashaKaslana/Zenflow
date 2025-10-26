@@ -10,8 +10,6 @@ import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Shares a file by creating a permission on Google Drive.
@@ -42,8 +40,7 @@ public class GoogleDriveShareExecutor implements NodeExecutor {
                 .setFields("id, type, role, emailAddress")
                 .execute();
 
-        Map<String, Object> output = new HashMap<>();
-        output.put("permission", created);
-        return ExecutionResult.success(output);
+        context.write("permission", created);
+        return ExecutionResult.success();
     }
 }

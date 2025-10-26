@@ -14,9 +14,7 @@ import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.springframework.stereotype.Component;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.io.IOException;
 
 @Slf4j
@@ -48,9 +46,8 @@ public class GoogleDocsAddHeaderExecutor implements NodeExecutor {
                     .execute();
         }
 
-        Map<String, Object> output = new HashMap<>();
-        output.put("documentId", documentId);
-        output.put("headerId", headerId);
-        return ExecutionResult.success(output);
+        context.write("documentId", documentId);
+        context.write("headerId", headerId);
+        return ExecutionResult.success();
     }
 }

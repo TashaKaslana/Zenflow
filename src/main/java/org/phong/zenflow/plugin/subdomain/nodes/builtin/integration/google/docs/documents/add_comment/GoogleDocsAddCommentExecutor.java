@@ -10,8 +10,6 @@ import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
 
 @Slf4j
 @Component
@@ -29,9 +27,8 @@ public class GoogleDocsAddCommentExecutor implements NodeExecutor {
         comment.setContent(content);
         Comment created = drive.comments().create(documentId, comment).execute();
 
-        Map<String, Object> output = new HashMap<>();
-        output.put("documentId", documentId);
-        output.put("commentId", created.getId());
-        return ExecutionResult.success(output);
+        context.write("documentId", documentId);
+        context.write("commentId", created.getId());
+        return ExecutionResult.success();
     }
 }

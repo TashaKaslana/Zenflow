@@ -12,8 +12,6 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
 
 @Slf4j
 @Component
@@ -42,8 +40,7 @@ public class GoogleDriveUploadExecutor implements NodeExecutor {
                 .setFields("id, name, mimeType, size, webViewLink")
                 .execute();
 
-        Map<String, Object> output = new HashMap<>();
-        output.put("file", file);
-        return ExecutionResult.success(output);
+        context.write("file", file);
+        return ExecutionResult.success();
     }
 }

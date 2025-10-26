@@ -13,9 +13,7 @@ import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.springframework.stereotype.Component;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.io.IOException;
 
 @Slf4j
@@ -52,9 +50,8 @@ public class GoogleDocsFormatTextExecutor implements NodeExecutor {
         BatchUpdateDocumentRequest body = new BatchUpdateDocumentRequest().setRequests(List.of(request));
         docs.documents().batchUpdate(documentId, body).execute();
 
-        Map<String, Object> output = new HashMap<>();
-        output.put("documentId", documentId);
-        output.put("formatted", true);
-        return ExecutionResult.success(output);
+        context.write("documentId", documentId);
+        context.write("formatted", true);
+        return ExecutionResult.success();
     }
 }

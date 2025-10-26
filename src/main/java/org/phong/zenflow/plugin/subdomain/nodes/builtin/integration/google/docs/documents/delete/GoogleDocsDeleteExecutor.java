@@ -8,8 +8,6 @@ import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.springframework.stereotype.Component;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.io.IOException;
 
 @Slf4j
@@ -24,9 +22,8 @@ public class GoogleDocsDeleteExecutor implements NodeExecutor {
         Drive drive = context.getResource(Drive.class);
         drive.files().delete(documentId).execute();
 
-        Map<String, Object> output = new HashMap<>();
-        output.put("documentId", documentId);
-        output.put("deleted", true);
-        return ExecutionResult.success(output);
+        context.write("documentId", documentId);
+        context.write("deleted", true);
+        return ExecutionResult.success();
     }
 }

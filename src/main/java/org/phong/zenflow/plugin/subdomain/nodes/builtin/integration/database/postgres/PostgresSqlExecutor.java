@@ -49,8 +49,7 @@ public class PostgresSqlExecutor implements NodeExecutor {
         BaseSqlExecutor.ResultProcessor resultProcessor = postgresHandler.createResultProcessor();
 
         // Execute using BaseSqlExecutor with PostgreSQL-specific lambdas
-        return baseSqlExecutor.execute(dbConfig, logPublisher, parameterBinder, resultProcessor);
-
+        return baseSqlExecutor.execute(context, dbConfig, logPublisher, parameterBinder, resultProcessor);
     }
 
     private boolean hasParameters(ResolvedDbConfig dbConfig) {

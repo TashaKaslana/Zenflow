@@ -16,7 +16,6 @@ import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 
 import java.awt.*;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -62,14 +61,12 @@ public class DiscordMessageExecutor implements NodeExecutor {
 
         logs.success("Message sent successfully to channel: {}", channelId);
 
-        Map<String, Object> output = new HashMap<>();
-        output.put("message_id", sentMessage.getId());
-        output.put("channel_id", channelId);
-        output.put("timestamp", sentMessage.getTimeCreated().toString());
-        output.put("content", sentMessage.getContentDisplay());
+        context.write("message_id", sentMessage.getId());
+        context.write("channel_id", channelId);
+        context.write("timestamp", sentMessage.getTimeCreated().toString());
+        context.write("content", sentMessage.getContentDisplay());
 
-        return ExecutionResult.success(output);
-
+        return ExecutionResult.success();
     }
 
     /**

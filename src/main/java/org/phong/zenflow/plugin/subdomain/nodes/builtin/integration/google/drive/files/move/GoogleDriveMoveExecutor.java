@@ -10,8 +10,6 @@ import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
 
 @Slf4j
 @Component
@@ -41,9 +39,8 @@ public class GoogleDriveMoveExecutor implements NodeExecutor {
 
         File moved = update.setFields("id,parents").execute();
 
-        Map<String, Object> output = new HashMap<>();
-        output.put("id", moved.getId());
-        output.put("parents", moved.getParents());
-        return ExecutionResult.success(output);
+        context.write("id", moved.getId());
+        context.write("parents", moved.getParents());
+        return ExecutionResult.success();
     }
 }

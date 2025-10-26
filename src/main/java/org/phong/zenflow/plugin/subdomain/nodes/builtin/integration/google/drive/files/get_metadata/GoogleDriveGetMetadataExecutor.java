@@ -10,8 +10,6 @@ import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
 
 @Slf4j
 @Component
@@ -27,8 +25,7 @@ public class GoogleDriveGetMetadataExecutor implements NodeExecutor {
                 .setFields("id, name, mimeType, size, modifiedTime, trashed, parents, webViewLink")
                 .execute();
 
-        Map<String, Object> output = new HashMap<>();
-        output.put("file", file);
-        return ExecutionResult.success(output);
+        context.write("file", file);
+        return ExecutionResult.success();
     }
 }
