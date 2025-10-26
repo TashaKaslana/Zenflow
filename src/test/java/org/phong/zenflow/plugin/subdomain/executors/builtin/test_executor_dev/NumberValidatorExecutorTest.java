@@ -24,9 +24,10 @@ class NumberValidatorExecutorTest {
         );
         var context = TestExecutionContextUtils.createExecutionContext(config);
         var result = executor.execute(context);
+        TestExecutionContextUtils.flushPendingWrites(context);
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
-        assertTrue((Boolean) result.getOutput().get("valid"));
+        assertTrue(context.read("valid", Boolean.class));
     }
 
     @Test
@@ -39,8 +40,9 @@ class NumberValidatorExecutorTest {
         );
         var context = TestExecutionContextUtils.createExecutionContext(config);
         var result = executor.execute(context);
+        TestExecutionContextUtils.flushPendingWrites(context);
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
-        assertFalse((Boolean) result.getOutput().get("valid"));
+        assertFalse(context.read("valid", Boolean.class));
     }
 }

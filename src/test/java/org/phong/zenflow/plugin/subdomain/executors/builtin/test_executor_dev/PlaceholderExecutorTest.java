@@ -23,8 +23,9 @@ class PlaceholderExecutorTest {
 
 
         var result = executor.execute(ctx);
+        TestExecutionContextUtils.flushPendingWrites(ctx);
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
-        assertEquals("bar", result.getOutput().get("foo"));
+        assertEquals("bar", ctx.read("foo", String.class));
     }
 }

@@ -24,10 +24,11 @@ class DataGeneratorExecutorTest {
         );
         var context = TestExecutionContextUtils.createExecutionContext(config);
         var result = executor.execute(context);
+        TestExecutionContextUtils.flushPendingWrites(context);
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
-        assertEquals("test+tag@very-long-domain-name.example.org", result.getOutput().get("user_email"));
-        assertEquals(123, result.getOutput().get("user_age"));
-        assertEquals(true, result.getOutput().get("user_active"));
+        assertEquals("test+tag@very-long-domain-name.example.org", context.read("user_email", String.class));
+        assertEquals(123, context.read("user_age", Integer.class));
+        assertEquals(true, context.read("user_active", Boolean.class));
     }
 }

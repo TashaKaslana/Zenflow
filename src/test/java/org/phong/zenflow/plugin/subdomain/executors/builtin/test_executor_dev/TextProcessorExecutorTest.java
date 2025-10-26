@@ -25,9 +25,10 @@ class TextProcessorExecutorTest {
         );
         var context = TestExecutionContextUtils.createExecutionContext(config);
         var result = executor.execute(context);
+        TestExecutionContextUtils.flushPendingWrites(context);
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
-        assertEquals("Processed text: hello", result.getOutput().get("result"));
-        assertEquals(3, result.getOutput().get("processed_count"));
+        assertEquals("Processed text: hello", context.read("result", String.class));
+        assertEquals(3, context.read("processed_count", Integer.class));
     }
 }

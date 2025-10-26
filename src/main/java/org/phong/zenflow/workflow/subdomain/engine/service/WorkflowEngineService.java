@@ -133,12 +133,6 @@ public class WorkflowEngineService {
             context.clearPendingWrites();
         }
 
-        // Keep backward compatibility - process output if present
-        Map<String, Object> output = result.getOutput();
-        if (output != null) {
-            context.processOutputWithMetadata(String.format("%s.output", workingNode.getKey()), output);
-        }
-
         Object callbackUrl = contextManager.getOrCreate(workflowRunId.toString())
                 .get(ExecutionContextKey.CALLBACK_URL.key());
         nodeExecutionService.resolveNodeExecution(

@@ -48,6 +48,7 @@ class WaitExecutorTest {
 
 
         ExecutionResult first = executor.execute(context);
+        TestExecutionContextUtils.flushPendingWrites(context); // Flush timer key
         assertEquals(ExecutionStatus.UNCOMMIT, first.getStatus());
 
         Thread.sleep(150);

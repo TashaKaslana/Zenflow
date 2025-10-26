@@ -3,6 +3,8 @@ package org.phong.zenflow.workflow.subdomain.context;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.workflow.subdomain.context.refvalue.RefValue;
+import org.phong.zenflow.workflow.subdomain.context.refvalue.RuntimeContextRefValueSupport;
+import org.phong.zenflow.workflow.subdomain.context.refvalue.WriteOptions;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -170,7 +172,7 @@ public class RuntimeContext {
 
         for (Map.Entry<String, Object> entry : output.entrySet()) {
             String outputProperty = entry.getKey();
-            String currentOutputKey = outputKey.concat(".").concat(outputProperty);
+            String currentOutputKey = outputKey.isEmpty() ? outputProperty : outputKey.concat(".").concat(outputProperty);
             Object value = entry.getValue();
 
             if (value instanceof Map<?, ?> map) {
@@ -512,22 +514,23 @@ public class RuntimeContext {
     /**
      * Flush pending writes to RefValue storage.
      * Called by WorkflowEngineService after successful execution.
+     * Delegates to processOutputWithMetadata for consistent selective storage behavior.
      */
     public void flushPendingWrites() {
-        for (Map.Entry<String, PendingWrite> entry : pendingWrites.entrySet()) {
-            String key = entry.getKey();
-            PendingWrite pending = entry.getValue();
-            
-            // Create RefValue with explicit options
-            RefValue refValue = refValueSupport.createRefValue(
-                pending.value(),
-                pending.options().storage(),
-                pending.options().mediaType()
-            );
-            
-            // Store in context
-            context.put(key, refValue);
+        if (pendingWrites == null || pendingWrites.isEmpty()) {
+            return;
         }
+        
+        // Convert pending writes to Map and delegate to processOutputWithMetadata
+        // This ensures consistent selective storage and automatic RefValue creation
+        Map<String, Object> outputMap = new HashMap<>();
+        for (Map.Entry<String, PendingWrite> entry : pendingWrites.entrySet()) {
+            outputMap.put(entry.getKey(), entry.getValue().value());
+        }
+        
+        // Use empty prefix since keys are already fully qualified
+        processOutputWithMetadata("", outputMap);
+        
         pendingWrites.clear();
     }
 

@@ -156,8 +156,9 @@ class DataTransformerExecutorTest {
 
 
         ExecutionResult result = executor.execute(runtimeContext);
+        TestExecutionContextUtils.flushPendingWrites(runtimeContext);
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
-        assertEquals(List.of(Map.of("value", 2)), result.getOutput().get("result"));
+        assertEquals(List.of(Map.of("value", 2)), runtimeContext.read("result", List.class));
     }
 
     @Test
@@ -190,9 +191,10 @@ class DataTransformerExecutorTest {
 
 
         ExecutionResult result = executor.execute(runtimeContext);
+        TestExecutionContextUtils.flushPendingWrites(runtimeContext);
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
-        assertEquals("HELLO WORLD!", result.getOutput().get("result"));
+        assertEquals("HELLO WORLD!", runtimeContext.read("result", String.class));
 
         // Verify pipeline execution order
         verify(trimTransformer).transform("  hello world  ", Map.of());
@@ -229,9 +231,10 @@ class DataTransformerExecutorTest {
 
 
         ExecutionResult result = executor.execute(runtimeContext);
+        TestExecutionContextUtils.flushPendingWrites(runtimeContext);
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
-        assertEquals("John", result.getOutput().get("result"));
+        assertEquals("John", runtimeContext.read("result", String.class));
     }
 
     @Test
@@ -288,9 +291,10 @@ class DataTransformerExecutorTest {
 
 
         ExecutionResult result = executor.execute(runtimeContext);
+        TestExecutionContextUtils.flushPendingWrites(runtimeContext);
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
-        assertEquals(finalResult, result.getOutput().get("result"));
+        assertEquals(finalResult, runtimeContext.read("result", List.class));
     }
 
     // ===========================================
@@ -353,9 +357,10 @@ class DataTransformerExecutorTest {
 
 
         ExecutionResult result = executor.execute(runtimeContext);
+        TestExecutionContextUtils.flushPendingWrites(runtimeContext);
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
-        assertEquals(jsonResult, result.getOutput().get("result"));
+        assertEquals(jsonResult, runtimeContext.read("result", String.class));
     }
 
     // ===========================================
@@ -413,10 +418,11 @@ class DataTransformerExecutorTest {
 
 
         ExecutionResult result = executor.execute(runtimeContext);
+        TestExecutionContextUtils.flushPendingWrites(runtimeContext);
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
         @SuppressWarnings("unchecked")
-        List<String> resultList = (List<String>) result.getOutput().get("result");
+        List<String> resultList = (List<String>) runtimeContext.read("result", List.class);
 
         assertEquals(3, resultList.size());
         assertEquals("JOHN - Employee", resultList.get(0));
@@ -488,9 +494,10 @@ class DataTransformerExecutorTest {
 
 
         ExecutionResult result = executor.execute(runtimeContext);
+        TestExecutionContextUtils.flushPendingWrites(runtimeContext);
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
-        assertEquals(finalJson, result.getOutput().get("result"));
+        assertEquals(finalJson, runtimeContext.read("result", String.class));
 
         // Verify all transformers were called in sequence
         verify(filterTransformer, times(1)).transform(any(), any());
@@ -589,9 +596,10 @@ class DataTransformerExecutorTest {
 
 
         ExecutionResult result = executor.execute(runtimeContext);
+        TestExecutionContextUtils.flushPendingWrites(runtimeContext);
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
-        assertEquals("HELLO WORLD", result.getOutput().get("result"));
+        assertEquals("HELLO WORLD", runtimeContext.read("result", String.class));
         verify(uppercaseTransformer).transform("hello world", Map.of());
     }
 
@@ -615,10 +623,11 @@ class DataTransformerExecutorTest {
 
 
         ExecutionResult result = executor.execute(runtimeContext);
+        TestExecutionContextUtils.flushPendingWrites(runtimeContext);
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
         @SuppressWarnings("unchecked")
-        List<String> resultList = (List<String>) result.getOutput().get("result");
+        List<String> resultList = (List<String>) runtimeContext.read("result", List.class);
         assertEquals(Arrays.asList("HELLO", "WORLD", "TEST"), resultList);
     }
 }

@@ -107,7 +107,6 @@ class WorkflowExecutionSampleTest {
         loopParams.put("next", List.of("test:placeholder:1.0.0"));
         loopParams.put("loopEnd", List.of("core:flow.branch.if:1.0.0"));
 
-        Map<String, Object> lastOutput = Map.of();
         int executed = 0;
 
         for (String key : nodeKeys) {
@@ -149,11 +148,10 @@ class WorkflowExecutionSampleTest {
                 case "test:placeholder:1.0.0" -> assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
                 default -> assertEquals(ExecutionStatus.NEXT, result.getStatus());
             }
-            lastOutput = result.getOutput();
             executed++;
         }
 
         assertEquals(10, executed);
-        assertEquals(3, lastOutput.get("index"));
+        assertEquals(3, loopParams.get("index")); // Check loop index from loopParams, not lastOutput
     }
 }

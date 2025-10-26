@@ -17,23 +17,24 @@ import java.util.UUID;
 import java.util.List;
 
 public class TestExecutionContextUtils {
+    private static RuntimeContextManager sharedContextManager = new RuntimeContextManager();
+    
     public static ExecutionContext createExecutionContext() {
         return createExecutionContext(event -> {});
     }
 
     public static ExecutionContext createExecutionContext(ApplicationEventPublisher publisher) {
-        RuntimeContextManager manager = new RuntimeContextManager();
         RuntimeContext runtimeContext = new RuntimeContext();
         UUID workflowId = UUID.randomUUID();
         UUID runId = UUID.randomUUID();
-        manager.assign(runId.toString(), runtimeContext);
+        sharedContextManager.assign(runId.toString(), runtimeContext);
         ContextValueResolver resolver = new ContextValueResolver(new SystemLoadMonitor());
         ExecutionContext context = ExecutionContextImpl.builder()
                 .workflowId(workflowId)
                 .workflowRunId(runId)
                 .traceId("trace")
                 .userId(null)
-                .contextManager(manager)
+                .contextManager(sharedContextManager)
                 .logPublisher(NodeLogPublisher.builder()
                         .publisher(publisher)
                         .workflowId(workflowId)
@@ -51,6 +52,15 @@ public class TestExecutionContextUtils {
         ExecutionContext context = createExecutionContext();
         context.setCurrentConfig(config);
         return context;
+    }
+
+    /**
+     * Flushes pending writes for testing purposes.
+     * In production, WorkflowEngineService handles this.
+     */
+    public static void flushPendingWrites(ExecutionContext context) {
+        RuntimeContext runtimeContext = sharedContextManager.getOrCreate(context.getWorkflowRunId().toString());
+        runtimeContext.flushPendingWrites();
     }
 }
 

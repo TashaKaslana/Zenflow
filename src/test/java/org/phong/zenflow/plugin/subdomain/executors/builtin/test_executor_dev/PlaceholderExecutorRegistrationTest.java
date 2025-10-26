@@ -69,11 +69,12 @@ class PlaceholderExecutorRegistrationTest {
         try {
             context.setCurrentConfig(config);
             result = definition.getNodeExecutor().execute(context);
+            TestExecutionContextUtils.flushPendingWrites(context);
         } catch (Exception e) {
             result = null;
         }
 
         assertNotNull(result);
-        assertEquals(inputData, result.getOutput());
+        assertEquals("testValue", context.read("testKey", String.class));
     }
 }
