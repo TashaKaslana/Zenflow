@@ -6,8 +6,6 @@ import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 
-import java.util.Map;
-
 @Component
 public class DataGeneratorExecutor implements NodeExecutor {
     @Override
@@ -20,16 +18,19 @@ public class DataGeneratorExecutor implements NodeExecutor {
         logCollector.info("Data Generator started with seed: {} and format: {}", seed, format);
         
         // Mock data generation based on seed
-        Map<String, Object> output = Map.of(
-                "user_email", "test+tag@very-long-domain-name.example.org",
-                "user_age", 123,
-                "user_active", true,
-                "status", "completed"
-        );
+        String userEmail = "test+tag@very-long-domain-name.example.org";
+        int userAge = 123;
+        boolean userActive = true;
+        String status = "completed";
+        
+        context.write("user_email", userEmail);
+        context.write("user_age", userAge);
+        context.write("user_active", userActive);
+        context.write("status", status);
         
         logCollector.info("Generated mock user data: email={}, age={}, active={}", 
-                        output.get("user_email"), output.get("user_age"), output.get("user_active"));
+                        userEmail, userAge, userActive);
         
-        return ExecutionResult.success(output);
+        return ExecutionResult.success();
     }
 }

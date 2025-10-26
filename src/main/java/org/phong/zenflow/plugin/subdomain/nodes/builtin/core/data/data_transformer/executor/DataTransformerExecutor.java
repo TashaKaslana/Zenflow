@@ -46,7 +46,9 @@ public class DataTransformerExecutor implements NodeExecutor {
 
         result = getResult(context, forEach, inputValue, logPublisher, isPipeline, transformerName, params);
 
-        return ExecutionResult.success(Map.of("result", result));
+        context.write("result", result);
+
+        return ExecutionResult.success();
     }
 
     private Object getResult(ExecutionContext context,

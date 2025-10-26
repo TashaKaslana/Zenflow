@@ -33,6 +33,13 @@ public class WhileLoopExecutor implements NodeExecutor {
 
         Map<String, Object> state = context.getCurrentNodeEntrypoint();
 
+        // Write loop configuration to context for access by other nodes
+        context.write("condition", condition);
+        context.write("loopEnd", loopEnd);
+        context.write("next", next);
+        context.write("breakCondition", breakCondition);
+        context.write("continueCondition", continueCondition);
+
         AviatorEvaluatorInstance evaluator = context.getEvaluator().cloneInstance();
 
         boolean shouldContinue = evalCondition(condition, state, context, logCollector, evaluator);
@@ -42,31 +49,31 @@ public class WhileLoopExecutor implements NodeExecutor {
             logCollector.info("While loop completed.");
             if (loopEnd == null || loopEnd.isEmpty()) {
                 logCollector.warning("loopEnd is empty, no next node to proceed to after completion.");
-                return ExecutionResult.loopEnd(null, state);
+                return ExecutionResult.loopEnd(null);
             }
-            return ExecutionResult.loopEnd(loopEnd.getFirst(), state);
+            return ExecutionResult.loopEnd(loopEnd.getFirst());
         }
 
         if (evalCondition(breakCondition, state, context, logCollector, evaluator)) {
             logCollector.info("Break condition met, exiting while loop.");
             if (loopEnd == null || loopEnd.isEmpty()) {
                 logCollector.warning("loopEnd is empty, no next node to proceed to after break condition.");
-                return ExecutionResult.loopBreak(null, state);
+                return ExecutionResult.loopBreak(null);
             }
-            return ExecutionResult.loopBreak(loopEnd.getFirst(), state);
+            return ExecutionResult.loopBreak(loopEnd.getFirst());
         }
 
         if (evalCondition(continueCondition, state, context, logCollector, evaluator)) {
             logCollector.info("Continue condition met, skipping to next iteration.");
-            return ExecutionResult.loopContinue(state);
+            return ExecutionResult.loopContinue();
         }
 
         logCollector.info("Proceeding to while loop body.");
         if (next == null || next.isEmpty()) {
             logCollector.warning("next is empty, no next node to proceed to for loop body.");
-            return ExecutionResult.loopNext(null, state);
+            return ExecutionResult.loopNext(null);
         }
-        return ExecutionResult.loopNext(next.getFirst(), state);
+        return ExecutionResult.loopNext(next.getFirst());
     }
 
     private boolean evalCondition(Object rawExpr, Map<String, Object> context, ExecutionContext execCtx, NodeLogPublisher logCollector, AviatorEvaluatorInstance evaluator) {

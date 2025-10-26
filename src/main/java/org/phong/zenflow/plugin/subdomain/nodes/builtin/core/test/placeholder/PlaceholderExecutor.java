@@ -13,8 +13,11 @@ public class PlaceholderExecutor implements NodeExecutor {
     @Override
     public ExecutionResult execute(ExecutionContext context) {
         NodeLogPublisher logCollector = context.getLogPublisher();
-        Map<String, Object> input = context.getCurrentNodeEntrypoint();
-        input.forEach((k, v) -> logCollector.info("Input {}: {}", k, v));
-        return ExecutionResult.success(input);
+        Map<String, Object> input = context.getCurrentConfig().input();
+        input.forEach((k, v) -> {
+            logCollector.info("Input {}: {}", k, v);
+            context.write(k, v);
+        });
+        return ExecutionResult.success();
     }
 }

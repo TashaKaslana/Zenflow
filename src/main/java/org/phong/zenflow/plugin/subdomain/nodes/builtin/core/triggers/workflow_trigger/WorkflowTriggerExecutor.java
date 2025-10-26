@@ -88,27 +88,26 @@ public class WorkflowTriggerExecutor implements TriggerExecutor {
                 runnerRequest
         ));
 
-        Map<String, Object> output = new HashMap<>();
-        output.put("trigger_type", "workflow");
-        output.put("triggered_at", OffsetDateTime.now().toString());
-        output.put("trigger_source", "workflow_trigger");
-        output.put("target_workflow_id", workflowId.toString());
-        output.put("workflow_run_id", workflowRunId.toString());
-        output.put("is_async", isAsync);
+        context.write("trigger_type", "workflow");
+        context.write("triggered_at", OffsetDateTime.now().toString());
+        context.write("trigger_source", "workflow_trigger");
+        context.write("target_workflow_id", workflowId.toString());
+        context.write("workflow_run_id", workflowRunId.toString());
+        context.write("is_async", isAsync);
 
-        output.put("start_from_node_key", startFromNodeKey);
+        context.write("start_from_node_key", startFromNodeKey);
 
         if (callbackUrl != null) {
-            output.put("callback_url", callbackUrl);
+            context.write("callback_url", callbackUrl);
         }
 
         if (payload != null) {
-            output.put("payload", payload);
+            context.write("payload", payload);
             logs.info("Payload included: {}", payload);
         }
 
         logs.success("Workflow trigger event published successfully");
-        return ExecutionResult.success(output);
+        return ExecutionResult.success();
     }
 
     /**

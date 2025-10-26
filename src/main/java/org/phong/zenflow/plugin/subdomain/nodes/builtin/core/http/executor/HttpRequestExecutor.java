@@ -16,7 +16,6 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import reactor.core.publisher.Mono;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -45,28 +44,27 @@ public class HttpRequestExecutor implements NodeExecutor {
 
         logs.info("Sending HTTP request to {} with method {}", url, method);
 
-        Map<String, Object> response = webClient.method(method)
+        webClient.method(method)
                 .uri(url)
                 .bodyValue(body)
                 .headers(httpHeaders -> getHeaders(logs, httpHeaders, headers))
-                .exchangeToMono(this::handleResponse)
+                .exchangeToMono(response -> handleResponse(context, response))
                 .block();
 
         logs.success("Received response successfully");
 
-        return ExecutionResult.success(response);
+        return ExecutionResult.success();
     }
 
-    private Mono<Map<String, Object>> handleResponse(ClientResponse response) {
+    private Mono<Void> handleResponse(ExecutionContext context, ClientResponse response) {
         return response.bodyToMono(Object.class)
                 .defaultIfEmpty("No response")
-                .map(body -> {
-                    Map<String, Object> result = new HashMap<>();
-                    result.put("status_code", response.statusCode().value());
-                    result.put("headers", response.headers().asHttpHeaders().toSingleValueMap());
-                    result.put("body", body);
-                    return result;
-                });
+                .doOnNext(body -> {
+                    context.write("status_code", response.statusCode().value());
+                    context.write("headers", response.headers().asHttpHeaders().toSingleValueMap());
+                    context.write("body", body);
+                })
+                .then();
     }
 
     private void getHeaders(NodeLogPublisher logs, HttpHeaders httpHeaders, Map<String, Object> headers) {

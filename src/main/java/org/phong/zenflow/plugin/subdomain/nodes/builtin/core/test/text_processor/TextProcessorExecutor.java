@@ -6,8 +6,6 @@ import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 
-import java.util.Map;
-
 @Component
 public class TextProcessorExecutor implements NodeExecutor {
     @Override
@@ -21,14 +19,15 @@ public class TextProcessorExecutor implements NodeExecutor {
         logCollector.info("Text Processor started with text: {}, count: {}, flag: {}", text, count, flag);
         
         // Mock text processing
-        Map<String, Object> output = Map.of(
-            "result", "Processed text: " + text,
-            "processed_count", count != null ? count : 0
-        );
+        String result = "Processed text: " + text;
+        int processedCount = count != null ? count : 0;
+        
+        context.write("result", result);
+        context.write("processed_count", processedCount);
         
         logCollector.info("Text processing completed. Result length: {}, processed count: {}", 
-                        output.get("result").toString().length(), output.get("processed_count"));
+                        result.length(), processedCount);
         
-        return ExecutionResult.success(output);
+        return ExecutionResult.success();
     }
 }

@@ -38,54 +38,63 @@ public class ForLoopExecutor implements NodeExecutor {
             index = 0;
         }
 
-        // Create output that includes ALL necessary data for next iteration
-        Map<String, Object> output = new HashMap<>();
-        output.put("loopEnd", loopEnd);
-        output.put("next", next);
-        output.put("breakCondition", breakCondition);
-        output.put("continueCondition", continueCondition);
-        output.put("endCondition", endCondition);
-        output.put("total", total);
-        output.put("updateExpression", updateExpression);
-        output.put("index", index);
+        // Write loop state to context for access by other nodes
+        context.write("loopEnd", loopEnd);
+        context.write("next", next);
+        context.write("breakCondition", breakCondition);
+        context.write("continueCondition", continueCondition);
+        context.write("endCondition", endCondition);
+        context.write("total", total);
+        context.write("updateExpression", updateExpression);
+        context.write("index", index);
 
+        // Create local map for condition evaluation
+        Map<String, Object> loopState = new HashMap<>();
+        loopState.put("loopEnd", loopEnd);
+        loopState.put("next", next);
+        loopState.put("breakCondition", breakCondition);
+        loopState.put("continueCondition", continueCondition);
+        loopState.put("endCondition", endCondition);
+        loopState.put("total", total);
+        loopState.put("updateExpression", updateExpression);
+        loopState.put("index", index);
 
         AviatorEvaluatorInstance evaluator = context.getEvaluator().cloneInstance();
 
-        if (isLoopComplete(endCondition, total, output, logCollector, context, evaluator)) {
+        if (isLoopComplete(endCondition, total, loopState, logCollector, context, evaluator)) {
             logCollector.info("Loop finished. Proceeding to loopEnd.");
             if (loopEnd == null || loopEnd.isEmpty()) {
                 logCollector.warning("loopEnd is empty, no next node to proceed to.");
-                return ExecutionResult.loopEnd(null, output);
+                return ExecutionResult.loopEnd(null);
             }
-            return ExecutionResult.loopEnd(loopEnd.getFirst(), output);
+            return ExecutionResult.loopEnd(loopEnd.getFirst());
         }
 
-        if (evalCondition(breakCondition, output, context, logCollector, evaluator)) {
-            logCollector.info("Loop exited due to break condition at index {}", output.get("index"));
+        if (evalCondition(breakCondition, loopState, context, logCollector, evaluator)) {
+            logCollector.info("Loop exited due to break condition at index {}", index);
             if (loopEnd == null || loopEnd.isEmpty()) {
                 logCollector.warning("loopEnd is empty, no next node to proceed to after break condition.");
-                return ExecutionResult.loopBreak(null, output);
+                return ExecutionResult.loopBreak(null);
             }
-            return ExecutionResult.loopBreak(loopEnd.getFirst(), output);
+            return ExecutionResult.loopBreak(loopEnd.getFirst());
         }
 
-        if (evalCondition(continueCondition, output, context, logCollector, evaluator)) {
-            int newIndex = getNewIndex(updateExpression, output, context, logCollector, evaluator);
-            output.put("index", newIndex);
+        if (evalCondition(continueCondition, loopState, context, logCollector, evaluator)) {
+            int newIndex = getNewIndex(updateExpression, loopState, context, logCollector, evaluator);
+            context.write("index", newIndex);
             logCollector.info("Loop continued to next iteration due to continue condition.");
-            return ExecutionResult.loopContinue(output);
+            return ExecutionResult.loopContinue();
         }
 
-        int newIndex = getNewIndex(updateExpression, output, context, logCollector, evaluator);
-        output.put("index", newIndex);
+        int newIndex = getNewIndex(updateExpression, loopState, context, logCollector, evaluator);
+        context.write("index", newIndex);
 
         logCollector.info("Proceeding to loop body for index {}. New index is {}", index, newIndex);
         if (next == null || next.isEmpty()) {
             logCollector.warning("next is empty, no next node to proceed to for loop body.");
-            return ExecutionResult.loopNext(null, output);
+            return ExecutionResult.loopNext(null);
         }
-        return ExecutionResult.loopNext(next.getFirst(), output);
+        return ExecutionResult.loopNext(next.getFirst());
     }
 
     private boolean isLoopComplete(

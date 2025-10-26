@@ -51,41 +51,48 @@ public class ForEachLoopExecutor implements NodeExecutor {
 
         Object currentItem = items.get(index);
 
-        // Create output that includes ALL necessary data for next iteration
-        Map<String, Object> output = new HashMap<>();
-        // Preserve original input data
-        output.put("items", items);
-        output.put("loopEnd", loopEnd);
-        output.put("next", next);
-        output.put("breakCondition", breakCondition);
-        output.put("continueCondition", continueCondition);
-        // Add current iteration data
-        output.put("item", currentItem);
-        output.put("index", index);
+        // Write loop state to context for access by other nodes
+        context.write("items", items);
+        context.write("loopEnd", loopEnd);
+        context.write("next", next);
+        context.write("breakCondition", breakCondition);
+        context.write("continueCondition", continueCondition);
+        context.write("item", currentItem);
+        context.write("index", index);
 
-        if (evalCondition(breakCondition, output, context, logCollector, evaluator)) {
+        // Create local map for condition evaluation
+        Map<String, Object> loopState = new HashMap<>();
+        loopState.put("items", items);
+        loopState.put("loopEnd", loopEnd);
+        loopState.put("next", next);
+        loopState.put("breakCondition", breakCondition);
+        loopState.put("continueCondition", continueCondition);
+        loopState.put("item", currentItem);
+        loopState.put("index", index);
+
+        if (evalCondition(breakCondition, loopState, context, logCollector, evaluator)) {
             logCollector.info("Break condition met at index {}, exiting loop", index);
             if (loopEnd == null || loopEnd.isEmpty()) {
                 logCollector.warning("loopEnd is empty, no next node to proceed to after break condition.");
-                return ExecutionResult.loopBreak(null, output);
+                return ExecutionResult.loopBreak(null);
             }
-            return ExecutionResult.loopBreak(loopEnd.getFirst(), output);
+            return ExecutionResult.loopBreak(loopEnd.getFirst());
         }
 
-        if (evalCondition(continueCondition, output, context, logCollector, evaluator)) {
-            output.put("index", index + 1);
+        if (evalCondition(continueCondition, loopState, context, logCollector, evaluator)) {
+            context.write("index", index + 1);
             logCollector.info("Continue condition met at index {}, skipping to next", index);
-            return ExecutionResult.loopContinue(output);
+            return ExecutionResult.loopContinue();
         }
 
-        output.put("index", index + 1); // Prepare for next iteration
+        context.write("index", index + 1); // Prepare for next iteration
 
         logCollector.info("Processing item {} of {}: {}", index + 1, items.size(), currentItem);
         if (next == null || next.isEmpty()) {
             logCollector.warning("next is empty, no next node to proceed to for loop body.");
-            return ExecutionResult.loopNext(null, output);
+            return ExecutionResult.loopNext(null);
         }
-        return ExecutionResult.loopNext(next.getFirst(), output);
+        return ExecutionResult.loopNext(next.getFirst());
     }
 
     private boolean evalCondition(

@@ -11,7 +11,6 @@ import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 
-import java.util.HashMap;
 import java.util.Map;
 
 @Component
@@ -46,11 +45,11 @@ public class WaitExecutor implements NodeExecutor {
 
         boolean isReady = isReady(waitingNodes, mode, threshold);
         log.info("Status of waiting nodes: {}", waitingNodes);
-        Map<String, Object> output = new HashMap<>();
-        output.put("waitingNodes", waitingNodes);
-        output.put("mode", mode);
-        output.put("threshold", threshold);
-        output.put("isReady", isReady);
+        
+        context.write("waitingNodes", waitingNodes);
+        context.write("mode", mode);
+        context.write("threshold", threshold);
+        context.write("isReady", isReady);
 
 
         if (!isReady) {
@@ -70,16 +69,16 @@ public class WaitExecutor implements NodeExecutor {
                 if (elapsed >= timeoutMs) {
                     String message = String.format("Timeout after %dms", timeoutMs);
                     if (fallbackStatus != null && fallbackStatus != ExecutionStatus.ERROR) {
-                        return buildFallbackResult(fallbackStatus, output, message);
+                        return buildFallbackResult(fallbackStatus, message);
                     }
                     return ExecutionResult.error(message);
                 }
             }
 
-            return ExecutionResult.uncommit(output);
+            return ExecutionResult.uncommit();
         }
 
-        return ExecutionResult.commit(output);
+        return ExecutionResult.commit();
     }
 
     public boolean isReady(Map<String, Boolean> waitingNodes, String mode, int threshold) {
@@ -96,14 +95,12 @@ public class WaitExecutor implements NodeExecutor {
         };
     }
 
-    private ExecutionResult buildFallbackResult(ExecutionStatus status,
-                                                Map<String, Object> output,
-                                                String message) {
+    private ExecutionResult buildFallbackResult(ExecutionStatus status, String message) {
         return switch (status) {
-            case COMMIT -> ExecutionResult.commit(output);
-            case UNCOMMIT -> ExecutionResult.uncommit(output);
+            case COMMIT -> ExecutionResult.commit();
+            case UNCOMMIT -> ExecutionResult.uncommit();
             case WAITING -> ExecutionResult.waiting();
-            case SUCCESS -> ExecutionResult.success(output);
+            case SUCCESS -> ExecutionResult.success();
             default -> ExecutionResult.error(message);
         };
     }

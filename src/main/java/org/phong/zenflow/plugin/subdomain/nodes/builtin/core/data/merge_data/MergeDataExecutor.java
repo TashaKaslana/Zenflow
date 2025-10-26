@@ -44,7 +44,9 @@ public class MergeDataExecutor implements NodeExecutor {
         logPublisher.success("Data merge completed successfully. Result contains {} items",
                     result.containsKey("data") ? getDataSize(result.get("data")) : 0);
 
-        return ExecutionResult.success(result);
+        context.writeAll(result);
+
+        return ExecutionResult.success();
     }
 
     private List<Map<String, Object>> extractSources(ExecutionContext context, NodeLogPublisher logPublisher) {
