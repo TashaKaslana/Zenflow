@@ -142,7 +142,13 @@ public class ContextValueResolver {
         Object rawConfigValue = lookup.rawValue();
         String normalizedKey = lookup.normalizedKey();
 
-        if (rawConfigValue != null && templateService.isTemplate(rawConfigValue.toString()) && workflowRunId != null) {
+        if (rawConfigValue == null) {
+            Object runtimeValue = resolveRuntimeValue(nodeKey, key, runtimeContext, templateService, executionContext);
+            maybeInvalidateIfNoConsumers(runtimeContext, workflowRunId, normalizedKey, key);
+            return runtimeValue;
+        }
+
+        if (templateService.isTemplate(rawConfigValue.toString()) && workflowRunId != null) {
 
             int consumerCount = determineConsumerCount(runtimeContext, key, normalizedKey);
             boolean shouldCache = shouldCache(consumerCount, normalizedKey);
@@ -155,12 +161,9 @@ public class ContextValueResolver {
             Object resolved = resolveValue(rawConfigValue, templateService, executionContext);
             maybeInvalidateIfNoConsumers(runtimeContext, workflowRunId, normalizedKey, key);
             return resolved;
+        } else {
+            return rawConfigValue;
         }
-
-        // Fallback to runtime context
-        Object runtimeValue = resolveRuntimeValue(nodeKey, key, runtimeContext, templateService, executionContext);
-        maybeInvalidateIfNoConsumers(runtimeContext, workflowRunId, normalizedKey, key);
-        return runtimeValue;
     }
 
     /**

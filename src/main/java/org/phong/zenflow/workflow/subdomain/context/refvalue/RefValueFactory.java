@@ -13,7 +13,6 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Base64;
 import java.util.Map;
-import java.util.regex.Pattern;
 
 /**
  * Factory for creating RefValue instances with intelligent storage backend selection.
@@ -35,9 +34,6 @@ import java.util.regex.Pattern;
 public class RefValueFactory {
     
     private final RefValueConfig config;
-    
-    // Base64 detection: length multiple of 4, ends with padding, mostly base64 chars
-    private static final Pattern BASE64_PATTERN = Pattern.compile("^[A-Za-z0-9+/]+=*$");
     
     /**
      * Creates a RefValue from an object with auto storage selection.
@@ -74,8 +70,8 @@ public class RefValueFactory {
         }
         
         try {
-            // Detect base64 strings early and decode
-            if (value instanceof String str && isLikelyBase64(str)) {
+            // Only decode base64 if EXPLICITLY marked with mediaType
+            if (mediaType != null && mediaType.equals("text/base64") && value instanceof String str) {
                 return handleBase64String(str, preference, mediaType);
             }
             
@@ -231,11 +227,12 @@ public class RefValueFactory {
         }
         
         if (value instanceof String str) {
-            byte[] bytes = str.getBytes();
-            return FileRefValue.fromBytes(bytes, mediaType, targetDir, prefix);
+            // Store strings as UTF-8 text, not JSON, to preserve original type
+            byte[] bytes = str.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            return FileRefValue.fromBytes(bytes, "text/plain; charset=UTF-8", targetDir, prefix);
         }
         
-        // Serialize object to JSON file
+        // Store all other values as JSON
         return FileRefValue.fromObject(value, targetDir, prefix);
     }
     
@@ -275,18 +272,5 @@ public class RefValueFactory {
                    (trimmed.startsWith("[") && trimmed.endsWith("]"));
         }
         return false;
-    }
-    
-    /**
-     * Heuristic check if string is likely base64.
-     * Checks: length multiple of 4, ends with valid padding, mostly base64 alphabet.
-     */
-    private boolean isLikelyBase64(String str) {
-        if (str == null || str.length() < 4) return false;
-        if (str.length() % 4 != 0) return false;
-        if (str.length() > 1000 && !BASE64_PATTERN.matcher(str.substring(0, 1000)).matches()) {
-            return false;
-        }
-        return BASE64_PATTERN.matcher(str).matches();
     }
 }

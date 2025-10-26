@@ -126,11 +126,17 @@ public class WorkflowEngineService {
 
         result = executeWorkingNode(workingNode, config, execCtx);
 
+        // Flush pending writes if execution succeeded
+        if (ExecutionStatus.isSuccessful(result.getStatus())) {
+            context.flushPendingWrites();
+        } else {
+            context.clearPendingWrites();
+        }
+
+        // Keep backward compatibility - process output if present
         Map<String, Object> output = result.getOutput();
         if (output != null) {
             context.processOutputWithMetadata(String.format("%s.output", workingNode.getKey()), output);
-        } else {
-            log.warn("Output of node {} is null, skipping putting into context", workingNode.getKey());
         }
 
         Object callbackUrl = contextManager.getOrCreate(workflowRunId.toString())

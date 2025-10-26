@@ -99,11 +99,15 @@ public class ExecutionContextImpl implements ExecutionContext {
         return contextManager.getOrCreate(workflowRunId.toString());
     }
 
-    public void write(String key, Object value) {
+    public void write(String key, Object value, WriteOptions options) {
         RuntimeContext context = getContext();
         if (context != null) {
-            context.put(key, value);
+            context.write(key, value, options);
         }
+    }
+
+    public void write(String key, Object value) {
+        write(key, value, WriteOptions.DEFAULT);
     }
 
     public void remove(String key) {

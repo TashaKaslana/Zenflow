@@ -138,4 +138,26 @@ public class RuntimeContextRefValueSupport {
         // Later we might add exceptions for specific types
         return value != null;
     }
+
+    /**
+     * Creates a RefValue with explicit options.
+     * Used by the pending writes mechanism to control storage behavior.
+     * 
+     * @param value the value to wrap
+     * @param storage storage preference (AUTO, MEMORY, JSON, FILE)
+     * @param mediaType content type hint (e.g., "text/base64", "application/json")
+     * @return RefValue instance
+     */
+    public RefValue createRefValue(Object value, StoragePreference storage, String mediaType) {
+        try {
+            RefValue ref = factory.create(value, storage, mediaType);
+            log.trace("Created RefValue with explicit options: type={}, size={}, mediaType={}", 
+                    ref.getType(), ref.getSize(), mediaType);
+            return ref;
+        } catch (Exception e) {
+            log.error("Failed to create RefValue with explicit options, using fallback", e);
+            // Fallback: use auto preference without mediaType
+            return factory.create(value, StoragePreference.AUTO, null);
+        }
+    }
 }

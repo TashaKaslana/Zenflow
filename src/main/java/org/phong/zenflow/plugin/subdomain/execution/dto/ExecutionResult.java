@@ -23,6 +23,13 @@ public class ExecutionResult {
     private String nextNodeKey;
     private ValidationResult validationResult;
 
+    public static ExecutionResult success() {
+        ExecutionResult result = new ExecutionResult();
+        result.setStatus(ExecutionStatus.SUCCESS);
+        result.setOutput(null);
+        return result;
+    }
+
     public static ExecutionResult success(Map<String, Object> output) {
         ExecutionResult result = new ExecutionResult();
         result.setStatus(ExecutionStatus.SUCCESS);

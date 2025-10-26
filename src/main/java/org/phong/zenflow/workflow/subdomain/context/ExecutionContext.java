@@ -39,7 +39,11 @@ public interface ExecutionContext {
 
     void setCurrentConfig(WorkflowConfig config);
 
-    void write(String key, Object value);
+    void write(String key, Object value, WriteOptions options);
+
+    default void write(String key, Object value) {
+        write(key, value, WriteOptions.DEFAULT);
+    }
 
     void remove(String key);
 

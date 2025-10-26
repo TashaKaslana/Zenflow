@@ -10,6 +10,7 @@ import org.phong.zenflow.workflow.subdomain.evaluator.functions.AviatorFunctionR
 import org.phong.zenflow.workflow.subdomain.evaluator.functions.string.StringContainsFunction;
 import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.UUID;
@@ -46,7 +47,7 @@ public class TestExecutionContextUtils {
         return context;
     }
 
-    public static ExecutionContext createExecutionContext(org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig config) {
+    public static ExecutionContext createExecutionContext(WorkflowConfig config) {
         ExecutionContext context = createExecutionContext();
         context.setCurrentConfig(config);
         return context;

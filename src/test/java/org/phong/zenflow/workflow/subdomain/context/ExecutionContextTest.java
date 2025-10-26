@@ -21,7 +21,8 @@ public class ExecutionContextTest {
         RuntimeContextManager manager = new RuntimeContextManager();
         UUID workflowId = UUID.randomUUID();
         UUID runId = UUID.randomUUID();
-        manager.assign(runId.toString(), new RuntimeContext());
+        RuntimeContext runtimeContext = new RuntimeContext();
+        manager.assign(runId.toString(), runtimeContext);
         ContextValueResolver resolver = new ContextValueResolver(new SystemLoadMonitor());
         ExecutionContext ctx = ExecutionContextImpl.builder()
                 .workflowId(workflowId)
@@ -39,10 +40,17 @@ public class ExecutionContextTest {
                 .contextValueResolver(resolver)
                 .build();
 
-        ctx.write("foo", "bar");
+        // Test using put() directly (bypass pending writes for unit test)
+        runtimeContext.put("foo", "bar");
         assertEquals("bar", ctx.read("foo", String.class));
         ctx.remove("foo");
         assertNull(ctx.read("foo", String.class));
+        
+        // Test pending writes pattern (as used by WorkflowEngineService)
+        ctx.write("test", "value");
+        assertNull(ctx.read("test", String.class)); // Not visible yet
+        runtimeContext.flushPendingWrites(); // Simulate what WorkflowEngineService does
+        assertEquals("value", ctx.read("test", String.class)); // Now visible
     }
 
     @Test

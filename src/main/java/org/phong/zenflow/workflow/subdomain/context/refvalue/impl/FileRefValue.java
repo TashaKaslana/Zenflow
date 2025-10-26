@@ -161,11 +161,26 @@ public class FileRefValue implements RefValue {
     }
     
     @Override
+    @SuppressWarnings("unchecked")
     public <T> T read(Class<T> targetType) throws IOException {
         if (released.get()) {
             throw new IOException("File has been released: " + filePath);
         }
         
+        // Handle text/plain as String (UTF-8)
+        if (mediaType != null && mediaType.startsWith("text/plain")) {
+            byte[] bytes = Files.readAllBytes(filePath);
+            String text = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+            if (targetType == Object.class || targetType == String.class) {
+                return (T) text;
+            }
+            // If requesting a different type, try to convert
+            if (targetType == byte[].class) {
+                return (T) bytes;
+            }
+        }
+        
+        // Handle JSON or other types with Jackson
         try (InputStream in = Files.newInputStream(filePath)) {
             return ObjectConversion.getObjectMapper().readValue(in, targetType);
         }

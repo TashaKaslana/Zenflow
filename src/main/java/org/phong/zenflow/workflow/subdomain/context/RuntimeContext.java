@@ -44,6 +44,11 @@ public class RuntimeContext {
     private final Map<String, Map<String, Set<String>>> pendingLoopCleanup = new ConcurrentHashMap<>();
     private final Set<String> activeLoops = new HashSet<>();
     
+    // Pending writes management for transactional context updates
+    private final Map<String, PendingWrite> pendingWrites = new HashMap<>();
+    
+    private record PendingWrite(Object value, WriteOptions options) {}
+    
     private final RuntimeContextRefValueSupport refValueSupport;
     
     /**
@@ -368,7 +373,10 @@ public class RuntimeContext {
      * @param key The key to remove
      */
     public void remove(String key) {
-        context.remove(key);
+        RefValue removed = context.remove(key);
+        if (removed != null) {
+            refValueSupport.releaseRefValue(key, removed);
+        }
         consumers.remove(key);
         pendingLoopCleanup.values().forEach(loopMap -> loopMap.remove(key));
         log.debug("Removed key '{}' from context and consumers", key);
@@ -378,6 +386,10 @@ public class RuntimeContext {
      * Clear all context data (useful for testing or cleanup)
      */
     public void clear() {
+        // Release all RefValues before clearing
+        for (Map.Entry<String, RefValue> entry : context.entrySet()) {
+            refValueSupport.releaseRefValue(entry.getKey(), entry.getValue());
+        }
         context.clear();
         consumers.clear();
         pendingLoopCleanup.clear();
@@ -473,5 +485,57 @@ public class RuntimeContext {
             this.endLoop(activeLoop);
             log.debug("Ended active loop '{}' due to error or validation failure", activeLoop);
         }
+    }
+
+    /**
+     * Write a value to the pending writes buffer with explicit options.
+     * The write will be staged until flushPendingWrites() is called.
+     * 
+     * @param key context key
+     * @param value value to write
+     * @param options storage options (mediaType, storage preference, auto-cleanup)
+     */
+    public void write(String key, Object value, WriteOptions options) {
+        pendingWrites.put(key, new PendingWrite(value, options));
+    }
+
+    /**
+     * Write a value to the pending writes buffer with default options.
+     * 
+     * @param key context key
+     * @param value value to write
+     */
+    public void write(String key, Object value) {
+        write(key, value, WriteOptions.DEFAULT);
+    }
+
+    /**
+     * Flush pending writes to RefValue storage.
+     * Called by WorkflowEngineService after successful execution.
+     */
+    public void flushPendingWrites() {
+        for (Map.Entry<String, PendingWrite> entry : pendingWrites.entrySet()) {
+            String key = entry.getKey();
+            PendingWrite pending = entry.getValue();
+            
+            // Create RefValue with explicit options
+            RefValue refValue = refValueSupport.createRefValue(
+                pending.value(),
+                pending.options().storage(),
+                pending.options().mediaType()
+            );
+            
+            // Store in context
+            context.put(key, refValue);
+        }
+        pendingWrites.clear();
+    }
+
+    /**
+     * Discard pending writes without persisting.
+     * Called by WorkflowEngineService on execution error.
+     */
+    public void clearPendingWrites() {
+        pendingWrites.clear();
     }
 }

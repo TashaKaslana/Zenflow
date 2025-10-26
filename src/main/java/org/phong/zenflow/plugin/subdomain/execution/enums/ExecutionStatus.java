@@ -23,4 +23,9 @@ public enum ExecutionStatus {
         }
         throw new IllegalArgumentException("Unknown execution status: " + status);
     }
+
+    public static boolean isSuccessful(ExecutionStatus status) {
+        return status == SUCCESS || status == NEXT || status == LOOP_NEXT || status == LOOP_END
+            || status == LOOP_CONTINUE || status == LOOP_BREAK || status == COMMIT || status == UNCOMMIT;
+    }
 }
