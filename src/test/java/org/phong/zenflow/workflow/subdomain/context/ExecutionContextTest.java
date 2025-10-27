@@ -9,6 +9,8 @@ import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.logging.core.LogEntry;
 
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.List;
 
@@ -21,8 +23,13 @@ public class ExecutionContextTest {
         RuntimeContextManager manager = new RuntimeContextManager();
         UUID workflowId = UUID.randomUUID();
         UUID runId = UUID.randomUUID();
+        String nodeKey = "node";
         RuntimeContext runtimeContext = new RuntimeContext();
         manager.assign(runId.toString(), runtimeContext);
+        runtimeContext.initialize(null, Map.of(
+                "node.output.foo", Set.of("node1"),
+                "node.output.test", Set.of("node1")
+        ), null);
         ContextValueResolver resolver = new ContextValueResolver(new SystemLoadMonitor());
         ExecutionContext ctx = ExecutionContextImpl.builder()
                 .workflowId(workflowId)
@@ -38,18 +45,21 @@ public class ExecutionContextTest {
                         .build())
                 .templateService(new TemplateService(new AviatorFunctionRegistry(List.of(new StringContainsFunction()))))
                 .contextValueResolver(resolver)
+                .nodeKey(nodeKey)
                 .build();
 
-        // Test using put() directly (bypass pending writes for unit test)
-        runtimeContext.put("foo", "bar");
-        assertEquals("bar", ctx.read("foo", String.class));
+        // Test write/read/remove pattern (as used by WorkflowEngineService)
+        ctx.write("foo", "bar");
+        assertNull(ctx.read("foo", String.class)); // Not visible yet
+        runtimeContext.flushPendingWrites(nodeKey); // Simulate what WorkflowEngineService does
+        assertEquals("bar", ctx.read("foo", String.class)); // Now visible
         ctx.remove("foo");
         assertNull(ctx.read("foo", String.class));
         
-        // Test pending writes pattern (as used by WorkflowEngineService)
+        // Test another write/flush cycle
         ctx.write("test", "value");
         assertNull(ctx.read("test", String.class)); // Not visible yet
-        runtimeContext.flushPendingWrites(); // Simulate what WorkflowEngineService does
+        runtimeContext.flushPendingWrites(nodeKey); // Simulate what WorkflowEngineService does
         assertEquals("value", ctx.read("test", String.class)); // Now visible
     }
 

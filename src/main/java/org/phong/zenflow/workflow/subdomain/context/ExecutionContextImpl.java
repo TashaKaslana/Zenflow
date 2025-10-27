@@ -68,6 +68,18 @@ public class ExecutionContextImpl implements ExecutionContext {
      * @throws ClassCastException       if the value cannot be cast to the specified type
      */
     public <T> T read(String key, Class<T> clazz) {
+        return read(key, clazz, ReadOptions.DEFAULT);
+    }
+    
+    /**
+     * Reads a value from the runtime context with configurable priority.
+     * 
+     * @param key the key to retrieve
+     * @param clazz the expected class type
+     * @param options read options controlling config vs context priority
+     * @return the value associated with the key, or null if not found
+     */
+    public <T> T read(String key, Class<T> clazz, ReadOptions options) {
         // Allow internal reads for allowlisted reserved keys used by the engine
         boolean isReserved = key.startsWith(ExecutionContextKey.PROHIBITED_KEY_PREFIX.key());
         boolean isWhitelisted = ExecutionContextKey.CALLBACK_URL.matches(key);
@@ -85,7 +97,8 @@ public class ExecutionContextImpl implements ExecutionContext {
                 currentConfig,
                 context,
                 templateService,
-                this
+                this,
+                options
         );
 
         if (value == null) {
@@ -260,5 +273,16 @@ public class ExecutionContextImpl implements ExecutionContext {
             ExecutionOutputEntry outputEntry = entry.getValue();
             context.write(outputEntry.key(), outputEntry.value(), outputEntry.writeOptions());
         }
+    }
+
+    @Override
+    public <T> T readOrDefault(String key, Class<T> clazz, T defaultValue) {
+        return readOrDefault(key, clazz, defaultValue, ReadOptions.DEFAULT);
+    }
+    
+    @Override
+    public <T> T readOrDefault(String key, Class<T> clazz, T defaultValue, ReadOptions options) {
+        T value = read(key, clazz, options);
+        return value != null ? value : defaultValue;
     }
 }

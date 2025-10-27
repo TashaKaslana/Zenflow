@@ -8,6 +8,7 @@ import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
+import org.phong.zenflow.workflow.subdomain.context.ReadOptions;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 
@@ -23,21 +24,25 @@ public class ForLoopExecutor implements NodeExecutor {
     public ExecutionResult execute(ExecutionContext context) {
         NodeLogPublisher logCollector = context.getLogPublisher();
 
-        // Read all parameters from context
         Object loopEndObj = context.read("loopEnd", Object.class);
-        List<String> loopEnd = ObjectConversion.safeConvert(loopEndObj, new TypeReference<List<String>>() {});
+        List<String> loopEnd = ObjectConversion.safeConvert(loopEndObj, new TypeReference<>() {
+        });
         Object nextObj = context.read("next", Object.class);
-        List<String> next = ObjectConversion.safeConvert(nextObj, new TypeReference<List<String>>() {});
+        List<String> next = ObjectConversion.safeConvert(nextObj, new TypeReference<>() {
+        });
         String breakCondition = context.read("breakCondition", String.class);
         String continueCondition = context.read("continueCondition", String.class);
         String endCondition = context.read("endCondition", String.class);
         Integer total = context.read("total", Integer.class);
         String updateExpression = context.read("updateExpression", String.class);
-        Integer index = context.read("index", Integer.class);
-        if (index == null) {
-            index = 0;
-        }
-
+        
+        Integer index = context.readOrDefault(
+            "index", 
+            Integer.class,
+            0, 
+            ReadOptions.PREFER_CONTEXT
+        );
+        
         // Write loop state to context for access by other nodes
         context.write("loopEnd", loopEnd);
         context.write("next", next);

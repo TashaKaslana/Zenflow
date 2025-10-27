@@ -22,8 +22,10 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class RuntimeContextRefValueIntegrationTest {
 
-    private RuntimeContext context;
+    private final String nodeKey = "node";
+    String prefix = nodeKey + ".output.";
     private RuntimeContextRefValueSupport support;
+    private RuntimeContext context;
 
     @BeforeEach
     void setUp() {
@@ -56,11 +58,7 @@ class RuntimeContextRefValueIntegrationTest {
     void testLargeJsonUsesJsonOrFileRefValue() {
         // Create a JSON object > 1MB
         Map<String, Object> largeJson = new HashMap<>();
-        StringBuilder largeString = new StringBuilder();
-        for (int i = 0; i < 100000; i++) {
-            largeString.append("This is a test string to make the payload large. ");
-        }
-        largeJson.put("data", largeString.toString());
+        largeJson.put("data", "This is a test string to make the payload large. ".repeat(100000));
         largeJson.put("index", 12345);
         largeJson.put("nested", Map.of("key1", "value1", "key2", "value2"));
 
@@ -266,30 +264,28 @@ class RuntimeContextRefValueIntegrationTest {
 
     @Test
     void testProcessOutputWithLargePayload() {
-        Map<String, Object> output = new HashMap<>();
-        output.put("small_result", "ok");
-        output.put("large_result", "R".repeat(2_000_000)); // 2MB
-
-        // Initialize with consumer for large result only
         context.initialize(
-            Map.of(),
-            Map.of("node1.large_result", Set.of("consumer1")),
-            Map.of()
+                Map.of(),
+                Map.of(prefix + "large_result", Set.of("consumer1")),
+                Map.of()
         );
 
+        context.write("small_result", "ok");
+        context.write("large_result", "R".repeat(2_000_000)); // 2MB
+
         // Process output
-        context.processOutputWithMetadata("node1", output);
+        context.flushPendingWrites(nodeKey);
 
         // Large result should be stored
-        RefValue ref = context.getRef("node1.large_result");
+        RefValue ref = context.getRef(prefix + "large_result");
         assertNotNull(ref);
         // Type depends on serialization, but it should be stored
 
         // Small result should not be stored (no consumers)
-        assertNull(context.get("node1.small_result"));
+        assertNull(context.get(prefix + "small_result"));
 
         // Verify we can retrieve large result
-        assertEquals("R".repeat(2_000_000), context.get("node1.large_result"));
+        assertEquals("R".repeat(2_000_000), context.get(prefix + "large_result"));
     }
 
     @Test
@@ -423,15 +419,17 @@ class RuntimeContextRefValueIntegrationTest {
     void testExplicitBase64WithWriteOptions() {
         // Create a simple base64 string
         String base64Data = "SGVsbG8gV29ybGQh"; // "Hello World!" in base64
-        
+        Map<String, Set<String>> consumers = Map.of(prefix + "encoded", Set.of("consumer1", "consumer2"));
+        context.initialize(null , consumers, null);
         // Use write() with explicit base64 media type
+
         context.write("encoded", base64Data, WriteOptions.base64());
-        context.flushPendingWrites();
+        context.flushPendingWrites(nodeKey);
         
         // Should be decoded to bytes
-        Object result = context.get("encoded");
+        Object result = context.get(prefix + "encoded");
         assertNotNull(result);
-        assertTrue(result instanceof byte[], "Should be decoded to byte array");
+        assertInstanceOf(byte[].class, result, "Should be decoded to byte array");
         
         // Verify the decoded content
         byte[] decoded = (byte[]) result;
@@ -441,6 +439,12 @@ class RuntimeContextRefValueIntegrationTest {
 
     @Test
     void testPendingWritesFlush() {
+        Map<String, Set<String>> consumers = Map.of(
+                prefix + "key1", Set.of("consumer1"),
+                prefix + "key2", Set.of("consumer1"),
+                prefix + "key3", Set.of("consumer1")
+        );
+        context.initialize(null , consumers, null);
         // Stage some writes
         context.write("key1", "value1");
         context.write("key2", 42);
@@ -452,12 +456,12 @@ class RuntimeContextRefValueIntegrationTest {
         assertNull(context.get("key3"));
         
         // Flush pending writes
-        context.flushPendingWrites();
-        
+        context.flushPendingWrites(nodeKey);
+
         // After flush, values should be accessible
-        assertEquals("value1", context.get("key1"));
-        assertEquals(42, context.get("key2"));
-        assertEquals(true, context.get("key3"));
+        assertEquals("value1", context.get(prefix + "key1"));
+        assertEquals(42, context.get(prefix + "key2"));
+        assertEquals(true, context.get(prefix + "key3"));
     }
 
     @Test
@@ -470,7 +474,7 @@ class RuntimeContextRefValueIntegrationTest {
         context.clearPendingWrites();
         
         // Try to flush (should be no-op)
-        context.flushPendingWrites();
+        context.flushPendingWrites(nodeKey);
         
         // Values should not be in context
         assertNull(context.get("key1"));

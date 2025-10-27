@@ -5,7 +5,11 @@ import org.mockito.ArgumentCaptor;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerEvent;
 import org.springframework.context.ApplicationEventPublisher;
 
+import com.github.dockerjava.api.command.AttachContainerCmd.Exec;
+
+import org.phong.zenflow.TestExecutionContextUtils;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.engine.event.NodeCommitEvent;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
@@ -16,6 +20,7 @@ import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -40,11 +45,30 @@ public class WorkflowNavigatorServiceTest {
                 "mode", "all",
                 "threshold", 1
         );
-        ExecutionResult result = ExecutionResult.uncommit(output);
+        Map<String, Set<String>> consumer = Map.of(
+                "waitingNodes", Set.of("A", "B"),
+                "mode", Set.of("A", "B"),
+                "threshold", Set.of("A", "B")
+        );
+        ExecutionContext context = TestExecutionContextUtils.createExecutionContext();
+        TestExecutionContextUtils.getCurrentRuntimeContext().initialize(
+                null, consumer, null
+        );
+        context.writeAll(output);
+        ExecutionResult result = ExecutionResult.uncommit();
+        TestExecutionContextUtils.flushPendingWrites(context);
 
         UUID workflowId = UUID.randomUUID();
         UUID runId = UUID.randomUUID();
-        service.handleExecutionResult(workflowId, runId, waitNode, result, new WorkflowNodes(), new RuntimeContext());
+        service.handleExecutionResult(
+            workflowId,
+            runId, 
+            waitNode, 
+            result, 
+            new WorkflowNodes(), 
+            TestExecutionContextUtils.getCurrentRuntimeContext(),
+            Map.of("waitingNodes", Map.of("A", false, "B", false), "mode", "all", "threshold", 2)
+        );
 
         service.onNodeCommit(new NodeCommitEvent(workflowId, runId, "A"));
         verify(publisher, never()).publishEvent(any());

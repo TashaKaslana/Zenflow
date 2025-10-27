@@ -16,6 +16,7 @@ import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.data.data_transform
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.data.data_transformer.interfaces.DataTransformer;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.data.data_transformer.registry.TransformerRegistry;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
+import org.phong.zenflow.workflow.subdomain.context.ReadOptions;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.worker.model.ExecutionTaskEnvelope;
 
@@ -73,7 +74,7 @@ class DataTransformerExecutorTest {
     @Mock
     private DataTransformer toJsonTransformer;
 
-    private ExecutionContext runtimeContext;
+    private ExecutionContext excutionContext;
 
     private DataTransformerExecutor executor;
 
@@ -125,8 +126,8 @@ class DataTransformerExecutorTest {
     @BeforeEach
     void setUp() {
         executor = new DataTransformerExecutor(registry);
-        runtimeContext = TestExecutionContextUtils.createExecutionContext();
-        runtimeContext.setNodeKey("data-transformer");
+        excutionContext = TestExecutionContextUtils.createExecutionContext();
+        excutionContext.setNodeKey("data-transformer");
         pipelineFactory = new ExecutorPipelineFactory(List.of(
                 new ExceptionDecoratorHandler()
         ));
@@ -152,13 +153,12 @@ class DataTransformerExecutorTest {
         when(registry.getTransformer("filter")).thenReturn(filterTransformer);
         when(filterTransformer.transform(data, params)).thenReturn(List.of(Map.of("value", 2)));
 
-        runtimeContext.setCurrentConfig(config);
+        excutionContext.setCurrentConfig(config);
 
-
-        ExecutionResult result = executor.execute(runtimeContext);
-        TestExecutionContextUtils.flushPendingWrites(runtimeContext);
+        ExecutionResult result = executor.execute(excutionContext);
+        TestExecutionContextUtils.flushPendingWrites(excutionContext);
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
-        assertEquals(List.of(Map.of("value", 2)), runtimeContext.read("result", List.class));
+        assertEquals(List.of(Map.of("value", 2)), excutionContext.read("result", List.class, ReadOptions.PREFER_CONTEXT));
     }
 
     @Test
@@ -187,14 +187,14 @@ class DataTransformerExecutorTest {
         when(uppercaseTransformer.transform("hello world", Map.of())).thenReturn("HELLO WORLD");
         when(concatTransformer.transform("HELLO WORLD", Map.of("suffix", "!"))).thenReturn("HELLO WORLD!");
 
-        runtimeContext.setCurrentConfig(config);
+        excutionContext.setCurrentConfig(config);
 
 
-        ExecutionResult result = executor.execute(runtimeContext);
-        TestExecutionContextUtils.flushPendingWrites(runtimeContext);
+        ExecutionResult result = executor.execute(excutionContext);
+        TestExecutionContextUtils.flushPendingWrites(excutionContext);
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
-        assertEquals("HELLO WORLD!", runtimeContext.read("result", String.class));
+        assertEquals("HELLO WORLD!", excutionContext.read("result", String.class, ReadOptions.PREFER_CONTEXT));
 
         // Verify pipeline execution order
         verify(trimTransformer).transform("  hello world  ", Map.of());
@@ -227,14 +227,13 @@ class DataTransformerExecutorTest {
         when(setFieldTransformer.transform(eq(afterFirstSet), any())).thenReturn(afterSecondSet);
         when(getFieldTransformer.transform(eq(afterSecondSet), any())).thenReturn("John");
 
-        runtimeContext.setCurrentConfig(config);
+        excutionContext.setCurrentConfig(config);
 
-
-        ExecutionResult result = executor.execute(runtimeContext);
-        TestExecutionContextUtils.flushPendingWrites(runtimeContext);
+        ExecutionResult result = executor.execute(excutionContext);
+        TestExecutionContextUtils.flushPendingWrites(excutionContext);
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
-        assertEquals("John", runtimeContext.read("result", String.class));
+        assertEquals("John", excutionContext.read("result", String.class, ReadOptions.PREFER_CONTEXT));
     }
 
     @Test
@@ -287,14 +286,14 @@ class DataTransformerExecutorTest {
         when(groupByTransformer.transform(eq(afterSort), any())).thenReturn(grouped);
         when(aggregateTransformer.transform(eq(grouped), any())).thenReturn(finalResult);
 
-        runtimeContext.setCurrentConfig(config);
+        excutionContext.setCurrentConfig(config);
 
 
-        ExecutionResult result = executor.execute(runtimeContext);
-        TestExecutionContextUtils.flushPendingWrites(runtimeContext);
+        ExecutionResult result = executor.execute(excutionContext);
+        TestExecutionContextUtils.flushPendingWrites(excutionContext);
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
-        assertEquals(finalResult, runtimeContext.read("result", List.class));
+        assertEquals(finalResult, excutionContext.read("result", List.class, ReadOptions.PREFER_CONTEXT));
     }
 
     // ===========================================
@@ -353,14 +352,14 @@ class DataTransformerExecutorTest {
         when(setFieldTransformer.transform(eq(afterFormatNumber), any())).thenReturn(afterSetField);
         when(toJsonTransformer.transform(eq(afterSetField), any())).thenReturn(jsonResult);
 
-        runtimeContext.setCurrentConfig(config);
+        excutionContext.setCurrentConfig(config);
 
 
-        ExecutionResult result = executor.execute(runtimeContext);
-        TestExecutionContextUtils.flushPendingWrites(runtimeContext);
+        ExecutionResult result = executor.execute(excutionContext);
+        TestExecutionContextUtils.flushPendingWrites(excutionContext);
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
-        assertEquals(jsonResult, runtimeContext.read("result", String.class));
+        assertEquals(jsonResult, excutionContext.read("result", String.class, ReadOptions.PREFER_CONTEXT));
     }
 
     // ===========================================
@@ -414,15 +413,15 @@ class DataTransformerExecutorTest {
         when(uppercaseTransformer.transform("bob", Map.of())).thenReturn("BOB");
         when(concatTransformer.transform("BOB", Map.of("suffix", " - Employee"))).thenReturn("BOB - Employee");
 
-        runtimeContext.setCurrentConfig(config);
+        excutionContext.setCurrentConfig(config);
 
 
-        ExecutionResult result = executor.execute(runtimeContext);
-        TestExecutionContextUtils.flushPendingWrites(runtimeContext);
+        ExecutionResult result = executor.execute(excutionContext);
+        TestExecutionContextUtils.flushPendingWrites(excutionContext);
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
         @SuppressWarnings("unchecked")
-        List<String> resultList = (List<String>) runtimeContext.read("result", List.class);
+        List<String> resultList = (List<String>) excutionContext.read("result", List.class, ReadOptions.PREFER_CONTEXT);
 
         assertEquals(3, resultList.size());
         assertEquals("JOHN - Employee", resultList.get(0));
@@ -490,14 +489,14 @@ class DataTransformerExecutorTest {
         });
         when(toJsonTransformer.transform(any(), any())).thenReturn(finalJson);
 
-        runtimeContext.setCurrentConfig(config);
+        excutionContext.setCurrentConfig(config);
 
 
-        ExecutionResult result = executor.execute(runtimeContext);
-        TestExecutionContextUtils.flushPendingWrites(runtimeContext);
+        ExecutionResult result = executor.execute(excutionContext);
+        TestExecutionContextUtils.flushPendingWrites(excutionContext);
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
-        assertEquals(finalJson, runtimeContext.read("result", String.class));
+        assertEquals(finalJson, excutionContext.read("result", String.class, ReadOptions.PREFER_CONTEXT));
 
         // Verify all transformers were called in sequence
         verify(filterTransformer, times(1)).transform(any(), any());
@@ -526,10 +525,10 @@ class DataTransformerExecutorTest {
 
     private ExecutionResult getExecutionResult(WorkflowConfig config) {
         try {
-            runtimeContext.setCurrentConfig(config);
+            excutionContext.setCurrentConfig(config);
             Callable<ExecutionResult> callable = pipelineFactory.build(new DataTransformerNode(executor).definition(), ExecutionTaskEnvelope.builder()
                     .config(config)
-                    .context(runtimeContext)
+                    .context(excutionContext)
                     .build());
             return callable.call();
         } catch (Exception e) {
@@ -592,14 +591,14 @@ class DataTransformerExecutorTest {
         when(registry.getTransformer("uppercase")).thenReturn(uppercaseTransformer);
         when(uppercaseTransformer.transform("hello world", Map.of())).thenReturn("HELLO WORLD");
 
-        runtimeContext.setCurrentConfig(config);
+        excutionContext.setCurrentConfig(config);
 
 
-        ExecutionResult result = executor.execute(runtimeContext);
-        TestExecutionContextUtils.flushPendingWrites(runtimeContext);
+        ExecutionResult result = executor.execute(excutionContext);
+        TestExecutionContextUtils.flushPendingWrites(excutionContext);
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
-        assertEquals("HELLO WORLD", runtimeContext.read("result", String.class));
+        assertEquals("HELLO WORLD", excutionContext.read("result", String.class, ReadOptions.PREFER_CONTEXT));
         verify(uppercaseTransformer).transform("hello world", Map.of());
     }
 
@@ -619,15 +618,15 @@ class DataTransformerExecutorTest {
         when(uppercaseTransformer.transform("world", Map.of())).thenReturn("WORLD");
         when(uppercaseTransformer.transform("test", Map.of())).thenReturn("TEST");
 
-        runtimeContext.setCurrentConfig(config);
+        excutionContext.setCurrentConfig(config);
 
 
-        ExecutionResult result = executor.execute(runtimeContext);
-        TestExecutionContextUtils.flushPendingWrites(runtimeContext);
+        ExecutionResult result = executor.execute(excutionContext);
+        TestExecutionContextUtils.flushPendingWrites(excutionContext);
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
         @SuppressWarnings("unchecked")
-        List<String> resultList = (List<String>) runtimeContext.read("result", List.class);
+        List<String> resultList = (List<String>) excutionContext.read("result", List.class, ReadOptions.PREFER_CONTEXT);
         assertEquals(Arrays.asList("HELLO", "WORLD", "TEST"), resultList);
     }
 }

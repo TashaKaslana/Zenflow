@@ -8,6 +8,7 @@ import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
+import org.phong.zenflow.workflow.subdomain.context.ReadOptions;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 
@@ -28,13 +29,20 @@ public class ForEachLoopExecutor implements NodeExecutor {
         if (items == null) {
             items = List.of();
         }
-        Integer indexAsInteger = context.read("index", Integer.class);
-        int index = indexAsInteger != null ? indexAsInteger : 0;
+        
+        Integer index = context.readOrDefault(
+            "index", 
+            Integer.class, 
+            0,
+            ReadOptions.PREFER_CONTEXT
+        );
 
         Object loopEndObj = context.read("loopEnd", Object.class);
-        List<String> loopEnd = ObjectConversion.safeConvert(loopEndObj, new TypeReference<List<String>>() {});
+        List<String> loopEnd = ObjectConversion.safeConvert(loopEndObj, new TypeReference<>() {
+        });
         Object nextObj = context.read("next", Object.class);
-        List<String> next = ObjectConversion.safeConvert(nextObj, new TypeReference<List<String>>() {});
+        List<String> next = ObjectConversion.safeConvert(nextObj, new TypeReference<>() {
+        });
         String breakCondition = context.read("breakCondition", String.class);
         String continueCondition = context.read("continueCondition", String.class);
 

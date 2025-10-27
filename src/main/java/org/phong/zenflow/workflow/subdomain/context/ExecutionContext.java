@@ -34,6 +34,12 @@ public interface ExecutionContext {
     void setScopedResource(ScopedNodeResource<?> resource);
 
     <T> T read(String key, Class<T> clazz);
+    
+    <T> T read(String key, Class<T> clazz, ReadOptions options);
+
+    <T> T readOrDefault(String key, Class<T> clazz, T defaultValue);
+    
+    <T> T readOrDefault(String key, Class<T> clazz, T defaultValue, ReadOptions options);
 
     boolean containsKey(String key);
 

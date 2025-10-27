@@ -2,11 +2,13 @@ package org.phong.zenflow.workflow.subdomain.context;
 
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
+import org.phong.zenflow.workflow.subdomain.context.common.ContextKeyResolver;
 import org.phong.zenflow.workflow.subdomain.context.refvalue.RefValue;
 import org.phong.zenflow.workflow.subdomain.context.refvalue.RuntimeContextRefValueSupport;
 import org.phong.zenflow.workflow.subdomain.context.refvalue.WriteOptions;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -512,24 +514,55 @@ public class RuntimeContext {
     }
 
     /**
+     * Get a copy of pending writes for DB history logging.
+     * Returns a snapshot of values before they are flushed to context storage.
+     * 
+     * @return immutable map of pending writes (key → value)
+     */
+    public Map<String, Object> getPendingWrites() {
+        if (pendingWrites.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<String, Object> snapshot = new HashMap<>();
+        for (Map.Entry<String, PendingWrite> entry : pendingWrites.entrySet()) {
+            snapshot.put(entry.getKey(), entry.getValue().value());
+        }
+        return Collections.unmodifiableMap(snapshot);
+    }
+
+    /**
      * Flush pending writes to RefValue storage.
      * Called by WorkflowEngineService after successful execution.
-     * Delegates to processOutputWithMetadata for consistent selective storage behavior.
+     * Stores pending write directly with their WriteOptions preserved.
+     * @param nodeKey All keys are normalizing through this nodeKey
      */
-    public void flushPendingWrites() {
-        if (pendingWrites == null || pendingWrites.isEmpty()) {
+    public void flushPendingWrites(String nodeKey) {
+        if (pendingWrites.isEmpty()) {
             return;
         }
         
         // Convert pending writes to Map and delegate to processOutputWithMetadata
         // This ensures consistent selective storage and automatic RefValue creation
-        Map<String, Object> outputMap = new HashMap<>();
         for (Map.Entry<String, PendingWrite> entry : pendingWrites.entrySet()) {
-            outputMap.put(entry.getKey(), entry.getValue().value());
+            String scopeKey = ContextKeyResolver.scopeKey(nodeKey, entry.getKey());
+            PendingWrite pending = entry.getValue();
+
+            // Check if this key has consumers (selective storage)
+            if (isConsumersEmpty(scopeKey)) {
+                log.debug("Skipping storage of '{}' as it has no registered consumers", scopeKey);
+                continue;
+            }
+
+            // Create RefValue with explicit WriteOptions
+            RefValue refValue = refValueSupport.createRefValue(
+                    pending.value(),
+                    pending.options().storage(),
+                    pending.options().mediaType()
+            );
+            context.put(scopeKey, refValue);
+            log.debug("Stored pending write '{}' with options: {}", scopeKey, pending.options());
         }
-        
-        // Use empty prefix since keys are already fully qualified
-        processOutputWithMetadata("", outputMap);
         
         pendingWrites.clear();
     }

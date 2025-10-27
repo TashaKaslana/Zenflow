@@ -111,7 +111,7 @@ public class RuntimeContextRefValueSupport {
         
         try {
             if (metrics != null) {
-                metrics.recordCleanupDuration(() -> refValue.onRelease());
+                metrics.recordCleanupDuration(refValue::onRelease);
             } else {
                 refValue.onRelease();
             }

@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.test.number_validator.NumberValidatorExecutor;
 import org.phong.zenflow.TestExecutionContextUtils;
+import org.phong.zenflow.workflow.subdomain.context.ReadOptions;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 
 import java.util.Map;
@@ -27,7 +28,7 @@ class NumberValidatorExecutorTest {
         TestExecutionContextUtils.flushPendingWrites(context);
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
-        assertTrue(context.read("valid", Boolean.class));
+        assertTrue(context.read("valid", Boolean.class, ReadOptions.PREFER_CONTEXT));
     }
 
     @Test
@@ -43,6 +44,6 @@ class NumberValidatorExecutorTest {
         TestExecutionContextUtils.flushPendingWrites(context);
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
-        assertFalse(context.read("valid", Boolean.class));
+        assertFalse(context.read("valid", Boolean.class, ReadOptions.PREFER_CONTEXT));
     }
 }

@@ -9,7 +9,9 @@ import lombok.NonNull;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContextKey;
+import org.phong.zenflow.workflow.subdomain.context.ReadOptions;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.common.ContextKeyResolver;
 import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.springframework.stereotype.Component;
@@ -136,16 +138,19 @@ public class ContextValueResolver {
                           WorkflowConfig currentConfig,
                           RuntimeContext runtimeContext,
                           TemplateService templateService,
-                          ExecutionContext executionContext) {
+                          ExecutionContext executionContext,
+                          ReadOptions options) {
+        if (options == ReadOptions.PREFER_CONTEXT && runtimeContext != null) {
+            return resolveFromRuntimeContext(nodeKey, key, runtimeContext, templateService, executionContext);
+        }
+        
         // Config lookup - cache if the value contains templates and meets criteria
         ConfigLookup lookup = lookupConfig(nodeKey, key, currentConfig);
         Object rawConfigValue = lookup.rawValue();
         String normalizedKey = lookup.normalizedKey();
 
         if (rawConfigValue == null) {
-            Object runtimeValue = resolveRuntimeValue(nodeKey, key, runtimeContext, templateService, executionContext);
-            maybeInvalidateIfNoConsumers(runtimeContext, workflowRunId, normalizedKey, key);
-            return runtimeValue;
+            return resolveFromRuntimeContext(nodeKey, key, runtimeContext, templateService, executionContext);
         }
 
         if (templateService.isTemplate(rawConfigValue.toString()) && workflowRunId != null) {
@@ -164,6 +169,17 @@ public class ContextValueResolver {
         } else {
             return rawConfigValue;
         }
+    }
+
+    public Object resolveFromRuntimeContext(String nodeKey,
+                                        String key,
+                                        RuntimeContext runtimeContext,
+                                        TemplateService templateService,
+                                        ExecutionContext executionContext) {
+        String scopeKey = ContextKeyResolver.scopeKey(nodeKey, key);
+        Object runtimeValue = resolveRuntimeValue(nodeKey, scopeKey, runtimeContext, templateService, executionContext);
+        maybeInvalidateIfNoConsumers(runtimeContext, executionContext.getWorkflowRunId(), scopeKey, key);
+        return runtimeValue;
     }
 
     /**
@@ -291,10 +307,10 @@ public class ContextValueResolver {
 
     private ConfigLookup lookupConfig(String nodeKey, String key, WorkflowConfig config) {
         if (key == null || key.isBlank() || config == null) {
-            return new ConfigLookup(normalizeKey(nodeKey, key), null);
+            return new ConfigLookup(ContextKeyResolver.normalizeKey(nodeKey, key), null);
         }
 
-        String normalizedKey = normalizeKey(nodeKey, key);
+        String normalizedKey = ContextKeyResolver.normalizeKey(nodeKey, key);
         if (normalizedKey == null || normalizedKey.isBlank()) {
             return new ConfigLookup(normalizedKey, null);
         }
@@ -334,36 +350,6 @@ public class ContextValueResolver {
             }
         }
         return current;
-    }
-
-    private String normalizeKey(String nodeKey, String key) {
-        if (key == null) {
-            return null;
-        }
-        String normalized = key.trim();
-        if (normalized.isEmpty()) {
-            return normalized;
-        }
-        if (normalized.startsWith(ExecutionContextKey.PROHIBITED_KEY_PREFIX.key())) {
-            return normalized;
-        }
-        if (nodeKey != null && !nodeKey.isBlank()) {
-            String prefix = nodeKey + ".";
-            if (normalized.startsWith(prefix)) {
-                normalized = normalized.substring(prefix.length());
-            }
-        }
-        normalized = stripPrefix(normalized, "config.input.");
-        normalized = stripPrefix(normalized, "config.");
-        normalized = stripPrefix(normalized, "input.");
-        return normalized;
-    }
-
-    private String stripPrefix(String value, String prefix) {
-        if (value == null || prefix == null) {
-            return value;
-        }
-        return value.startsWith(prefix) ? value.substring(prefix.length()) : value;
     }
 
     private int determineConsumerCount(RuntimeContext runtimeContext, String originalKey, String normalizedKey) {

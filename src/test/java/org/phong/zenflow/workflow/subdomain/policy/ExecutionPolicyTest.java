@@ -20,7 +20,6 @@ import org.phong.zenflow.workflow.subdomain.worker.policy.ExecutionPolicyResolve
 import org.phong.zenflow.workflow.subdomain.worker.policy.ResolvedExecutionPolicy;
 
 import java.time.Duration;
-import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -96,7 +95,7 @@ class ExecutionGatewayImplInterruptTest {
             if (attempt < 3) {
                 return ExecutionResult.retry("try again");
             }
-            return ExecutionResult.success(Collections.emptyMap());
+            return ExecutionResult.success();
         };
 
         ExecutionResult result = decorator.decorate(inner, null, envelope).call();
@@ -130,7 +129,7 @@ class ExecutionGatewayImplInterruptTest {
                 .pluginNodeId(UUID.randomUUID())
                 .build();
 
-        Callable<ExecutionResult> inner = () -> ExecutionResult.success(Collections.emptyMap());
+        Callable<ExecutionResult> inner = () -> ExecutionResult.success();
         Callable<ExecutionResult> decorated = decorator.decorate(inner, null, envelope);
 
         ExecutionResult first = decorated.call();

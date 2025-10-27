@@ -146,11 +146,12 @@ public class NodeExecutionService {
                                      UUID workflowRunId,
                                      BaseWorkflowNode workingNode,
                                      ExecutionResult result,
+                                     Map<String, Object> output,
                                      String callbackUrl) {
         switch (result.getStatus()) {
             case SUCCESS:
                 log.debug("Plugin node executed successfully: {}", workingNode.getKey());
-                completeNode(workflowRunId, workingNode.getKey(), NodeExecutionStatus.SUCCESS, result.getError(), result.getOutput());
+                completeNode(workflowRunId, workingNode.getKey(), NodeExecutionStatus.SUCCESS, result.getError(), output);
                 break;
             case ERROR:
                 // Implement intelligent retry logic for errors
@@ -168,7 +169,7 @@ public class NodeExecutionService {
                 } else {
                     log.error("Plugin node execution failed after {} attempts, marking as error: {}",
                             WorkflowRetrySchedule.MAX_RETRY_ATTEMPTS, workingNode.getKey());
-                    completeNode(workflowRunId, workingNode.getKey(), NodeExecutionStatus.ERROR, result.getError(), result.getOutput());
+                    completeNode(workflowRunId, workingNode.getKey(), NodeExecutionStatus.ERROR, result.getError(), output);
                 }
                 break;
             case WAITING:
@@ -188,7 +189,7 @@ public class NodeExecutionService {
                 break;
             case NEXT:
                 log.debug("Plugin node execution next: {}", workingNode.getKey());
-                completeNode(workflowRunId, workingNode.getKey(), NodeExecutionStatus.NEXT, result.getError(), result.getOutput());
+                completeNode(workflowRunId, workingNode.getKey(), NodeExecutionStatus.NEXT, result.getError(), output);
                 break;
             case VALIDATION_ERROR:
                 log.debug("Plugin node execution validation error: {}", workingNode.getKey());
@@ -196,20 +197,20 @@ public class NodeExecutionService {
                 break;
             case LOOP_NEXT:
                 log.debug("Plugin node execution loop next: {}", workingNode.getKey());
-                completeNode(workflowRunId, workingNode.getKey(), NodeExecutionStatus.LOOP_NEXT, result.getError(), result.getOutput());
+                completeNode(workflowRunId, workingNode.getKey(), NodeExecutionStatus.LOOP_NEXT, result.getError(), output);
                 break;
             case LOOP_END:
                 log.debug("Plugin node execution loop end: {}", workingNode.getKey());
                 completeNode(workflowRunId, workingNode.getKey(), NodeExecutionStatus.LOOP_END
-                        , result.getError(), result.getOutput());
+                        , result.getError(), output);
                 break;
             case LOOP_CONTINUE:
                 log.debug("Plugin node execution loop continue: {}", workingNode.getKey());
-                completeNode(workflowRunId, workingNode.getKey(), NodeExecutionStatus.LOOP_NEXT, result.getError(), result.getOutput());
+                completeNode(workflowRunId, workingNode.getKey(), NodeExecutionStatus.LOOP_NEXT, result.getError(), output);
                 break;
             case LOOP_BREAK:
                 log.debug("Plugin node execution loop break: {}", workingNode.getKey());
-                completeNode(workflowRunId, workingNode.getKey(), NodeExecutionStatus.LOOP_END, result.getError(), result.getOutput());
+                completeNode(workflowRunId, workingNode.getKey(), NodeExecutionStatus.LOOP_END, result.getError(), output);
                 break;
             default:
                 log.warn("Unknown status for plugin node execution: {}", result.getStatus());

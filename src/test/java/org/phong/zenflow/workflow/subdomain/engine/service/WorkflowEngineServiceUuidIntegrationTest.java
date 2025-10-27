@@ -80,6 +80,7 @@ class WorkflowEngineServiceUuidIntegrationTest {
     private UUID workflowRunId;
     private UUID testNodeId1;
     private UUID testNodeId2;
+    private final String nodeKey = "node";
 
     @BeforeEach
     void setUp() {
@@ -125,10 +126,18 @@ class WorkflowEngineServiceUuidIntegrationTest {
         when(workflowValidationService.validateRuntime(any(), any(), any(), any()))
                 .thenReturn(new ValidationResult("runtime", List.of()));
         when(executorDispatcher.dispatch(any(ExecutionTaskEnvelope.class)))
-                .thenReturn(ExecutionResult.success(Map.of("result", "success")));
-        when(workflowNavigatorService.handleExecutionResult(any(), any(), any(), any(), any(), any()))
+                .thenAnswer(invocation -> {
+                    runtimeContext.write("result", "success");
+                    return ExecutionResult.success();
+                });
+        
+        when(workflowNavigatorService.handleExecutionResult(any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(new WorkflowNavigatorService.ExecutionStepOutcome(null,
                         WorkflowExecutionStatus.COMPLETED));
+
+        doNothing().when(runtimeContext).write(anyString(), any());
+        when(runtimeContext.getPendingWrites()).thenReturn(Map.of("result", "success"));
+        doNothing().when(runtimeContext).flushPendingWrites(nodeKey);
 
         // Act
         var result = workflowEngineService.runWorkflow(workflow, workflowRunId, "node1", runtimeContext);
@@ -145,6 +154,7 @@ class WorkflowEngineServiceUuidIntegrationTest {
     void shouldProcessWorkflowContextWithUuidResolvedOutputs() {
         // Arrange
         PluginNodeIdentifier identifier = createPluginNodeIdentifier("data", "transformer", "1.5.0", testNodeId2);
+        String nodeKey = "transform-node";
         BaseWorkflowNode node = createWorkflowNode("transform-node", identifier);
 
         WorkflowDefinition definition = new WorkflowDefinition(new WorkflowNodes(List.of(node)), new WorkflowMetadata());
@@ -159,12 +169,19 @@ class WorkflowEngineServiceUuidIntegrationTest {
         when(workflowValidationService.validateRuntime(any(), any(), any(), any()))
                 .thenReturn(new ValidationResult("runtime", List.of()));
         when(executorDispatcher.dispatch(any(ExecutionTaskEnvelope.class)))
-                .thenReturn(ExecutionResult.success(expectedOutput));
-        when(workflowNavigatorService.handleExecutionResult(any(), any(), any(), any(), any(), any()))
+                .thenAnswer(invocation -> {
+                    // Simulate the executor writing output to context
+                    expectedOutput.forEach((key, value) -> runtimeContext.write(key, value));
+                    return ExecutionResult.success();
+                });
+        
+        when(workflowNavigatorService.handleExecutionResult(any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(new WorkflowNavigatorService.ExecutionStepOutcome(null,
                         WorkflowExecutionStatus.COMPLETED));
 
-        doNothing().when(runtimeContext).processOutputWithMetadata(anyString(), any());
+        doNothing().when(runtimeContext).write(anyString(), any());
+        when(runtimeContext.getPendingWrites()).thenReturn(expectedOutput);
+        doNothing().when(runtimeContext).flushPendingWrites(nodeKey);
 
         // Act
         var result = workflowEngineService.runWorkflow(workflow, workflowRunId, "transform-node", runtimeContext);
@@ -176,9 +193,11 @@ class WorkflowEngineServiceUuidIntegrationTest {
         verify(executorDispatcher).dispatch(envelopeCaptor.capture());
         assertEquals(testNodeId2.toString(), envelopeCaptor.getValue().getExecutorIdentifier());
         
-        verify(runtimeContext).processOutputWithMetadata(eq("transform-node.output"), eq(expectedOutput));
+        verify(runtimeContext, atLeastOnce()).write(anyString(), any());
+        verify(runtimeContext).getPendingWrites();
+        verify(runtimeContext).flushPendingWrites(nodeKey);
         verify(nodeExecutionService).startNode(workflowRunId, "transform-node");
-        verify(nodeExecutionService).resolveNodeExecution(eq(workflowId), eq(workflowRunId), eq(node), any(), isNull());
+        verify(nodeExecutionService).resolveNodeExecution(eq(workflowId), eq(workflowRunId), eq(node), any(), eq(expectedOutput), isNull());
     }
 
     private PluginNodeIdentifier createPluginNodeIdentifier(String pluginKey, String nodeKey, String version, UUID nodeId) {
