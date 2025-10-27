@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.workflow.subdomain.context.refvalue.*;
+import org.phong.zenflow.workflow.subdomain.context.refvalue.dto.RefValueType;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -111,7 +112,7 @@ public class JsonRefValue implements RefValue {
     }
     
     @Override
-    public InputStream openStream() throws IOException {
+    public InputStream openStream() {
         return new ByteArrayInputStream(serializedBytes);
     }
     
@@ -157,7 +158,7 @@ public class JsonRefValue implements RefValue {
         }
         
         @Override
-        public InputStream streamBytes() throws IOException {
+        public InputStream streamBytes() {
             return openStream();
         }
         

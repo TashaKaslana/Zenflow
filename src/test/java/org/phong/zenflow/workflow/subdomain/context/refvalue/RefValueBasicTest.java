@@ -3,6 +3,7 @@ package org.phong.zenflow.workflow.subdomain.context.refvalue;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.phong.zenflow.workflow.subdomain.context.refvalue.dto.RefValueType;
 import org.phong.zenflow.workflow.subdomain.context.refvalue.impl.FileRefValue;
 import org.phong.zenflow.workflow.subdomain.context.refvalue.impl.JsonRefValue;
 import org.phong.zenflow.workflow.subdomain.context.refvalue.impl.MemoryRefValue;

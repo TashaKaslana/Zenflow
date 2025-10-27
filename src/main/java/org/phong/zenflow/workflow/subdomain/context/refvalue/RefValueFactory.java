@@ -3,7 +3,8 @@ package org.phong.zenflow.workflow.subdomain.context.refvalue;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.phong.zenflow.core.utils.ObjectConversion;
+import org.phong.zenflow.workflow.subdomain.context.refvalue.common.ObjectStructureHelper;
+import org.phong.zenflow.workflow.subdomain.context.refvalue.dto.StoragePreference;
 import org.phong.zenflow.workflow.subdomain.context.refvalue.impl.FileRefValue;
 import org.phong.zenflow.workflow.subdomain.context.refvalue.impl.JsonRefValue;
 import org.phong.zenflow.workflow.subdomain.context.refvalue.impl.MemoryRefValue;
@@ -12,7 +13,6 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Base64;
-import java.util.Map;
 
 /**
  * Factory for creating RefValue instances with intelligent storage backend selection.
@@ -32,7 +32,7 @@ import java.util.Map;
 @Component
 @RequiredArgsConstructor
 public class RefValueFactory {
-    
+    private final static int fallbackSize = 1024;
     private final RefValueConfig config;
     
     /**
@@ -76,7 +76,7 @@ public class RefValueFactory {
             }
             
             // Estimate size for threshold decisions
-            long estimatedSize = estimateSize(value);
+            long estimatedSize = ObjectStructureHelper.estimateSize(value, fallbackSize);
             
             // Apply AUTO heuristics
             if (preference == StoragePreference.AUTO) {
@@ -146,7 +146,7 @@ public class RefValueFactory {
         }
         
         // JSON structures between 1-2MB use JsonRefValue for optimized access
-        if (isJsonStructure(value, mediaType)) {
+        if (ObjectStructureHelper.isJsonStructure(value, mediaType)) {
             if (estimatedSize > config.getMemoryThresholdBytes() && 
                 estimatedSize <= config.getJsonThresholdBytes()) {
                 return StoragePreference.JSON;
@@ -234,43 +234,5 @@ public class RefValueFactory {
         
         // Store all other values as JSON
         return FileRefValue.fromObject(value, targetDir, prefix);
-    }
-    
-    /**
-     * Estimates size of an object in bytes (rough approximation).
-     */
-    private long estimateSize(Object value) {
-        if (value == null) return 0;
-        if (value instanceof String s) return s.length() * 2L; // UTF-16
-        if (value instanceof byte[] b) return b.length;
-        if (value instanceof Number) return 8;
-        if (value instanceof Boolean) return 1;
-        
-        // For complex objects, serialize to estimate
-        try {
-            byte[] serialized = ObjectConversion.getObjectMapper().writeValueAsBytes(value);
-            return serialized.length;
-        } catch (Exception e) {
-            log.debug("Could not estimate size for {}, assuming small", value.getClass(), e);
-            return 1024; // Assume 1KB if estimation fails
-        }
-    }
-    
-    /**
-     * Checks if value is likely JSON-structured data.
-     */
-    private boolean isJsonStructure(Object value, String mediaType) {
-        if (mediaType != null && mediaType.contains("json")) {
-            return true;
-        }
-        if (value instanceof Map || value instanceof JsonNode) {
-            return true;
-        }
-        if (value instanceof String str) {
-            String trimmed = str.trim();
-            return (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
-                   (trimmed.startsWith("[") && trimmed.endsWith("]"));
-        }
-        return false;
     }
 }

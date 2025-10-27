@@ -2,7 +2,7 @@ package org.phong.zenflow.workflow.subdomain.context;
 
 import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
 import org.phong.zenflow.workflow.subdomain.context.refvalue.ExecutionOutputEntry;
-import org.phong.zenflow.workflow.subdomain.context.refvalue.WriteOptions;
+import org.phong.zenflow.workflow.subdomain.context.refvalue.dto.WriteOptions;
 import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;

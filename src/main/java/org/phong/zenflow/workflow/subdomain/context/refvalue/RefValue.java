@@ -1,5 +1,7 @@
 package org.phong.zenflow.workflow.subdomain.context.refvalue;
 
+import org.phong.zenflow.workflow.subdomain.context.refvalue.dto.RefValueType;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Optional;

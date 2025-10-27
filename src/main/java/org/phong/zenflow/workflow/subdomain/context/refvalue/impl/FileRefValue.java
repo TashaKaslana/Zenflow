@@ -1,9 +1,11 @@
 package org.phong.zenflow.workflow.subdomain.context.refvalue.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.workflow.subdomain.context.refvalue.*;
+import org.phong.zenflow.workflow.subdomain.context.refvalue.dto.RefValueType;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -33,7 +35,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 @Slf4j
 public class FileRefValue implements RefValue {
-    
+
+    /**
+     *  Gets the file path (for advanced use cases).
+     *  Caller must ensure the file hasn't been released.
+     */
+    @Getter
     private final Path filePath;
     private final String mediaType;
     private final long size;
@@ -226,17 +233,7 @@ public class FileRefValue implements RefValue {
             }
         }
     }
-    
-    /**
-     * Gets the file path (for advanced use cases).
-     * Caller must ensure the file hasn't been released.
-     * 
-     * @return path to the backing file
-     */
-    public Path getFilePath() {
-        return filePath;
-    }
-    
+
     /**
      * Checks if this RefValue has been released.
      * 

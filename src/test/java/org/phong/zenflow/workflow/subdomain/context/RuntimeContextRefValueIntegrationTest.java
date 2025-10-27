@@ -4,9 +4,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.phong.zenflow.workflow.subdomain.context.refvalue.RefValue;
-import org.phong.zenflow.workflow.subdomain.context.refvalue.RefValueType;
+import org.phong.zenflow.workflow.subdomain.context.refvalue.dto.RefValueType;
 import org.phong.zenflow.workflow.subdomain.context.refvalue.RuntimeContextRefValueSupport;
-import org.phong.zenflow.workflow.subdomain.context.refvalue.WriteOptions;
+import org.phong.zenflow.workflow.subdomain.context.refvalue.dto.WriteOptions;
 
 import java.io.InputStream;
 import java.util.HashMap;

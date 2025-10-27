@@ -1,11 +1,10 @@
 package org.phong.zenflow.workflow.subdomain.context;
 
 import lombok.extern.slf4j.Slf4j;
-import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.workflow.subdomain.context.common.ContextKeyResolver;
 import org.phong.zenflow.workflow.subdomain.context.refvalue.RefValue;
 import org.phong.zenflow.workflow.subdomain.context.refvalue.RuntimeContextRefValueSupport;
-import org.phong.zenflow.workflow.subdomain.context.refvalue.WriteOptions;
+import org.phong.zenflow.workflow.subdomain.context.refvalue.dto.WriteOptions;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -154,45 +153,6 @@ public class RuntimeContext {
 
     public boolean containsKey(String key) {
         return context.containsKey(key);
-    }
-
-    /**
-     * Process output according to consumer information already in the RuntimeContext.
-     * This is the most efficient approach as it only stores values that are
-     * actually needed by downstream nodes.
-     *
-     * @param outputKey The initial key of the node that produced the output
-     * @param output    The raw output values from execution
-     */
-    public void processOutputWithMetadata(String outputKey, Map<String, Object> output) {
-        if (output == null || output.isEmpty()) {
-            log.debug("No output to process for node '{}'.", outputKey);
-            return;
-        }
-
-        log.debug("Processing context-guided output for node '{}' with {} values", outputKey, output.size());
-
-        for (Map.Entry<String, Object> entry : output.entrySet()) {
-            String outputProperty = entry.getKey();
-            String currentOutputKey = outputKey.isEmpty() ? outputProperty : outputKey.concat(".").concat(outputProperty);
-            Object value = entry.getValue();
-
-            if (value instanceof Map<?, ?> map) {
-                processOutputWithMetadata(currentOutputKey, ObjectConversion.convertObjectToMap(map));
-            }
-
-            // Check if this output key has any consumers using the existing consumers map
-            if (isConsumersEmpty(currentOutputKey)) {
-                log.debug("Skipping storage of '{}' as it has no registered consumers", currentOutputKey);
-                continue;
-            }
-
-            // Store the value as it has consumers
-            RefValue refValue = refValueSupport.objectToRefValue(currentOutputKey, value);
-            context.put(currentOutputKey, refValue);
-            log.debug("Stored context-guided output '{}' with value type '{}' for remaining consumers: {}",
-                    currentOutputKey, value != null ? value.getClass().getSimpleName() : "null", getConsumerCount(currentOutputKey));
-        }
     }
 
     /**

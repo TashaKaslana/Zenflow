@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.workflow.subdomain.context.refvalue.*;
+import org.phong.zenflow.workflow.subdomain.context.refvalue.common.ObjectStructureHelper;
+import org.phong.zenflow.workflow.subdomain.context.refvalue.dto.RefValueType;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -25,6 +27,7 @@ import java.util.Optional;
  */
 @Slf4j
 public class MemoryRefValue implements RefValue {
+    private final static int fallbackSize = -1;
     
     private final Object value;
     private final String mediaType;
@@ -42,7 +45,7 @@ public class MemoryRefValue implements RefValue {
     public MemoryRefValue(Object value, String mediaType, RefValueMetrics metrics) {
         this.value = value;
         this.mediaType = mediaType;
-        this.estimatedSize = estimateSize(value);
+        this.estimatedSize = ObjectStructureHelper.estimateSize(value, fallbackSize);
         this.metrics = metrics;
         
         if (metrics != null) {
@@ -114,26 +117,7 @@ public class MemoryRefValue implements RefValue {
         }
         log.trace("Released memory RefValue (size: {} bytes)", estimatedSize);
     }
-    
-    /**
-     * Rough size estimation for monitoring purposes.
-     * Not precise, but good enough for threshold decisions.
-     */
-    private long estimateSize(Object obj) {
-        if (obj == null) return 0;
-        if (obj instanceof String s) return s.length() * 2L; // Rough UTF-16 estimate
-        if (obj instanceof byte[] b) return b.length;
-        if (obj instanceof Number) return 8;
-        if (obj instanceof Boolean) return 1;
-        // For complex objects, serialize to estimate
-        try {
-            return ObjectConversion.getObjectMapper().writeValueAsBytes(obj).length;
-        } catch (Exception e) {
-            log.debug("Could not estimate size for {}", obj.getClass(), e);
-            return -1;
-        }
-    }
-    
+
     /**
      * Access helper for memory values - provides direct object access.
      */
@@ -145,7 +129,7 @@ public class MemoryRefValue implements RefValue {
         }
         
         @Override
-        public JsonNode asJsonTree() throws IOException {
+        public JsonNode asJsonTree() {
             if (value == null) {
                 return ObjectConversion.getObjectMapper().nullNode();
             }
@@ -153,7 +137,7 @@ public class MemoryRefValue implements RefValue {
         }
         
         @Override
-        public JsonNode jsonAt(String pointer) throws IOException {
+        public JsonNode jsonAt(String pointer) {
             JsonNode tree = asJsonTree();
             return tree.at(pointer);
         }

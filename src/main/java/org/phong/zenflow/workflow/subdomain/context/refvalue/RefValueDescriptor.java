@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Builder;
 import lombok.Value;
+import org.phong.zenflow.workflow.subdomain.context.refvalue.dto.RefValueType;
 
 import java.io.Serializable;
 

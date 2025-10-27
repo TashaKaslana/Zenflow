@@ -1,4 +1,4 @@
-package org.phong.zenflow.workflow.subdomain.context.refvalue;
+package org.phong.zenflow.workflow.subdomain.context.refvalue.dto;
 
 /**
  * Hint for storage preference when creating a RefValue.

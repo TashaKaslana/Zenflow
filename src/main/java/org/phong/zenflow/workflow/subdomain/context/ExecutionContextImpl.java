@@ -12,7 +12,7 @@ import lombok.Setter;
 import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
 import org.phong.zenflow.secret.exception.SecretDomainException;
 import org.phong.zenflow.workflow.subdomain.context.refvalue.ExecutionOutputEntry;
-import org.phong.zenflow.workflow.subdomain.context.refvalue.WriteOptions;
+import org.phong.zenflow.workflow.subdomain.context.refvalue.dto.WriteOptions;
 import org.phong.zenflow.workflow.subdomain.context.resolution.ContextValueResolver;
 import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
