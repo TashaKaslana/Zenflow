@@ -189,12 +189,11 @@ class DataTransformerExecutorTest {
 
         excutionContext.setCurrentConfig(config);
 
-
         ExecutionResult result = executor.execute(excutionContext);
         TestExecutionContextUtils.flushPendingWrites(excutionContext);
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
-        assertEquals("HELLO WORLD!", excutionContext.read("result", String.class, ReadOptions.PREFER_CONTEXT));
+        assertEquals("HELLO WORLD!", excutionContext.read("result", String.class));
 
         // Verify pipeline execution order
         verify(trimTransformer).transform("  hello world  ", Map.of());

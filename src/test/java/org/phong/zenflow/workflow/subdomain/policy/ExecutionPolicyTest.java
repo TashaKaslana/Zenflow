@@ -12,6 +12,7 @@ import org.phong.zenflow.plugin.subdomain.node.definition.decorator.handler.poli
 import org.phong.zenflow.plugin.subdomain.node.definition.decorator.handler.policy.RetryPolicyHandler;
 import org.phong.zenflow.plugin.subdomain.node.definition.decorator.handler.policy.TimeoutPolicyHandler;
 import org.phong.zenflow.plugin.subdomain.node.definition.policy.NodeExecutionPolicy;
+import org.phong.zenflow.workflow.subdomain.context.RuntimeContextManager;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.worker.ExecutionTaskRegistry;
 import org.phong.zenflow.workflow.subdomain.worker.gateway.ExecutionGatewayImpl;
@@ -77,8 +78,10 @@ class ExecutionGatewayImplInterruptTest {
         Mockito.when(resolver.resolve(Mockito.any(), Mockito.any()))
                 .thenReturn(policy);
 
+        RuntimeContextManager contextManager = Mockito.mock(RuntimeContextManager.class);
+        
         ResiliencePolicyDecorator decorator = new ResiliencePolicyDecorator(resolver, List.of(
-                new RetryPolicyHandler()
+                new RetryPolicyHandler(contextManager)
         ));
 
         ExecutionTaskEnvelope envelope = ExecutionTaskEnvelope.builder()
@@ -142,9 +145,11 @@ class ExecutionGatewayImplInterruptTest {
     }
 
     private static @NotNull ExecutionGatewayImpl getExecutionGateway(ExecutionPolicyResolver resolver, ExecutorService decoratorExecutor, ExecutorService taskExecutor) {
+        RuntimeContextManager contextManager = Mockito.mock(RuntimeContextManager.class);
+        
         ResiliencePolicyDecorator decorator = new ResiliencePolicyDecorator(resolver, List.of(
                 new RateLimitPolicyHandler(),
-                new RetryPolicyHandler(),
+                new RetryPolicyHandler(contextManager),
                 new TimeoutPolicyHandler(decoratorExecutor)
         ));
 

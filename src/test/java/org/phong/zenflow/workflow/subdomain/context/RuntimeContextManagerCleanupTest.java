@@ -236,4 +236,62 @@ class RuntimeContextManagerCleanupTest {
         long fileCountAfter = Files.list(tempDir).count();
         assertEquals(0, fileCountAfter, "Expected pending write RefValue to be cleaned up");
     }
+
+    @Test
+    @DisplayName("Should cleanup pending writes with RefValues on clearPendingWrites() for retry scenarios")
+    void shouldCleanupPendingWritesOnClearPendingWritesForRetry() throws Exception {
+        // Given: Context with pending write containing RefValue (simulating retry scenario)
+        String workflowRunId = "test-workflow-run-7";
+        RuntimeContext context = contextManager.getOrCreate(workflowRunId);
+        
+        // Initialize with consumers
+        context.initialize(Map.of(), Map.of("test-node.output.data", Set.of("consumer")), Map.of());
+        
+        // Create large data
+        byte[] largeData = new byte[2 * 1024 * 1024]; // 2MB
+        for (int i = 0; i < largeData.length; i++) {
+            largeData[i] = (byte) (i % 256);
+        }
+        
+        // First attempt: Write data via streaming
+        ByteArrayInputStream inputStream1 = new ByteArrayInputStream(largeData);
+        PayloadMetadata metadata = PayloadMetadata.forceFile();
+        WriteOptions options = new WriteOptions(
+                metadata.mediaType(),
+                metadata.storagePreference(),
+                true
+        );
+        context.writeStream("data", inputStream1, options);
+        
+        // Verify file was created
+        long fileCountAfterFirstWrite = Files.list(tempDir).count();
+        assertEquals(1, fileCountAfterFirstWrite, "Expected 1 temp file after first write");
+        
+        // When: Execution fails and clearPendingWrites() is called (before retry)
+        context.clearPendingWrites();
+        
+        // Then: Temp file should be deleted
+        long fileCountAfterClear = Files.list(tempDir).count();
+        assertEquals(0, fileCountAfterClear, "Expected temp file to be cleaned up after clearPendingWrites()");
+        
+        // Retry attempt: Write new data
+        ByteArrayInputStream inputStream2 = new ByteArrayInputStream(largeData);
+        context.writeStream("data", inputStream2, options);
+        
+        // Verify new file was created
+        long fileCountAfterRetryWrite = Files.list(tempDir).count();
+        assertEquals(1, fileCountAfterRetryWrite, "Expected 1 temp file after retry write");
+        
+        // When: Retry succeeds and flush is called
+        context.flushPendingWrites("test-node");
+        
+        // Then: File should still exist (moved to context)
+        long fileCountAfterFlush = Files.list(tempDir).count();
+        assertEquals(1, fileCountAfterFlush, "Expected 1 temp file to remain after successful flush");
+        
+        // Final cleanup
+        contextManager.remove(workflowRunId);
+        long fileCountAfterRemove = Files.list(tempDir).count();
+        assertEquals(0, fileCountAfterRemove, "Expected all temp files cleaned up after remove");
+    }
 }

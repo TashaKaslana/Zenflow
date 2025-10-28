@@ -147,14 +147,14 @@ public class RuntimeContext {
      * 
      * @param key the context key to stream
      * @return InputStream over the value's raw bytes
-     * @throws java.io.IOException if the stream cannot be opened or the value doesn't exist
+     * @throws IOException if the stream cannot be opened or the value doesn't exist
      */
-    public java.io.InputStream openStream(String key) throws java.io.IOException {
+    public InputStream openStream(String key) throws IOException {
         String resolvedKey = aliases.getOrDefault(key, key);
         RefValue refValue = context.get(resolvedKey);
         
         if (refValue == null) {
-            throw new java.io.IOException("Value not found for key: " + key);
+            throw new IOException("Value not found for key: " + key);
         }
         
         return refValue.openStream();
@@ -622,9 +622,16 @@ public class RuntimeContext {
 
     /**
      * Discard pending writes without persisting.
-     * Called by WorkflowEngineService on execution error.
+     * Called by WorkflowEngineService on execution error or before retry.
+     * Releases any RefValue resources in pending writes.
      */
     public void clearPendingWrites() {
+        // Release all RefValues in pending writes before clearing
+        for (Map.Entry<String, PendingWrite> entry : pendingWrites.entrySet()) {
+            if (entry.getValue().value() instanceof RefValue refValue) {
+                refValueSupport.releaseRefValue(entry.getKey(), refValue);
+            }
+        }
         pendingWrites.clear();
     }
 }
