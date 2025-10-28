@@ -86,17 +86,19 @@ public class RemoteNodeExecutor implements NodeExecutor {
             return httpResult;
         }
 
-        Map<String, Object> httpOutput = httpResult.getOutput();
-        Object remoteResponseBody = httpOutput.get("body");
+        // HttpRequestExecutor now writes to context, so read from there
+        Object remoteResponseBody = context.read("body", Object.class);
 
         try {
             if (remoteResponseBody instanceof Map && ((Map<?, ?>) remoteResponseBody).containsKey("status")) {
                 return ObjectConversion.safeConvert(remoteResponseBody, ExecutionResult.class);
             } else {
-                return ExecutionResult.success(Map.of("response", remoteResponseBody));
+                context.write("response", remoteResponseBody);
+                return ExecutionResult.success();
             }
         } catch (Exception e) {
-            return ExecutionResult.success(Map.of("response", remoteResponseBody));
+            context.write("response", remoteResponseBody);
+            return ExecutionResult.success();
         }
     }
 }

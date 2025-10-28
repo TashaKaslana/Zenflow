@@ -10,9 +10,7 @@ import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Slf4j
 @Component
@@ -40,14 +38,13 @@ public class GoogleDriveCopyExecutor implements NodeExecutor {
                 .setFields("id,name,mimeType,size,parents,webViewLink")
                 .execute();
 
-        Map<String, Object> output = new HashMap<>();
-        output.put("id", copied.getId());
-        output.put("name", copied.getName());
-        output.put("mimeType", copied.getMimeType());
-        output.put("size", copied.getSize());
-        output.put("parents", copied.getParents());
-        output.put("webViewLink", copied.getWebViewLink());
-        return ExecutionResult.success(output);
+        context.write("id", copied.getId());
+        context.write("name", copied.getName());
+        context.write("mimeType", copied.getMimeType());
+        context.write("size", copied.getSize());
+        context.write("parents", copied.getParents());
+        context.write("webViewLink", copied.getWebViewLink());
+        return ExecutionResult.success();
     }
 }
 

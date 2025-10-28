@@ -16,6 +16,7 @@ import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.evaluator.functions.AviatorFunctionRegistry;
 import org.phong.zenflow.workflow.subdomain.evaluator.functions.string.StringContainsFunction;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
+import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.TestExecutionContextUtils;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +26,7 @@ import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.phong.zenflow.workflow.subdomain.context.ReadOptions.PREFER_CONTEXT;
 
 @SpringJUnitConfig(classes = {
         ForLoopExecutor.class,
@@ -43,6 +45,11 @@ class WorkflowExecutionSampleTest {
 
     @Autowired
     private ApplicationContext applicationContext;
+
+    String loopKey = "loop";
+    String placeholderKey = "placeholder";
+    String ifKey = "if";
+    String switchKey = "switch";
 
     @BeforeEach
     void setUp() {
@@ -100,6 +107,7 @@ class WorkflowExecutionSampleTest {
                 "test:placeholder:1.0.0"
         );
 
+
         Map<String, Object> loopParams = new HashMap<>();
         loopParams.put("index", 0);
         loopParams.put("total", 3);
@@ -107,18 +115,35 @@ class WorkflowExecutionSampleTest {
         loopParams.put("next", List.of("test:placeholder:1.0.0"));
         loopParams.put("loopEnd", List.of("core:flow.branch.if:1.0.0"));
 
-        Map<String, Object> lastOutput = Map.of();
         int executed = 0;
+        boolean inLoop = false;
+        int indexCountResult = -1;
+        RuntimeContext runtimeContext = TestExecutionContextUtils.getCurrentRuntimeContext();
 
         for (String key : nodeKeys) {
             // Use the key directly as it should now be a UUID string after our refactoring
             // If we have composite keys, we need to handle the conversion properly
             NodeDefinition definition = registry.getDefinition(key).orElseThrow();
             NodeExecutor executor = definition.getNodeExecutor();
+            
+            // Set node key for proper scoping
+            String nodeKey = getNodeKey(key);
+            context.setNodeKey(nodeKey);
+            
+            // Start loop if this is a loop node
+            if (loopKey.equals(nodeKey) && !inLoop) {
+                runtimeContext.startLoop(loopKey);
+                inLoop = true;
+            }
+            
             WorkflowConfig config;
             switch (key) {
                 case "core:flow.loop.for:1.0.0" -> config = new WorkflowConfig(new HashMap<>(loopParams), Map.of());
-                case "test:placeholder:1.0.0" -> config = new WorkflowConfig(Map.of("index", loopParams.get("index")), Map.of());
+                case "test:placeholder:1.0.0" -> {
+                    // Read current index from context for placeholder node
+                    Integer currentIndex = context.read("index", Integer.class);
+                    config = new WorkflowConfig(Map.of("index", currentIndex != null ? currentIndex : 0), Map.of());
+                }
                 case "core:flow.branch.if:1.0.0" -> config = new WorkflowConfig(Map.of(
                         "condition", "index == 3",
                         "next_true", List.of("core:flow.branch.switch:1.0.0"),
@@ -138,22 +163,40 @@ class WorkflowExecutionSampleTest {
             try {
                 context.setCurrentConfig(config);
                 result = executor.execute(context);
+                TestExecutionContextUtils.flushPendingWrites(context);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
             switch (key) {
                 case "core:flow.loop.for:1.0.0" -> {
                     assertTrue(result.getStatus() == ExecutionStatus.LOOP_NEXT || result.getStatus() == ExecutionStatus.LOOP_END);
-                    loopParams.put("index", result.getOutput().get("index"));
+                    // End loop when we get LOOP_END status
+                    if (result.getStatus() == ExecutionStatus.LOOP_END) {
+                        indexCountResult = context.read("index", Integer.class, PREFER_CONTEXT);
+                        runtimeContext.endLoop(loopKey);
+                        inLoop = false;
+                    }
                 }
                 case "test:placeholder:1.0.0" -> assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
                 default -> assertEquals(ExecutionStatus.NEXT, result.getStatus());
             }
-            lastOutput = result.getOutput();
             executed++;
         }
 
         assertEquals(10, executed);
-        assertEquals(3, lastOutput.get("index"));
+        // Check final index from the last loop executor's scoped context
+        context.setNodeKey(getNodeKey("core:flow.loop.for:1.0.0"));
+        assertEquals(3, indexCountResult);
+    }
+
+    private String getNodeKey(String executorKey) {
+        return switch (executorKey) {
+            case "core:flow.branch.if:1.0.0" -> ifKey;
+            case "core:flow.branch.switch:1.0.0" -> switchKey;
+            case "core:flow.loop.for:1.0.0" -> loopKey;
+            case "test:placeholder:1.0.0" -> placeholderKey;
+
+            default -> null;
+        };
     }
 }

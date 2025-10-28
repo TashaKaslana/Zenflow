@@ -6,6 +6,7 @@ import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.wait.WaitExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.TestExecutionContextUtils;
+import org.phong.zenflow.workflow.subdomain.context.ReadOptions;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 
 import java.util.HashMap;
@@ -30,9 +31,10 @@ class WaitExecutorTest {
 
 
         ExecutionResult result = executor.execute(context);
+        TestExecutionContextUtils.flushPendingWrites(context);
 
         assertEquals(ExecutionStatus.COMMIT, result.getStatus());
-        assertTrue((Boolean) result.getOutput().get("isReady"));
+        assertTrue(context.read("isReady", Boolean.class, ReadOptions.PREFER_CONTEXT));
     }
 
     @Test
@@ -46,14 +48,13 @@ class WaitExecutorTest {
 
         context.setCurrentConfig(config);
 
-
         ExecutionResult first = executor.execute(context);
+        TestExecutionContextUtils.flushPendingWrites(context); // Flush timer key
         assertEquals(ExecutionStatus.UNCOMMIT, first.getStatus());
 
         Thread.sleep(150);
 
         context.setCurrentConfig(config);
-
 
         ExecutionResult second = executor.execute(context);
         assertEquals(ExecutionStatus.ERROR, second.getStatus());

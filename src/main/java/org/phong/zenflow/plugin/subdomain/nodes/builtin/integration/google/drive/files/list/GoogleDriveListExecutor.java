@@ -10,8 +10,6 @@ import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
 
 @Slf4j
 @Component
@@ -33,8 +31,7 @@ public class GoogleDriveListExecutor implements NodeExecutor {
                 .setFields("files(id, name)")
                 .execute();
 
-        Map<String, Object> output = new HashMap<>();
-        output.put("files", result.getFiles());
-        return ExecutionResult.success(output);
+        context.write("files", result.getFiles());
+        return ExecutionResult.success();
     }
 }

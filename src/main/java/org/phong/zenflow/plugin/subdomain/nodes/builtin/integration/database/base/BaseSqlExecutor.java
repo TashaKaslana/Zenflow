@@ -3,6 +3,7 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.ba
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.exceptions.ExecutorException;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.database.base.dto.ResolvedDbConfig;
+import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 
@@ -28,11 +29,11 @@ public class BaseSqlExecutor {
         Map<String, Object> process(Map<String, Object> result, ResolvedDbConfig config, NodeLogPublisher log);
     }
 
-    public ExecutionResult execute(ResolvedDbConfig config, NodeLogPublisher nodeLog) {
-        return execute(config, nodeLog, null, null);
+    public ExecutionResult execute(ExecutionContext context, ResolvedDbConfig config, NodeLogPublisher nodeLog) {
+        return execute(context, config, nodeLog, null, null);
     }
 
-    public ExecutionResult execute(ResolvedDbConfig config, NodeLogPublisher nodeLog,
+    public ExecutionResult execute(ExecutionContext context, ResolvedDbConfig config, NodeLogPublisher nodeLog,
                                    ParameterBinder parameterBinder, ResultProcessor resultProcessor) {
         try {
             nodeLog.info("Executing {} query with config: {}", config.getDriver(), config);
@@ -42,7 +43,9 @@ public class BaseSqlExecutor {
                 result = resultProcessor.process(result, config, nodeLog);
             }
 
-            return ExecutionResult.success(result);
+            context.writeAll(result);
+
+            return ExecutionResult.success();
         } catch (Exception e) {
             nodeLog.withException(e).error("Error executing {} query: {}", config.getDriver(), e.getMessage());
             throw new ExecutorException("Execution error: " + e.getMessage());

@@ -3,11 +3,21 @@ package org.phong.zenflow.workflow.subdomain.context;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 @Component
+@Slf4j
 public class RuntimeContextManager {
-    private final Cache<@NonNull String, RuntimeContext> cache = Caffeine.newBuilder().build();
+    private final Cache<@NonNull String, RuntimeContext> cache = Caffeine.newBuilder()
+            .removalListener((key, value, cause) -> {
+                // Clean up RefValue resources when cache entry is evicted
+                if (value instanceof RuntimeContext context) {
+                    log.debug("Cleaning up RuntimeContext for key: {} (cause: {})", key, cause);
+                    context.clear();
+                }
+            })
+            .build();
 
     /**
      * Retrieves the {@link RuntimeContext} associated with the given key from the cache.
@@ -21,11 +31,22 @@ public class RuntimeContextManager {
     }
 
     public void invalidate(String key) {
+        RuntimeContext context = cache.asMap().get(key);
+        if (context != null) {
+            // Clean up all RefValue resources before invalidating
+            context.clear();
+        }
         cache.invalidate(key);
+        // Force synchronous cleanup of removal listener
+        cache.cleanUp();
     }
 
     public void invalidateAll() {
+        // Clean up all contexts before invalidating
+        cache.asMap().values().forEach(RuntimeContext::clear);
         cache.invalidateAll();
+        // Force synchronous cleanup of removal listener
+        cache.cleanUp();
     }
 
     public RuntimeContext assign(String key, RuntimeContext context) {
@@ -34,6 +55,11 @@ public class RuntimeContextManager {
     }
 
     public RuntimeContext remove(String key) {
+        RuntimeContext context = cache.asMap().get(key);
+        if (context != null) {
+            // Clean up all RefValue resources before removing from cache
+            context.clear();
+        }
         return cache.asMap().remove(key);
     }
 

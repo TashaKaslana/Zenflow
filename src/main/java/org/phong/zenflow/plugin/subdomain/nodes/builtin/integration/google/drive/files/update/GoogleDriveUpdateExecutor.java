@@ -12,8 +12,6 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Updates metadata or content of a file in Google Drive.
@@ -52,8 +50,7 @@ public class GoogleDriveUpdateExecutor implements NodeExecutor {
                 .setFields("id, name, mimeType, description, size, modifiedTime")
                 .execute();
 
-        Map<String, Object> output = new HashMap<>();
-        output.put("file", updated);
-        return ExecutionResult.success(output);
+        context.write("file", updated);
+        return ExecutionResult.success();
     }
 }

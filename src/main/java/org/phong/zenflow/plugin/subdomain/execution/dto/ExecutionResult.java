@@ -8,7 +8,6 @@ import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionError;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
 
-import java.util.Map;
 
 @AllArgsConstructor
 @Data
@@ -19,14 +18,12 @@ public class ExecutionResult {
     private ExecutionError errorType;
     private String errorLabel;
     private String error;
-    private Map<String, Object> output;
     private String nextNodeKey;
     private ValidationResult validationResult;
 
-    public static ExecutionResult success(Map<String, Object> output) {
+    public static ExecutionResult success() {
         ExecutionResult result = new ExecutionResult();
         result.setStatus(ExecutionStatus.SUCCESS);
-        result.setOutput(output);
         return result;
     }
 
@@ -80,13 +77,6 @@ public class ExecutionResult {
         ExecutionResult result = new ExecutionResult();
         result.setStatus(ExecutionStatus.NEXT);
         result.setNextNodeKey(nextNodeKey);
-        result.setOutput(null);
-        return result;
-    }
-
-    public static ExecutionResult nextNode(String nextNodeKey, Map<String, Object> output) {
-        ExecutionResult result = nextNode(nextNodeKey);
-        result.setOutput(output);
         return result;
     }
 
@@ -98,51 +88,42 @@ public class ExecutionResult {
         return result;
     }
 
-    public static ExecutionResult loopNext(String nextNode, Map<String, Object> output) {
+    public static ExecutionResult loopNext(String nextNode) {
         ExecutionResult result = new ExecutionResult();
         result.setStatus(ExecutionStatus.LOOP_NEXT);
         result.setNextNodeKey(nextNode);
-        result.setOutput(output);
-        return result;
-    }
-
-    public static ExecutionResult loopEnd(String loopEndNode, Map<String, Object> output) {
-        ExecutionResult result = new ExecutionResult();
-        result.setStatus(ExecutionStatus.LOOP_END);
-        result.setNextNodeKey(loopEndNode);
-        result.setOutput(output);
         return result;
     }
 
     public static ExecutionResult loopEnd(String loopEndNode) {
-        return ExecutionResult.loopEnd(loopEndNode, null);
-    }
-
-    public static ExecutionResult loopContinue(Map<String, Object> output) {
         ExecutionResult result = new ExecutionResult();
-        result.setStatus(ExecutionStatus.LOOP_CONTINUE);
-        result.setOutput(output);
+        result.setStatus(ExecutionStatus.LOOP_END);
+        result.setNextNodeKey(loopEndNode);
         return result;
     }
-    public static ExecutionResult loopBreak(String nextNode, Map<String, Object> output) {
+
+    public static ExecutionResult loopContinue() {
+        ExecutionResult result = new ExecutionResult();
+        result.setStatus(ExecutionStatus.LOOP_CONTINUE);
+        return result;
+    }
+
+    public static ExecutionResult loopBreak(String nextNode) {
         ExecutionResult result = new ExecutionResult();
         result.setStatus(ExecutionStatus.LOOP_BREAK);
         result.setNextNodeKey(nextNode);
-        result.setOutput(output);
         return result;
-    }
+    }   
 
-    public static ExecutionResult commit(Map<String, Object> output) {
+    public static ExecutionResult commit() {
         ExecutionResult result = new ExecutionResult();
         result.setStatus(ExecutionStatus.COMMIT);
-        result.setOutput(output);
         return result;
     }
 
-    public static ExecutionResult uncommit(Map<String, Object> output) {
+    public static ExecutionResult uncommit() {
         ExecutionResult result = new ExecutionResult();
         result.setStatus(ExecutionStatus.UNCOMMIT);
-        result.setOutput(output);
         return result;
     }
 

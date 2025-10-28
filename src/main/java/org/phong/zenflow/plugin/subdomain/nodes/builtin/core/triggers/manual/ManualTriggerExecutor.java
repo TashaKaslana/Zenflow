@@ -47,20 +47,19 @@ public class ManualTriggerExecutor implements TriggerExecutor {
 
         Object payload = context.read("payload", Object.class);
 
-        Map<String, Object> output = new HashMap<>();
-        output.put("trigger_type", "manual");
-        output.put("triggered_at", OffsetDateTime.now().toString());
-        output.put("trigger_source", "manual_execution");
+        context.write("trigger_type", "manual");
+        context.write("triggered_at", OffsetDateTime.now().toString());
+        context.write("trigger_source", "manual_execution");
 
         if (payload != null) {
-            output.put("payload", payload);
+            context.write("payload", payload);
             logs.info("Payload received: {}", payload);
         } else {
             logs.info("No payload provided");
         }
 
         logs.success("Manual trigger completed successfully");
-        return ExecutionResult.success(output);
+        return ExecutionResult.success();
     }
 
     /**

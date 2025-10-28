@@ -185,14 +185,13 @@ public class PluginNodeTest {
                 .pluginNodeId(null)
                 .build();
         ExecutionResult result = dispatcher.dispatch(envelope);
+        TestExecutionContextUtils.flushPendingWrites(context);
 
         assertNotNull(result, "Execution result should not be null");
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus(), "Execution should be successful");
 
-        // Verify the output contains the expected data
-        assertNotNull(result.getOutput(), "Output should not be null");
-        assertTrue(result.getOutput().containsKey("testKey1"), "Output should contain testKey1");
-        assertEquals("testValue1", result.getOutput().get("testKey1"), "Output should match input for testKey1");
+        // Verify the output is written to context
+        assertEquals("testValue1", context.read("testKey1", String.class), "Output should match input for testKey1");
     }
 
     @Test

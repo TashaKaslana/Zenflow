@@ -92,12 +92,10 @@ public class DiscordMessageTriggerExecutor implements TriggerExecutor {
 
     @Override
     public ExecutionResult execute(ExecutionContext context) {
-        // This is called when the trigger fires (not for starting the trigger)
-        Map<String, Object> output = new HashMap<>();
-        output.put("trigger_type", "discord_message");
-        output.put("triggered_at", System.currentTimeMillis());
+        context.write("trigger_type", "discord_message");
+        context.write("triggered_at", System.currentTimeMillis());
 
-        return ExecutionResult.success(output);
+        return ExecutionResult.success();
     }
 
     //    TODO:need optimization, this is draft pre-validate key, temporary disabled

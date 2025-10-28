@@ -114,30 +114,29 @@ public class ScheduleTriggerExecutor implements TriggerExecutor {
         String cronExpression = context.read("cron_expression", String.class);
         String scheduleDescription = context.read("schedule_description", String.class);
 
-        Map<String, Object> output = new HashMap<>();
-        output.put("trigger_type", "schedule");
-        output.put("triggered_at", OffsetDateTime.now().toString());
-        output.put("trigger_source", "scheduled_execution");
-        output.put("scheduler", "shared-quartz");
+        context.write("trigger_type", "schedule");
+        context.write("triggered_at", OffsetDateTime.now().toString());
+        context.write("trigger_source", "scheduled_execution");
+        context.write("scheduler", "shared-quartz");
 
         if (cronExpression != null) {
-            output.put("cron_expression", cronExpression);
+            context.write("cron_expression", cronExpression);
             logs.info("Schedule triggered with cron: {}", cronExpression);
         }
 
         if (scheduleDescription != null) {
-            output.put("schedule_description", scheduleDescription);
+            context.write("schedule_description", scheduleDescription);
         }
 
         if (payload != null) {
-            output.put("payload", payload);
+            context.write("payload", payload);
             logs.info("Payload received: {}", payload);
         } else {
             logs.info("No payload provided");
         }
 
         logs.success("Schedule trigger completed successfully");
-        return ExecutionResult.success(output);
+        return ExecutionResult.success();
     }
 
     /**

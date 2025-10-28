@@ -9,8 +9,6 @@ import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.springframework.stereotype.Component;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.io.IOException;
 
 @Slf4j
@@ -26,10 +24,10 @@ public class GoogleDocsGetExecutor implements NodeExecutor {
 
         Document document = docs.documents().get(documentId).execute();
 
-        Map<String, Object> output = new HashMap<>();
-        output.put("documentId", document.getDocumentId());
-        output.put("title", document.getTitle());
-        output.put("document", document);
-        return ExecutionResult.success(output);
+        context.write("documentId", document.getDocumentId());
+        context.write("title", document.getTitle());
+        context.write("document", document);
+        
+        return ExecutionResult.success();
     }
 }

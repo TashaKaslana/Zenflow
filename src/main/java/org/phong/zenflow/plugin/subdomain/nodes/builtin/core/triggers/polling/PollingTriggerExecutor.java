@@ -116,31 +116,30 @@ public class PollingTriggerExecutor implements TriggerExecutor {
         String pollingUrl = context.read("polling_url", String.class);
         String changeType = context.read("change_type", String.class);
 
-        Map<String, Object> output = new HashMap<>();
-        output.put("trigger_type", "polling");
-        output.put("triggered_at", OffsetDateTime.now().toString());
-        output.put("trigger_source", "polling_change_detected");
-        output.put("scheduler_type", "quartz");
+        context.write("trigger_type", "polling");
+        context.write("triggered_at", OffsetDateTime.now().toString());
+        context.write("trigger_source", "polling_change_detected");
+        context.write("scheduler_type", "quartz");
 
         if (pollingUrl != null) {
-            output.put("polling_url", pollingUrl);
+            context.write("polling_url", pollingUrl);
         }
 
         if (changeType != null) {
-            output.put("change_type", changeType);
+            context.write("change_type", changeType);
             logs.info("Change detected: {}", changeType);
         }
 
         if (responseData != null) {
-            output.put("current_response", responseData);
+            context.write("current_response", responseData);
         }
 
         if (previousData != null) {
-            output.put("previous_response", previousData);
+            context.write("previous_response", previousData);
         }
 
         logs.success("Polling trigger completed successfully using Quartz scheduler");
-        return ExecutionResult.success(output);
+        return ExecutionResult.success();
     }
 
     /**

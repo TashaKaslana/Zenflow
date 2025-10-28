@@ -1,10 +1,15 @@
 package org.phong.zenflow.workflow.subdomain.context;
 
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.phong.zenflow.core.utils.ObjectConversion;
+import org.phong.zenflow.workflow.subdomain.context.common.ContextKeyResolver;
+import org.phong.zenflow.workflow.subdomain.context.refvalue.RefValue;
+import org.phong.zenflow.workflow.subdomain.context.refvalue.RuntimeContextRefValueSupport;
+import org.phong.zenflow.workflow.subdomain.context.refvalue.dto.WriteOptions;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -14,20 +19,58 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * RuntimeContext is a singleton component that manages a shared context
- * and consumer relationships for workflow execution.
- * It allows storing, retrieving, and cleaning up context data based on consumer usage.
+ * RuntimeContext manages shared context and consumer relationships for workflow execution.
+ * 
+ * <p><b>RefValue Integration</b>: Internally uses {@link RefValue} for efficient storage
+ * of large payloads (JSON, files, streams) without exhausting heap memory. Legacy APIs
+ * transparently convert between Object and RefValue for backward compatibility.
+ * 
+ * <p>Storage is automatically optimized:
+ * <ul>
+ *   <li>Small values (< 1MB) → Memory</li>
+ *   <li>Medium JSON (1-2MB) → Parsed tree with JsonPointer queries</li>
+ *   <li>Large payloads (> 1MB) → Temp files on disk</li>
+ * </ul>
+ * 
+ * @see RefValue
+ * @see RuntimeContextRefValueSupport
  */
 @Slf4j
 public class RuntimeContext {
-    @Getter
-    private final Map<String, Object> context = new ConcurrentHashMap<>();
+    
+    // Core storage: values are now RefValue instances for efficient memory management
+    private final Map<String, RefValue> context = new ConcurrentHashMap<>();
+    
+    // Consumer tracking and aliases remain unchanged
     private final Map<String, AtomicInteger> consumers = new ConcurrentHashMap<>();
     private final Map<String, String> aliases = new ConcurrentHashMap<>();
 
     // Loop-aware cleanup management
     private final Map<String, Map<String, Set<String>>> pendingLoopCleanup = new ConcurrentHashMap<>();
     private final Set<String> activeLoops = new HashSet<>();
+    
+    // Pending writes management for transactional context updates
+    private final Map<String, PendingWrite> pendingWrites = new HashMap<>();
+    
+    private record PendingWrite(Object value, WriteOptions options) {}
+    
+    private final RuntimeContextRefValueSupport refValueSupport;
+    
+    /**
+     * Constructor with optional RefValue support injection.
+     * 
+     * @param refValueSupport support layer for RefValue operations (null = create default)
+     */
+    public RuntimeContext(RuntimeContextRefValueSupport refValueSupport) {
+        this.refValueSupport = refValueSupport != null ? refValueSupport : new RuntimeContextRefValueSupport();
+    }
+    
+    /**
+     * Default constructor.
+     */
+    public RuntimeContext() {
+        this(null);
+    }
 
     public void initialize(Map<String, Object> initialContext,
                            Map<String, Set<String>> initialConsumers,
@@ -40,7 +83,9 @@ public class RuntimeContext {
             });
         }
         if (initialContext != null) {
-            context.putAll(initialContext);
+            for (Map.Entry<String, Object> entry : initialContext.entrySet()) {
+                context.put(entry.getKey(), refValueSupport.objectToRefValue(entry.getKey(), entry.getValue()));
+            }
         }
         if (initialAliases != null) {
             aliases.putAll(
@@ -56,59 +101,82 @@ public class RuntimeContext {
     }
 
     public void put(String key, Object value) {
-        context.put(key, value);
+        RefValue refValue = refValueSupport.objectToRefValue(key, value);
+        context.put(key, refValue);
     }
 
     public void putAll(Map<String, Object> entries) {
         if (entries != null) {
-            context.putAll(entries);
+            for (Map.Entry<String, Object> entry : entries.entrySet()) {
+                put(entry.getKey(), entry.getValue());
+            }
         }
     }
 
+    /**
+     * Retrieves a value from the context by key.
+     * RefValue is automatically materialized to Object for backward compatibility.
+     *
+     * @param key context key
+     * @return the value associated with the key, or null if not present
+     */
     public Object get(String key) {
-        return context.get(key);
+        String resolvedKey = aliases.getOrDefault(key, key);
+        RefValue refValue = context.get(resolvedKey);
+        return refValueSupport.refValueToObject(resolvedKey, refValue);
+    }
+    
+    /**
+     * Retrieves the RefValue directly without materialization.
+     * Use this for streaming access to large payloads without loading into memory.
+     * 
+     * @param key context key
+     * @return the RefValue associated with the key, or null if not present
+     */
+    public RefValue getRef(String key) {
+        String resolvedKey = aliases.getOrDefault(key, key);
+        return context.get(resolvedKey);
+    }
+    
+    /**
+     * Opens a stream to read the value as raw bytes without full materialization.
+     * Useful for large binary payloads (files, videos, images) that should be streamed
+     * rather than loaded entirely into memory.
+     * 
+     * <p>The caller is responsible for closing the returned InputStream.
+     * 
+     * @param key the context key to stream
+     * @return InputStream over the value's raw bytes
+     * @throws IOException if the stream cannot be opened or the value doesn't exist
+     */
+    public InputStream openStream(String key) throws IOException {
+        String resolvedKey = aliases.getOrDefault(key, key);
+        RefValue refValue = context.get(resolvedKey);
+        
+        if (refValue == null) {
+            throw new IOException("Value not found for key: " + key);
+        }
+        
+        return refValue.openStream();
+    }
+    
+    /**
+     * Get the raw internal context map (for legacy compatibility).
+     * 
+     * @return materialized map of context values
+     * @deprecated Use get() or getRef() for individual values
+     */
+    @Deprecated
+    public Map<String, Object> getContext() {
+        Map<String, Object> materialized = new HashMap<>();
+        for (Map.Entry<String, RefValue> entry : context.entrySet()) {
+            materialized.put(entry.getKey(), refValueSupport.refValueToObject(entry.getKey(), entry.getValue()));
+        }
+        return materialized;
     }
 
     public boolean containsKey(String key) {
         return context.containsKey(key);
-    }
-
-    /**
-     * Process output according to consumer information already in the RuntimeContext.
-     * This is the most efficient approach as it only stores values that are
-     * actually needed by downstream nodes.
-     *
-     * @param outputKey The initial key of the node that produced the output
-     * @param output    The raw output values from execution
-     */
-    public void processOutputWithMetadata(String outputKey, Map<String, Object> output) {
-        if (output == null || output.isEmpty()) {
-            log.debug("No output to process for node '{}'.", outputKey);
-            return;
-        }
-
-        log.debug("Processing context-guided output for node '{}' with {} values", outputKey, output.size());
-
-        for (Map.Entry<String, Object> entry : output.entrySet()) {
-            String outputProperty = entry.getKey();
-            String currentOutputKey = outputKey.concat(".").concat(outputProperty);
-            Object value = entry.getValue();
-
-            if (value instanceof Map<?, ?> map) {
-                processOutputWithMetadata(currentOutputKey, ObjectConversion.convertObjectToMap(map));
-            }
-
-            // Check if this output key has any consumers using the existing consumers map
-            if (isConsumersEmpty(currentOutputKey)) {
-                log.debug("Skipping storage of '{}' as it has no registered consumers", currentOutputKey);
-                continue;
-            }
-
-            // Store the value as it has consumers
-            context.put(currentOutputKey, value);
-            log.debug("Stored context-guided output '{}' with value type '{}' for remaining consumers: {}",
-                    currentOutputKey, value != null ? value.getClass().getSimpleName() : "null", getConsumerCount(currentOutputKey));
-        }
     }
 
     /**
@@ -142,7 +210,8 @@ public class RuntimeContext {
             return null;
         }
 
-        Object value = context.get(key);
+        RefValue refValue = context.get(key);
+        Object value = refValueSupport.refValueToObject(key, refValue);
 
         // Remove the current node from the consumers list for this key
         removeConsumer(key, nodeKey);
@@ -166,7 +235,9 @@ public class RuntimeContext {
             return null;
         }
 
-        Object value = context.get(key);
+        RefValue refValue = context.get(key);
+        Object value = refValueSupport.refValueToObject(key, refValue);
+        
         String activeLoop = getActiveLoop();
         if (activeLoop != null) {
             pendingLoopCleanup
@@ -218,9 +289,10 @@ public class RuntimeContext {
         AtomicInteger remainingConsumers = consumers.get(key);
 
         if (remainingConsumers == null || remainingConsumers.get() <= 0) {
-            Object removedValue = context.remove(key);
+            RefValue removedValue = context.remove(key);
             if (removedValue != null) {
                 log.debug("Garbage collected key '{}' from context", key);
+                refValueSupport.releaseRefValue(key, removedValue);
             }
             if (remainingConsumers != null) {
                 consumers.remove(key, remainingConsumers);
@@ -289,7 +361,10 @@ public class RuntimeContext {
      * @param key The key to remove
      */
     public void remove(String key) {
-        context.remove(key);
+        RefValue removed = context.remove(key);
+        if (removed != null) {
+            refValueSupport.releaseRefValue(key, removed);
+        }
         consumers.remove(key);
         pendingLoopCleanup.values().forEach(loopMap -> loopMap.remove(key));
         log.debug("Removed key '{}' from context and consumers", key);
@@ -299,10 +374,23 @@ public class RuntimeContext {
      * Clear all context data (useful for testing or cleanup)
      */
     public void clear() {
+        // Release all RefValues in context
+        for (Map.Entry<String, RefValue> entry : context.entrySet()) {
+            refValueSupport.releaseRefValue(entry.getKey(), entry.getValue());
+        }
+        
+        // Release all RefValues in pending writes (in case of failure before flush)
+        for (Map.Entry<String, PendingWrite> entry : pendingWrites.entrySet()) {
+            if (entry.getValue().value() instanceof RefValue refValue) {
+                refValueSupport.releaseRefValue(entry.getKey(), refValue);
+            }
+        }
+        
         context.clear();
         consumers.clear();
         pendingLoopCleanup.clear();
         activeLoops.clear();
+        pendingWrites.clear();
         log.debug("RuntimeContext cleared");
     }
 
@@ -394,5 +482,156 @@ public class RuntimeContext {
             this.endLoop(activeLoop);
             log.debug("Ended active loop '{}' due to error or validation failure", activeLoop);
         }
+    }
+
+    /**
+     * Write a value to the pending writes buffer with explicit options.
+     * The write will be staged until flushPendingWrites() is called.
+     * 
+     * @param key context key
+     * @param value value to write
+     * @param options storage options (mediaType, storage preference, auto-cleanup)
+     */
+    public void write(String key, Object value, WriteOptions options) {
+        pendingWrites.put(key, new PendingWrite(value, options));
+    }
+
+    /**
+     * Write a value to the pending writes buffer with default options.
+     * 
+     * @param key context key
+     * @param value value to write
+     */
+    public void write(String key, Object value) {
+        write(key, value, WriteOptions.DEFAULT);
+    }
+    
+    /**
+     * Write a value from an InputStream to the pending writes buffer.
+     * The stream will be consumed progressively and written directly to storage
+     * without loading the entire content into memory.
+     * The stream will be closed by this method.
+     * 
+     * <p>This is efficient for large binary data as it streams directly to disk
+     * without intermediate buffering in memory.
+     * 
+     * <p><b>Note:</b> Unlike {@link #write(String, Object, WriteOptions)}, this method
+     * immediately creates the RefValue and stores it directly, bypassing the pending
+     * writes buffer. This is necessary because InputStreams cannot be buffered
+     * (they can only be read once).
+     * 
+     * <p><b>Overwrite behavior:</b> If a previous write exists for the same key,
+     * the old RefValue will be released before being replaced.
+     * 
+     * @param key context key (relative, will be scoped during flush)
+     * @param inputStream stream to read data from (will be closed)
+     * @param options storage options (mediaType, storage preference, auto-cleanup)
+     * @throws IOException if the stream cannot be read
+     */
+    public void writeStream(String key, InputStream inputStream, WriteOptions options) throws IOException {
+        // Create RefValue directly from stream for progressive write
+        // We can't buffer streams like we do with regular writes
+        RefValue refValue = refValueSupport.createRefValueFromStream(inputStream, options.storage(), options.mediaType());
+        
+        // Check if we're overwriting an existing pending write with a RefValue
+        PendingWrite oldWrite = pendingWrites.get(key);
+        if (oldWrite != null && oldWrite.value() instanceof RefValue oldRefValue) {
+            // Release the old RefValue before replacing it
+            refValueSupport.releaseRefValue(key, oldRefValue);
+            log.debug("Released overwritten RefValue for key '{}'", key);
+        }
+        
+        // Store in pending buffer as RefValue (not as InputStream)
+        // When flushed, this RefValue will be moved to the scoped key
+        pendingWrites.put(key, new PendingWrite(refValue, options));
+    }
+    
+    /**
+     * Write a value from an InputStream with default options.
+     * 
+     * @param key context key
+     * @param inputStream stream to read data from (will be closed)
+     * @throws IOException if the stream cannot be read
+     */
+    public void writeStream(String key, InputStream inputStream) throws IOException {
+        writeStream(key, inputStream, WriteOptions.DEFAULT);
+    }
+
+    /**
+     * Get a copy of pending writes for DB history logging.
+     * Returns a snapshot of values before they are flushed to context storage.
+     * 
+     * @return immutable map of pending writes (key → value)
+     */
+    public Map<String, Object> getPendingWrites() {
+        if (pendingWrites.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<String, Object> snapshot = new HashMap<>();
+        for (Map.Entry<String, PendingWrite> entry : pendingWrites.entrySet()) {
+            snapshot.put(entry.getKey(), entry.getValue().value());
+        }
+        return Collections.unmodifiableMap(snapshot);
+    }
+
+    /**
+     * Flush pending writes to RefValue storage.
+     * Called by WorkflowEngineService after successful execution.
+     * Stores pending write directly with their WriteOptions preserved.
+     * @param nodeKey All keys are normalizing through this nodeKey
+     */
+    public void flushPendingWrites(String nodeKey) {
+        if (pendingWrites.isEmpty()) {
+            return;
+        }
+        
+        // Convert pending writes to Map and delegate to processOutputWithMetadata
+        // This ensures consistent selective storage and automatic RefValue creation
+        for (Map.Entry<String, PendingWrite> entry : pendingWrites.entrySet()) {
+            String scopeKey = ContextKeyResolver.scopeKey(nodeKey, entry.getKey());
+            PendingWrite pending = entry.getValue();
+
+            // Check if this key has consumers (selective storage)
+            if (isConsumersEmpty(scopeKey)) {
+                log.debug("Skipping storage of '{}' as it has no registered consumers", scopeKey);
+                continue;
+            }
+
+            // Check if the value is already a RefValue (from writeStream)
+            RefValue refValue;
+            if (pending.value() instanceof RefValue existingRef) {
+                // Already a RefValue from writeStream(), use it directly
+                refValue = existingRef;
+                log.debug("Using pre-created RefValue for '{}' (from writeStream)", scopeKey);
+            } else {
+                // Create RefValue with explicit WriteOptions
+                refValue = refValueSupport.createRefValue(
+                        pending.value(),
+                        pending.options().storage(),
+                        pending.options().mediaType()
+                );
+            }
+            
+            context.put(scopeKey, refValue);
+            log.debug("Stored pending write '{}' with options: {}", scopeKey, pending.options());
+        }
+        
+        pendingWrites.clear();
+    }
+
+    /**
+     * Discard pending writes without persisting.
+     * Called by WorkflowEngineService on execution error or before retry.
+     * Releases any RefValue resources in pending writes.
+     */
+    public void clearPendingWrites() {
+        // Release all RefValues in pending writes before clearing
+        for (Map.Entry<String, PendingWrite> entry : pendingWrites.entrySet()) {
+            if (entry.getValue().value() instanceof RefValue refValue) {
+                refValueSupport.releaseRefValue(entry.getKey(), refValue);
+            }
+        }
+        pendingWrites.clear();
     }
 }

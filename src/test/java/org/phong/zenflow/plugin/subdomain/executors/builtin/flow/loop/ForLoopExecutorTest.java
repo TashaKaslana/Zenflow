@@ -5,6 +5,7 @@ import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.loop.for_loop.ForLoopExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.TestExecutionContextUtils;
+import org.phong.zenflow.workflow.subdomain.context.ReadOptions;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 
 import java.util.HashMap;
@@ -21,31 +22,36 @@ class ForLoopExecutorTest {
     @Test
     void iteratesThreeTimesThenEnds() {
         ExecutionContext context = TestExecutionContextUtils.createExecutionContext();
-        Map<String, Object> input = new HashMap<>();
-        input.put("index", 0);
-        input.put("total", 3);
-        input.put("updateExpression", "index + 1");
-        input.put("next", List.of("body"));
-        input.put("loopEnd", List.of("end"));
+        
+        // Initial config with loop parameters
+        Map<String, Object> config = new HashMap<>();
+        config.put("total", 3);
+        config.put("updateExpression", "index + 1");
+        config.put("next", List.of("body"));
+        config.put("loopEnd", List.of("end"));
+        
+        // Set config once - it doesn't change during loop iterations
+        context.setCurrentConfig(new WorkflowConfig(config));
 
         int iterations = 0;
-        while (true) {
-            WorkflowConfig config = new WorkflowConfig(new HashMap<>(input));
-            context.setCurrentConfig(config);
-
+        int maxIterations = 10; // Safety limit
+        
+        while (iterations < maxIterations) {
             var result = executor.execute(context);
+            TestExecutionContextUtils.flushPendingWrites(context);
 
             if (result.getStatus() == ExecutionStatus.LOOP_NEXT) {
                 iterations++;
-                input.put("index", result.getOutput().get("index"));
             } else if (result.getStatus() == ExecutionStatus.LOOP_END) {
-                assertEquals(3, iterations);
-                assertEquals(3, ((Number) result.getOutput().get("index")).intValue());
-                break;
+                assertEquals(3, iterations, "Expected 3 iterations before LOOP_END");
+                assertEquals(3, context.read("index", Integer.class, ReadOptions.PREFER_CONTEXT).intValue(), "Expected final index to be 3");
+                return; // Test passed
             } else {
                 fail("Unexpected status: " + result.getStatus());
             }
         }
+        
+        fail("Loop exceeded maximum iterations (" + maxIterations + ")");
     }
 }
 

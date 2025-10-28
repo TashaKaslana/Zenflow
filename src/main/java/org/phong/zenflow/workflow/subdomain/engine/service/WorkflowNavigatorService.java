@@ -33,7 +33,8 @@ public class WorkflowNavigatorService {
                                                       BaseWorkflowNode workingNode,
                                                       ExecutionResult result,
                                                       WorkflowNodes workflowNodes,
-                                                      RuntimeContext context) {
+                                                      RuntimeContext context,
+                                                      Map<String, Object> output) {
         return switch (result.getStatus()) {
             case SUCCESS, COMMIT -> new ExecutionStepOutcome(navigatorSuccess(workflowId, workingNode, workflowNodes),
                     WorkflowExecutionStatus.COMPLETED);
@@ -65,17 +66,17 @@ public class WorkflowNavigatorService {
                             WorkflowExecutionStatus.COMPLETED);
             case UNCOMMIT -> {
                 log.info("Node {} is in uncommit state, halting workflow execution until conditions are met", workingNode.getKey());
-                registerHaltedWaitNode(workflowId, workflowRunId, workingNode.getKey(), result);
+                registerHaltedWaitNode(workflowId, workflowRunId, workingNode.getKey(), output);
                 yield new ExecutionStepOutcome(null, WorkflowExecutionStatus.HALTED);
             }
         };
     }
 
     @SuppressWarnings("unchecked")
-    private void registerHaltedWaitNode(UUID workflowId, UUID workflowRunId, String nodeKey, ExecutionResult result) {
-        Map<String, Boolean> waitingNodes = (Map<String, Boolean>) result.getOutput().get("waitingNodes");
-        String mode = (String) result.getOutput().getOrDefault("mode", "all");
-        int threshold = (int) result.getOutput().getOrDefault("threshold", 1);
+    private void registerHaltedWaitNode(UUID workflowId, UUID workflowRunId, String nodeKey, Map<String, Object> output) {
+        Map<String, Boolean> waitingNodes = (Map<String, Boolean>) output.get("waitingNodes");
+        String mode = (String) output.getOrDefault("mode", "all");
+        int threshold = (int) output.getOrDefault("threshold", 1);
 
         HaltedWaitNode node = new HaltedWaitNode(workflowId, workflowRunId, nodeKey,
                 new ConcurrentHashMap<>(waitingNodes), mode, threshold);

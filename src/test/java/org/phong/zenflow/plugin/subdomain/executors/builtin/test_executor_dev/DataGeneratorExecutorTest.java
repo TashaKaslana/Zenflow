@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.test.data_generator.DataGeneratorExecutor;
 import org.phong.zenflow.TestExecutionContextUtils;
+import org.phong.zenflow.workflow.subdomain.context.ReadOptions;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 
 import java.util.Map;
@@ -24,10 +25,11 @@ class DataGeneratorExecutorTest {
         );
         var context = TestExecutionContextUtils.createExecutionContext(config);
         var result = executor.execute(context);
+        TestExecutionContextUtils.flushPendingWrites(context);
 
         assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
-        assertEquals("test+tag@very-long-domain-name.example.org", result.getOutput().get("user_email"));
-        assertEquals(123, result.getOutput().get("user_age"));
-        assertEquals(true, result.getOutput().get("user_active"));
+        assertEquals("test+tag@very-long-domain-name.example.org", context.read("user_email", String.class, ReadOptions.PREFER_CONTEXT));
+        assertEquals(123, context.read("user_age", Integer.class, ReadOptions.PREFER_CONTEXT));
+        assertEquals(true, context.read("user_active", Boolean.class, ReadOptions.PREFER_CONTEXT));
     }
 }

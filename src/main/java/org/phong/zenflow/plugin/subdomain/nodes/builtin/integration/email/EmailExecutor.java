@@ -10,9 +10,6 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Component;
 
-import java.util.HashMap;
-import java.util.Map;
-
 @Component
 @Slf4j
 @AllArgsConstructor
@@ -37,10 +34,9 @@ public class EmailExecutor implements NodeExecutor {
         mailSender.send(mailMessage);
         logCollector.success("Email sent successfully to: {}", to);
 
-        Map<String, Object> output = new HashMap<>();
-        output.put("to", to);
-        output.put("subject", subject);
+        context.write("to", to);
+        context.write("subject", subject);
 
-        return ExecutionResult.success(output);
+        return ExecutionResult.success();
     }
 }

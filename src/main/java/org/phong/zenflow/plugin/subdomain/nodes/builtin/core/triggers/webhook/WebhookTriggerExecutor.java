@@ -60,45 +60,43 @@ public class WebhookTriggerExecutor implements TriggerExecutor {
         String userAgent = context.read("user_agent", String.class);
         String webhookId = context.read("webhook_id", String.class);
 
-        Map<String, Object> output = new HashMap<>();
-        output.put("trigger_type", "webhook");
-        output.put("triggered_at", OffsetDateTime.now().toString());
-        output.put("trigger_source", "webhook_request");
+        context.write("trigger_type", "webhook");
+        context.write("triggered_at", OffsetDateTime.now().toString());
+        context.write("trigger_source", "webhook_request");
 
         if (httpMethod != null) {
-            output.put("http_method", httpMethod);
+            context.write("http_method", httpMethod);
             logs.info("Webhook triggered via {} request", httpMethod);
         }
 
         if (sourceIp != null) {
-            output.put("source_ip", sourceIp);
+            context.write("source_ip", sourceIp);
             logs.info("Request from IP: {}", sourceIp);
         }
 
         if (userAgent != null) {
-            output.put("user_agent", userAgent);
+            context.write("user_agent", userAgent);
         }
 
         if (webhookId != null) {
-            output.put("webhook_id", webhookId);
+            context.write("webhook_id", webhookId);
         }
 
         if (headers != null && !headers.isEmpty()) {
-            output.put("headers", headers);
+            context.write("headers", headers);
             logs.info("Headers received: {} headers", headers.size());
         }
 
         if (payload != null) {
-            output.put("payload", payload);
+            context.write("payload", payload);
             logs.info("Webhook payload received: {}", payload);
         } else {
             logs.info("No payload provided in webhook request");
         }
 
-        Set<String> excludedKeys = Set.of("payload", "headers", "http_method", "source_ip", "user_agent", "webhook_id");
 
         logs.success("Webhook trigger completed successfully");
-        return ExecutionResult.success(output);
+        return ExecutionResult.success();
     }
 
     /**

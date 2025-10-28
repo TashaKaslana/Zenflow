@@ -17,11 +17,13 @@ import org.phong.zenflow.workflow.subdomain.context.resolution.ContextValueResol
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContextKey;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContextManager;
+import org.phong.zenflow.workflow.subdomain.context.refvalue.dto.WriteOptions;
 import org.phong.zenflow.workflow.subdomain.engine.dto.WorkflowExecutionStatus;
 import org.phong.zenflow.workflow.subdomain.engine.service.WorkflowEngineService;
 import org.phong.zenflow.workflow.subdomain.logging.core.LogContextManager;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowNodes;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.WorkflowMetadata;
+import org.phong.zenflow.workflow.subdomain.runner.dto.PayloadMetadata;
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.phong.zenflow.workflow.subdomain.workflow_run.infrastructure.persistence.entity.WorkflowRun;
@@ -180,9 +182,30 @@ public class WorkflowRunnerService {
             if (request != null && request.payload() != null && startNodeKey != null) {
                 Map<String, Object> payload = ObjectConversion.convertObjectToMap(request.payload());
                 Map<String, Object> flattenedPayload = MapUtils.flattenMap(payload);
+                
+                // Write payload values to context with optional metadata hints
                 for (Map.Entry<String, Object> entry : flattenedPayload.entrySet()) {
-                    initialContext.put(String.format("%s.output.payload.%s", startNodeKey, entry.getKey()), entry.getValue());
+                    String contextKey = String.format("%s.output.payload.%s", startNodeKey, entry.getKey());
+                    
+                    // Check if client provided metadata for this payload key
+                    if (request.payloadMetadata() != null && request.payloadMetadata().containsKey(entry.getKey())) {
+                        PayloadMetadata metadata = request.payloadMetadata().get(entry.getKey());
+                        WriteOptions options = new WriteOptions(
+                                metadata.mediaType(),
+                                metadata.storagePreference(),
+                                true
+                        );
+                        context.write(contextKey, entry.getValue(), options);
+                        log.debug("Wrote payload '{}' with metadata: mediaType={}, storage={}", 
+                                entry.getKey(), metadata.mediaType(), metadata.storagePreference());
+                    } else {
+                        // No metadata - use default auto-detection
+                        context.write(contextKey, entry.getValue());
+                    }
                 }
+                
+                // Flush pending writes immediately for initial payload
+                context.flushPendingWrites(startNodeKey);
             }
 
             context.initialize(initialContext, consumers, aliasMap);

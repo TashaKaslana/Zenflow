@@ -9,8 +9,6 @@ import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
 
 @Slf4j
 @Component
@@ -24,8 +22,7 @@ public class GoogleDriveDeleteExecutor implements NodeExecutor {
         Drive drive = context.getResource(Drive.class);
         drive.files().delete(fileId).execute();
 
-        Map<String, Object> output = new HashMap<>();
-        output.put("deleted", true);
-        return ExecutionResult.success(output);
+        context.write("deleted", true);
+        return ExecutionResult.success();
     }
 }

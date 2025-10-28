@@ -101,18 +101,25 @@ public class WorkflowEngineService {
                                                                ExecutionContext execCtx) {
         WorkflowExecutionStatus executionStatus = WorkflowExecutionStatus.COMPLETED;
         ExecutionResult result;
+        Map<String, Object> outputForHistory;
 
         while (workingNode != null) {
-            result = setupAndExecutionWorkflow(workflowId, workflowRunId, context, workingNode, execCtx);
-            WorkflowNavigatorService.ExecutionStepOutcome outcome = workflowNavigatorService.handleExecutionResult(workflowId, workflowRunId, workingNode, result, workflowNodes, context);
+            var executionOutcome = setupAndExecutionWorkflow(workflowId, workflowRunId, context, workingNode, execCtx);
+            result = executionOutcome.result;
+            outputForHistory = executionOutcome.output;
+            
+            WorkflowNavigatorService.ExecutionStepOutcome outcome = workflowNavigatorService.handleExecutionResult(
+                    workflowId, workflowRunId, workingNode, result, workflowNodes, context, outputForHistory);
             workingNode = outcome.nextNode();
             executionStatus = outcome.status();
         }
 
         return executionStatus;
     }
+    
+    private record ExecutionOutcome(ExecutionResult result, Map<String, Object> output) {}
 
-    private ExecutionResult setupAndExecutionWorkflow(UUID workflowId,
+    private ExecutionOutcome setupAndExecutionWorkflow(UUID workflowId,
                                                       UUID workflowRunId,
                                                       RuntimeContext context,
                                                       BaseWorkflowNode workingNode,
@@ -126,11 +133,13 @@ public class WorkflowEngineService {
 
         result = executeWorkingNode(workingNode, config, execCtx);
 
-        Map<String, Object> output = result.getOutput();
-        if (output != null) {
-            context.processOutputWithMetadata(String.format("%s.output", workingNode.getKey()), output);
+        Map<String, Object> outputForHistory = context.getPendingWrites();
+        
+        // Flush pending writes if execution succeeded
+        if (ExecutionStatus.isSuccessful(result.getStatus())) {
+            context.flushPendingWrites(execCtx.getNodeKey());
         } else {
-            log.warn("Output of node {} is null, skipping putting into context", workingNode.getKey());
+            context.clearPendingWrites();
         }
 
         Object callbackUrl = contextManager.getOrCreate(workflowRunId.toString())
@@ -140,6 +149,7 @@ public class WorkflowEngineService {
                 workflowRunId,
                 workingNode,
                 result,
+                outputForHistory,
                 callbackUrl != null ? callbackUrl.toString() : null
         );
 
@@ -147,7 +157,7 @@ public class WorkflowEngineService {
             publisher.publishEvent(new NodeCommitEvent(workflowId, workflowRunId, workingNode.getKey()));
         }
 
-        return result;
+        return new ExecutionOutcome(result, outputForHistory);
     }
 
     private ExecutionResult executeWorkingNode(BaseWorkflowNode workingNode,
