@@ -37,3 +37,7 @@ out/
 .vscode/
 
 .env
+
+### Runtime Data ###
+# Temporary files created by RefValue FILE storage during tests/runtime
+data/context-files/

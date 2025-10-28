@@ -374,14 +374,23 @@ public class RuntimeContext {
      * Clear all context data (useful for testing or cleanup)
      */
     public void clear() {
-        // Release all RefValues before clearing
+        // Release all RefValues in context
         for (Map.Entry<String, RefValue> entry : context.entrySet()) {
             refValueSupport.releaseRefValue(entry.getKey(), entry.getValue());
         }
+        
+        // Release all RefValues in pending writes (in case of failure before flush)
+        for (Map.Entry<String, PendingWrite> entry : pendingWrites.entrySet()) {
+            if (entry.getValue().value() instanceof RefValue refValue) {
+                refValueSupport.releaseRefValue(entry.getKey(), refValue);
+            }
+        }
+        
         context.clear();
         consumers.clear();
         pendingLoopCleanup.clear();
         activeLoops.clear();
+        pendingWrites.clear();
         log.debug("RuntimeContext cleared");
     }
 
@@ -511,6 +520,9 @@ public class RuntimeContext {
      * writes buffer. This is necessary because InputStreams cannot be buffered
      * (they can only be read once).
      * 
+     * <p><b>Overwrite behavior:</b> If a previous write exists for the same key,
+     * the old RefValue will be released before being replaced.
+     * 
      * @param key context key (relative, will be scoped during flush)
      * @param inputStream stream to read data from (will be closed)
      * @param options storage options (mediaType, storage preference, auto-cleanup)
@@ -520,6 +532,14 @@ public class RuntimeContext {
         // Create RefValue directly from stream for progressive write
         // We can't buffer streams like we do with regular writes
         RefValue refValue = refValueSupport.createRefValueFromStream(inputStream, options.storage(), options.mediaType());
+        
+        // Check if we're overwriting an existing pending write with a RefValue
+        PendingWrite oldWrite = pendingWrites.get(key);
+        if (oldWrite != null && oldWrite.value() instanceof RefValue oldRefValue) {
+            // Release the old RefValue before replacing it
+            refValueSupport.releaseRefValue(key, oldRefValue);
+            log.debug("Released overwritten RefValue for key '{}'", key);
+        }
         
         // Store in pending buffer as RefValue (not as InputStream)
         // When flushed, this RefValue will be moved to the scoped key

@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Integration tests for RuntimeContext streaming APIs (openStream/writeStream).
- * 
+ * <p>
  * Tests the progressive streaming capabilities for efficient handling of large
  * binary payloads without loading entire content into memory.
  */
