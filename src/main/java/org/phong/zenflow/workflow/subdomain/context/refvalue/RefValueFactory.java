@@ -103,6 +103,58 @@ public class RefValueFactory {
     }
     
     /**
+     * Creates a RefValue directly from an InputStream for progressive streaming writes.
+     * The stream will be consumed and written directly to disk without loading the
+     * entire content into memory. This is the most efficient way to handle large
+     * binary payloads.
+     * 
+     * <p>The stream will be closed by this method (via try-with-resources).
+     * 
+     * <p><b>Storage preference handling:</b>
+     * <ul>
+     *   <li>FILE - writes directly to file (streaming)</li>
+     *   <li>AUTO - uses FILE (streaming is typically for large data)</li>
+     *   <li>MEMORY - reads entire stream into byte[] then stores in memory</li>
+     *   <li>JSON - not supported, falls back to FILE</li>
+     * </ul>
+     * 
+     * @param inputStream stream to read from (will be closed)
+     * @param preference storage preference (FILE or AUTO recommended)
+     * @param mediaType content type hint (e.g., "video/mp4", "application/octet-stream")
+     * @return RefValue backed by streamed data
+     * @throws IOException if stream cannot be read or written
+     */
+    public RefValue createFromStream(java.io.InputStream inputStream, 
+                                     StoragePreference preference, 
+                                     String mediaType) throws IOException {
+        // AUTO preference defaults to FILE for streams (streaming typically means large data)
+        if (preference == StoragePreference.AUTO) {
+            preference = StoragePreference.FILE;
+        }
+        
+        // JSON storage doesn't make sense for raw streams, use FILE instead
+        if (preference == StoragePreference.JSON) {
+            log.debug("JSON storage not supported for streams, using FILE instead");
+            preference = StoragePreference.FILE;
+        }
+
+        // Try-with-resources ensures stream is closed even on error
+        try (inputStream) {
+            if (preference == StoragePreference.MEMORY) {
+                // For MEMORY, we have to read the entire stream (defeats streaming purpose)
+                log.warn("MEMORY storage for streams requires loading entire content - consider using FILE");
+                byte[] data = inputStream.readAllBytes();
+                return new MemoryRefValue(data, mediaType);
+            }
+
+            // FILE storage: progressive streaming write
+            Path targetDir = config.getFileStoragePath();
+            String prefix = config.getTempFilePrefix();
+            return FileRefValue.fromStream(inputStream, mediaType, targetDir, prefix);
+        }
+    }
+
+    /**
      * Reconstructs a RefValue from a persisted descriptor.
      * 
      * <p><b>WARNING:</b> This feature is incomplete. File-backed values may not
@@ -140,25 +192,29 @@ public class RefValueFactory {
      * Selects storage type based on value characteristics and thresholds.
      */
     private StoragePreference selectStorageType(Object value, long estimatedSize, String mediaType) {
-        // Large values always go to file
-        if (estimatedSize > config.getMemoryThresholdBytes()) {
-            return StoragePreference.FILE;
-        }
-        
-        // JSON structures between 1-2MB use JsonRefValue for optimized access
+        // Check JSON structures first (before size-only checks)
+        // JSON between 1-2MB should use JsonRefValue for optimized queries
         if (ObjectStructureHelper.isJsonStructure(value, mediaType)) {
             if (estimatedSize > config.getMemoryThresholdBytes() && 
                 estimatedSize <= config.getJsonThresholdBytes()) {
+                // 1MB < size <= 2MB: Use JsonRefValue for fast JsonPointer access
                 return StoragePreference.JSON;
             }
-            // Very large JSON goes to file
+            // Very large JSON (> 2MB) goes to file
             if (estimatedSize > config.getJsonThresholdBytes()) {
                 return StoragePreference.FILE;
             }
+            // Small JSON (< 1MB) uses memory
+            return StoragePreference.MEMORY;
         }
         
         // Binary data goes to file if large
         if (value instanceof byte[] && estimatedSize > config.getMemoryThresholdBytes()) {
+            return StoragePreference.FILE;
+        }
+        
+        // Large non-JSON values go to file
+        if (estimatedSize > config.getMemoryThresholdBytes()) {
             return StoragePreference.FILE;
         }
         

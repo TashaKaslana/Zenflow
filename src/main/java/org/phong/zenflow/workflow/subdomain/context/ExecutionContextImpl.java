@@ -3,6 +3,8 @@ package org.phong.zenflow.workflow.subdomain.context;
 import lombok.Builder;
 import lombok.Getter;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -284,5 +286,25 @@ public class ExecutionContextImpl implements ExecutionContext {
     public <T> T readOrDefault(String key, Class<T> clazz, T defaultValue, ReadOptions options) {
         T value = read(key, clazz, options);
         return value != null ? value : defaultValue;
+    }
+    
+    @Override
+    public InputStream openStream(String key) throws IOException {
+        RuntimeContext context = getContext();
+        if (context == null) {
+            throw new IOException("Runtime context not available");
+        }
+        
+        return context.openStream(key);
+    }
+    
+    @Override
+    public void writeStream(String key, InputStream inputStream, WriteOptions options) throws IOException {
+        RuntimeContext context = getContext();
+        if (context == null) {
+            throw new IOException("Runtime context not available");
+        }
+        
+        context.writeStream(key, inputStream, options);
     }
 }

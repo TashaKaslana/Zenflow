@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Integration tests for PayloadMetadata to verify it correctly handles different data types
  * and storage preferences (base64, string, file).
- * 
+ * <p>
  * Tests the workflow: WorkflowRunnerRequest with payloadMetadata → RuntimeContext.write() → RefValue storage
  */
 @DisplayName("PayloadMetadata Integration Tests")
@@ -151,7 +151,7 @@ class PayloadMetadataIntegrationTest {
         
         // Act: Write with FILE storage preference
         WriteOptions options = new WriteOptions(
-                metadata.mediaType(),
+                null,
                 metadata.storagePreference(),
                 true
         );

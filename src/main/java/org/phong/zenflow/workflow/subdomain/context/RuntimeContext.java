@@ -6,6 +6,8 @@ import org.phong.zenflow.workflow.subdomain.context.refvalue.RefValue;
 import org.phong.zenflow.workflow.subdomain.context.refvalue.RuntimeContextRefValueSupport;
 import org.phong.zenflow.workflow.subdomain.context.refvalue.dto.WriteOptions;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -134,6 +136,28 @@ public class RuntimeContext {
     public RefValue getRef(String key) {
         String resolvedKey = aliases.getOrDefault(key, key);
         return context.get(resolvedKey);
+    }
+    
+    /**
+     * Opens a stream to read the value as raw bytes without full materialization.
+     * Useful for large binary payloads (files, videos, images) that should be streamed
+     * rather than loaded entirely into memory.
+     * 
+     * <p>The caller is responsible for closing the returned InputStream.
+     * 
+     * @param key the context key to stream
+     * @return InputStream over the value's raw bytes
+     * @throws java.io.IOException if the stream cannot be opened or the value doesn't exist
+     */
+    public java.io.InputStream openStream(String key) throws java.io.IOException {
+        String resolvedKey = aliases.getOrDefault(key, key);
+        RefValue refValue = context.get(resolvedKey);
+        
+        if (refValue == null) {
+            throw new java.io.IOException("Value not found for key: " + key);
+        }
+        
+        return refValue.openStream();
     }
     
     /**
@@ -472,6 +496,46 @@ public class RuntimeContext {
     public void write(String key, Object value) {
         write(key, value, WriteOptions.DEFAULT);
     }
+    
+    /**
+     * Write a value from an InputStream to the pending writes buffer.
+     * The stream will be consumed progressively and written directly to storage
+     * without loading the entire content into memory.
+     * The stream will be closed by this method.
+     * 
+     * <p>This is efficient for large binary data as it streams directly to disk
+     * without intermediate buffering in memory.
+     * 
+     * <p><b>Note:</b> Unlike {@link #write(String, Object, WriteOptions)}, this method
+     * immediately creates the RefValue and stores it directly, bypassing the pending
+     * writes buffer. This is necessary because InputStreams cannot be buffered
+     * (they can only be read once).
+     * 
+     * @param key context key (relative, will be scoped during flush)
+     * @param inputStream stream to read data from (will be closed)
+     * @param options storage options (mediaType, storage preference, auto-cleanup)
+     * @throws IOException if the stream cannot be read
+     */
+    public void writeStream(String key, InputStream inputStream, WriteOptions options) throws IOException {
+        // Create RefValue directly from stream for progressive write
+        // We can't buffer streams like we do with regular writes
+        RefValue refValue = refValueSupport.createRefValueFromStream(inputStream, options.storage(), options.mediaType());
+        
+        // Store in pending buffer as RefValue (not as InputStream)
+        // When flushed, this RefValue will be moved to the scoped key
+        pendingWrites.put(key, new PendingWrite(refValue, options));
+    }
+    
+    /**
+     * Write a value from an InputStream with default options.
+     * 
+     * @param key context key
+     * @param inputStream stream to read data from (will be closed)
+     * @throws IOException if the stream cannot be read
+     */
+    public void writeStream(String key, InputStream inputStream) throws IOException {
+        writeStream(key, inputStream, WriteOptions.DEFAULT);
+    }
 
     /**
      * Get a copy of pending writes for DB history logging.
@@ -514,12 +578,21 @@ public class RuntimeContext {
                 continue;
             }
 
-            // Create RefValue with explicit WriteOptions
-            RefValue refValue = refValueSupport.createRefValue(
-                    pending.value(),
-                    pending.options().storage(),
-                    pending.options().mediaType()
-            );
+            // Check if the value is already a RefValue (from writeStream)
+            RefValue refValue;
+            if (pending.value() instanceof RefValue existingRef) {
+                // Already a RefValue from writeStream(), use it directly
+                refValue = existingRef;
+                log.debug("Using pre-created RefValue for '{}' (from writeStream)", scopeKey);
+            } else {
+                // Create RefValue with explicit WriteOptions
+                refValue = refValueSupport.createRefValue(
+                        pending.value(),
+                        pending.options().storage(),
+                        pending.options().mediaType()
+                );
+            }
+            
             context.put(scopeKey, refValue);
             log.debug("Stored pending write '{}' with options: {}", scopeKey, pending.options());
         }

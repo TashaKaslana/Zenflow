@@ -7,6 +7,10 @@ import org.springframework.stereotype.Component;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.CopyOption;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.HashMap;
 
@@ -122,19 +126,6 @@ public class RuntimeContextRefValueSupport {
             log.error("Failed to release RefValue for key '{}'", key, e);
         }
     }
-    
-    /**
-     * Checks if a value should be stored as RefValue or kept as Object.
-     * During migration, some values might need special handling.
-     * 
-     * @param value the value to check
-     * @return true if should use RefValue
-     */
-    public boolean shouldUseRefValue(Object value) {
-        // For now, convert everything except null
-        // Later we might add exceptions for specific types
-        return value != null;
-    }
 
     /**
      * Creates a RefValue with explicit options.
@@ -157,4 +148,26 @@ public class RuntimeContextRefValueSupport {
             return factory.create(value, StoragePreference.AUTO, null);
         }
     }
+    
+    /**
+     * Creates a RefValue directly from an InputStream for progressive/streaming writes.
+     * The stream will be consumed and written directly to storage without loading
+     * the entire content into memory.
+     * 
+     * <p>This is efficient for large binary payloads (videos, large files, etc.) as it
+     * uses {@link Files#copy(InputStream, Path, CopyOption...)}
+     * which streams data directly to disk.
+     * 
+     * @param inputStream stream to read data from (will be closed)
+     * @param storage storage preference (AUTO will typically use FILE for streams)
+     * @param mediaType content type hint (e.g., "video/mp4", "application/octet-stream")
+     * @return RefValue instance backed by streamed data
+     * @throws IOException if the stream cannot be read or written
+     */
+    public RefValue createRefValueFromStream(InputStream inputStream,
+                                             StoragePreference storage,
+                                             String mediaType) throws IOException {
+        return factory.createFromStream(inputStream, storage, mediaType);
+    }
 }
+

@@ -94,7 +94,14 @@ public class MemoryRefValue implements RefValue {
         if (value == null) {
             return new ByteArrayInputStream(new byte[0]);
         }
-        // Serialize to JSON bytes for generic streaming
+        
+        // Handle byte[] specially - return raw bytes without JSON serialization
+        // This ensures writeStream() → openStream() round-trips correctly
+        if (value instanceof byte[] rawBytes) {
+            return new ByteArrayInputStream(rawBytes);
+        }
+        
+        // For all other types, serialize to JSON bytes for generic streaming
         byte[] bytes = ObjectConversion.getObjectMapper().writeValueAsBytes(value);
         return new ByteArrayInputStream(bytes);
     }
