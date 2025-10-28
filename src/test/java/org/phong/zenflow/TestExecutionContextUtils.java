@@ -5,6 +5,7 @@ import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContextImpl;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContextManager;
+import org.phong.zenflow.workflow.subdomain.context.common.ContextKeyResolver;
 import org.phong.zenflow.workflow.subdomain.context.resolution.SystemLoadMonitor;
 import org.phong.zenflow.workflow.subdomain.evaluator.functions.AviatorFunctionRegistry;
 import org.phong.zenflow.workflow.subdomain.evaluator.functions.string.StringContainsFunction;
@@ -13,12 +14,11 @@ import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.springframework.context.ApplicationEventPublisher;
 
+import java.util.Map;
+import java.util.Set;
+import java.util.HashMap;
 import java.util.UUID;
 import java.util.List;
-
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.spy;
 
 public class TestExecutionContextUtils {
     private static UUID runId = UUID.randomUUID();
@@ -62,22 +62,32 @@ public class TestExecutionContextUtils {
      * Flushes pending writes for testing purposes.
      * In production, WorkflowEngineService handles this.
      * <p>
-     * NOTE: This bypasses selective storage and writes all pending values to context,
-     * regardless of whether they have registered consumers. This is necessary for testing
-     * loop executors where loop state (index, etc.) needs to persist between iterations.
+     * NOTE: This registers a fake consumer for all pending writes to satisfy the
+     * selective storage check, then flushes and cleans up. This allows tests to
+     * verify outputs without modifying production code.
      */
     public static void flushPendingWrites(ExecutionContext context) {
         if (context == null || context.getWorkflowRunId() == null) {
             throw new IllegalArgumentException("Context or WorkflowRunId cannot be null");
         }
 
-        RuntimeContext candidate = sharedContextManager.getOrCreate(context.getWorkflowRunId().toString());
-        RuntimeContext runtimeContext = org.mockito.Mockito.mockingDetails(candidate).isMock()
-                ? candidate  // already mock — don't spy again
-                : spy(candidate);
-
-        doReturn(false).when(runtimeContext).isConsumersEmpty(anyString());
-        sharedContextManager.assign(context.getWorkflowRunId().toString(), runtimeContext);
+        RuntimeContext runtimeContext = sharedContextManager.getOrCreate(context.getWorkflowRunId().toString());
+        
+        // Get all pending write keys and register a fake consumer for each
+        // This satisfies the selective storage check without forcing storage
+        Map<String, Object> pendingWrites = runtimeContext.getPendingWrites();
+        Map<String, Set<String>> fakeConsumers = new HashMap<>();
+        for (String key : pendingWrites.keySet()) {
+            String scopedKey = ContextKeyResolver.scopeKey(
+                context.getNodeKey(), key
+            );
+            fakeConsumers.put(scopedKey, Set.of("__test_consumer__"));
+        }
+        
+        // Register the fake consumers
+        runtimeContext.initialize(null, fakeConsumers, null);
+        
+        // Now flush will store the values since they have consumers
         runtimeContext.flushPendingWrites(context.getNodeKey());
     }
     
