@@ -6,29 +6,30 @@ import org.springframework.stereotype.Component;
 import java.util.Map;
 
 /**
- * Profile descriptor for GCP credentials used by Vertex AI.
- * Stores project ID, location, and optional service account key.
+ * Profile descriptor for AI provider credentials.
+ * Works with any AI provider - just needs an API key.
  */
 @Component
 public class GcpCredentialsProfileDescriptor implements PluginProfileDescriptor {
 
-    public static final String PROJECT_ID_KEY = "GCP_PROJECT_ID";
-    public static final String LOCATION_KEY = "GCP_LOCATION";
-    public static final String SERVICE_ACCOUNT_KEY = "GCP_SERVICE_ACCOUNT_JSON";
+    public static final String API_KEY = "API_KEY";
+    public static final String BASE_URL = "BASE_URL";
+    public static final String PROJECT_ID = "PROJECT_ID";
+    public static final String REGION = "REGION";
 
     @Override
     public String id() {
-        return "gcp-credentials";
+        return "ai-credentials";
     }
 
     @Override
     public String displayName() {
-        return "GCP Credentials";
+        return "AI Provider Credentials";
     }
 
     @Override
     public String description() {
-        return "Google Cloud Platform credentials for Vertex AI access.";
+        return "API credentials for AI model providers (OpenAI, Gemini, Claude, etc.)";
     }
 
     @Override
@@ -39,7 +40,7 @@ public class GcpCredentialsProfileDescriptor implements PluginProfileDescriptor 
     @Override
     public Map<String, Object> defaultValues() {
         return Map.of(
-                LOCATION_KEY, "us-central1"
+                REGION, "us-central1"
         );
     }
 }

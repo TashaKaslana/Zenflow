@@ -22,15 +22,6 @@
           "default": "text",
           "description": "Expected response format - 'text' for plain text or 'json' for structured JSON"
         },
-        "project_id": {
-          "type": "string",
-          "description": "GCP Project ID (overrides profile if provided)"
-        },
-        "location": {
-          "type": "string",
-          "default": "us-central1",
-          "description": "GCP region for Vertex AI"
-        },
         "model": {
           "type": "string",
           "default": "gemini-2.0-flash",
@@ -111,9 +102,9 @@
     },
     "profile": {
       "profileKeys": [
-        "gcp-credentials"
+        "ai-credentials"
       ],
-      "description": "Requires GCP credentials profile for Vertex AI authentication."
+      "description": "Requires AI credentials profile with API_KEY and PROJECT_ID (for Gemini)."
     }
   },
   "required": ["input", "output"],
