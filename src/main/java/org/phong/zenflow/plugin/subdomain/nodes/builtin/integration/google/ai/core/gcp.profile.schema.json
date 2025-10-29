@@ -1,25 +1,30 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "title": "GCP Credentials",
-  "description": "Google Cloud Platform credentials for accessing Vertex AI services",
+  "title": "AI Provider Credentials",
+  "description": "API credentials for AI model providers (OpenAI, Gemini, Claude, etc.)",
   "properties": {
-    "GCP_PROJECT_ID": {
+    "API_KEY": {
       "type": "string",
-      "title": "GCP Project ID",
-      "description": "Your Google Cloud Platform project ID"
+      "title": "API Key",
+      "description": "API key for the AI provider"
     },
-    "GCP_LOCATION": {
+    "BASE_URL": {
       "type": "string",
-      "title": "GCP Location",
-      "description": "The GCP region for Vertex AI (e.g., us-central1, europe-west1)",
+      "title": "Base URL",
+      "description": "Optional: Custom base URL for the API (e.g., OpenRouter, Azure OpenAI)"
+    },
+    "PROJECT_ID": {
+      "type": "string",
+      "title": "Project ID",
+      "description": "Optional: Project ID (for providers like GCP Vertex AI)"
+    },
+    "REGION": {
+      "type": "string",
+      "title": "Region",
+      "description": "Optional: API region (e.g., us-central1 for GCP)",
       "default": "us-central1"
-    },
-    "GCP_SERVICE_ACCOUNT_JSON": {
-      "type": "string",
-      "title": "Service Account JSON Key",
-      "description": "Optional: JSON key for service account authentication. If not provided, uses Application Default Credentials."
     }
   },
-  "required": ["GCP_PROJECT_ID"]
+  "required": ["API_KEY"]
 }
