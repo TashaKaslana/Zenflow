@@ -45,6 +45,8 @@ configurations.implementation {
 
 repositories {
     mavenCentral()
+    maven { url 'https://repo.spring.io/milestone' }
+    maven { url 'https://repo.spring.io/snapshot' }
 }
 
 dependencies {
@@ -61,7 +63,7 @@ dependencies {
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.19.1")
     implementation("com.github.erosb:everit-json-schema:1.14.6")
     implementation 'com.github.jsqlparser:jsqlparser:4.9'
-    implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9"
+    implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.13"
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-quartz'
     implementation 'com.googlecode.aviator:aviator:5.4.3'
@@ -82,6 +84,10 @@ dependencies {
     implementation 'com.google.apis:google-api-services-drive:v3-rev20250829-2.0.0'
     implementation 'com.google.apis:google-api-services-docs:v1-rev20250325-2.0.0'
     implementation 'com.google.http-client:google-http-client-jackson2:2.0.0'
+
+    // Spring AI for Gemini
+    implementation platform("org.springframework.ai:spring-ai-bom:1.0.3")
+    implementation "org.springframework.ai:spring-ai-vertex-ai-gemini"
 
     testImplementation 'org.testcontainers:junit-jupiter'
     testImplementation 'org.springframework.boot:spring-boot-testcontainers'

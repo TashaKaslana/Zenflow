@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Google AI Plugin Configuration",
+  "description": "Configuration for Google Vertex AI integration",
+  "properties": {
+    "default_location": {
+      "type": "string",
+      "default": "us-central1",
+      "description": "Default GCP region for Vertex AI"
+    },
+    "default_model": {
+      "type": "string",
+      "default": "gemini-2.0-flash",
+      "description": "Default Gemini model to use"
+    },
+    "enable_observability": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable observability and logging for AI operations"
+    }
+  }
+}
