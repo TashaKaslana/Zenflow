@@ -1,0 +1,121 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "AI Chat Schema",
+  "description": "AI model chat interaction with support for text and JSON responses",
+  "properties": {
+    "input": {
+      "type": "object",
+      "title": "Input Schema",
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "description": "The user prompt/message to send to the AI model"
+        },
+        "system_prompt": {
+          "type": "string",
+          "description": "Optional system prompt to guide the AI's behavior"
+        },
+        "response_format": {
+          "type": "string",
+          "enum": ["text", "json"],
+          "default": "text",
+          "description": "Expected response format - 'text' for plain text or 'json' for structured JSON"
+        },
+        "project_id": {
+          "type": "string",
+          "description": "GCP Project ID (overrides profile if provided)"
+        },
+        "location": {
+          "type": "string",
+          "default": "us-central1",
+          "description": "GCP region for Vertex AI"
+        },
+        "model": {
+          "type": "string",
+          "default": "gemini-2.0-flash",
+          "description": "AI model to use (e.g., gemini-2.0-flash, gemini-1.5-pro)"
+        },
+        "model_options": {
+          "type": "object",
+          "description": "Model-specific options",
+          "properties": {
+            "temperature": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 2,
+              "default": 0.7,
+              "description": "Controls randomness. Higher values mean more random, lower values more deterministic"
+            },
+            "max_tokens": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 32768,
+              "default": 2048,
+              "description": "Maximum number of tokens to generate"
+            },
+            "top_p": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.95,
+              "description": "Nucleus sampling parameter. Consider tokens with top_p probability mass"
+            },
+            "top_k": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 40,
+              "description": "Only sample from the top K options for each subsequent token"
+            }
+          }
+        }
+      },
+      "required": ["prompt"],
+      "additionalProperties": false
+    },
+    "output": {
+      "type": "object",
+      "title": "Output Schema",
+      "description": "AI response output",
+      "properties": {
+        "ai_response": {
+          "type": "string",
+          "description": "The text response from the AI model"
+        },
+        "ai_json": {
+          "type": "object",
+          "description": "Parsed JSON response (only when response_format=json)"
+        },
+        "ai_usage_prompt_tokens": {
+          "type": "integer",
+          "description": "Number of tokens used in the prompt"
+        },
+        "ai_usage_completion_tokens": {
+          "type": "integer",
+          "description": "Number of tokens generated in the completion"
+        },
+        "ai_usage_total_tokens": {
+          "type": "integer",
+          "description": "Total number of tokens used"
+        },
+        "ai_provider": {
+          "type": "string",
+          "description": "The AI provider name (e.g., 'gemini')"
+        },
+        "ai_model": {
+          "type": "string",
+          "description": "The specific model used"
+        }
+      }
+    },
+    "profile": {
+      "profileKeys": [
+        "gcp-credentials"
+      ],
+      "description": "Requires GCP credentials profile for Vertex AI authentication."
+    }
+  },
+  "required": ["input", "output"],
+  "additionalProperties": false
+}

@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "AI Plugin Configuration",
+  "description": "Configuration for AI integration plugin",
+  "properties": {
+    "default_model": {
+      "type": "string",
+      "default": "gemini-2.0-flash",
+      "description": "Default AI model to use across all nodes"
+    },
+    "default_temperature": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 2,
+      "default": 0.7,
+      "description": "Default temperature setting for AI responses"
+    },
+    "enable_observability": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable observability and logging for AI operations"
+    }
+  }
+}
