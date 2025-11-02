@@ -465,6 +465,28 @@ class RuntimeContextRefValueIntegrationTest {
     }
 
     @Test
+    void testPersistentWriteBypassesConsumerRequirement() {
+        context.write("memory", Map.of("role", "user"), WriteOptions.persistent());
+
+        // No consumers registered - flush should still persist due to persistent options
+        context.flushPendingWrites(nodeKey);
+
+        String scopedKey = prefix + "memory";
+        Object stored = context.get(scopedKey);
+        assertNotNull(stored, "Persistent write should be stored even without consumers");
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> value = (Map<String, Object>) stored;
+        assertEquals("user", value.get("role"));
+
+        // Read via getAndClean to simulate consumer access - value should remain
+        Object firstRead = context.getAndClean(nodeKey, scopedKey);
+        assertNotNull(firstRead);
+        Object afterRead = context.get(scopedKey);
+        assertNotNull(afterRead, "Persistent value should remain after read");
+    }
+
+    @Test
     void testPendingWritesClear() {
         // Stage some writes
         context.write("key1", "value1");

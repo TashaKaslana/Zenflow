@@ -5,6 +5,7 @@ import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionError;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
+import org.phong.zenflow.workflow.subdomain.context.refvalue.dto.WriteOptions;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.stereotype.Component;
 
@@ -61,7 +62,7 @@ public class MemoryExecutor implements NodeExecutor {
             return Map.of("stored", false, "reason", "key_exists");
         }
         
-        context.write(key, value);
+        context.write(key, value, WriteOptions.persistent());
         logs.info("Stored value at key: {}", key);
         
         return Map.of(
@@ -108,7 +109,7 @@ public class MemoryExecutor implements NodeExecutor {
         }
         
         list.add(newValue);
-        context.write(key, list);
+        context.write(key, list, WriteOptions.persistent());
         
         logs.info("Appended to key: {}, new size: {}", key, list.size());
         return Map.of(
@@ -123,7 +124,7 @@ public class MemoryExecutor implements NodeExecutor {
         boolean existed = existing != null;
         
         if (existed) {
-            context.write(key, null);
+            context.remove(key);
             logs.info("Cleared key: {}", key);
         } else {
             logs.info("Key does not exist: {}", key);
