@@ -146,13 +146,19 @@ public class PluginNodeSynchronizer implements ApplicationRunner {
     }
 
     private void registerNodes(Class<?> clazz, PluginNode saved) {
+        String uuid = saved.getId().toString();
+        String compositeKey = saved.getCompositeKey();
+        
         registry.register(
-                saved.getId().toString(),
+                uuid,
                 () -> resolveDefinition(applicationContext.getBean(clazz), clazz)
         );
+        
+        // Register composite key mapping for easy lookup
+        registry.registerCompositeKey(compositeKey, uuid);
 
         if ("trigger".equalsIgnoreCase(saved.getType())) {
-            triggerRegistry.registerTrigger(saved.getId().toString(), clazz);
+            triggerRegistry.registerTrigger(uuid, clazz);
         }
     }
 
