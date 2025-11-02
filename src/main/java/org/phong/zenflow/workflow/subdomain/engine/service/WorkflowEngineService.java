@@ -14,18 +14,16 @@ import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContextManager;
 import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.logging.core.LogContextManager;
-import org.phong.zenflow.workflow.subdomain.logging.core.LogContext;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.engine.dto.WorkflowExecutionStatus;
 import org.phong.zenflow.workflow.subdomain.engine.event.NodeCommitEvent;
 import org.phong.zenflow.workflow.subdomain.engine.exception.WorkflowEngineException;
+import org.phong.zenflow.workflow.subdomain.engine.orchestrator.NodeExecutionOrchestrator;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowNodes;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_execution.service.NodeExecutionService;
-import org.phong.zenflow.workflow.subdomain.worker.gateway.ExecutionGateway;
-import org.phong.zenflow.workflow.subdomain.worker.model.ExecutionTaskEnvelope;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,7 +37,7 @@ import java.util.UUID;
 @Slf4j
 public class WorkflowEngineService {
     private final NodeExecutionService nodeExecutionService;
-    private final ExecutionGateway executionGateway;
+    private final NodeExecutionOrchestrator nodeExecutionOrchestrator;
     private final WorkflowNavigatorService workflowNavigatorService;
     private final ApplicationEventPublisher publisher;
     private final RuntimeContextManager contextManager;
@@ -131,7 +129,7 @@ public class WorkflowEngineService {
         execCtx.setPluginNodeId(workingNode.getPluginNode().getNodeId());
         WorkflowConfig config = workingNode.getConfig() != null ? workingNode.getConfig() : new WorkflowConfig();
 
-        result = executeWorkingNode(workingNode, config, execCtx);
+        result = nodeExecutionOrchestrator.executeNode(workingNode, config, execCtx);
 
         Map<String, Object> outputForHistory = context.getPendingWrites();
         
@@ -160,34 +158,5 @@ public class WorkflowEngineService {
         return new ExecutionOutcome(result, outputForHistory);
     }
 
-    private ExecutionResult executeWorkingNode(BaseWorkflowNode workingNode,
-                                               WorkflowConfig resolvedConfig,
-                                               ExecutionContext execCtx) {
-        return LogContextManager.withComponent(workingNode.getKey(), () -> {
-            LogContext ctx = LogContextManager.snapshot();
-            log.info("[traceId={}] [hierarchy={}] Node started", ctx.traceId(), ctx.hierarchy());
-            execCtx.setCurrentConfig(resolvedConfig);
-            execCtx.setNodeKey(workingNode.getKey());
 
-            String executorType = workingNode.getPluginNode().getExecutorType();
-            if (executorType == null) {
-                throw new WorkflowEngineException("Executor type is not defined for node: " + workingNode.getKey());
-            } else if (workingNode.getPluginNode().getNodeId() == null) {
-                throw new WorkflowEngineException("Plugin node ID is not defined for node: " + workingNode.getKey());
-            }
-
-            ExecutionTaskEnvelope envelope = ExecutionTaskEnvelope.builder()
-                    .taskId(execCtx.taskId())
-                    .executorIdentifier(workingNode.getPluginNode().getNodeId().toString())
-                    .executorType(executorType)
-                    .config(resolvedConfig)
-                    .context(execCtx)
-                    .pluginNodeId(workingNode.getPluginNode().getNodeId())
-                    .build();
-
-            ExecutionResult result = executionGateway.executeAsync(envelope).join();
-            log.info("[traceId={}] [hierarchy={}] Node finished", ctx.traceId(), ctx.hierarchy());
-            return result;
-        });
-    }
 }

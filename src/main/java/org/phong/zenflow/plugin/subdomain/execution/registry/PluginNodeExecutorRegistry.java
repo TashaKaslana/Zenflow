@@ -23,9 +23,16 @@ public class PluginNodeExecutorRegistry {
 
     private final Map<String, Supplier<NodeDefinition>> definitionSuppliers =
             new ConcurrentHashMap<>();
+    
+    // Secondary map: compositeKey -> UUID for lookup
+    private final Map<String, String> compositeKeyToIdMap = new ConcurrentHashMap<>();
 
     public void register(String identifier, Supplier<NodeDefinition> supplier) {
         definitionSuppliers.put(identifier, supplier);
+    }
+    
+    public void registerCompositeKey(String compositeKey, String uuid) {
+        compositeKeyToIdMap.put(compositeKey, uuid);
     }
 
     public Optional<NodeDefinition> getDefinition(String id) {
@@ -33,5 +40,9 @@ public class PluginNodeExecutorRegistry {
             Supplier<NodeDefinition> supplier = definitionSuppliers.get(cacheKey);
             return supplier != null ? supplier.get() : null;
         }));
+    }
+    
+    public Optional<String> getIdByCompositeKey(String compositeKey) {
+        return Optional.ofNullable(compositeKeyToIdMap.get(compositeKey));
     }
 }
