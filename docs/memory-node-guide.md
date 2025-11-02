@@ -8,6 +8,7 @@ Generic memory node for storing and retrieving values in workflow context. Simil
 - **Nested Execution Support**: Can be called from within other nodes (e.g., AI nodes)
 - **Hierarchical Logging**: Shows proper parent->child execution hierarchy
 - **Flexible Storage**: Supports any data type (strings, numbers, objects, lists)
+- **Persistent by Design**: Outputs opt into `WriteOptions.persistent()` so values remain even without static consumers
 
 ## Operations
 
@@ -85,6 +86,13 @@ When AI nodes call memory nodes internally, logs show proper hierarchy:
   [Memory:store] Finished
 [GeminiNode] Retrieved conversation context
 [GeminiNode] Finished
+
+## Persistence & Safety
+
+- **Context Policy Override**: The node definition is marked with `ContextAccessPolicy.PERSIST_OUTPUTS`, so the runtime skips the usual "must have a consumer" guard when flushing outputs.
+- **Explicit Write Options**: STORE/APPEND operations call `context.write(..., WriteOptions.persistent())`, keeping values available for subsequent reads without forcing follow-up nodes to declare consumers.
+- **Non-destructive Reads**: Persistent entries are read using `ExecutionContext.read` but the runtime leaves them intact, allowing multiple RETRIEVE calls inside the same workflow run.
+- **Clear Removes Entry**: CLEAR now delegates to `context.remove`, ensuring persistent payloads are actually deleted instead of being replaced by `null` shadows.
 ```
 
 ## Architecture Changes

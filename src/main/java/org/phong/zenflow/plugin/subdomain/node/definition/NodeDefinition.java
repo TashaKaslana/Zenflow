@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeValidator;
+import org.phong.zenflow.plugin.subdomain.node.definition.policy.ContextAccessPolicy;
 import org.phong.zenflow.plugin.subdomain.node.definition.policy.NodeExecutionPolicy;
 import org.phong.zenflow.plugin.subdomain.resource.BaseNodeResourceManager;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerExecutor;
@@ -28,6 +29,9 @@ public class NodeDefinition {
 
     @Nullable
     NodeExecutionPolicy executionPolicy;
+
+    @Builder.Default
+    ContextAccessPolicy contextAccessPolicy = ContextAccessPolicy.DEFAULT;
 
     String name;
     String description;

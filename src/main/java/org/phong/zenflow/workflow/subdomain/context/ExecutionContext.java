@@ -1,6 +1,7 @@
 package org.phong.zenflow.workflow.subdomain.context;
 
 import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
+import org.phong.zenflow.plugin.subdomain.node.definition.policy.ContextAccessPolicy;
 import org.phong.zenflow.workflow.subdomain.context.refvalue.ExecutionOutputEntry;
 import org.phong.zenflow.workflow.subdomain.context.refvalue.dto.WriteOptions;
 import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
@@ -34,6 +35,10 @@ public interface ExecutionContext {
     void setPluginNodeId(UUID pluginNodeId);
 
     void setScopedResource(ScopedNodeResource<?> resource);
+
+    ContextAccessPolicy getContextAccessPolicy();
+
+    void setContextAccessPolicy(ContextAccessPolicy policy);
 
     <T> T read(String key, Class<T> clazz);
     

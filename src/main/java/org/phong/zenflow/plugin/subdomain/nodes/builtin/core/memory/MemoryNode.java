@@ -3,6 +3,7 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.memory;
 import lombok.AllArgsConstructor;
 import org.phong.zenflow.plugin.subdomain.node.definition.NodeDefinition;
 import org.phong.zenflow.plugin.subdomain.node.definition.NodeDefinitionProvider;
+import org.phong.zenflow.plugin.subdomain.node.definition.policy.ContextAccessPolicy;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 import org.springframework.stereotype.Component;
 
@@ -25,6 +26,7 @@ public class MemoryNode implements NodeDefinitionProvider {
     public NodeDefinition definition() {
         return NodeDefinition.builder()
                 .nodeExecutor(executor)
+                .contextAccessPolicy(ContextAccessPolicy.PERSIST_OUTPUTS)
                 .build();
     }
 }

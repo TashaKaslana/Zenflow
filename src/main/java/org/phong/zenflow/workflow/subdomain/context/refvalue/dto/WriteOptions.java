@@ -29,4 +29,15 @@ public record WriteOptions(
     public static WriteOptions withMediaType(String mediaType) {
         return new WriteOptions(mediaType, StoragePreference.AUTO, true);
     }
+
+    public WriteOptions withAutoCleanup(boolean autoCleanup) {
+        if (this.autoCleanup == autoCleanup) {
+            return this;
+        }
+        return new WriteOptions(mediaType, storage, autoCleanup);
+    }
+
+    public boolean isPersistent() {
+        return !autoCleanup;
+    }
 }

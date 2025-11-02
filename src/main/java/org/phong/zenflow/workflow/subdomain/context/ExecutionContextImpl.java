@@ -11,6 +11,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import lombok.Setter;
+import org.phong.zenflow.plugin.subdomain.node.definition.policy.ContextAccessPolicy;
 import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
 import org.phong.zenflow.secret.exception.SecretDomainException;
 import org.phong.zenflow.workflow.subdomain.context.refvalue.ExecutionOutputEntry;
@@ -48,6 +49,10 @@ public class ExecutionContextImpl implements ExecutionContext {
     @Setter
     private ScopedNodeResource<?> scopedResource;
 
+    @Getter
+    @Builder.Default
+    private ContextAccessPolicy contextAccessPolicy = ContextAccessPolicy.DEFAULT;
+
     private final TemplateService templateService;
     private final RuntimeContextManager contextManager;
     private final ContextValueResolver contextValueResolver;
@@ -57,6 +62,11 @@ public class ExecutionContextImpl implements ExecutionContext {
 
     @Getter
     private WorkflowConfig currentConfig;
+
+    @Override
+    public void setContextAccessPolicy(ContextAccessPolicy policy) {
+        this.contextAccessPolicy = policy != null ? policy : ContextAccessPolicy.DEFAULT;
+    }
 
     /**
      * Reads a value from the runtime context with template resolution and type-safe casting.
@@ -119,7 +129,8 @@ public class ExecutionContextImpl implements ExecutionContext {
     public void write(String key, Object value, WriteOptions options) {
         RuntimeContext context = getContext();
         if (context != null) {
-            context.write(key, value, options);
+            WriteOptions effective = normalizeWriteOptions(options);
+            context.write(key, value, effective, contextAccessPolicy);
         }
     }
 
@@ -263,8 +274,9 @@ public class ExecutionContextImpl implements ExecutionContext {
     @Override
     public void writeAll(Map<String, Object> values, WriteOptions options) {
         RuntimeContext context = getContext();
+        WriteOptions effective = normalizeWriteOptions(options);
         for (Map.Entry<String, Object> entry : values.entrySet()) {
-            context.write(entry.getKey(), entry.getValue(), options);
+            context.write(entry.getKey(), entry.getValue(), effective, contextAccessPolicy);
         }
     }
 
@@ -273,7 +285,8 @@ public class ExecutionContextImpl implements ExecutionContext {
         RuntimeContext context = getContext();
         for (Map.Entry<String, ExecutionOutputEntry> entry : entries.entrySet()) {
             ExecutionOutputEntry outputEntry = entry.getValue();
-            context.write(outputEntry.key(), outputEntry.value(), outputEntry.writeOptions());
+            WriteOptions effective = normalizeWriteOptions(outputEntry.writeOptions());
+            context.write(outputEntry.key(), outputEntry.value(), effective, contextAccessPolicy);
         }
     }
 
@@ -305,6 +318,17 @@ public class ExecutionContextImpl implements ExecutionContext {
             throw new IOException("Runtime context not available");
         }
         
-        context.writeStream(key, inputStream, options);
+        WriteOptions effective = normalizeWriteOptions(options);
+        context.writeStream(key, inputStream, effective, contextAccessPolicy);
+    }
+
+    private WriteOptions normalizeWriteOptions(WriteOptions options) {
+        WriteOptions normalized = options != null ? options : WriteOptions.DEFAULT;
+        if (contextAccessPolicy != null
+                && contextAccessPolicy.forcePersistentWrites()
+                && normalized.autoCleanup()) {
+            return normalized.withAutoCleanup(false);
+        }
+        return normalized;
     }
 }
