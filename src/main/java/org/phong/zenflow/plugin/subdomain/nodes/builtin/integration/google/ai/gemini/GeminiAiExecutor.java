@@ -18,10 +18,12 @@ public class GeminiAiExecutor implements NodeExecutor {
     private final AiExecutor baseExecutor;
     private final AiToolRegistry toolRegistry;
     private final AiObservationRegistry observationRegistry;
+    private final ObjectMapper objectMapper;
 
     public GeminiAiExecutor(ObjectMapper objectMapper, 
                            AiToolRegistry baseToolRegistry,
                            AiObservationRegistry baseObservationRegistry) {
+        this.objectMapper = objectMapper;
         this.toolRegistry = baseToolRegistry.copy();
         this.observationRegistry = baseObservationRegistry.copy();
         
@@ -31,7 +33,7 @@ public class GeminiAiExecutor implements NodeExecutor {
         
         this.baseExecutor.setModelProviderFactory(context -> {
             VertexAiGeminiChatModel chatModel = context.getResource();
-            return new GeminiModelProvider(chatModel, this.toolRegistry, this.observationRegistry);
+            return new GeminiModelProvider(chatModel, this.toolRegistry, this.observationRegistry, objectMapper);
         });
     }
 
@@ -44,3 +46,4 @@ public class GeminiAiExecutor implements NodeExecutor {
         return baseExecutor.getToolRegistry();
     }
 }
+
