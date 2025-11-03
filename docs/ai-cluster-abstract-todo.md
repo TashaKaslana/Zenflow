@@ -17,7 +17,28 @@ This note captures the current state of the AI integration layer and lists the w
 - [x] Updated `AiExecutor` - Simplified to adapter pattern, delegates to provider
 - [x] Verified compilation - All changes compile successfully
 
-**Next:** Phase 2 - Create AI Cluster Node
+### ✅ Phase 2: AI Cluster Node (COMPLETED)
+- [x] Created `AiClusterExecutor` - Orchestrator with memory integration
+  - Reads cluster configuration from context
+  - Retrieves conversation history via `core:context_variable`
+  - Builds typed requests using `AiExecutionRequestFactory`
+  - Saves conversation turns back to memory
+  - Handles error cases gracefully
+- [x] Created `AiClusterNode` - Plugin node definition (`core:ai.cluster:1.0.0`)
+- [x] Created cluster schema JSON - User-facing configuration
+  - Model selection (Gemini, future OpenAI)
+  - Conversation memory options
+  - Response format selection
+  - Model-specific options
+- [x] Implemented memory integration helpers
+  - `retrieveConversationHistory()` - Fetches from memory node
+  - `saveConversationTurn()` - Persists user + assistant messages
+  - Message format conversion (Map ↔ Spring AI Message)
+- [x] Verified compilation - All Phase 2 code compiles
+
+**Status:** Provider orchestration partially implemented (direct execution placeholder). Need to complete Gemini provider wiring.
+
+**Next:** Phase 3 - Wire Gemini Provider Properly
 
 ---
 

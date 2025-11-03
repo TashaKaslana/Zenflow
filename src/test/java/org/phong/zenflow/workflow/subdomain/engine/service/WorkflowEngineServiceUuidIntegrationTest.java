@@ -9,6 +9,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.phong.zenflow.core.services.AuthService;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
+import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
 import org.phong.zenflow.plugin.subdomain.execution.services.NodeExecutorDispatcher;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.subdomain.context.resolution.ContextValueResolver;
@@ -19,6 +20,7 @@ import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.evaluator.functions.AviatorFunctionRegistry;
 import org.phong.zenflow.workflow.subdomain.evaluator.functions.string.StringContainsFunction;
 import org.phong.zenflow.workflow.subdomain.engine.dto.WorkflowExecutionStatus;
+import org.phong.zenflow.workflow.subdomain.engine.orchestrator.NodeExecutionOrchestrator;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowDefinition;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.WorkflowNodes;
@@ -73,6 +75,9 @@ class WorkflowEngineServiceUuidIntegrationTest {
 
     @Mock
     private ExecutionTaskRegistry taskRegistry;
+    
+    @Mock
+    private PluginNodeExecutorRegistry pluginNodeRegistry;
 
     private WorkflowEngineService workflowEngineService;
 
@@ -91,10 +96,17 @@ class WorkflowEngineServiceUuidIntegrationTest {
                 executorDispatcher,
                 Runnable::run // Direct executor for testing
         );
+        
+        // Create NodeExecutionOrchestrator with the execution gateway
+        NodeExecutionOrchestrator orchestrator = new NodeExecutionOrchestrator(
+                executionGateway,
+                pluginNodeRegistry
+        );
+        
         ContextValueResolver contextValueResolver = new ContextValueResolver(new SystemLoadMonitor());
         workflowEngineService = new WorkflowEngineService(
                 nodeExecutionService,
-                executionGateway,
+                orchestrator,
                 workflowNavigatorService,
                 publisher,
                 contextManager,
