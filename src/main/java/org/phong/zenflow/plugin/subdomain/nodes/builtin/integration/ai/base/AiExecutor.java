@@ -1,26 +1,25 @@
 package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionError;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.dto.AiExecutionRequest;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.dto.AiExecutionResult;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
 import java.util.function.Function;
 
 /**
- * Base executor for AI nodes with tool calling and observation support.
- * Each AI model (Gemini, OpenAI, etc.) should copy registries for isolation.
+ * Base executor for AI nodes - now acts as simple adapter for abstract providers.
+ * Reads config from context, builds typed request, delegates to provider.
  */
 @Component
 @Slf4j
@@ -57,10 +56,10 @@ public class AiExecutor implements NodeExecutor {
             AiModelProvider modelProvider = modelProviderFactory.apply(context);
             logs.info("Using AI provider: {}", modelProvider.getProviderName());
 
-            // Read configuration
+            // Read configuration from context (direct node usage, not cluster)
             String userPrompt = context.read("prompt", String.class);
             String systemPrompt = context.readOrDefault("system_prompt", String.class, null);
-            String responseFormat = context.readOrDefault("response_format", String.class, "text"); // "text" or "json"
+            String responseFormat = context.readOrDefault("response_format", String.class, "text");
             
             @SuppressWarnings("unchecked")
             Map<String, Object> modelOptions = context.readOrDefault("model_options", Map.class, new HashMap<>());
@@ -72,42 +71,31 @@ public class AiExecutor implements NodeExecutor {
             }
             messages.add(new UserMessage(userPrompt));
 
-            Prompt prompt = new Prompt(messages);
             logs.info("Sending request to AI model with {} messages", messages.size());
 
-            // Call the model
-            ChatResponse response = modelProvider.call(prompt, modelOptions);
+            // Build typed request
+            AiExecutionRequest request = AiExecutionRequest.builder()
+                    .messages(messages)
+                    .modelOptions(modelOptions)
+                    .toolObjects(toolRegistry.getToolList())
+                    .responseFormat(responseFormat)
+                    .contextMetadata(new HashMap<>())
+                    .build();
+
+            // Execute through provider
+            AiExecutionResult result = modelProvider.execute(request);
             
-            // Get response text from AssistantMessage
-            String responseContent = response.getResult().getOutput().getText();
             logs.success("Received response from AI model");
 
-            // Process response based on format
-            Object processedResponse;
-            if ("json".equalsIgnoreCase(responseFormat)) {
-                try {
-                    processedResponse = objectMapper.readValue(responseContent, Object.class);
-                    logs.info("Parsed response as JSON");
-                } catch (JsonProcessingException e) {
-                    logs.warn("Failed to parse response as JSON, returning as text: {}", e.getMessage());
-                    processedResponse = responseContent;
-                }
-            } else {
-                processedResponse = responseContent;
-            }
-
             // Write results to context
-            context.write("response", processedResponse);
-            context.write("raw_response", responseContent);
-            context.write("provider", modelProvider.getProviderName());
+            context.write("response", result.getOutput());
+            context.write("raw_response", result.getRawResponse());
+            context.write("provider", result.getProvider());
+            context.write("parse_success", result.isParseSuccess());
             
-            // Write metadata if available
-            if (response.getMetadata() != null && response.getMetadata().getUsage() != null) {
-                context.write("usage", Map.of(
-                    "prompt_tokens", response.getMetadata().getUsage().getPromptTokens(),
-                    "completion_tokens", response.getMetadata().getUsage().getCompletionTokens(),
-                    "total_tokens", response.getMetadata().getUsage().getTotalTokens()
-                ));
+            // Write metadata
+            if (result.getMetadata() != null && !result.getMetadata().isEmpty()) {
+                result.getMetadata().forEach(context::write);
             }
 
             return ExecutionResult.success();
