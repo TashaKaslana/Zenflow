@@ -1,0 +1,140 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "AI Cluster Schema",
+  "description": "Orchestrate AI model execution with conversation memory and tool support",
+  "properties": {
+    "input": {
+      "type": "object",
+      "title": "Input Schema",
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "description": "The user prompt/message to send to the AI model"
+        },
+        "system_prompt": {
+          "type": "string",
+          "description": "Optional system prompt to guide the AI's behavior"
+        },
+        "response_format": {
+          "type": "string",
+          "enum": ["text", "json"],
+          "default": "text",
+          "description": "Expected response format - 'text' for plain text or 'json' for structured JSON"
+        },
+        "provider": {
+          "type": "string",
+          "default": "gemini",
+          "description": "AI provider to use (credentials come from profile)",
+          "enum": [
+            "gemini",
+            "google-ai:gemini"
+          ]
+        },
+        "model": {
+          "type": "string",
+          "description": "Specific model variant (optional, defaults to provider default)",
+          "examples": [
+            "gemini-2.0-flash",
+            "gemini-1.5-pro",
+            "gemini-1.5-flash"
+          ]
+        },
+        "model_options": {
+          "type": "object",
+          "description": "Model-specific options (passed to the provider)",
+          "properties": {
+            "temperature": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 2,
+              "default": 0.7,
+              "description": "Controls randomness. Higher values mean more random, lower values more deterministic"
+            },
+            "max_tokens": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 32768,
+              "default": 2048,
+              "description": "Maximum number of tokens to generate"
+            },
+            "top_p": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.95,
+              "description": "Nucleus sampling parameter"
+            },
+            "top_k": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 40,
+              "description": "Top-k sampling parameter"
+            }
+          }
+        },
+        "include_history": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to include conversation history from memory"
+        },
+        "memory_key": {
+          "type": "string",
+          "description": "Memory key for storing/retrieving conversation history (required if include_history is true)"
+        },
+        "max_history_messages": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 10,
+          "description": "Maximum number of history messages to include in context"
+        }
+      },
+      "required": ["prompt"],
+      "additionalProperties": false
+    },
+    "profile": {
+      "type": "object",
+      "title": "Profile Schema",
+      "description": "Credentials and authentication (uses AI credentials profile)",
+      "properties": {
+        "profileKeys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Profile keys for AI provider credentials (e.g., 'ai-credentials')"
+        }
+      }
+    },
+    "output": {
+      "type": "object",
+      "title": "Output Schema",
+      "description": "AI model response and metadata",
+      "properties": {
+        "response": {
+          "description": "Parsed AI response (text or JSON object)"
+        },
+        "raw_response": {
+          "type": "string",
+          "description": "Raw response text from the AI model"
+        },
+        "provider": {
+          "type": "string",
+          "description": "Provider name (e.g., 'gemini', 'openai')"
+        },
+        "parse_success": {
+          "type": "boolean",
+          "description": "Whether the response was successfully parsed according to requested format"
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Execution metadata (token usage, cost, latency, etc.)"
+        }
+      }
+    }
+  },
+  "required": ["input", "output"],
+  "additionalProperties": false
+}

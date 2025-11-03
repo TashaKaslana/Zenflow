@@ -30,12 +30,13 @@ public class AiClusterConfig {
     String responseFormat = "text";
     
     /**
-     * Model identifier (maps to abstract node key like "google-ai:gemini")
+     * Provider identifier (maps to abstract node key like "google-ai:gemini")
+     * This field is named "model" for backwards compatibility but represents the provider
      */
     String model;
     
     /**
-     * Model-specific options
+     * Model-specific options (including specific model variant like "gemini-2.0-flash")
      */
     Map<String, Object> modelOptions;
     
