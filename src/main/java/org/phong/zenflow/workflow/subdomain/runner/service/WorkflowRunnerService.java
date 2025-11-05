@@ -182,11 +182,13 @@ public class WorkflowRunnerService {
             if (request != null && request.payload() != null && startNodeKey != null) {
                 Map<String, Object> payload = ObjectConversion.convertObjectToMap(request.payload());
                 Map<String, Object> flattenedPayload = MapUtils.flattenMap(payload);
-                
+
+                context.initialize(initialContext, consumers, aliasMap);
+
                 // Write payload values to context with optional metadata hints
                 for (Map.Entry<String, Object> entry : flattenedPayload.entrySet()) {
                     String contextKey = String.format("%s.output.payload.%s", startNodeKey, entry.getKey());
-                    
+
                     // Check if client provided metadata for this payload key
                     if (request.payloadMetadata() != null && request.payloadMetadata().containsKey(entry.getKey())) {
                         PayloadMetadata metadata = request.payloadMetadata().get(entry.getKey());
@@ -196,19 +198,18 @@ public class WorkflowRunnerService {
                                 true
                         );
                         context.write(contextKey, entry.getValue(), options);
-                        log.debug("Wrote payload '{}' with metadata: mediaType={}, storage={}", 
+                        log.debug("Wrote payload '{}' with metadata: mediaType={}, storage={}",
                                 entry.getKey(), metadata.mediaType(), metadata.storagePreference());
                     } else {
                         // No metadata - use default auto-detection
                         context.write(contextKey, entry.getValue());
                     }
                 }
-                
+
                 // Flush pending writes immediately for initial payload
                 context.flushPendingWrites(startNodeKey);
             }
 
-            context.initialize(initialContext, consumers, aliasMap);
         } else {
             // Resumed run: load existing context
             log.debug("Existing context found for workflow run ID: {}. Loading context.", workflowRunId);

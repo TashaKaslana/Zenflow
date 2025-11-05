@@ -25,6 +25,10 @@ public class ContextKeyResolver {
     }
 
     public static String scopeKey(String nodeKey, String key) {
+        if (key.matches("^.+\\.output\\..+$")) {
+            return key;
+        }
+
         return String.format("%s.output.%s", nodeKey, key);
     }
 }

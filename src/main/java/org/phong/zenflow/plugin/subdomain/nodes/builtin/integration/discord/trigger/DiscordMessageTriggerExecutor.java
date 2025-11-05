@@ -36,6 +36,10 @@ public class DiscordMessageTriggerExecutor implements TriggerExecutor {
     public Optional<String> getResourceKey(TriggerContext triggerCtx) {
         Map<String, String> profiles = triggerCtx.profiles();
 
+        if (profiles == null) {
+            return Optional.empty();
+        }
+
         // Use the Discord bot token as the resource key for sharing JDA instances
         String botToken = profiles.get("BOT_TOKEN");
         return Optional.ofNullable(botToken);
