@@ -1,6 +1,8 @@
 package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionError;
@@ -26,8 +28,20 @@ import java.util.function.Function;
 public class AiExecutor implements NodeExecutor {
     
     private final ObjectMapper objectMapper;
+
+    /**
+     * -- GETTER --
+     *  Get the tool registry for registering custom AI tools/functions
+     */
+    @Getter
     private final AiToolRegistry toolRegistry;
     private final AiObservationRegistry observationRegistry;
+
+    /**
+     * -- SETTER --
+     *  Set the model provider factory
+     */
+    @Setter
     private Function<ExecutionContext, AiModelProvider> modelProviderFactory;
 
     /**
@@ -40,10 +54,6 @@ public class AiExecutor implements NodeExecutor {
         this.toolRegistry = toolRegistry;
         this.observationRegistry = observationRegistry;
         log.info("AiExecutor initialized with {} tools and observation registry", toolRegistry.size());
-    }
-
-    public AiObservationRegistry getObservationRegistry() {
-        return observationRegistry;
     }
 
     @Override
@@ -107,17 +117,4 @@ public class AiExecutor implements NodeExecutor {
         }
     }
 
-    /**
-     * Set the model provider factory
-     */
-    public void setModelProviderFactory(Function<ExecutionContext, AiModelProvider> factory) {
-        this.modelProviderFactory = factory;
-    }
-    
-    /**
-     * Get the tool registry for registering custom AI tools/functions
-     */
-    public AiToolRegistry getToolRegistry() {
-        return toolRegistry;
-    }
 }
