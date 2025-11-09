@@ -13,10 +13,13 @@ import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.dto.
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.dto.AiExecutionRequest;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.dto.AiExecutionResult;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.factory.AiExecutionRequestFactory;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.cluster.AiClusterProviderResolver.ProviderInfo;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.engine.orchestrator.NodeExecutionOrchestrator;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.node_definition.util.WorkflowNodeKeyUtils;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
@@ -37,6 +40,7 @@ public class AiClusterExecutor implements NodeExecutor {
     private final AiExecutionRequestFactory requestFactory;
     private final AiToolRegistry toolRegistry;
     private final ObjectMapper objectMapper;
+    private final AiClusterProviderResolver providerResolver;
 
     @Override
     public ExecutionResult execute(ExecutionContext context) {
@@ -180,26 +184,12 @@ public class AiClusterExecutor implements NodeExecutor {
             if (item instanceof Map) {
                 @SuppressWarnings("unchecked")
                 Map<String, Object> messageMap = (Map<String, Object>) item;
-                String role = (String) messageMap.get("role");
-                String content = (String) messageMap.get("content");
-                
-                if ("user".equals(role)) {
-                    messages.add(new UserMessage(content));
-                } else if ("assistant".equals(role)) {
-                    messages.add(new AssistantMessage(content));
-                }
+                initializeMessage(messageMap, messages);
             } else {
-                // Handle cases where item might be serialized JSON string
+                // Handle cases where an item might be serialized JSON string
                 try {
                     Map<?, ?> messageMap = objectMapper.readValue(item.toString(), Map.class);
-                    String role = (String) messageMap.get("role");
-                    String content = (String) messageMap.get("content");
-                    
-                    if ("user".equals(role)) {
-                        messages.add(new UserMessage(content));
-                    } else if ("assistant".equals(role)) {
-                        messages.add(new AssistantMessage(content));
-                    }
+                    initializeMessage(messageMap, messages);
                 } catch (Exception e) {
                     log.warn("Failed to parse message item: {}", item, e);
                 }
@@ -208,43 +198,64 @@ public class AiClusterExecutor implements NodeExecutor {
         return messages;
     }
 
+    private static void initializeMessage(Map<?, ?> messageMap, List<Message> messages) {
+        String role = (String) messageMap.get("role");
+        String content = (String) messageMap.get("content");
+
+        if ("user".equals(role)) {
+            messages.add(new UserMessage(content));
+        } else if ("assistant".equals(role)) {
+            messages.add(new AssistantMessage(content));
+        }
+    }
+
     /**
      * Execute abstract provider node with typed request
      */
-    private AiExecutionResult executeProvider(ExecutionContext context, String model, 
+    private AiExecutionResult executeProvider(ExecutionContext context, String model,
                                              AiExecutionRequest request, NodeLogPublisher logs) {
-        // Map model identifier to plugin node key
-        String providerKey = mapModelToProviderKey(model);
-        logs.info("Executing provider node: {}", providerKey);
-
-        // Validate provider is supported
-        if (!providerKey.equals("google-ai:gemini:1.0.0")) {
-            throw new IllegalArgumentException("Unsupported model: " + model + " (only google-ai:gemini supported currently)");
+        Optional<ProviderInfo> resolvedProvider = providerResolver.resolve(model);
+        ProviderInfo descriptor = resolvedProvider.orElseGet(providerResolver::defaultProvider);
+        if (resolvedProvider.isEmpty() && model != null && !model.isBlank()) {
+            throw new IllegalArgumentException("Unsupported model: " + model);
         }
+
+        String providerKey = descriptor.pluginKey() + ":" + descriptor.nodeKey() + ":" + descriptor.version();
+        logs.info("Executing provider node: {}", providerKey);
 
         // Build provider config - pass through the actual prompt and options
         // Provider will use the existing AiExecutor logic
         Map<String, Object> providerInput = new HashMap<>();
-        providerInput.put("prompt", request.getMessages().get(request.getMessages().size() - 1).getText());
+        providerInput.put("prompt", request.getMessages().getLast().getText());
         providerInput.put("response_format", request.getResponseFormat());
         providerInput.put("model_options", request.getModelOptions());
         
         // Add system prompt if present in messages
         if (!request.getMessages().isEmpty() && 
-            request.getMessages().get(0) instanceof org.springframework.ai.chat.messages.SystemMessage) {
-            providerInput.put("system_prompt", request.getMessages().get(0).getText());
+            request.getMessages().getFirst() instanceof org.springframework.ai.chat.messages.SystemMessage) {
+            providerInput.put("system_prompt", request.getMessages().getFirst().getText());
         }
         
         WorkflowConfig providerConfig = new WorkflowConfig(providerInput);
 
         // Execute provider via orchestrator
         logs.info("Calling provider via orchestrator: {}", providerKey);
-        ExecutionResult providerResult = orchestrator.executeSyntheticNodeByKey(
-                providerKey,
-                "ai_provider",
-                providerConfig,
-                context
-        );
+        ExecutionResult providerResult;
+        String childKey = WorkflowNodeKeyUtils.buildChildKey(context.getNodeKey(), descriptor.childAlias());
+        BaseWorkflowNode providerNode = context.getWorkflowNode(childKey);
+        if (providerNode != null) {
+            logs.info("Executing materialized provider node: {}", childKey);
+            providerNode.setConfig(providerConfig);
+            providerResult = orchestrator.executeNode(providerNode, providerConfig, context);
+        } else {
+            logs.warn("Provider node '{}' not found in workflow definition, falling back to synthetic execution", childKey);
+            providerResult = orchestrator.executeSyntheticNodeByKey(
+                    providerKey,
+                    "ai_provider",
+                    providerConfig,
+                    context
+            );
+        }
 
         // Check execution status
         if (providerResult.getStatus() != ExecutionStatus.SUCCESS) {
@@ -286,18 +297,7 @@ public class AiClusterExecutor implements NodeExecutor {
                 .build();
     }
 
-    /**
-     * Map user-friendly model name to plugin node composite key
-     */
-    private String mapModelToProviderKey(String model) {
-        // Map model identifier to plugin node key
-        return switch (model.toLowerCase()) {
-            case "gemini", "google-ai:gemini", "gemini-2.0-flash", "gemini-1.5-pro" -> "google-ai:gemini:1.0.0";
-            case "openai:gpt-4", "gpt-4" -> "openai:gpt-4:1.0.0"; // Future
-            case "openai:gpt-3.5", "gpt-3.5-turbo" -> "openai:gpt-3.5:1.0.0"; // Future
-            default -> throw new IllegalArgumentException("Unknown model: " + model);
-        };
-    }
+    // mapModelToProviderKey removed - registry handles provider resolution
 
     /**
      * Save conversation turn (user + assistant) to memory

@@ -19,6 +19,7 @@ import org.phong.zenflow.workflow.subdomain.context.refvalue.dto.WriteOptions;
 import org.phong.zenflow.workflow.subdomain.context.resolution.ContextValueResolver;
 import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 
 @Builder
@@ -59,6 +60,9 @@ public class ExecutionContextImpl implements ExecutionContext {
 
     @Builder.Default
     private Map<String, WorkflowConfig> nodeConfigs = new ConcurrentHashMap<>();
+
+    @Builder.Default
+    private Map<String, BaseWorkflowNode> workflowNodes = new ConcurrentHashMap<>();
 
     @Getter
     private WorkflowConfig currentConfig;
@@ -220,6 +224,15 @@ public class ExecutionContextImpl implements ExecutionContext {
             return new HashMap<>(currentConfig.input());
         }
         return Map.of();
+    }
+
+    @Override
+    public BaseWorkflowNode getWorkflowNode(String nodeKey) {
+        if (workflowNodes == null || nodeKey == null) {
+            return null;
+        }
+        BaseWorkflowNode node = workflowNodes.get(nodeKey);
+        return node != null ? new BaseWorkflowNode(node) : null;
     }
 
     @SuppressWarnings("unchecked")

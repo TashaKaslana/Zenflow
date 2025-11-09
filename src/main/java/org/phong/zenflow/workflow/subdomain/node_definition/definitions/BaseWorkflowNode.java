@@ -39,6 +39,18 @@ public class BaseWorkflowNode {
     private Map<String, Object> policy;
 
     /**
+     * Optional parent node key for compound/materialized children.
+     * Null indicates a top-level node.
+     */
+    private String parentNodeKey;
+
+    /**
+     * Child node keys managed by this node (for compound nodes).
+     */
+    @NotNull
+    private List<String> childNodeKeys = new ArrayList<>();
+
+    /**
      * TRUE Deep copy constructor - creates independent copies of all mutable objects
      */
     public BaseWorkflowNode(BaseWorkflowNode other) {
@@ -66,6 +78,9 @@ public class BaseWorkflowNode {
 
         // Deep copy policy map and its values
         this.policy = other.policy != null ? deepCopyMap(other.policy) : null;
+
+        this.parentNodeKey = other.parentNodeKey;
+        this.childNodeKeys = other.childNodeKeys != null ? new ArrayList<>(other.childNodeKeys) : new ArrayList<>();
     }
 
     /**

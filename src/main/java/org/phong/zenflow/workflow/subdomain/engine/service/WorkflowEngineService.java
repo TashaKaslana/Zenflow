@@ -71,6 +71,8 @@ public class WorkflowEngineService {
                     .build();
 
             Map<String, WorkflowConfig> nodeConfigs = new HashMap<>(workflowNodes.getAllNodeConfigs());
+            Map<String, BaseWorkflowNode> nodeDefinitions = new HashMap<>();
+            workflowNodes.forEach((key, node) -> nodeDefinitions.put(key, new BaseWorkflowNode(node)));
 
             ExecutionContext execCtx = ExecutionContextImpl.builder()
                     .workflowId(workflow.getId())
@@ -82,6 +84,7 @@ public class WorkflowEngineService {
                     .templateService(templateService)
                     .contextValueResolver(contextValueResolver)
                     .nodeConfigs(nodeConfigs)
+                    .workflowNodes(nodeDefinitions)
                     .build();
 
             return getWorkflowExecutionStatus(workflow.getId(), workflowRunId, context, workingNode, workflowNodes, execCtx);

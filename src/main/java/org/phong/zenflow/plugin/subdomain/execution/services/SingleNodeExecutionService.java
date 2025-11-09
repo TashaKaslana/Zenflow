@@ -57,6 +57,8 @@ public class SingleNodeExecutionService {
         WorkflowConfig safeConfig = (config != null) ? config : new WorkflowConfig();
         Map<String, WorkflowConfig> nodeConfigs = new HashMap<>();
         nodeConfigs.put(node.getKey(), safeConfig);
+        Map<String, BaseWorkflowNode> workflowNodes = new HashMap<>();
+        workflowNodes.put(node.getKey(), new BaseWorkflowNode(node));
 
         ExecutionContext execCtx = ExecutionContextImpl.builder()
                 .workflowId(workflowId)
@@ -68,6 +70,7 @@ public class SingleNodeExecutionService {
                 .templateService(templateService)
                 .contextValueResolver(contextValueResolver)
                 .nodeConfigs(nodeConfigs)
+                .workflowNodes(workflowNodes)
                 .build();
 
         execCtx.setNodeKey(node.getKey());
