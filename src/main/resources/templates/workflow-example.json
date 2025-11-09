@@ -1,0 +1,90 @@
+{
+  "id": "f61a7e3a-fbca-445d-9e34-0ca7040cb428",
+  "createdAt": "2025-09-28T05:21:56.029074Z",
+  "updatedAt": "2025-09-28T06:49:24.789171Z",
+  "createdBy": "00000000-0000-0000-0000-000000000000",
+  "updatedBy": "00000000-0000-0000-0000-000000000000",
+  "projectId": "79a3880b-fe3b-4274-9c6d-0e18414d2610",
+  "name": "google-driver",
+  "definition": {
+    "nodes": [
+      {
+        "key": "start",
+        "type": "TRIGGER",
+        "pluginNode": {
+          "nodeId": "7832fc56-05fb-43b2-8ac5-b7adde222443",
+          "pluginKey": "core",
+          "nodeKey": "manual.trigger",
+          "version": "1.0.0",
+          "executorType": "builtin"
+        },
+        "next": [
+          "list-drive-files"
+        ],
+        "config": {
+          "input": {
+
+          },
+          "profileKeys": [],
+          "output": null
+        },
+        "metadata": null,
+        "policy": null
+      },
+      {
+        "key": "list-drive-files",
+        "type": "PLUGIN",
+        "pluginNode": {
+          "nodeId": "1dcd14ae-863e-4ec2-b273-ad7e38f43327",
+          "pluginKey": "google-drive",
+          "nodeKey": "files.list",
+          "version": "1.0.0",
+          "executorType": "builtin"
+        },
+        "next": [],
+        "config": {
+          "input": {
+            "query": "trashed=false and 'root' in parents"
+          },
+          "profileKeys": [
+            "GOOGLE_AUTH"
+          ],
+          "output": null
+        },
+        "metadata": null,
+        "policy": null
+      }
+    ],
+    "metadata": {
+      "aliases": {
+
+      },
+      "nodeDependencies": {
+
+      },
+      "nodeConsumers": {
+
+      },
+      "secrets": {
+
+      },
+      "profileAssignments": {
+        "list-drive-files": {
+          "pluginKey": "google-drive",
+          "profileKey": "GOOGLE_AUTH",
+          "profileName": "GOOGLE_AUTH",
+          "profileId": "b9febb47-dbab-41aa-8357-a27c348ca843"
+        }
+      },
+      "profileRequiredNodes": [
+        "list-drive-files"
+      ]
+    }
+  },
+  "isActive": true,
+  "deletedAt": null,
+  "description": "mollit dolore officia sit et",
+  "retryPolicy": {
+
+  }
+}
