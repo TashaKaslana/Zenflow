@@ -24,7 +24,37 @@
       "title": "Region",
       "description": "Optional: API region (e.g., us-central1 for GCP)",
       "default": "us-central1"
+    },
+    "SERVICE_ACCOUNT_JSON": {
+      "type": "string",
+      "title": "Service Account JSON",
+      "description": "Optional: Paste the service account JSON key to authenticate Vertex AI"
+    },
+    "CLIENT_ID": {
+      "type": "string",
+      "title": "OAuth Client ID",
+      "description": "Optional: OAuth client ID for building refresh-token credentials"
+    },
+    "CLIENT_SECRET": {
+      "type": "string",
+      "title": "OAuth Client Secret",
+      "description": "Optional: OAuth client secret for building refresh-token credentials"
+    },
+    "REFRESH_TOKEN": {
+      "type": "string",
+      "title": "Refresh Token",
+      "description": "Optional: OAuth refresh token to obtain Vertex AI access tokens"
     }
   },
-  "required": ["API_KEY"]
+  "anyOf": [
+    {
+      "required": ["API_KEY"]
+    },
+    {
+      "required": ["SERVICE_ACCOUNT_JSON"]
+    },
+    {
+      "required": ["CLIENT_ID", "CLIENT_SECRET", "REFRESH_TOKEN"]
+    }
+  ]
 }

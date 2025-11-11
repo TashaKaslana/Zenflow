@@ -16,6 +16,10 @@ public class GcpCredentialsProfileDescriptor implements PluginProfileDescriptor 
     public static final String BASE_URL = "BASE_URL";
     public static final String PROJECT_ID = "PROJECT_ID";
     public static final String REGION = "REGION";
+    public static final String SERVICE_ACCOUNT_JSON = "SERVICE_ACCOUNT_JSON";
+    public static final String CLIENT_ID = "CLIENT_ID";
+    public static final String CLIENT_SECRET = "CLIENT_SECRET";
+    public static final String REFRESH_TOKEN = "REFRESH_TOKEN";
 
     @Override
     public String id() {

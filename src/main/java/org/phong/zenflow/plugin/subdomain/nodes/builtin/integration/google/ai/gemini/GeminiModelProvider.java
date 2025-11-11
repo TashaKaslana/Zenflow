@@ -4,8 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.AiModelProvider;
-import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.AiObservationRegistry;
-import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.AiToolRegistry;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.dto.AiExecutionRequest;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.dto.AiExecutionResult;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.dto.AiModelCapabilities;
@@ -21,21 +19,13 @@ import java.util.*;
 public class GeminiModelProvider implements AiModelProvider {
     
     private final VertexAiGeminiChatModel chatModel;
-    private final AiToolRegistry toolRegistry;
-    private final AiObservationRegistry observationRegistry;
     private final ObjectMapper objectMapper;
     
     public GeminiModelProvider(
             VertexAiGeminiChatModel chatModel,
-            AiToolRegistry toolRegistry,
-            AiObservationRegistry observationRegistry,
             ObjectMapper objectMapper) {
         this.chatModel = chatModel;
-        this.toolRegistry = toolRegistry;
-        this.observationRegistry = observationRegistry;
         this.objectMapper = objectMapper;
-        
-        log.info("GeminiModelProvider initialized with {} tools", toolRegistry.size());
     }
 
     @Override
@@ -56,12 +46,6 @@ public class GeminiModelProvider implements AiModelProvider {
         // Apply model options
         applyModelOptions(optionsBuilder, request.getModelOptions());
         
-        // TODO: Wire tools from registry (requires proper Spring AI function callback integration)
-        if (!request.getToolObjects().isEmpty()) {
-            log.debug("Tools registered but not yet wired to Gemini (tool support coming in next phase): {} tools", 
-                    request.getToolObjects().size());
-        }
-        
         VertexAiGeminiChatOptions chatOptions = optionsBuilder.build();
         
         log.debug("Calling Gemini with options: temperature={}, maxTokens={}", 
@@ -74,8 +58,8 @@ public class GeminiModelProvider implements AiModelProvider {
         
         // Extract response text
         String rawResponse = response.getResult().getOutput().getText();
-        log.debug("Received response from Gemini: {} chars", rawResponse.length());
-        
+        log.debug("Received response from Gemini: {} chars", rawResponse != null ? rawResponse.length() : null);
+
         // Parse response according to format
         Object parsedOutput;
         boolean parseSuccess = true;
@@ -95,7 +79,7 @@ public class GeminiModelProvider implements AiModelProvider {
         
         // Build metadata
         Map<String, Object> metadata = new HashMap<>();
-        if (response.getMetadata() != null && response.getMetadata().getUsage() != null) {
+        if (response.getMetadata().getUsage() != null) {
             metadata.put("usage", Map.of(
                     "prompt_tokens", response.getMetadata().getUsage().getPromptTokens(),
                     "completion_tokens", response.getMetadata().getUsage().getCompletionTokens(),
