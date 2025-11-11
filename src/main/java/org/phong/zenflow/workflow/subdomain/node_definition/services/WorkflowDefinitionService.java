@@ -34,6 +34,7 @@ public class WorkflowDefinitionService {
 
     private final WorkflowValidationService workflowValidationService;
     private final WorkflowContextService workflowContextService;
+    private final CompoundNodeMaterializer compoundNodeMaterializer;
 
     /**
      * Updates or inserts nodes in the temporary definition based on the existing definition.
@@ -74,10 +75,9 @@ public class WorkflowDefinitionService {
 
             if (key == null || key.isBlank()) {
                 key = NodeKeyGenerator.generateKey(type);
-                node = new BaseWorkflowNode(
-                        key, node.getType(), node.getPluginNode(), node.getNext(),
-                        node.getConfig(), node.getMetadata(), node.getPolicy()
-                );
+                BaseWorkflowNode generated = new BaseWorkflowNode(node);
+                generated.setKey(key);
+                node = generated;
             }
 
             keyToNode.put(key, node);
@@ -133,6 +133,7 @@ public class WorkflowDefinitionService {
 
         List<ValidationError> upsertedNodesErr = upsertNodes(existingDef, newDef);
         upsertMetadata(existingDef.metadata(), newDef.metadata());
+        compoundNodeMaterializer.materialize(existingDef);
 
         return upsertedNodesErr;
     }

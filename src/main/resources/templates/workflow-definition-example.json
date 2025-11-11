@@ -1,0 +1,275 @@
+{
+  "nodes": [
+    {
+      "key": "start",
+      "next": [
+        "send-response"
+      ],
+      "type": "TRIGGER",
+      "config": {
+        "input": {
+          "channel_id": "{{zenflow.secrets.DISCORD_CHANNEL_ID}}"
+        },
+        "output": null,
+        "profileKeys": [
+          "DISCORD_PROFILE"
+        ]
+      },
+      "policy": null,
+      "metadata": null,
+      "pluginNode": {
+        "nodeId": "be2b100b-92bf-4988-bd1f-f970b97390e7",
+        "nodeKey": "message.trigger",
+        "version": "1.0.0",
+        "pluginKey": "discord",
+        "executorType": "builtin"
+      }
+    },
+    {
+      "key": "gd-upload",
+      "next": [
+        "gd-update"
+      ],
+      "type": "PLUGIN",
+      "config": {
+        "input": {
+          "data": "{{start.output.payload.initial_content_b64}}",
+          "name": "{{start.output.payload.file_name}}",
+          "profile": "{{start.output.payload.profile}}",
+          "mimeType": "{{start.output.payload.mime_type}}"
+        },
+        "output": null,
+        "profileKeys": []
+      },
+      "policy": null,
+      "metadata": null,
+      "pluginNode": {
+        "nodeId": "06be4a78-7502-4cca-b796-3cd8f96d8a2d",
+        "nodeKey": "files.upload",
+        "version": "1.0.0",
+        "pluginKey": "google-drive",
+        "executorType": "builtin"
+      }
+    },
+    {
+      "key": "send-response",
+      "next": [],
+      "type": "PLUGIN",
+      "config": {
+        "input": {
+          "message": "Received your message with content: '{{start.output.payload.content}}'",
+          "channel_id": "{{zenflow.secrets.DISCORD_CHANNEL_ID}}"
+        },
+        "output": null,
+        "profileKeys": [
+          "DISCORD_PROFILE"
+        ]
+      },
+      "policy": null,
+      "metadata": null,
+      "pluginNode": {
+        "nodeId": "735a0e97-daaa-4729-a24f-a3226cb6acde",
+        "nodeKey": "message.send",
+        "version": "1.0.0",
+        "pluginKey": "discord",
+        "executorType": "builtin"
+      }
+    },
+    {
+      "key": "gd-get-metadata",
+      "next": [
+        "gd-delete"
+      ],
+      "type": "PLUGIN",
+      "config": {
+        "input": {
+          "fileId": "{{gd-upload.output.file.id}}",
+          "profile": "{{start.output.payload.profile}}"
+        },
+        "output": null,
+        "profileKeys": []
+      },
+      "policy": null,
+      "metadata": null,
+      "pluginNode": {
+        "nodeId": "6a397b89-4c7f-4800-a351-0597cd18c53f",
+        "nodeKey": "files.getMetadata",
+        "version": "1.0.0",
+        "pluginKey": "google-drive",
+        "executorType": "builtin"
+      }
+    },
+    {
+      "key": "gd-delete",
+      "next": [],
+      "type": "PLUGIN",
+      "config": {
+        "input": {
+          "fileId": "{{gd-upload.output.file.id}}",
+          "profile": "{{start.output.payload.profile}}"
+        },
+        "output": null,
+        "profileKeys": []
+      },
+      "policy": null,
+      "metadata": null,
+      "pluginNode": {
+        "nodeId": "0355c9c8-98ec-4335-ad2d-383c133ef858",
+        "nodeKey": "files.delete",
+        "version": "1.0.0",
+        "pluginKey": "google-drive",
+        "executorType": "builtin"
+      }
+    },
+    {
+      "key": "gd-update",
+      "next": [
+        "gd-get-metadata"
+      ],
+      "type": "PLUGIN",
+      "config": {
+        "input": {
+          "name": "{{start.output.payload.file_name}}",
+          "fileId": "{{gd-upload.output.file.id}}",
+          "profile": "{{start.output.payload.profile}}",
+          "mimeType": "{{start.output.payload.mime_type}}",
+          "contentBase64": "{{start.output.payload.update_content_b64}}"
+        },
+        "output": null,
+        "profileKeys": []
+      },
+      "policy": null,
+      "metadata": null,
+      "pluginNode": {
+        "nodeId": "96706ac0-5808-4348-b77a-fffce631e43c",
+        "nodeKey": "files.update",
+        "version": "1.0.0",
+        "pluginKey": "google-drive",
+        "executorType": "builtin"
+      }
+    }
+  ],
+  "metadata": {
+    "aliases": {},
+    "secrets": {
+      "DISCORD_CHANNEL_ID": [
+        "start",
+        "send-response"
+      ]
+    },
+    "nodeConsumers": {
+      "gd-upload.output.file.id": {
+        "type": "any",
+        "aliases": [],
+        "consumers": [
+          "gd-get-metadata",
+          "gd-delete",
+          "gd-update"
+        ]
+      },
+      "start.output.payload.content": {
+        "type": "any",
+        "aliases": [],
+        "consumers": [
+          "send-response"
+        ]
+      },
+      "start.output.payload.profile": {
+        "type": "any",
+        "aliases": [],
+        "consumers": [
+          "gd-get-metadata",
+          "gd-delete",
+          "gd-upload",
+          "gd-update"
+        ]
+      },
+      "start.output.payload.file_name": {
+        "type": "any",
+        "aliases": [],
+        "consumers": [
+          "gd-upload",
+          "gd-update"
+        ]
+      },
+      "start.output.payload.mime_type": {
+        "type": "any",
+        "aliases": [],
+        "consumers": [
+          "gd-upload",
+          "gd-update"
+        ]
+      },
+      "zenflow.secrets.DISCORD_CHANNEL_ID": {
+        "type": null,
+        "aliases": [],
+        "consumers": [
+          "send-response",
+          "start"
+        ]
+      },
+      "start.output.payload.update_content_b64": {
+        "type": "any",
+        "aliases": [],
+        "consumers": [
+          "gd-update"
+        ]
+      },
+      "start.output.payload.initial_content_b64": {
+        "type": "any",
+        "aliases": [],
+        "consumers": [
+          "gd-upload"
+        ]
+      }
+    },
+    "nodeDependencies": {
+      "start": [
+        "zenflow.secrets.DISCORD_CHANNEL_ID"
+      ],
+      "gd-delete": [
+        "start.output.payload.profile",
+        "gd-upload.output.file.id"
+      ],
+      "gd-update": [
+        "start.output.payload.profile",
+        "gd-upload.output.file.id",
+        "start.output.payload.mime_type",
+        "start.output.payload.update_content_b64",
+        "start.output.payload.file_name"
+      ],
+      "gd-upload": [
+        "start.output.payload.profile",
+        "start.output.payload.mime_type",
+        "start.output.payload.initial_content_b64",
+        "start.output.payload.file_name"
+      ],
+      "send-response": [
+        "zenflow.secrets.DISCORD_CHANNEL_ID",
+        "start.output.payload.content"
+      ],
+      "gd-get-metadata": [
+        "start.output.payload.profile",
+        "gd-upload.output.file.id"
+      ]
+    },
+    "profileAssignments": {
+      "start": {
+        "pluginKey": "discord",
+        "profileId": "56de7e2a-55ea-42f6-998d-8e1219a0a021",
+        "profileKey": "DISCORD_PROFILE",
+        "profileName": "DISCORD_PROFILE"
+      },
+      "send-response": {
+        "pluginKey": "discord",
+        "profileId": "56de7e2a-55ea-42f6-998d-8e1219a0a021",
+        "profileKey": "DISCORD_PROFILE",
+        "profileName": "DISCORD_PROFILE"
+      }
+    },
+    "profileRequiredNodes": [
+      "start",
+      "send-response"
+    ]
+  }
+}

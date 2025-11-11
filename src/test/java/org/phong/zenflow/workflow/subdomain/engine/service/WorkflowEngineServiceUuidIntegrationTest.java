@@ -217,15 +217,16 @@ class WorkflowEngineServiceUuidIntegrationTest {
     }
 
     private BaseWorkflowNode createWorkflowNode(String key, PluginNodeIdentifier identifier) {
-        return new BaseWorkflowNode(
-                key,
-                NodeType.ACTION,
-                identifier,
-                List.of(),
-                new WorkflowConfig(Map.of(), Map.of()),
-                Map.of(),
-                Map.of()
-        );
+        BaseWorkflowNode node = new BaseWorkflowNode();
+        node.setKey(key);
+        node.setType(NodeType.ACTION);
+        node.setPluginNode(identifier);
+        node.setNext(new ArrayList<>());
+        node.setConfig(new WorkflowConfig(Map.of(), Map.of()));
+        node.setMetadata(new HashMap<>());
+        node.setPolicy(new HashMap<>());
+        node.setChildNodeKeys(new ArrayList<>());
+        return node;
     }
 
     private Workflow createWorkflow(UUID id, WorkflowDefinition definition) {

@@ -6,6 +6,7 @@ import org.phong.zenflow.workflow.subdomain.context.refvalue.ExecutionOutputEntr
 import org.phong.zenflow.workflow.subdomain.context.refvalue.dto.WriteOptions;
 import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 
 import java.io.IOException;
@@ -125,6 +126,11 @@ public interface ExecutionContext {
     TemplateService.ImmutableEvaluator getEvaluator();
 
     Map<String, Object> getCurrentNodeEntrypoint();
+
+    /**
+     * Returns a defensive copy of the workflow node definition for the provided key, if available.
+     */
+    BaseWorkflowNode getWorkflowNode(String nodeKey);
 
     Object getProfileSecret(String key);
 

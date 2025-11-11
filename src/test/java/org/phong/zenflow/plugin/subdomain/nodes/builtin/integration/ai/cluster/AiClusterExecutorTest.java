@@ -12,7 +12,10 @@ import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.context.refvalue.dto.WriteOptions;
 import org.phong.zenflow.workflow.subdomain.engine.orchestrator.NodeExecutionOrchestrator;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
+import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
 
 import java.util.*;
 
@@ -36,6 +39,7 @@ class AiClusterExecutorTest {
     private AiToolRegistry toolRegistry;
     private AiExecutionRequestFactory requestFactory;
     private ObjectMapper objectMapper;
+    private AiClusterProviderResolver providerResolver;
 
     @BeforeEach
     void setUp() {
@@ -53,7 +57,9 @@ class AiClusterExecutorTest {
         context = mock(ExecutionContext.class);
         logPublisher = mock(NodeLogPublisher.class);
         
-        executor = new AiClusterExecutor(orchestrator, requestFactory, toolRegistry, objectMapper);
+        providerResolver = new AiClusterProviderResolver();
+        executor = new AiClusterExecutor(orchestrator, requestFactory, toolRegistry, objectMapper, providerResolver);
+        lenient().when(context.getWorkflowNode(anyString())).thenReturn(null);
 
         // Setup orchestrator to delegate memory operations to REAL MemoryExecutor
         when(orchestrator.executeSyntheticNodeByKey(
@@ -373,6 +379,40 @@ class AiClusterExecutorTest {
 
         // Verify provider was called (model variant passed via model_options)
         verify(orchestrator).executeSyntheticNodeByKey(
+                eq("google-ai:gemini:1.0.0"),
+                eq("ai_provider"),
+                any(WorkflowConfig.class),
+                eq(context)
+        );
+    }
+
+    @Test
+    void testMaterializedProviderNodePreferredWhenPresent() {
+        setupBasicConfig("Summarize this text", "gemini", false, null);
+        String parentKey = "ai_cluster_node";
+        when(context.getNodeKey()).thenReturn(parentKey);
+
+        BaseWorkflowNode childNode = new BaseWorkflowNode();
+        childNode.setKey(parentKey + "::google-ai-gemini");
+        childNode.setType(NodeType.PLUGIN);
+        childNode.setPluginNode(new PluginNodeIdentifier(
+                UUID.randomUUID(),
+                "google-ai",
+                "gemini",
+                "1.0.0",
+                "builtin"
+        ));
+        childNode.setConfig(new WorkflowConfig());
+
+        when(context.getWorkflowNode(childNode.getKey())).thenReturn(childNode);
+        when(orchestrator.executeNode(any(BaseWorkflowNode.class), any(WorkflowConfig.class), eq(context)))
+                .thenReturn(ExecutionResult.success());
+
+        ExecutionResult result = executor.execute(context);
+
+        assertEquals(ExecutionStatus.SUCCESS, result.getStatus());
+        verify(orchestrator).executeNode(any(BaseWorkflowNode.class), any(WorkflowConfig.class), eq(context));
+        verify(orchestrator, never()).executeSyntheticNodeByKey(
                 eq("google-ai:gemini:1.0.0"),
                 eq("ai_provider"),
                 any(WorkflowConfig.class),

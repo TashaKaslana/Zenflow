@@ -32,11 +32,12 @@ public class WorkflowNavigatorServiceTest {
         ApplicationEventPublisher publisher = mock(ApplicationEventPublisher.class);
         WorkflowNavigatorService service = new WorkflowNavigatorService(publisher);
 
-        BaseWorkflowNode waitNode = new BaseWorkflowNode(
-                "wait", NodeType.PLUGIN,
-                new PluginNodeIdentifier("core", "wait", "1.0.0", null),
-                List.of(), new WorkflowConfig(), null, null
-        );
+        BaseWorkflowNode waitNode = new BaseWorkflowNode();
+        waitNode.setKey("wait");
+        waitNode.setType(NodeType.PLUGIN);
+        waitNode.setPluginNode(new PluginNodeIdentifier("core", "wait", "1.0.0", null));
+        waitNode.setNext(List.of());
+        waitNode.setConfig(new WorkflowConfig());
 
         Map<String, Object> output = Map.of(
                 "waitingNodes", Map.of("A", false, "B", false),
