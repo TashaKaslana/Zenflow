@@ -28,4 +28,7 @@ public interface SecretNodeLinkRepository extends JpaRepository<SecretNodeLink, 
        where w.id = :workflowId
        """)
     List<SecretNodeLinkInfo> getSecretNodeLinkInfoByWorkflowId(UUID workflowId);
+
+    @Query("SELECT id from SecretNodeLink WHERE workflow.id = :workflowId")
+    List<UUID> getSecretNodeLinkByWorkflowId(UUID workflowId);
 }

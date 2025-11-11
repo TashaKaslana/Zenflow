@@ -10,6 +10,7 @@ import org.phong.zenflow.secret.subdomain.link.dto.LinkProfileToNodeRequest;
 import org.phong.zenflow.secret.subdomain.link.dto.LinkSecretToNodeRequest;
 import org.phong.zenflow.secret.subdomain.link.dto.NodeProfileLinkDto;
 import org.phong.zenflow.secret.subdomain.link.dto.NodeSecretLinksDto;
+import org.phong.zenflow.secret.subdomain.link.dto.ProfileLinkUpdateRequest;
 import org.phong.zenflow.secret.subdomain.link.dto.SecretNodeLinkInsertRequestDto;
 import org.phong.zenflow.secret.subdomain.link.infrastructure.entity.SecretNodeLink;
 import org.phong.zenflow.secret.subdomain.link.infrastructure.entity.SecretProfileNodeLink;
@@ -69,6 +70,31 @@ public class SecretLinkService {
                 .toList();
 
         secretNodeLinkRepository.saveAll(newLinks);
+    }
+
+    @Transactional
+    public void updateProfileLinksBatch(List<ProfileLinkUpdateRequest> updates) {
+        if (updates == null || updates.isEmpty()) {
+            return;
+        }
+
+        Map<UUID, UUID> profileIdByLinkId = updates.stream()
+                .collect(Collectors.toMap(ProfileLinkUpdateRequest::linkId, ProfileLinkUpdateRequest::profileId));
+
+        List<SecretProfileNodeLink> links = secretProfileNodeLinkRepository.findAllById(profileIdByLinkId.keySet());
+        if (links.isEmpty()) {
+            return;
+        }
+
+        for (SecretProfileNodeLink link : links) {
+            UUID profileId = profileIdByLinkId.get(link.getId());
+            if (profileId == null) {
+                continue;
+            }
+            link.setProfile(secretProfileRepository.getReferenceById(profileId));
+        }
+
+        secretProfileNodeLinkRepository.saveAll(links);
     }
 
     @Transactional(readOnly = true)
@@ -199,6 +225,13 @@ public class SecretLinkService {
                 .toList();
 
         secretProfileNodeLinkRepository.saveAll(newLinks);
+    }
+
+    @Transactional
+    public void updateProfileLink(UUID linkId, UUID profileId) {
+        SecretProfileNodeLink link = secretProfileNodeLinkRepository.findById(linkId)
+                .orElseThrow(() -> new SecretDomainException("Profile link not found: " + linkId));
+        link.setProfile(secretProfileRepository.getReferenceById(profileId));
     }
 
     public void linkSecretToNode(UUID workflowId, LinkSecretToNodeRequest request) {

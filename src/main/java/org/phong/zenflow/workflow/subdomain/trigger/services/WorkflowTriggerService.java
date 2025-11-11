@@ -24,6 +24,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -97,8 +99,9 @@ public class WorkflowTriggerService {
                     TriggerType triggerType = triggerTypeOpt.get();
 
                     // Check if trigger already exists
-                    Optional<WorkflowTrigger> existingTrigger = triggerRepository
-                            .findByWorkflowIdAndTriggerExecutorId(workflowId, nodeId);
+                    List<WorkflowTrigger> existingTriggers = triggerRepository
+                            .findAllByWorkflowIdAndTriggerExecutorId(workflowId, nodeId);
+                    Optional<WorkflowTrigger> existingTrigger = resolveExistingTrigger(workflowId, nodeId, existingTriggers);
 
                     if (existingTrigger.isPresent()) {
                         // Update existing trigger with new configuration
@@ -313,5 +316,32 @@ public class WorkflowTriggerService {
                 request
         ));
         return workflowRunId;
+    }
+
+    /**
+     * Identify the single trigger we should act upon for the executor. Any duplicates are removed so
+     * future lookups stay consistent with the assumed uniqueness of (workflowId, triggerExecutorId).
+     */
+    private Optional<WorkflowTrigger> resolveExistingTrigger(UUID workflowId,
+                                                            UUID nodeId,
+                                                            List<WorkflowTrigger> triggers) {
+        if (triggers.isEmpty()) {
+            return Optional.empty();
+        }
+
+        if (triggers.size() == 1) {
+            return Optional.of(triggers.getFirst());
+        }
+
+        List<WorkflowTrigger> sorted = new ArrayList<>(triggers);
+        sorted.sort(Comparator.comparing(WorkflowTrigger::getCreatedAt).reversed());
+        WorkflowTrigger primary = sorted.getFirst();
+        List<WorkflowTrigger> duplicates = new ArrayList<>(sorted.subList(1, sorted.size()));
+
+        triggerRepository.deleteAll(duplicates);
+        log.warn("Removed {} duplicate triggers for workflow {} executor {}; keeping {}",
+                duplicates.size(), workflowId, nodeId, primary.getId());
+
+        return Optional.of(primary);
     }
 }

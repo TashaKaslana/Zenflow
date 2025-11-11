@@ -13,7 +13,7 @@ public interface SecretProfileNodeLinkRepository extends JpaRepository<SecretPro
     Optional<SecretProfileNodeLink> findByWorkflowIdAndNodeKey(UUID workflowId, String nodeKey);
     void deleteByWorkflowIdAndNodeKey(UUID workflowId, String nodeKey);
     void deleteAllByWorkflowId(UUID workflowId);
-    java.util.List<SecretProfileNodeLink> findAllByWorkflowId(UUID workflowId);
+    List<SecretProfileNodeLink> findAllByWorkflowId(UUID workflowId);
 
     @Query("""
        select l.id as id,
@@ -24,4 +24,7 @@ public interface SecretProfileNodeLinkRepository extends JpaRepository<SecretPro
        where l.workflow.id = :workflowId
        """)
     List<SecretProfileNodeLinkInfo> getProfileLinksByWorkflowId(UUID workflowId);
+
+    @Query("SELECT id FROm SecretProfileNodeLink WHERE workflow.id = :workflowId")
+    List<UUID> findAllIdsByWorkflowId(UUID workflowId);
 }

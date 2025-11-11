@@ -22,7 +22,7 @@ public interface WorkflowTriggerRepository extends JpaRepository<WorkflowTrigger
 
     Iterable<WorkflowTrigger> findByEnabledTrue();
 
-    Optional<WorkflowTrigger> findByWorkflowIdAndTriggerExecutorId(UUID workflowId, UUID nodeId);
+    List<WorkflowTrigger> findAllByWorkflowIdAndTriggerExecutorId(UUID workflowId, UUID nodeId);
 
     @Transactional
     @Modifying

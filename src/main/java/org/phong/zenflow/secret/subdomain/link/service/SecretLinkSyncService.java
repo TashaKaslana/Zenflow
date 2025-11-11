@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.secret.service.SecretService;
 import org.phong.zenflow.secret.subdomain.link.dto.LinkProfileToNodeRequest;
+import org.phong.zenflow.secret.subdomain.link.dto.ProfileLinkUpdateRequest;
 import org.phong.zenflow.secret.subdomain.link.event.SecretLinkedEvent;
 import org.phong.zenflow.workflow.infrastructure.persistence.repository.WorkflowRepository;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
@@ -28,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -246,28 +248,28 @@ public class SecretLinkSyncService {
     private void applyProfileLinks(UUID workflowId, Map<String, UUID> desiredProfileByNode) {
         List<SecretProfileNodeLinkInfo> existingLinks = secretLinkService.getProfileLinksByWorkflowId(workflowId);
 
-        Map<String, Map<UUID, UUID>> existingByNode = existingLinks.stream()
-                .collect(Collectors.groupingBy(
+        // Map each node to its current profile link record so we can decide if we need to insert, update, or delete
+        Map<String, SecretProfileNodeLinkInfo> existingByNode = existingLinks.stream()
+                .collect(Collectors.toMap(
                         SecretProfileNodeLinkInfo::getNodeKey,
-                        Collectors.collectingAndThen(
-                                Collectors.toList(),
-                                list -> list.stream()
-                                        .collect(Collectors.toMap(
-                                                SecretProfileNodeLinkInfo::getProfileId,
-                                                SecretProfileNodeLinkInfo::getId,
-                                                (current, duplicate) -> duplicate
-                                        ))
-                        )
+                        Function.identity(),
+                        (current, duplicate) -> current
                 ));
 
         List<LinkProfileToNodeRequest> linksToInsert = new ArrayList<>();
+        List<ProfileLinkUpdateRequest> linksToUpdate = new ArrayList<>();
         Set<UUID> linkIdsToDelete = new HashSet<>();
 
-        processToExtractProfileLinkRequest(desiredProfileByNode, existingByNode, linksToInsert, linkIdsToDelete);
+        processToExtractProfileLinkRequest(desiredProfileByNode, existingByNode, linksToInsert, linksToUpdate, linkIdsToDelete);
 
         if (!linkIdsToDelete.isEmpty()) {
             secretLinkService.unlinkProfileLinks(linkIdsToDelete);
             log.debug("Unlinked {} obsolete profile links", linkIdsToDelete.size());
+        }
+
+        if (!linksToUpdate.isEmpty()) {
+            secretLinkService.updateProfileLinksBatch(linksToUpdate);
+            log.debug("Updated {} profile links", linksToUpdate.size());
         }
 
         if (!linksToInsert.isEmpty()) {
@@ -276,31 +278,32 @@ public class SecretLinkSyncService {
         }
     }
 
+    /**
+     * Compare the desired profile assignment per node with the existing records and bucket the work needed.
+     * Nodes with no existing link will be inserted, existing links that change profile are collected for update,
+     * and nodes that disappear from metadata are marked for deletion.
+     */
     private static void processToExtractProfileLinkRequest(Map<String, UUID> desiredProfileByNode,
-                                                           Map<String, Map<UUID, UUID>> existingByNode,
+                                                           Map<String, SecretProfileNodeLinkInfo> existingByNode,
                                                            List<LinkProfileToNodeRequest> linksToInsert,
+                                                           List<ProfileLinkUpdateRequest> linksToUpdate,
                                                            Set<UUID> linkIdsToDelete) {
         desiredProfileByNode.forEach((nodeKey, desiredProfileId) -> {
-            Map<UUID, UUID> existing = existingByNode.get(nodeKey);
-            if (existing == null || existing.isEmpty()) {
+            SecretProfileNodeLinkInfo existing = existingByNode.get(nodeKey);
+            if (existing == null) {
                 linksToInsert.add(new LinkProfileToNodeRequest(desiredProfileId, nodeKey));
                 return;
             }
 
-            if (!existing.containsKey(desiredProfileId)) {
-                linksToInsert.add(new LinkProfileToNodeRequest(desiredProfileId, nodeKey));
+            if (!existing.getProfileId().equals(desiredProfileId)) {
+                // Keep the existing row but point it at the desired profile instead of deleting and recreating it
+                linksToUpdate.add(new ProfileLinkUpdateRequest(existing.getId(), desiredProfileId));
             }
-
-            existing.forEach((profileId, linkId) -> {
-                if (!profileId.equals(desiredProfileId)) {
-                    linkIdsToDelete.add(linkId);
-                }
-            });
         });
 
-        existingByNode.forEach((nodeKey, linksByProfile) -> {
+        existingByNode.forEach((nodeKey, linkInfo) -> {
             if (!desiredProfileByNode.containsKey(nodeKey)) {
-                linkIdsToDelete.addAll(linksByProfile.values());
+                linkIdsToDelete.add(linkInfo.getId());
             }
         });
     }
