@@ -1,9 +1,7 @@
-package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.ai.core;
+package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai;
 
 import org.phong.zenflow.plugin.subdomain.registry.profile.PluginProfileDescriptor;
 import org.springframework.stereotype.Component;
-
-import java.util.Map;
 
 /**
  * Profile descriptor for AI provider credentials.
@@ -11,15 +9,8 @@ import java.util.Map;
  */
 @Component
 public class GcpCredentialsProfileDescriptor implements PluginProfileDescriptor {
-
     public static final String API_KEY = "API_KEY";
     public static final String BASE_URL = "BASE_URL";
-    public static final String PROJECT_ID = "PROJECT_ID";
-    public static final String REGION = "REGION";
-    public static final String SERVICE_ACCOUNT_JSON = "SERVICE_ACCOUNT_JSON";
-    public static final String CLIENT_ID = "CLIENT_ID";
-    public static final String CLIENT_SECRET = "CLIENT_SECRET";
-    public static final String REFRESH_TOKEN = "REFRESH_TOKEN";
 
     @Override
     public String id() {
@@ -38,13 +29,6 @@ public class GcpCredentialsProfileDescriptor implements PluginProfileDescriptor 
 
     @Override
     public String schemaPath() {
-        return "/google/ai/gcp.profile.schema.json";
-    }
-
-    @Override
-    public Map<String, Object> defaultValues() {
-        return Map.of(
-                REGION, "us-central1"
-        );
+        return "/gcp.profile.schema.json";
     }
 }

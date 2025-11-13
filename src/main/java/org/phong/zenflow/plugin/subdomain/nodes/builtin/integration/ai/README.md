@@ -1,8 +1,9 @@
 # AI Node Implementation
 
-This implementation provides a flexible AI node system with support for various AI model providers, starting with Google's Gemini.  
-We now ship two Gemini nodes:
+This implementation provides a flexible AI node system with support for various AI model providers (OpenAI, Gemini API, and Gemini Vertex).  
+We now ship the following AI nodes:
 
+- **OpenAI ChatGPT** &mdash; default OpenAI node backed by the Chat Completions API (or any compatible host).
 - **Gemini AI** &mdash; default node backed by the public Gemini API exposed through the OpenAI-compatible protocol (host + API key).
 - **Gemini AI (Vertex)** &mdash; legacy node that talks to Google Vertex AI with full GCP credentials.
 
@@ -26,12 +27,18 @@ We now ship two Gemini nodes:
    - Integrates with Micrometer for metrics and tracing
    - Tracks operation start, completion, and errors
 
-### Gemini Implementations
+### Provider Implementations
 
-#### Gemini API (default)
+#### OpenAI ChatGPT (default)
+- **OpenAiModelProvider** - Wraps the native OpenAI REST client with text/JSON parsing
+- **OpenAiChatgptExecutor** - Configures the base executor with the OpenAI provider
+- **OpenAiResourceManager** - Creates pooled OpenAI chat clients from host + API key secrets
+- **OpenAiChatgptNode** - Plugin definition exposed under `openai:chatgpt`
+
+#### Gemini API
 - **GeminiModelProvider** - Wraps the OpenAI-compatible Gemini chat model
 - **GeminiAiExecutor** - Configures the base executor with the Gemini API provider
-- **GeminiResourceManager** - Builds OpenAI clients from host + API key secrets
+- **GeminiResourceManager** - Builds OpenAI-compatible Gemini clients from host + API key secrets
 - **GeminiAiNode** - Plugin definition exposed under `google-ai:gemini`
 
 #### Gemini Vertex (legacy)
@@ -42,7 +49,7 @@ We now ship two Gemini nodes:
 
 ## Profile Configuration
 
-Both nodes reuse the **`ai-credentials`** profile descriptor:
+All nodes reuse the **`ai-credentials`** profile descriptor:
 
 ```json
 {
@@ -52,8 +59,8 @@ Both nodes reuse the **`ai-credentials`** profile descriptor:
 ```
 
 **Common fields**
-- `API_KEY` (required) &mdash; API key for the Gemini API (or any OpenAI-compatible host).
-- `BASE_URL` (optional) &mdash; Override host. Defaults to `https://generativelanguage.googleapis.com/v1beta/openai/`.
+- `API_KEY` (required) &mdash; API key for the OpenAI / Gemini API (or any compatible host).
+- `BASE_URL` (optional) &mdash; Override host. Defaults to `https://api.openai.com/v1/` for OpenAI and `https://generativelanguage.googleapis.com/v1beta/openai/` for Gemini.
 
 **Vertex-only fields**
 - `PROJECT_ID` &mdash; GCP project id that hosts Vertex AI.
@@ -62,7 +69,33 @@ Both nodes reuse the **`ai-credentials`** profile descriptor:
 
 ## Usage
 
-### Gemini API (default)
+### OpenAI ChatGPT (default)
+
+#### Basic Text Response
+```yaml
+nodes:
+  - id: chatgpt_text
+    type: openai:chatgpt
+    config:
+      model: gpt-4o-mini
+      prompt: "Summarise the latest release notes in two paragraphs"
+```
+
+#### JSON Response
+```yaml
+nodes:
+  - id: chatgpt_json
+    type: openai:chatgpt
+    config:
+      prompt: "Return a JSON object containing a random team name and mascot"
+      system_prompt: "Only respond with valid JSON."
+      response_format: json
+      model_options:
+        temperature: 0.2
+        max_tokens: 800
+```
+
+### Gemini API
 
 #### Basic Text Response
 ```yaml

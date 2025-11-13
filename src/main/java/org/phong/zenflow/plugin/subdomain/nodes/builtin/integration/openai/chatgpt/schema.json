@@ -1,0 +1,123 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "OpenAI ChatGPT Schema",
+  "description": "Execute OpenAI Chat Completions (or compatible hosts) with text or JSON responses",
+  "properties": {
+    "input": {
+      "type": "object",
+      "title": "Input Schema",
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "description": "The user prompt/message to send to the AI model"
+        },
+        "system_prompt": {
+          "type": "string",
+          "description": "Optional system prompt to steer the assistant's behaviour"
+        },
+        "response_format": {
+          "type": "string",
+          "enum": ["text", "json"],
+          "default": "text",
+          "description": "Expected response format - 'text' for plain text or 'json' for structured JSON output"
+        },
+        "model": {
+          "type": "string",
+          "default": "gpt-4o-mini",
+          "description": "Chat completion model to use (gpt-4o, gpt-4o-mini, o3-mini, etc.)"
+        },
+        "api_host": {
+          "type": "string",
+          "description": "Override for the OpenAI-compatible API host (defaults to profile BASE_URL or https://api.openai.com/v1/)"
+        },
+        "model_options": {
+          "type": "object",
+          "description": "Advanced OpenAI chat options",
+          "properties": {
+            "temperature": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 2,
+              "default": 0.7,
+              "description": "Controls randomness. Higher = more creative, lower = more deterministic"
+            },
+            "max_tokens": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 128000,
+              "default": 2048,
+              "description": "Maximum number of tokens to generate in the completion"
+            },
+            "top_p": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.95,
+              "description": "Nucleus sampling parameter (alternative to temperature)"
+            },
+            "frequency_penalty": {
+              "type": "number",
+              "minimum": -2,
+              "maximum": 2,
+              "description": "Penalizes tokens based on how often they already appeared"
+            },
+            "presence_penalty": {
+              "type": "number",
+              "minimum": -2,
+              "maximum": 2,
+              "description": "Penalizes tokens based on whether they appear in the text so far"
+            },
+            "seed": {
+              "type": "integer",
+              "description": "Deterministic seed (where supported) for reproducible completions"
+            },
+            "response_format": {
+              "type": "object",
+              "description": "Raw OpenAI response_format payload for fine-grained JSON control (json_object, json_schema, etc.)"
+            }
+          }
+        }
+      },
+      "required": ["prompt"],
+      "additionalProperties": false
+    },
+    "output": {
+      "type": "object",
+      "title": "Output Schema",
+      "properties": {
+        "response": {
+          "description": "Processed response (string for text mode, object for JSON mode)"
+        },
+        "raw_response": {
+          "type": "string",
+          "description": "Raw completion text from OpenAI"
+        },
+        "provider": {
+          "type": "string",
+          "description": "Provider name ('openai')"
+        },
+        "usage": {
+          "type": "object",
+          "description": "Token usage metadata direct from OpenAI"
+        },
+        "model": {
+          "type": "string",
+          "description": "Actual model used by OpenAI for the request"
+        },
+        "parse_success": {
+          "type": "boolean",
+          "description": "Indicates if JSON parsing succeeded when response_format=json"
+        }
+      }
+    },
+    "profile": {
+      "profileKeys": [
+        "ai-credentials"
+      ],
+      "description": "Requires AI credentials profile with API_KEY (and optional BASE_URL pointing to an OpenAI-compatible host)."
+    }
+  },
+  "required": ["input", "output"],
+  "additionalProperties": false
+}

@@ -28,6 +28,16 @@ public class AiClusterProviderResolver {
         );
         this.defaultProvider = gemini;
         register(gemini);
+
+        ProviderInfo openai = new ProviderInfo(
+                "openai",
+                "chatgpt",
+                "1.0.0",
+                "builtin",
+                Set.of("openai", "openai:chatgpt", "chatgpt", "gpt-4o", "gpt-4o-mini", "gpt-4.1", "gpt-3.5-turbo"),
+                "openai-chatgpt"
+        );
+        register(openai);
     }
 
     private void register(ProviderInfo info) {

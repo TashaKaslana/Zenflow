@@ -28,7 +28,9 @@
           "description": "AI provider to use (credentials come from profile)",
           "enum": [
             "gemini",
-            "google-ai:gemini"
+            "google-ai:gemini",
+            "openai",
+            "openai:chatgpt"
           ]
         },
         "model": {

@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "AI Provider Credentials",
+  "description": "API credentials for AI model providers (OpenAI, Gemini, Claude, etc.)",
+  "properties": {
+    "API_KEY": {
+      "type": "string",
+      "title": "API Key",
+      "description": "API key for the AI provider"
+    },
+    "BASE_URL": {
+      "type": "string",
+      "title": "Base URL",
+      "description": "Optional: Custom base URL for the API (e.g., OpenRouter, Azure OpenAI)"
+    }
+  },
+  "required": ["API_KEY"]
+}
