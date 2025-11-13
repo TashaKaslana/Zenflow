@@ -1,4 +1,4 @@
-package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.ai.gemini;
+package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.ai.gemini.vertex;
 
 import lombok.AllArgsConstructor;
 import org.phong.zenflow.plugin.subdomain.node.definition.NodeDefinition;

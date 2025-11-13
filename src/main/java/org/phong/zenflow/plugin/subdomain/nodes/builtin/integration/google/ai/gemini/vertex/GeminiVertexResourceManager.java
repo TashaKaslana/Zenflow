@@ -1,4 +1,4 @@
-package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.ai.gemini;
+package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.ai.gemini.vertex;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
