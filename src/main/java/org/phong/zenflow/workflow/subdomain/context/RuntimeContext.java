@@ -43,39 +43,6 @@ public class RuntimeContext {
     
     // Core storage: values are now RefValue instances for efficient memory management
     private final Map<String, StoredValue> context = new ConcurrentHashMap<>();
-
-    private static WriteOptions normalizeOptions(WriteOptions options) {
-        return options != null ? options : WriteOptions.DEFAULT;
-    }
-
-    private void putStoredValue(String key, RefValue refValue, WriteOptions options) {
-        context.put(key, new StoredValue(refValue, normalizeOptions(options)));
-    }
-
-    private StoredValue getStoredValue(String key) {
-        return context.get(key);
-    }
-
-    private RefValue getRefValue(String key) {
-        StoredValue stored = context.get(key);
-        return stored != null ? stored.refValue() : null;
-    }
-
-    private WriteOptions getStoredOptions(String key) {
-        StoredValue stored = getStoredValue(key);
-        return stored != null ? stored.options() : WriteOptions.DEFAULT;
-    }
-
-    private boolean shouldAutoCleanup(String key) {
-        WriteOptions options = getStoredOptions(key);
-        return options == null || options.autoCleanup();
-    }
-
-    private void releaseStoredValue(String key, StoredValue storedValue) {
-        if (storedValue != null) {
-            refValueSupport.releaseRefValue(key, storedValue.refValue());
-        }
-    }
     
     // Consumer tracking and aliases remain unchanged
     private final Map<String, AtomicInteger> consumers = new ConcurrentHashMap<>();
@@ -174,7 +141,7 @@ public class RuntimeContext {
         String resolvedKey = aliases.getOrDefault(key, key);
         return getRefValue(resolvedKey);
     }
-    
+
     /**
      * Opens a stream to read the value as raw bytes without full materialization.
      * Useful for large binary payloads (files, videos, images) that should be streamed
@@ -697,5 +664,52 @@ public class RuntimeContext {
             }
         }
         pendingWrites.clear();
+    }
+
+    public void clearPendingWritesWithExclusion(Map<String, Object> exclusion) {
+        for (Map.Entry<String, PendingWrite> entry : pendingWrites.entrySet()) {
+            if (exclusion.containsKey(entry.getKey())) {
+                continue;
+            }
+
+            if (entry.getValue().value() instanceof RefValue refValue) {
+                refValueSupport.releaseRefValue(entry.getKey(), refValue);
+            }
+
+            pendingWrites.remove(entry.getKey());
+        }
+    }
+
+    private static WriteOptions normalizeOptions(WriteOptions options) {
+        return options != null ? options : WriteOptions.DEFAULT;
+    }
+
+    private void putStoredValue(String key, RefValue refValue, WriteOptions options) {
+        context.put(key, new StoredValue(refValue, normalizeOptions(options)));
+    }
+
+    private StoredValue getStoredValue(String key) {
+        return context.get(key);
+    }
+
+    private RefValue getRefValue(String key) {
+        StoredValue stored = context.get(key);
+        return stored != null ? stored.refValue() : null;
+    }
+
+    private WriteOptions getStoredOptions(String key) {
+        StoredValue stored = getStoredValue(key);
+        return stored != null ? stored.options() : WriteOptions.DEFAULT;
+    }
+
+    private boolean shouldAutoCleanup(String key) {
+        WriteOptions options = getStoredOptions(key);
+        return options == null || options.autoCleanup();
+    }
+
+    private void releaseStoredValue(String key, StoredValue storedValue) {
+        if (storedValue != null) {
+            refValueSupport.releaseRefValue(key, storedValue.refValue());
+        }
     }
 }

@@ -3,8 +3,11 @@ package org.phong.zenflow.workflow.subdomain.engine.orchestrator;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
+import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
+import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
+import org.phong.zenflow.workflow.subdomain.context.RuntimeContextManager;
 import org.phong.zenflow.workflow.subdomain.engine.exception.WorkflowEngineException;
 import org.phong.zenflow.workflow.subdomain.logging.core.LogContext;
 import org.phong.zenflow.workflow.subdomain.logging.core.LogContextManager;
@@ -14,6 +17,7 @@ import org.phong.zenflow.workflow.subdomain.worker.gateway.ExecutionGateway;
 import org.phong.zenflow.workflow.subdomain.worker.model.ExecutionTaskEnvelope;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -24,7 +28,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @Slf4j
 public class NodeExecutionOrchestrator {
-    
+    private final RuntimeContextManager contextManager;
     private final ExecutionGateway executionGateway;
     private final PluginNodeExecutorRegistry pluginNodeRegistry;
     
@@ -96,10 +100,17 @@ public class NodeExecutionOrchestrator {
                     .pluginNodeId(pluginNodeId)
                     .build();
 
+            RuntimeContext currentContext = contextManager.getOrCreate(execCtx.getWorkflowRunId().toString());
+            Map<String, Object> pendingWrites = currentContext.getPendingWrites();
+
             ExecutionResult result = executionGateway.executeAsync(envelope).join();
             
             log.info("[traceId={}] [hierarchy={}] Synthetic node finished with status: {}", 
                     ctx.traceId(), ctx.hierarchy(), result.getStatus());
+
+            if (!ExecutionStatus.isSuccessful(result.getStatus())) {
+                currentContext.clearPendingWritesWithExclusion(pendingWrites);
+            }
             
             return result;
         });
