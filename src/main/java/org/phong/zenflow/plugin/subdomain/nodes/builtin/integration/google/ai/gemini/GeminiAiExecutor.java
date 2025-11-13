@@ -8,29 +8,31 @@ import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.AiEx
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.AiObservationRegistry;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.AiToolRegistry;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.springframework.ai.vertexai.gemini.VertexAiGeminiChatModel;
 import org.springframework.stereotype.Component;
 
+/**
+ * Gemini executor that delegates to the native GeminiChatModel implementation.
+ */
 @Component
 @Slf4j
 public class GeminiAiExecutor implements NodeExecutor {
-    
+
     private final AiExecutor baseExecutor;
     private final AiToolRegistry toolRegistry;
     private final AiObservationRegistry observationRegistry;
 
     public GeminiAiExecutor(ObjectMapper objectMapper,
-                           AiToolRegistry baseToolRegistry,
-                           AiObservationRegistry baseObservationRegistry) {
+                            AiToolRegistry baseToolRegistry,
+                            AiObservationRegistry baseObservationRegistry) {
         this.toolRegistry = baseToolRegistry.copy();
         this.observationRegistry = baseObservationRegistry.copy();
-        
-        log.info("Gemini executor initialized with {} tools (independent copy)", this.toolRegistry.size());
-        
+
+        log.info("Gemini API executor initialized with {} tools (independent copy)", this.toolRegistry.size());
+
         this.baseExecutor = new AiExecutor(objectMapper, this.toolRegistry, this.observationRegistry);
-        
+
         this.baseExecutor.setModelProviderFactory(context -> {
-            VertexAiGeminiChatModel chatModel = context.getResource();
+            GeminiChatModel chatModel = context.getResource();
             return new GeminiModelProvider(chatModel, objectMapper);
         });
     }
@@ -39,9 +41,4 @@ public class GeminiAiExecutor implements NodeExecutor {
     public ExecutionResult execute(ExecutionContext context) {
         return baseExecutor.execute(context);
     }
-    
-    public AiToolRegistry getToolRegistry() {
-        return baseExecutor.getToolRegistry();
-    }
 }
-

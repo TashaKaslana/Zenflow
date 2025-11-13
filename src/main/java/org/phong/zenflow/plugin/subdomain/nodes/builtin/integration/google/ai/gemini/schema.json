@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "title": "AI Chat Schema",
-  "description": "AI model chat interaction with support for text and JSON responses",
+  "title": "Gemini API Chat Schema",
+  "description": "Interact with the Gemini API via the OpenAI-compatible endpoint",
   "properties": {
     "input": {
       "type": "object",
@@ -25,7 +25,11 @@
         "model": {
           "type": "string",
           "default": "gemini-2.0-flash",
-          "description": "AI model to use (e.g., gemini-2.0-flash, gemini-1.5-pro)"
+          "description": "Model to use (use any OpenAI-compatible Gemini model exposed by your host)"
+        },
+        "api_host": {
+          "type": "string",
+          "description": "Optional override for the Gemini API base URL (defaults to profile BASE_URL or https://generativelanguage.googleapis.com/v1beta/openai/)"
         },
         "model_options": {
           "type": "object",
@@ -52,12 +56,21 @@
               "default": 0.95,
               "description": "Nucleus sampling parameter. Consider tokens with top_p probability mass"
             },
-            "top_k": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 40,
-              "description": "Only sample from the top K options for each subsequent token"
+            "frequency_penalty": {
+              "type": "number",
+              "minimum": -2,
+              "maximum": 2,
+              "description": "Penalizes new tokens based on their frequency in the text so far"
+            },
+            "presence_penalty": {
+              "type": "number",
+              "minimum": -2,
+              "maximum": 2,
+              "description": "Penalizes new tokens based on whether they appear in the text so far"
+            },
+            "response_format": {
+              "type": "object",
+              "description": "Raw OpenAI response_format payload for advanced control"
             }
           }
         }
@@ -70,33 +83,29 @@
       "title": "Output Schema",
       "description": "AI response output",
       "properties": {
-        "ai_response": {
+        "response": {
           "type": "string",
-          "description": "The text response from the AI model"
+          "description": "The raw text response from the AI model"
         },
-        "ai_json": {
-          "type": "object",
-          "description": "Parsed JSON response (only when response_format=json)"
+        "raw_response": {
+          "type": "string",
+          "description": "Raw completion text (identical to response for text mode)"
         },
-        "ai_usage_prompt_tokens": {
-          "type": "integer",
-          "description": "Number of tokens used in the prompt"
-        },
-        "ai_usage_completion_tokens": {
-          "type": "integer",
-          "description": "Number of tokens generated in the completion"
-        },
-        "ai_usage_total_tokens": {
-          "type": "integer",
-          "description": "Total number of tokens used"
-        },
-        "ai_provider": {
+        "provider": {
           "type": "string",
           "description": "The AI provider name (e.g., 'gemini')"
         },
-        "ai_model": {
+        "usage": {
+          "type": "object",
+          "description": "Token usage information"
+        },
+        "model": {
           "type": "string",
-          "description": "The specific model used"
+          "description": "Model actually used for the call"
+        },
+        "parse_success": {
+          "type": "boolean",
+          "description": "Indicates if JSON parsing succeeded when response_format=json"
         }
       }
     },
@@ -104,7 +113,7 @@
       "profileKeys": [
         "ai-credentials"
       ],
-      "description": "Requires AI credentials profile with API_KEY and PROJECT_ID (for Gemini)."
+      "description": "Requires AI credentials profile with API_KEY and (optionally) BASE_URL that points to the Gemini-compatible host."
     }
   },
   "required": ["input", "output"],

@@ -88,6 +88,7 @@ dependencies {
     // Spring AI for Gemini
     implementation platform("org.springframework.ai:spring-ai-bom:1.0.3")
     implementation "org.springframework.ai:spring-ai-vertex-ai-gemini"
+    implementation "org.springframework.ai:spring-ai-starter-model-openai"
 
     testImplementation 'org.testcontainers:junit-jupiter'
     testImplementation 'org.springframework.boot:spring-boot-testcontainers'

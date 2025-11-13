@@ -3,6 +3,8 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base;
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationHandler;
 import io.micrometer.observation.ObservationRegistry;
+import lombok.Getter;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -10,6 +12,7 @@ import org.springframework.stereotype.Component;
  * Base observation registry for AI operations with default logging.
  * Models can copy() to create independent registries with custom handlers.
  */
+@Getter
 @Component
 @Slf4j
 public class AiObservationRegistry {
@@ -50,11 +53,7 @@ public class AiObservationRegistry {
         log.info("Added custom observation handler: {}", handler.getClass().getSimpleName());
         return this;
     }
-    
-    public ObservationRegistry getRegistry() {
-        return registry;
-    }
-    
+
     private static class LoggingObservationHandler implements ObservationHandler<Observation.Context> {
         
         @Override
@@ -75,7 +74,7 @@ public class AiObservationRegistry {
         }
         
         @Override
-        public boolean supportsContext(Observation.Context context) {
+        public boolean supportsContext(@NonNull Observation.Context context) {
             return true;
         }
     }
