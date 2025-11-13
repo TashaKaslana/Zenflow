@@ -22,6 +22,7 @@ import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.W
 import org.phong.zenflow.workflow.subdomain.node_definition.util.WorkflowNodeKeyUtils;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.stereotype.Component;
 
@@ -232,7 +233,7 @@ public class AiClusterExecutor implements NodeExecutor {
         
         // Add system prompt if present in messages
         if (!request.getMessages().isEmpty() && 
-            request.getMessages().getFirst() instanceof org.springframework.ai.chat.messages.SystemMessage) {
+            request.getMessages().getFirst() instanceof SystemMessage) {
             providerInput.put("system_prompt", request.getMessages().getFirst().getText());
         }
         

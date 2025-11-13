@@ -38,6 +38,16 @@ public class AiClusterProviderResolver {
                 "openai-chatgpt"
         );
         register(openai);
+
+        ProviderInfo openrouter = new ProviderInfo(
+                "openrouter",
+                "chat",
+                "1.0.0",
+                "builtin",
+                Set.of("openrouter"),
+                "openrouter-chat"
+        );
+        register(openrouter);
     }
 
     private void register(ProviderInfo info) {
