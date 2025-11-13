@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "AI Provider Credentials",
+  "description": "API credentials for AI model providers (OpenAI, Gemini, Claude, etc.)",
+  "properties": {
+    "API_KEY": {
+      "type": "string",
+      "title": "API Key",
+      "description": "API key for the AI provider"
+    },
+    "BASE_URL": {
+      "type": "string",
+      "title": "Base URL",
+      "description": "Optional: Custom base URL for the API (e.g., OpenRouter, Azure OpenAI)"
+    },
+    "PROJECT_ID": {
+      "type": "string",
+      "title": "Project ID",
+      "description": "Optional: Project ID (for providers like GCP Vertex AI)"
+    },
+    "REGION": {
+      "type": "string",
+      "title": "Region",
+      "description": "Optional: API region (e.g., us-central1 for GCP)",
+      "default": "us-central1"
+    },
+    "SERVICE_ACCOUNT_JSON": {
+      "type": "string",
+      "title": "Service Account JSON",
+      "description": "Optional: Paste the service account JSON key to authenticate Vertex AI"
+    },
+    "CLIENT_ID": {
+      "type": "string",
+      "title": "OAuth Client ID",
+      "description": "Optional: OAuth client ID for building refresh-token credentials"
+    },
+    "CLIENT_SECRET": {
+      "type": "string",
+      "title": "OAuth Client Secret",
+      "description": "Optional: OAuth client secret for building refresh-token credentials"
+    },
+    "REFRESH_TOKEN": {
+      "type": "string",
+      "title": "Refresh Token",
+      "description": "Optional: OAuth refresh token to obtain Vertex AI access tokens"
+    }
+  },
+  "anyOf": [
+    {
+      "required": ["API_KEY"]
+    },
+    {
+      "required": ["SERVICE_ACCOUNT_JSON"]
+    },
+    {
+      "required": ["CLIENT_ID", "CLIENT_SECRET", "REFRESH_TOKEN"]
+    }
+  ]
+}

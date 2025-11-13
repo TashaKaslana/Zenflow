@@ -2,7 +2,7 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.ai.g
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.ai.core.GcpCredentialsProfileDescriptor;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.ai.core.GeminiCredentialsProfileDescriptor;
 import org.phong.zenflow.plugin.subdomain.resource.BaseNodeResourceManager;
 import org.phong.zenflow.plugin.subdomain.resource.ResourceConfig;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
@@ -21,14 +21,14 @@ public class GeminiResourceManager extends BaseNodeResourceManager<GeminiChatMod
 
     @Override
     public GeminiApiConfig buildConfig(WorkflowConfig cfg, ExecutionContext ctx) {
-        String apiKey = (String) ctx.getProfileSecret(GcpCredentialsProfileDescriptor.API_KEY);
+        String apiKey = (String) ctx.getProfileSecret(GeminiCredentialsProfileDescriptor.API_KEY);
         if (!StringUtils.hasText(apiKey)) {
             throw new IllegalStateException("Gemini API requires an API_KEY secret in the ai-credentials profile.");
         }
 
         String baseUrl = ctx.readOrDefault("api_host", String.class, null);
         if (!StringUtils.hasText(baseUrl)) {
-            baseUrl = (String) ctx.getProfileSecret(GcpCredentialsProfileDescriptor.BASE_URL);
+            baseUrl = (String) ctx.getProfileSecret(GeminiCredentialsProfileDescriptor.BASE_URL);
         }
         if (!StringUtils.hasText(baseUrl)) {
             baseUrl = DEFAULT_BASE_URL;

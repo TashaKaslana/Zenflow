@@ -24,7 +24,7 @@ import java.util.List;
 public class GoogleAiPlugin implements PluginProfileProvider {
     private final List<PluginProfileDescriptor> profiles;
 
-    public GoogleAiPlugin(GcpCredentialsProfileDescriptor gcpDescriptor) {
+    public GoogleAiPlugin(GeminiCredentialsProfileDescriptor gcpDescriptor) {
         this.profiles = List.of(gcpDescriptor);
     }
 

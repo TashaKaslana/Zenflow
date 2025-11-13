@@ -102,7 +102,7 @@
     },
     "profile": {
       "profileKeys": [
-        "ai-credentials"
+        "gemini-ai-credentials"
       ],
       "description": "Requires AI credentials profile with PROJECT_ID plus SERVICE_ACCOUNT_JSON or OAuth secrets for Gemini Vertex AI."
     }

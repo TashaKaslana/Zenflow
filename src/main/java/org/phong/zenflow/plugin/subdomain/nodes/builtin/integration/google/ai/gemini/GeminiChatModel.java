@@ -54,7 +54,7 @@ public class GeminiChatModel {
 
     @SuppressWarnings("unchecked")
     private GeminiResponse parseResponse(Map<?, ?> map) {
-        log.info("Gemini API call response: {}", map);
+        log.debug("Gemini API call response: {}", map);
         if (map == null) return null;
         GeminiResponse r = new GeminiResponse();
 

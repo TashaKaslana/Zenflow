@@ -17,7 +17,7 @@ import java.util.Map;
 
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.AiObservationRegistry;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.AiToolRegistry;
-import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.ai.core.GcpCredentialsProfileDescriptor;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.google.ai.core.GeminiCredentialsProfileDescriptor;
 import org.phong.zenflow.plugin.subdomain.resource.BaseNodeResourceManager;
 import org.phong.zenflow.plugin.subdomain.resource.ResourceConfig;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
@@ -47,14 +47,14 @@ public class GeminiVertexResourceManager extends BaseNodeResourceManager<VertexA
     @Override
     public GeminiVertexConfig buildConfig(WorkflowConfig cfg, ExecutionContext ctx) {
         // Read from profile - simple API key pattern + OAuth secrets
-        String apiKey = (String) ctx.getProfileSecret(GcpCredentialsProfileDescriptor.API_KEY);
-        String projectId = (String) ctx.getProfileSecret(GcpCredentialsProfileDescriptor.PROJECT_ID);
-        String region = (String) ctx.getProfileSecret(GcpCredentialsProfileDescriptor.REGION);
-        String serviceAccountJson = (String) ctx.getProfileSecret(GcpCredentialsProfileDescriptor.SERVICE_ACCOUNT_JSON);
-        String oauthClientId = (String) ctx.getProfileSecret(GcpCredentialsProfileDescriptor.CLIENT_ID);
-        String oauthClientSecret = (String) ctx.getProfileSecret(GcpCredentialsProfileDescriptor.CLIENT_SECRET);
-        String oauthRefreshToken = (String) ctx.getProfileSecret(GcpCredentialsProfileDescriptor.REFRESH_TOKEN);
-        String baseUrl = (String) ctx.getProfileSecret(GcpCredentialsProfileDescriptor.BASE_URL);
+        String apiKey = (String) ctx.getProfileSecret(GeminiCredentialsProfileDescriptor.API_KEY);
+        String projectId = (String) ctx.getProfileSecret(GeminiCredentialsProfileDescriptor.PROJECT_ID);
+        String region = (String) ctx.getProfileSecret(GeminiCredentialsProfileDescriptor.REGION);
+        String serviceAccountJson = (String) ctx.getProfileSecret(GeminiCredentialsProfileDescriptor.SERVICE_ACCOUNT_JSON);
+        String oauthClientId = (String) ctx.getProfileSecret(GeminiCredentialsProfileDescriptor.CLIENT_ID);
+        String oauthClientSecret = (String) ctx.getProfileSecret(GeminiCredentialsProfileDescriptor.CLIENT_SECRET);
+        String oauthRefreshToken = (String) ctx.getProfileSecret(GeminiCredentialsProfileDescriptor.REFRESH_TOKEN);
+        String baseUrl = (String) ctx.getProfileSecret(GeminiCredentialsProfileDescriptor.BASE_URL);
         
         boolean hasApiKey = StringUtils.hasText(apiKey);
         boolean hasServiceAccount = StringUtils.hasText(serviceAccountJson);
