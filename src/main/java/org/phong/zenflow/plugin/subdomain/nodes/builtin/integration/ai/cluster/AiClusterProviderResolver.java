@@ -44,7 +44,7 @@ public class AiClusterProviderResolver {
                 "chat",
                 "1.0.0",
                 "builtin",
-                Set.of("openrouter"),
+                Set.of("openrouter", "openrouter:chat", "openrouter/chat", "openrouter.ai"),
                 "openrouter-chat"
         );
         register(openrouter);
@@ -60,7 +60,15 @@ public class AiClusterProviderResolver {
         if (identifier == null || identifier.isBlank()) {
             return Optional.empty();
         }
-        return Optional.ofNullable(providers.get(identifier.toLowerCase(Locale.ROOT)));
+        String normalized = identifier.toLowerCase(Locale.ROOT);
+        ProviderInfo direct = providers.get(normalized);
+        if (direct != null) {
+            return Optional.of(direct);
+        }
+
+        return providers.values().stream()
+                .filter(info -> info.matches(normalized))
+                .findFirst();
     }
 
     public ProviderInfo defaultProvider() {
@@ -69,5 +77,22 @@ public class AiClusterProviderResolver {
 
     public record ProviderInfo(String pluginKey, String nodeKey, String version, String executorType,
                                Set<String> aliases, String childAlias) {
+
+        private static final Set<String> PREFIX_DELIMITERS = Set.of("/", ":");
+
+        boolean matches(String identifier) {
+            if (aliases.contains(identifier)) {
+                return true;
+            }
+            for (String alias : aliases) {
+                for (String delimiter : PREFIX_DELIMITERS) {
+                    String prefix = alias + delimiter;
+                    if (identifier.startsWith(prefix)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
     }
 }

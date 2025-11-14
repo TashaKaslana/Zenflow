@@ -30,7 +30,9 @@
             "gemini",
             "google-ai:gemini",
             "openai",
-            "openai:chatgpt"
+            "openai:chatgpt",
+            "openrouter",
+            "opernrouter:chat"
           ]
         },
         "model": {
