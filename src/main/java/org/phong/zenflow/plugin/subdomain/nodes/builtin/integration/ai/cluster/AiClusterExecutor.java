@@ -51,8 +51,9 @@ public class AiClusterExecutor implements NodeExecutor {
         try {
             // Read cluster configuration from context
             AiClusterConfig config = buildClusterConfig(context);
-            logs.info("Cluster config: model={}, includeHistory={}, memoryKey={}", 
-                    config.getModel(), config.isIncludeHistory(), config.getMemoryKey());
+            ProviderInfo providerDescriptor = resolveProviderDescriptor(context, config.getModel());
+            logs.info("Cluster config: provider={}, includeHistory={}, memoryKey={}", 
+                    providerDescriptor.childAlias(), config.isIncludeHistory(), config.getMemoryKey());
 
             // Retrieve conversation history if enabled
             List<Message> conversationHistory = new ArrayList<>();
@@ -67,7 +68,7 @@ public class AiClusterExecutor implements NodeExecutor {
                     request.getMessages().size(), request.getToolObjects().size());
 
             // Execute abstract provider node
-            AiExecutionResult result = executeProvider(context, config.getModel(), request, logs);
+            AiExecutionResult result = executeProvider(context, providerDescriptor, request, logs);
             logs.success("Provider execution completed: {}", result.getProvider());
 
             // Save conversation turn to memory if enabled
@@ -106,7 +107,7 @@ public class AiClusterExecutor implements NodeExecutor {
         String responseFormat = context.readOrDefault("response_format", String.class, "text");
         
         // Provider determines which abstract node to call (gemini, openai, etc.)
-        String provider = context.readOrDefault("provider", String.class, "gemini");
+        String provider = context.readOrDefault("provider", String.class, null);
         
         // Model is the specific variant (optional, goes into model_options)
         String modelVariant = context.readOrDefault("model", String.class, null);
@@ -135,6 +136,28 @@ public class AiClusterExecutor implements NodeExecutor {
                 .includeHistory(includeHistory)
                 .maxHistoryMessages(maxHistoryMessages)
                 .build();
+    }
+
+    private ProviderInfo resolveProviderDescriptor(ExecutionContext context, String requestedProvider) {
+        if (requestedProvider != null && !requestedProvider.isBlank()) {
+            return providerResolver.resolve(requestedProvider)
+                    .orElseThrow(() -> new IllegalArgumentException("Unsupported model: " + requestedProvider));
+        }
+        return detectProviderFromChildren(context)
+                .orElseGet(providerResolver::defaultProvider);
+    }
+
+    private Optional<ProviderInfo> detectProviderFromChildren(ExecutionContext context) {
+        BaseWorkflowNode currentNode = context.getWorkflowNode(context.getNodeKey());
+        if (currentNode == null || currentNode.getChildNodeKeys() == null || currentNode.getChildNodeKeys().isEmpty()) {
+            return Optional.empty();
+        }
+        return currentNode.getChildNodeKeys().stream()
+                .map(WorkflowNodeKeyUtils::extractChildAlias)
+                .filter(Objects::nonNull)
+                .map(providerResolver::resolveByChildAlias)
+                .flatMap(Optional::stream)
+                .findFirst();
     }
 
     /**
@@ -213,14 +236,8 @@ public class AiClusterExecutor implements NodeExecutor {
     /**
      * Execute abstract provider node with typed request
      */
-    private AiExecutionResult executeProvider(ExecutionContext context, String model,
+    private AiExecutionResult executeProvider(ExecutionContext context, ProviderInfo descriptor,
                                              AiExecutionRequest request, NodeLogPublisher logs) {
-        Optional<ProviderInfo> resolvedProvider = providerResolver.resolve(model);
-        ProviderInfo descriptor = resolvedProvider.orElseGet(providerResolver::defaultProvider);
-        if (resolvedProvider.isEmpty() && model != null && !model.isBlank()) {
-            throw new IllegalArgumentException("Unsupported model: " + model);
-        }
-
         String providerKey = descriptor.pluginKey() + ":" + descriptor.nodeKey() + ":" + descriptor.version();
         logs.info("Executing provider node: {}", providerKey);
 

@@ -15,6 +15,7 @@ import java.util.Set;
 public class AiClusterProviderResolver {
 
     private final Map<String, ProviderInfo> providers = new HashMap<>();
+    private final Map<String, ProviderInfo> childAliasIndex = new HashMap<>();
     private final ProviderInfo defaultProvider;
 
     public AiClusterProviderResolver() {
@@ -54,6 +55,7 @@ public class AiClusterProviderResolver {
         for (String alias : info.aliases()) {
             providers.put(alias.toLowerCase(Locale.ROOT), info);
         }
+        childAliasIndex.put(info.childAlias().toLowerCase(Locale.ROOT), info);
     }
 
     public Optional<ProviderInfo> resolve(String identifier) {
@@ -69,6 +71,13 @@ public class AiClusterProviderResolver {
         return providers.values().stream()
                 .filter(info -> info.matches(normalized))
                 .findFirst();
+    }
+
+    public Optional<ProviderInfo> resolveByChildAlias(String childAlias) {
+        if (childAlias == null || childAlias.isBlank()) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(childAliasIndex.get(childAlias.toLowerCase(Locale.ROOT)));
     }
 
     public ProviderInfo defaultProvider() {

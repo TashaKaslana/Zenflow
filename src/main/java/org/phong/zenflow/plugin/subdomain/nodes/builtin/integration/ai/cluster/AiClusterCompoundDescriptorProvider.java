@@ -6,11 +6,15 @@ import org.phong.zenflow.workflow.subdomain.node_definition.compound.CompoundChi
 import org.phong.zenflow.workflow.subdomain.node_definition.compound.CompoundChildFactory;
 import org.phong.zenflow.workflow.subdomain.node_definition.compound.CompoundNodeDescriptor;
 import org.phong.zenflow.workflow.subdomain.node_definition.compound.CompoundNodeDescriptorProvider;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
+import org.phong.zenflow.workflow.subdomain.node_definition.util.WorkflowNodeKeyUtils;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
@@ -26,8 +30,7 @@ public class AiClusterCompoundDescriptorProvider implements CompoundNodeDescript
     private CompoundChildFactory buildFactory() {
         return parent -> {
             AiClusterConfig config = AiClusterConfig.fromNodeConfig(parent.getConfig());
-            String provider = config.getModel() != null ? config.getModel() : "gemini";
-            var providerInfo = resolver.resolve(provider).orElse(resolver.defaultProvider());
+            var providerInfo = determineProvider(parent, config);
             PluginNodeIdentifier pluginNodeIdentifier = new PluginNodeIdentifier(
                     null,
                     providerInfo.pluginKey(),
@@ -44,5 +47,24 @@ public class AiClusterCompoundDescriptorProvider implements CompoundNodeDescript
             );
             return List.of(descriptor);
         };
+    }
+
+    private AiClusterProviderResolver.ProviderInfo determineProvider(BaseWorkflowNode parent, AiClusterConfig config) {
+        return resolveFromExistingChild(parent)
+                .or(() -> resolver.resolve(config.getModel()))
+                .orElse(resolver.defaultProvider());
+    }
+
+    private Optional<AiClusterProviderResolver.ProviderInfo> resolveFromExistingChild(BaseWorkflowNode parent) {
+        List<String> childKeys = parent.getChildNodeKeys();
+        if (childKeys == null || childKeys.isEmpty()) {
+            return Optional.empty();
+        }
+        return childKeys.stream()
+                .map(WorkflowNodeKeyUtils::extractChildAlias)
+                .filter(Objects::nonNull)
+                .map(resolver::resolveByChildAlias)
+                .flatMap(Optional::stream)
+                .findFirst();
     }
 }

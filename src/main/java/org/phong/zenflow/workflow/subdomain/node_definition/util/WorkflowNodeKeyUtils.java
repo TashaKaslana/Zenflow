@@ -49,4 +49,19 @@ public final class WorkflowNodeKeyUtils {
         int idx = childKey.indexOf(SYNTHETIC_NODE_DELIMITER);
         return childKey.substring(0, idx);
     }
+
+    /**
+     * Extracts the normalized child alias from a compound key.
+     */
+    public static String extractChildAlias(String childKey) {
+        if (!isCompoundChildKey(childKey)) {
+            return null;
+        }
+        int idx = childKey.indexOf(SYNTHETIC_NODE_DELIMITER);
+        int aliasStart = idx + SYNTHETIC_NODE_DELIMITER.length();
+        if (aliasStart >= childKey.length()) {
+            return null;
+        }
+        return childKey.substring(aliasStart);
+    }
 }
