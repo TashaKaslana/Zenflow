@@ -36,7 +36,7 @@ This note captures the current state of the AI integration layer and lists the w
   - Message format conversion (Map ↔ Spring AI Message)
 - [x] Verified compilation - All Phase 2 code compiles
 
-**Status:** Provider orchestration partially implemented (direct execution placeholder). Need to complete Gemini provider wiring.
+**Status:** Provider orchestration now forwards typed requests through the cluster, flattens execution metadata, and persists conversation history; remaining Phase 3 work focuses on multi-model dispatch and provider-specific wiring.
 
 **Next:** Phase 3 - Wire Gemini Provider Properly
 
@@ -163,10 +163,11 @@ These snippets illustrate how the cluster orchestrator composes its sub-nodes an
 ### Cluster Layer
 - [ ] Define cluster node schema: prompts, memories, tool wiring, fallback chain, retry policy.
 - [ ] Implement cluster executor that builds `AiExecutionRequest` (messages + tool context) and calls abstract node via `NodeExecutionOrchestrator`.
-- [ ] Add conversation memory bridge leveraging `WriteOptions.persistent()` to keep transcripts alive.
+- [x] Add conversation memory bridge leveraging `WriteOptions.persistent()` to keep transcripts alive.
+- [x] Allow overriding compound child plugins (tools/context/parser) via cluster configuration while preserving defaults.
 - [ ] Support multi-model dispatch (primary + fallback) with structured error handling.
-- [ ] Surface execution metadata (latency, cost, provider) back to cluster outputs.
-- [ ] Define child node contracts for tools/model/context/output parser and register default implementations.
+- [x] Surface execution metadata (latency, cost, provider) back to cluster outputs.
+- [x] Define child node contracts for tools/model/context/output parser and register default implementations.
 
 ### Abstract Layer
 - [ ] Refine `AiExecutor` into a pure abstract executor that accepts a typed request instead of reading config from context.

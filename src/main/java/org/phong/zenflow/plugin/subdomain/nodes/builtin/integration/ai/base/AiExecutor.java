@@ -26,8 +26,6 @@ import java.util.function.Function;
 @Component
 @Slf4j
 public class AiExecutor implements NodeExecutor {
-    
-    private final ObjectMapper objectMapper;
 
     /**
      * -- GETTER --
@@ -50,10 +48,12 @@ public class AiExecutor implements NodeExecutor {
     public AiExecutor(ObjectMapper objectMapper, 
                       AiToolRegistry toolRegistry,
                       AiObservationRegistry observationRegistry) {
-        this.objectMapper = objectMapper;
         this.toolRegistry = toolRegistry;
         this.observationRegistry = observationRegistry;
-        log.info("AiExecutor initialized with {} tools and observation registry", toolRegistry.size());
+        log.info("AiExecutor initialized with {} tools (mapper={}, observation={})",
+            toolRegistry.size(),
+            objectMapper != null ? objectMapper.getClass().getSimpleName() : "unknown",
+            observationRegistry != null ? observationRegistry.getClass().getSimpleName() : "unknown");
     }
 
     @Override
@@ -62,48 +62,23 @@ public class AiExecutor implements NodeExecutor {
         logs.info("Starting AI execution");
 
         try {
-            // Get the model provider from the factory
             AiModelProvider modelProvider = modelProviderFactory.apply(context);
             logs.info("Using AI provider: {}", modelProvider.getProviderName());
 
-            // Read configuration from context (direct node usage, not cluster)
-            String userPrompt = context.read("prompt", String.class);
-            String systemPrompt = context.readOrDefault("system_prompt", String.class, null);
-            String responseFormat = context.readOrDefault("response_format", String.class, "text");
-            
-            @SuppressWarnings("unchecked")
-            Map<String, Object> modelOptions = context.readOrDefault("model_options", Map.class, new HashMap<>());
-
-            // Build messages
-            List<Message> messages = new ArrayList<>();
-            if (systemPrompt != null && !systemPrompt.isEmpty()) {
-                messages.add(new SystemMessage(systemPrompt));
+            AiExecutionRequest request = loadTypedRequest(context, logs);
+            if (request == null) {
+                request = buildRequestFromContext(context, logs);
             }
-            messages.add(new UserMessage(userPrompt));
 
-            logs.info("Sending request to AI model with {} messages", messages.size());
-
-            // Build typed request
-            AiExecutionRequest request = AiExecutionRequest.builder()
-                    .messages(messages)
-                    .modelOptions(modelOptions)
-                    .toolObjects(toolRegistry.getToolList())
-                    .responseFormat(responseFormat)
-                    .contextMetadata(new HashMap<>())
-                    .build();
-
-            // Execute through provider
             AiExecutionResult result = modelProvider.execute(request);
-            
+
             logs.success("Received response from AI model");
 
-            // Write results to context
             context.write("response", result.getOutput());
             context.write("raw_response", result.getRawResponse());
             context.write("provider", result.getProvider());
             context.write("parse_success", result.isParseSuccess());
-            
-            // Write metadata
+
             if (result.getMetadata() != null && !result.getMetadata().isEmpty()) {
                 result.getMetadata().forEach(context::write);
             }
@@ -114,6 +89,51 @@ public class AiExecutor implements NodeExecutor {
             logs.error("AI execution failed: {}", e.getMessage());
             log.error("AI execution error", e);
             return ExecutionResult.error(ExecutionError.NON_RETRIABLE, "AI execution failed: " + e.getMessage());
+        }
+    }
+
+    private AiExecutionRequest buildRequestFromContext(ExecutionContext context, NodeLogPublisher logs) {
+        String userPrompt = context.read("prompt", String.class);
+        String systemPrompt = context.readOrDefault("system_prompt", String.class, null);
+        String responseFormat = context.readOrDefault("response_format", String.class, "text");
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> modelOptions = context.readOrDefault("model_options", Map.class, new HashMap<>());
+
+        List<Message> messages = new ArrayList<>();
+        if (systemPrompt != null && !systemPrompt.isEmpty()) {
+            messages.add(new SystemMessage(systemPrompt));
+        }
+        messages.add(new UserMessage(userPrompt));
+
+        logs.info("Sending request to AI model with {} messages", messages.size());
+
+        return AiExecutionRequest.builder()
+                .messages(messages)
+                .modelOptions(modelOptions)
+                .toolObjects(toolRegistry.getToolList())
+                .responseFormat(responseFormat)
+                .contextMetadata(new HashMap<>())
+                .build();
+    }
+
+    private AiExecutionRequest loadTypedRequest(ExecutionContext context, NodeLogPublisher logs) {
+        try {
+            if (!context.containsKey(AiExecutionContextKeys.TYPED_REQUEST)) {
+                return null;
+            }
+            AiExecutionRequest request = context.read(AiExecutionContextKeys.TYPED_REQUEST, AiExecutionRequest.class);
+            if (request != null) {
+                logs.info("Using orchestrator-supplied typed AI execution request with {} messages and {} tools",
+                        request.getMessages() != null ? request.getMessages().size() : 0,
+                        request.getToolObjects() != null ? request.getToolObjects().size() : 0);
+            } else {
+                logs.warn("Typed AI execution request key present but payload missing");
+            }
+            return request;
+        } catch (Exception ex) {
+            logs.warn("Failed to read typed AI execution request: {}", ex.getMessage());
+            return null;
         }
     }
 

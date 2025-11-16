@@ -87,21 +87,8 @@ public class AiClusterProviderResolver {
     public record ProviderInfo(String pluginKey, String nodeKey, String version, String executorType,
                                Set<String> aliases, String childAlias) {
 
-        private static final Set<String> PREFIX_DELIMITERS = Set.of("/", ":");
-
         boolean matches(String identifier) {
-            if (aliases.contains(identifier)) {
-                return true;
-            }
-            for (String alias : aliases) {
-                for (String delimiter : PREFIX_DELIMITERS) {
-                    String prefix = alias + delimiter;
-                    if (identifier.startsWith(prefix)) {
-                        return true;
-                    }
-                }
-            }
-            return false;
+            return aliases.contains(identifier);
         }
     }
 }

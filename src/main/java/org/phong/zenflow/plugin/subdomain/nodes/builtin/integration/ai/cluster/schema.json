@@ -93,6 +93,37 @@
           "maximum": 100,
           "default": 10,
           "description": "Maximum number of history messages to include in context"
+        },
+        "child_nodes": {
+          "type": "object",
+          "description": "Override compound child plugins by alias (tools/context/parser). Values must use <pluginKey>:<nodeKey>:<version> format.",
+          "properties": {
+            "tools": {
+              "type": "string",
+              "description": "Plugin identifier for the tooling child node",
+              "default": "core:ai.cluster.tools:1.0.0"
+            },
+            "context": {
+              "type": "string",
+              "description": "Plugin identifier for the conversation/memory child node",
+              "default": "core:context_variable:1.0.0"
+            },
+            "parser": {
+              "type": "string",
+              "description": "Plugin identifier for the output parser child node",
+              "default": "core:ai.output_parser:1.0.0"
+            }
+          },
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "child_executor_types": {
+          "type": "object",
+          "description": "Optional executor type overrides for compound children keyed by alias (e.g. builtin, remote)",
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       },
       "required": ["prompt"],

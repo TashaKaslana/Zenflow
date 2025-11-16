@@ -71,6 +71,20 @@ public class AiClusterConfig {
     @Builder.Default
     String outputParser = "auto";
 
+    /**
+     * Optional override map for compound child nodes (tools, context, parser).
+     * Values should use the <pluginKey>:<nodeKey>:<version> format.
+     */
+    @Builder.Default
+    Map<String, String> childNodes = Map.of();
+
+    /**
+     * Optional override map for child executor types keyed by child alias.
+     * When absent, defaults to the executor type defined by the cluster.
+     */
+    @Builder.Default
+    Map<String, String> childExecutorTypes = Map.of();
+
     public static AiClusterConfig fromNodeConfig(WorkflowConfig workflowConfig) {
         Map<String, Object> input = workflowConfig != null ? workflowConfig.input() : Map.of();
         String prompt = (String) input.get("prompt");
@@ -91,6 +105,9 @@ public class AiClusterConfig {
                 ? ((Number) input.get("max_history_messages")).intValue()
                 : 10;
 
+        Map<String, String> childNodes = extractStringMap(input.get("child_nodes"));
+        Map<String, String> childExecutorTypes = extractStringMap(input.get("child_executor_types"));
+
         return AiClusterConfig.builder()
                 .prompt(prompt)
                 .systemPrompt(systemPrompt)
@@ -100,6 +117,21 @@ public class AiClusterConfig {
                 .memoryKey(memoryKey)
                 .includeHistory(includeHistory)
                 .maxHistoryMessages(maxHistoryMessages)
+                .childNodes(childNodes)
+                .childExecutorTypes(childExecutorTypes)
                 .build();
+    }
+
+    private static Map<String, String> extractStringMap(Object raw) {
+        if (!(raw instanceof Map<?, ?> rawMap)) {
+            return Map.of();
+        }
+        Map<String, String> result = new HashMap<>();
+        for (Map.Entry<?, ?> entry : rawMap.entrySet()) {
+            if (entry.getKey() instanceof String key && entry.getValue() != null) {
+                result.put(key, entry.getValue().toString());
+            }
+        }
+        return Map.copyOf(result);
     }
 }

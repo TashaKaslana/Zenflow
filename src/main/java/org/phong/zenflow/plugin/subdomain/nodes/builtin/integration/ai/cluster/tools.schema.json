@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "AI Cluster Tooling",
+  "description": "Configure tool packs and custom tool wiring for the AI cluster",
+  "properties": {
+    "default_pack": {
+      "type": "string",
+      "description": "Optional default tool pack to load (platform defined)",
+      "enum": ["platform", "minimal", "extended"],
+      "default": "platform"
+    },
+    "custom_tools": {
+      "type": "array",
+      "description": "Additional Spring bean names that expose @Tool annotated methods",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true
+}

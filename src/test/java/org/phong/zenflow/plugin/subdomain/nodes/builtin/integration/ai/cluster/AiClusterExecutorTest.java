@@ -6,7 +6,9 @@ import org.junit.jupiter.api.Test;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.core.memory.MemoryExecutor;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.AiExecutionContextKeys;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.AiToolRegistry;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.dto.AiExecutionRequest;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.factory.AiExecutionRequestFactory;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.context.refvalue.dto.WriteOptions;
@@ -40,6 +42,7 @@ class AiClusterExecutorTest {
     private AiExecutionRequestFactory requestFactory;
     private ObjectMapper objectMapper;
     private AiClusterProviderResolver providerResolver;
+        private Map<String, Object> contextStorage;
 
     @BeforeEach
     void setUp() {
@@ -78,7 +81,9 @@ class AiClusterExecutorTest {
             when(context.readOrDefault("default_value", Object.class, null))
                     .thenReturn(memoryConfig.input().getOrDefault("default_value", null));
             when(context.readOrDefault("overwrite", Boolean.class, true)).thenReturn(true);
-            
+            when(context.readOrDefault("persistent", Boolean.class, false))
+                    .thenReturn(Boolean.TRUE.equals(memoryConfig.input().getOrDefault("persistent", false)));
+
             // Execute REAL memory node
             return memoryExecutor.execute(context);
         });
@@ -94,7 +99,7 @@ class AiClusterExecutorTest {
         lenient().doNothing().when(logPublisher).error(anyString(), any());
         
         // Allow writing to context (storing memory state)
-        Map<String, Object> contextStorage = new HashMap<>();
+        contextStorage = new HashMap<>();
         lenient().doAnswer(invocation -> {
             String key = invocation.getArgument(0);
             Object value = invocation.getArgument(1);
@@ -120,6 +125,28 @@ class AiClusterExecutorTest {
             Object value = contextStorage.get(key);
             return value != null ? value.toString() : null;
         });
+
+        lenient().when(context.read(anyString(), eq(Map.class))).thenAnswer(invocation -> {
+            String key = invocation.getArgument(0);
+            Object value = contextStorage.get(key);
+            return value instanceof Map ? value : null;
+        });
+
+        lenient().when(context.read(anyString(), eq(AiExecutionRequest.class))).thenAnswer(invocation -> {
+            String key = invocation.getArgument(0);
+            return (AiExecutionRequest) contextStorage.get(key);
+        });
+
+        lenient().when(context.containsKey(anyString())).thenAnswer(invocation -> {
+            String key = invocation.getArgument(0);
+            return contextStorage.containsKey(key);
+        });
+
+        lenient().doAnswer(invocation -> {
+            String key = invocation.getArgument(0);
+            contextStorage.remove(key);
+            return null;
+        }).when(context).remove(anyString());
         
         // Setup orchestrator to mock provider responses (no real API calls)
         when(orchestrator.executeSyntheticNodeByKey(
@@ -132,6 +159,14 @@ class AiClusterExecutorTest {
             contextStorage.put("response", "This is a mocked AI response");
             contextStorage.put("raw_response", "This is a mocked AI response");
             contextStorage.put("provider", "gemini");
+            contextStorage.put("metadata", Map.of(
+                    "usage", Map.of(
+                            "prompt_tokens", 10,
+                            "completion_tokens", 5,
+                            "total_tokens", 15
+                    ),
+                    "latency_ms", 123L
+            ));
             return ExecutionResult.success();
         });
     }
@@ -143,7 +178,7 @@ class AiClusterExecutorTest {
         when(context.read("prompt", String.class)).thenReturn(prompt);
         when(context.readOrDefault("system_prompt", String.class, null)).thenReturn(null);
         when(context.readOrDefault("response_format", String.class, "text")).thenReturn("text");
-        when(context.readOrDefault("provider", String.class, "gemini")).thenReturn(provider);
+        when(context.readOrDefault(eq("provider"), eq(String.class), any())).thenReturn(provider);
         when(context.readOrDefault("model", String.class, null)).thenReturn(null);
         when(context.readOrDefault("model_options", Map.class, new HashMap<>())).thenReturn(new HashMap<>());
         when(context.readOrDefault("memory_key", String.class, null)).thenReturn(memoryKey);
@@ -181,6 +216,22 @@ class AiClusterExecutorTest {
                 any(WorkflowConfig.class),
                 eq(context)
         );
+
+        // Flattened metadata should be present
+        assertTrue(contextStorage.containsKey("usage"));
+        assertTrue(contextStorage.containsKey("metadata.latency_ms"));
+        assertFalse(contextStorage.containsKey("metadata"));
+        assertFalse(contextStorage.containsKey(AiExecutionContextKeys.TYPED_REQUEST));
+    }
+
+    @Test
+    void testTypedRequestLifecycle() {
+        setupBasicConfig("Explain gravity", "gemini", false, null);
+
+        executor.execute(context);
+
+        assertFalse(contextStorage.containsKey(AiExecutionContextKeys.TYPED_REQUEST),
+            "Typed request should be removed after provider execution");
     }
 
     @Test

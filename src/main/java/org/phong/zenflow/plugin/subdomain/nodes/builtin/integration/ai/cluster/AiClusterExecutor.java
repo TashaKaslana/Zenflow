@@ -8,6 +8,7 @@ import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionError;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.AiExecutionContextKeys;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.AiToolRegistry;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.dto.AiClusterConfig;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.dto.AiExecutionRequest;
@@ -26,6 +27,7 @@ import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.*;
 
 /**
@@ -68,25 +70,18 @@ public class AiClusterExecutor implements NodeExecutor {
                     request.getMessages().size(), request.getToolObjects().size());
 
             // Execute abstract provider node
+            writeTypedRequest(context, request, logs);
+
             AiExecutionResult result = executeProvider(context, providerDescriptor, request, logs);
             logs.success("Provider execution completed: {}", result.getProvider());
 
             // Save conversation turn to memory if enabled
             if (config.isIncludeHistory() && config.getMemoryKey() != null) {
-                saveConversationTurn(context, config.getMemoryKey(), config.getPrompt(), result.getRawResponse(), logs);
+                saveConversationTurn(context, config.getMemoryKey(), request, result, logs);
                 logs.info("Saved conversation turn to memory");
             }
 
-            // Write results to context
-            context.write("response", result.getOutput());
-            context.write("raw_response", result.getRawResponse());
-            context.write("provider", result.getProvider());
-            context.write("parse_success", result.isParseSuccess());
-            
-            // Write metadata
-            if (result.getMetadata() != null) {
-                context.write("metadata", result.getMetadata());
-            }
+            writeOutputs(context, result);
 
             logs.success("AI cluster execution completed successfully");
             return ExecutionResult.success();
@@ -95,7 +90,56 @@ public class AiClusterExecutor implements NodeExecutor {
             logs.error("AI cluster execution failed: {}", e.getMessage());
             log.error("AI cluster execution error", e);
             return ExecutionResult.error(ExecutionError.NON_RETRIABLE, "AI cluster execution failed: " + e.getMessage());
+        } finally {
+            cleanupTypedRequest(context, logs);
         }
+    }
+
+    private void writeTypedRequest(ExecutionContext context, AiExecutionRequest request, NodeLogPublisher logs) {
+        try {
+            context.write(AiExecutionContextKeys.TYPED_REQUEST, request);
+        } catch (Exception ex) {
+            logs.warn("Unable to stash typed AI execution request for provider: {}", ex.getMessage());
+        }
+    }
+
+    private void cleanupTypedRequest(ExecutionContext context, NodeLogPublisher logs) {
+        try {
+            if (context.containsKey(AiExecutionContextKeys.TYPED_REQUEST)) {
+                context.remove(AiExecutionContextKeys.TYPED_REQUEST);
+            }
+        } catch (Exception ex) {
+            logs.warn("Failed to clear typed AI execution request from context: {}", ex.getMessage());
+        }
+    }
+
+    private void writeOutputs(ExecutionContext context, AiExecutionResult result) {
+        context.write("response", result.getOutput());
+        context.write("raw_response", result.getRawResponse());
+        context.write("provider", result.getProvider());
+        context.write("parse_success", result.isParseSuccess());
+        writeMetadata(context, result.getMetadata());
+    }
+
+    private void writeMetadata(ExecutionContext context, Map<String, Object> metadata) {
+        try {
+            context.remove("metadata");
+        } catch (Exception ignored) {
+            // If no metadata was previously stored, ignore.
+        }
+        if (metadata == null || metadata.isEmpty()) {
+            return;
+        }
+        Object usage = metadata.get(AiExecutionContextKeys.USAGE_KEY);
+        if (usage != null) {
+            context.write(AiExecutionContextKeys.USAGE_KEY, usage);
+        }
+        metadata.forEach((key, value) -> {
+            if (AiExecutionContextKeys.USAGE_KEY.equals(key)) {
+                return;
+            }
+            context.write(AiExecutionContextKeys.METADATA_PREFIX + key, value);
+        });
     }
 
     /**
@@ -244,15 +288,12 @@ public class AiClusterExecutor implements NodeExecutor {
         // Build provider config - pass through the actual prompt and options
         // Provider will use the existing AiExecutor logic
         Map<String, Object> providerInput = new HashMap<>();
-        providerInput.put("prompt", request.getMessages().getLast().getText());
+        extractLatestUserMessage(request)
+            .ifPresent(prompt -> providerInput.put("prompt", prompt));
         providerInput.put("response_format", request.getResponseFormat());
         providerInput.put("model_options", request.getModelOptions());
-        
-        // Add system prompt if present in messages
-        if (!request.getMessages().isEmpty() && 
-            request.getMessages().getFirst() instanceof SystemMessage) {
-            providerInput.put("system_prompt", request.getMessages().getFirst().getText());
-        }
+
+        extractSystemPrompt(request).ifPresent(systemPrompt -> providerInput.put("system_prompt", systemPrompt));
         
         WorkflowConfig providerConfig = new WorkflowConfig(providerInput);
 
@@ -289,11 +330,20 @@ public class AiClusterExecutor implements NodeExecutor {
         // Read metadata if available
         Map<String, Object> metadata = new HashMap<>();
         try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> contextMetadata = context.read("metadata", Map.class);
+            if (contextMetadata != null) {
+                metadata.putAll(contextMetadata);
+            }
+        } catch (Exception ignored) {
+            // Metadata optional
+        }
+        try {
             Object usageObj = context.read("usage", Object.class);
             if (usageObj instanceof Map) {
                 metadata.put("usage", usageObj);
             }
-        } catch (Exception e) {
+        } catch (Exception ignored) {
             // Usage metadata optional
         }
 
@@ -317,41 +367,116 @@ public class AiClusterExecutor implements NodeExecutor {
 
     // mapModelToProviderKey removed - registry handles provider resolution
 
-    /**
-     * Save conversation turn (user + assistant) to memory
-     */
-    private void saveConversationTurn(ExecutionContext context, String memoryKey, 
-                                     String userMessage, String assistantMessage, NodeLogPublisher logs) {
+    private void saveConversationTurn(ExecutionContext context,
+                                      String memoryKey,
+                                      AiExecutionRequest request,
+                                      AiExecutionResult result,
+                                      NodeLogPublisher logs) {
         try {
-            // Append user message
-            appendToHistory(context, memoryKey, "user", userMessage);
-            
-            // Append assistant message
-            appendToHistory(context, memoryKey, "assistant", assistantMessage);
-            
+            extractLatestUserMessage(request)
+                    .filter(message -> !message.isBlank())
+                    .ifPresent(message -> appendToHistory(
+                            context,
+                            memoryKey,
+                            buildMessageEntry("user", message, buildUserMetadata(request)),
+                            logs));
+
+            String assistantContent = determineAssistantContent(result);
+            if (assistantContent != null && !assistantContent.isBlank()) {
+                appendToHistory(context,
+                        memoryKey,
+                        buildMessageEntry("assistant", assistantContent, buildAssistantMetadata(result)),
+                        logs);
+            }
+
         } catch (Exception e) {
             logs.warn("Failed to save conversation turn: {}", e.getMessage());
         }
     }
 
-    /**
-     * Append a message to conversation history
-     */
-    private void appendToHistory(ExecutionContext context, String memoryKey, String role, String content) {
-        WorkflowConfig appendConfig = new WorkflowConfig(Map.of(
-                "operation", "APPEND",
-                "key", memoryKey,
-                "value", Map.of(
-                        "role", role,
-                        "content", content
-                )
-        ));
+    private void appendToHistory(ExecutionContext context,
+                                 String memoryKey,
+                                 Map<String, Object> entry,
+                                 NodeLogPublisher logs) {
+        if (entry == null || entry.get("content") == null || entry.get("content").toString().isBlank()) {
+            logs.debug("Skipping conversation append due to empty content for key {}", memoryKey);
+            return;
+        }
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("operation", "APPEND");
+        payload.put("key", memoryKey);
+        payload.put("value", entry);
+        payload.put("persistent", true);
 
         orchestrator.executeSyntheticNodeByKey(
                 "core:context_variable:1.0.0",
                 "append_message",
-                appendConfig,
+                new WorkflowConfig(payload),
                 context
         );
+    }
+
+    private Map<String, Object> buildMessageEntry(String role, String content, Map<String, Object> metadata) {
+        Map<String, Object> entry = new LinkedHashMap<>();
+        entry.put("role", role);
+        entry.put("content", content);
+        entry.put("timestamp", Instant.now().toString());
+        if (metadata != null && !metadata.isEmpty()) {
+            entry.put("metadata", metadata);
+        }
+        return entry;
+    }
+
+    private Map<String, Object> buildUserMetadata(AiExecutionRequest request) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        if (request.getToolObjects() != null) {
+            metadata.put("tool_count", request.getToolObjects().size());
+        }
+        if (request.getContextMetadata() != null && !request.getContextMetadata().isEmpty()) {
+            metadata.put("context", request.getContextMetadata());
+        }
+        return metadata;
+    }
+
+    private Map<String, Object> buildAssistantMetadata(AiExecutionResult result) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("provider", result.getProvider());
+        metadata.put("parse_success", result.isParseSuccess());
+        if (result.getMetadata() != null && !result.getMetadata().isEmpty()) {
+            metadata.putAll(result.getMetadata());
+        }
+        return metadata;
+    }
+
+    private String determineAssistantContent(AiExecutionResult result) {
+        if (result.getRawResponse() != null && !result.getRawResponse().isBlank()) {
+            return result.getRawResponse();
+        }
+        Object output = result.getOutput();
+        return output != null ? output.toString() : null;
+    }
+
+    private Optional<String> extractLatestUserMessage(AiExecutionRequest request) {
+        if (request == null || request.getMessages() == null || request.getMessages().isEmpty()) {
+            return Optional.empty();
+        }
+        List<Message> messages = request.getMessages();
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            Message candidate = messages.get(i);
+            if (candidate instanceof UserMessage userMessage) {
+                return Optional.of(userMessage.getText());
+            }
+        }
+        return Optional.empty();
+    }
+
+    private Optional<String> extractSystemPrompt(AiExecutionRequest request) {
+        if (request == null || request.getMessages() == null || request.getMessages().isEmpty()) {
+            return Optional.empty();
+        }
+        return request.getMessages().stream()
+                .filter(SystemMessage.class::isInstance)
+                .map(message -> ((SystemMessage) message).getText())
+                .findFirst();
     }
 }

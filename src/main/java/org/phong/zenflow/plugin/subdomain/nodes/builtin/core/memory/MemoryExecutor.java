@@ -14,7 +14,7 @@ import java.util.*;
 /**
  * Generic context variable node for storing/retrieving context values.
  * Supports multiple operations: STORE, RETRIEVE, APPEND, CLEAR, LIST
- * 
+ * <p>
  * Enables AI nodes to persist conversation history and intermediate results.
  * Works like n8n's window memory or simple memory nodes.
  */
@@ -109,7 +109,9 @@ public class MemoryExecutor implements NodeExecutor {
         }
         
         list.add(newValue);
-        context.write(key, list, WriteOptions.persistent());
+        boolean persistent = context.readOrDefault("persistent", Boolean.class, false);
+        WriteOptions options = persistent ? WriteOptions.persistent() : WriteOptions.DEFAULT;
+        context.write(key, list, options);
         
         logs.info("Appended to key: {}, new size: {}", key, list.size());
         return Map.of(
@@ -154,11 +156,13 @@ public class MemoryExecutor implements NodeExecutor {
     }
     
     private int calculateSize(Object value) {
-        if (value == null) return 0;
-        if (value instanceof List) return ((List<?>) value).size();
-        if (value instanceof Map) return ((Map<?, ?>) value).size();
-        if (value instanceof String) return ((String) value).length();
-        return 1;
+        return switch (value) {
+            case null -> 0;
+            case List<?> list -> list.size();
+            case Map<?, ?> map -> map.size();
+            case String s -> s.length();
+            default -> 1;
+        };
     }
     
     enum MemoryOperation {
