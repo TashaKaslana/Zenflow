@@ -2,7 +2,6 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.cluster;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionError;
@@ -21,13 +20,11 @@ import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_definition.util.WorkflowNodeKeyUtils;
-import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.stereotype.Component;
 
-import java.time.Instant;
 import java.util.*;
 
 /**
@@ -35,7 +32,6 @@ import java.util.*;
  * Delegates to abstract provider nodes (Gemini, OpenAI, etc.) via NodeExecutionOrchestrator.
  */
 @Component
-@AllArgsConstructor
 @Slf4j
 public class AiClusterExecutor implements NodeExecutor {
     
@@ -44,6 +40,21 @@ public class AiClusterExecutor implements NodeExecutor {
     private final AiToolRegistry toolRegistry;
     private final ObjectMapper objectMapper;
     private final AiClusterProviderResolver providerResolver;
+
+    private final ParserStrategies parserStrategies;
+
+    public AiClusterExecutor(NodeExecutionOrchestrator orchestrator,
+                             AiExecutionRequestFactory requestFactory,
+                             AiToolRegistry toolRegistry,
+                             ObjectMapper objectMapper,
+                             AiClusterProviderResolver providerResolver) {
+        this.orchestrator = orchestrator;
+        this.requestFactory = requestFactory;
+        this.toolRegistry = toolRegistry;
+        this.objectMapper = objectMapper;
+        this.providerResolver = providerResolver;
+        this.parserStrategies = new ParserStrategies(objectMapper);
+    }
 
     @Override
     public ExecutionResult execute(ExecutionContext context) {
@@ -59,13 +70,17 @@ public class AiClusterExecutor implements NodeExecutor {
 
             // Retrieve conversation history if enabled
             List<Message> conversationHistory = new ArrayList<>();
-            if (config.isIncludeHistory() && config.getMemoryKey() != null) {
-                conversationHistory = retrieveConversationHistory(context, config.getMemoryKey(), logs);
+            MemoryBackend memoryBackend = buildMemoryBackend(config, context, logs);
+            if (config.isIncludeHistory() && config.getMemoryKey() != null && memoryBackend != null) {
+                conversationHistory = memoryBackend.loadHistory();
                 logs.info("Retrieved {} messages from conversation history", conversationHistory.size());
             }
 
+            // Build tool list via router
+            List<Object> tools = resolveTools(config);
+
             // Build typed execution request
-            AiExecutionRequest request = requestFactory.build(config, toolRegistry, conversationHistory);
+            AiExecutionRequest request = requestFactory.build(config, tools, conversationHistory);
             logs.info("Built execution request with {} messages, {} tools", 
                     request.getMessages().size(), request.getToolObjects().size());
 
@@ -75,13 +90,16 @@ public class AiClusterExecutor implements NodeExecutor {
             AiExecutionResult result = executeProvider(context, providerDescriptor, request, logs);
             logs.success("Provider execution completed: {}", result.getProvider());
 
+            // Apply parser strategy
+            AiExecutionResult parsedResult = applyParser(config, result, logs);
+
             // Save conversation turn to memory if enabled
-            if (config.isIncludeHistory() && config.getMemoryKey() != null) {
-                saveConversationTurn(context, config.getMemoryKey(), request, result, logs);
+            if (config.isIncludeHistory() && config.getMemoryKey() != null && memoryBackend != null) {
+                saveConversationTurn(memoryBackend, request, parsedResult, logs);
                 logs.info("Saved conversation turn to memory");
             }
 
-            writeOutputs(context, result);
+            writeOutputs(context, parsedResult);
 
             logs.success("AI cluster execution completed successfully");
             return ExecutionResult.success();
@@ -170,6 +188,26 @@ public class AiClusterExecutor implements NodeExecutor {
         Boolean includeHistory = context.readOrDefault("include_history", Boolean.class, false);
         Integer maxHistoryMessages = context.readOrDefault("max_history_messages", Integer.class, 10);
 
+        @SuppressWarnings("unchecked")
+        Map<String, Object> rawTools = context.readOrDefault("tools", Map.class, new HashMap<>());
+        @SuppressWarnings("unchecked")
+        Map<String, Object> rawMemory = context.readOrDefault("memory", Map.class, new HashMap<>());
+        @SuppressWarnings("unchecked")
+        Map<String, Object> rawParser = context.readOrDefault("parser", Map.class, new HashMap<>());
+
+        ToolRouterConfig toolConfig = ToolRouterConfig.fromRaw(rawTools);
+        MemoryConfig memoryConfig = MemoryConfig.fromRaw(rawMemory);
+        if (memoryKey == null && memoryConfig.getKey() != null) {
+            memoryKey = memoryConfig.getKey();
+        }
+        if (memoryKey != null) {
+            memoryConfig = memoryConfig.toBuilder().key(memoryKey).build();
+        }
+        if (maxHistoryMessages != null) {
+            memoryConfig = memoryConfig.toBuilder().maxHistoryMessages(maxHistoryMessages).build();
+        }
+        ParserConfig parserConfig = ParserConfig.fromRaw(rawParser);
+
         return AiClusterConfig.builder()
                 .prompt(prompt)
                 .systemPrompt(systemPrompt)
@@ -179,7 +217,39 @@ public class AiClusterExecutor implements NodeExecutor {
                 .memoryKey(memoryKey)
                 .includeHistory(includeHistory)
                 .maxHistoryMessages(maxHistoryMessages)
+                .toolRouterConfig(toolConfig)
+                .memoryConfig(memoryConfig)
+                .parserConfig(parserConfig)
                 .build();
+    }
+
+    private List<Object> resolveTools(AiClusterConfig config) {
+        ToolRouter router = new DefaultToolRouter(toolRegistry.copy(), config.getToolRouterConfig());
+        return router.resolveTools();
+    }
+
+    private MemoryBackend buildMemoryBackend(AiClusterConfig config, ExecutionContext context, NodeLogPublisher logs) {
+        MemoryConfig mc = config.getMemoryConfig();
+        if (mc == null) {
+            return null;
+        }
+        return switch (mc.getBackend()) {
+            case CONTEXT, IN_MEMORY -> new ContextMemoryBackend(context, orchestrator, objectMapper, mc, logs);
+            case KV, VECTOR, EXTERNAL -> {
+                logs.warn("Memory backend {} not implemented; falling back to context backend", mc.getBackend());
+                yield new ContextMemoryBackend(context, orchestrator, objectMapper, mc, logs);
+            }
+        };
+    }
+
+    private AiExecutionResult applyParser(AiClusterConfig config, AiExecutionResult raw, NodeLogPublisher logs) {
+        ParserConfig parserConfig = config.getParserConfig() != null ? config.getParserConfig() : ParserConfig.builder().build();
+        ParserStrategy strategy = parserStrategies.forConfig(parserConfig);
+        AiExecutionResult parsed = strategy.parse(raw);
+        if (!parsed.isParseSuccess()) {
+            logs.warn("Parser reported failure (strategy={}): output may be raw", parserConfig.getStrategy());
+        }
+        return parsed;
     }
 
     private ProviderInfo resolveProviderDescriptor(ExecutionContext context, String requestedProvider) {
@@ -202,79 +272,6 @@ public class AiClusterExecutor implements NodeExecutor {
                 .map(providerResolver::resolveByChildAlias)
                 .flatMap(Optional::stream)
                 .findFirst();
-    }
-
-    /**
-     * Retrieve conversation history from memory node
-     */
-    @SuppressWarnings("unchecked")
-    private List<Message> retrieveConversationHistory(ExecutionContext context, String memoryKey, NodeLogPublisher logs) {
-        try {
-            // Call memory node to retrieve history
-            WorkflowConfig retrieveConfig = new WorkflowConfig(Map.of(
-                    "operation", "RETRIEVE",
-                    "key", memoryKey,
-                    "default_value", List.of()
-            ));
-
-            ExecutionResult result = orchestrator.executeSyntheticNodeByKey(
-                    "core:context_variable:1.0.0",
-                    "retrieve_history",
-                    retrieveConfig,
-                    context
-            );
-
-            if (result.getStatus() == ExecutionStatus.SUCCESS) {
-                Object historyResult = context.read("result", Object.class);
-                if (historyResult instanceof Map) {
-                    Object value = ((Map<String, Object>) historyResult).get("value");
-                    if (value instanceof List) {
-                        return convertToMessages((List<?>) value);
-                    }
-                }
-            }
-
-            logs.warn("Failed to retrieve conversation history from memory key: {}", memoryKey);
-            return new ArrayList<>();
-
-        } catch (Exception e) {
-            logs.warn("Error retrieving conversation history: {}", e.getMessage());
-            return new ArrayList<>();
-        }
-    }
-
-    /**
-     * Convert stored history objects to Spring AI Message objects
-     */
-    private List<Message> convertToMessages(List<?> historyList) {
-        List<Message> messages = new ArrayList<>();
-        for (Object item : historyList) {
-            if (item instanceof Map) {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> messageMap = (Map<String, Object>) item;
-                initializeMessage(messageMap, messages);
-            } else {
-                // Handle cases where an item might be serialized JSON string
-                try {
-                    Map<?, ?> messageMap = objectMapper.readValue(item.toString(), Map.class);
-                    initializeMessage(messageMap, messages);
-                } catch (Exception e) {
-                    log.warn("Failed to parse message item: {}", item, e);
-                }
-            }
-        }
-        return messages;
-    }
-
-    private static void initializeMessage(Map<?, ?> messageMap, List<Message> messages) {
-        String role = (String) messageMap.get("role");
-        String content = (String) messageMap.get("content");
-
-        if ("user".equals(role)) {
-            messages.add(new UserMessage(content));
-        } else if ("assistant".equals(role)) {
-            messages.add(new AssistantMessage(content));
-        }
     }
 
     /**
@@ -367,64 +364,25 @@ public class AiClusterExecutor implements NodeExecutor {
 
     // mapModelToProviderKey removed - registry handles provider resolution
 
-    private void saveConversationTurn(ExecutionContext context,
-                                      String memoryKey,
+    private void saveConversationTurn(MemoryBackend memoryBackend,
                                       AiExecutionRequest request,
                                       AiExecutionResult result,
                                       NodeLogPublisher logs) {
         try {
             extractLatestUserMessage(request)
                     .filter(message -> !message.isBlank())
-                    .ifPresent(message -> appendToHistory(
-                            context,
-                            memoryKey,
-                            buildMessageEntry("user", message, buildUserMetadata(request)),
-                            logs));
+                    .ifPresent(message -> memoryBackend.appendTurn(
+                            ContextMemoryBackend.buildMessageEntry("user", message, buildUserMetadata(request))));
 
             String assistantContent = determineAssistantContent(result);
             if (assistantContent != null && !assistantContent.isBlank()) {
-                appendToHistory(context,
-                        memoryKey,
-                        buildMessageEntry("assistant", assistantContent, buildAssistantMetadata(result)),
-                        logs);
+                memoryBackend.appendTurn(ContextMemoryBackend.buildMessageEntry(
+                        "assistant", assistantContent, buildAssistantMetadata(result)));
             }
 
         } catch (Exception e) {
             logs.warn("Failed to save conversation turn: {}", e.getMessage());
         }
-    }
-
-    private void appendToHistory(ExecutionContext context,
-                                 String memoryKey,
-                                 Map<String, Object> entry,
-                                 NodeLogPublisher logs) {
-        if (entry == null || entry.get("content") == null || entry.get("content").toString().isBlank()) {
-            logs.debug("Skipping conversation append due to empty content for key {}", memoryKey);
-            return;
-        }
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("operation", "APPEND");
-        payload.put("key", memoryKey);
-        payload.put("value", entry);
-        payload.put("persistent", true);
-
-        orchestrator.executeSyntheticNodeByKey(
-                "core:context_variable:1.0.0",
-                "append_message",
-                new WorkflowConfig(payload),
-                context
-        );
-    }
-
-    private Map<String, Object> buildMessageEntry(String role, String content, Map<String, Object> metadata) {
-        Map<String, Object> entry = new LinkedHashMap<>();
-        entry.put("role", role);
-        entry.put("content", content);
-        entry.put("timestamp", Instant.now().toString());
-        if (metadata != null && !metadata.isEmpty()) {
-            entry.put("metadata", metadata);
-        }
-        return entry;
     }
 
     private Map<String, Object> buildUserMetadata(AiExecutionRequest request) {

@@ -50,17 +50,17 @@ public class ExecutionContextTest {
 
         // Test write/read/remove pattern (as used by WorkflowEngineService)
         ctx.write("foo", "bar");
-        assertNull(ctx.read("foo", String.class)); // Not visible yet
+        assertEquals("bar", ctx.read("foo", String.class)); // Immediate visibility due to pending read path
         runtimeContext.flushPendingWrites(nodeKey); // Simulate what WorkflowEngineService does
-        assertEquals("bar", ctx.read("foo", String.class)); // Now visible
+        assertEquals("bar", ctx.read("foo", String.class)); // Still visible after flush
         ctx.remove("foo");
         assertNull(ctx.read("foo", String.class));
         
         // Test another write/flush cycle
         ctx.write("test", "value");
-        assertNull(ctx.read("test", String.class)); // Not visible yet
+        assertEquals("value", ctx.read("test", String.class)); // Immediate visibility
         runtimeContext.flushPendingWrites(nodeKey); // Simulate what WorkflowEngineService does
-        assertEquals("value", ctx.read("test", String.class)); // Now visible
+        assertEquals("value", ctx.read("test", String.class)); // Still visible after flush
     }
 
     @Test

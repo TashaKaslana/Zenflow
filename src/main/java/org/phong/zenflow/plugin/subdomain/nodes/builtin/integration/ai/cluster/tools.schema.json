@@ -4,6 +4,11 @@
   "title": "AI Cluster Tooling",
   "description": "Configure tool packs and custom tool wiring for the AI cluster",
   "properties": {
+    "enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable tool routing"
+    },
     "default_pack": {
       "type": "string",
       "description": "Optional default tool pack to load (platform defined)",
@@ -16,6 +21,15 @@
       "items": {
         "type": "string"
       }
+    },
+    "node_tools": {
+      "type": "array",
+      "description": "Optional node-as-tool descriptors (<pluginKey>:<nodeKey>:<version>)",
+      "items": { "type": "string" }
+    },
+    "memory_tool": {
+      "description": "Enable memory-as-tool injection",
+      "type": "boolean"
     }
   },
   "additionalProperties": true

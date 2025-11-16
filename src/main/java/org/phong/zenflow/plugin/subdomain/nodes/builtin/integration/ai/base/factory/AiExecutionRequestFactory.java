@@ -1,7 +1,6 @@
 package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.factory;
 
 import lombok.extern.slf4j.Slf4j;
-import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.AiToolRegistry;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.dto.AiClusterConfig;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.dto.AiExecutionRequest;
 import org.springframework.ai.chat.messages.Message;
@@ -26,13 +25,13 @@ public class AiExecutionRequestFactory {
      * Build an execution request from cluster config and conversation context.
      *
      * @param config Cluster configuration
-     * @param toolRegistry Tool registry for this execution
+     * @param tools Tool instances for this execution
      * @param conversationHistory Optional conversation history messages
      * @return Typed execution request
      */
     public AiExecutionRequest build(
             AiClusterConfig config,
-            AiToolRegistry toolRegistry,
+            List<Object> tools,
             List<Message> conversationHistory) {
         
         List<Message> messages = new ArrayList<>();
@@ -71,12 +70,12 @@ public class AiExecutionRequestFactory {
         contextMetadata.put("include_history", config.isIncludeHistory());
         
         log.info("Built AI execution request with {} messages, {} tools, response format: {}",
-                messages.size(), toolRegistry.size(), config.getResponseFormat());
-        
+                messages.size(), tools != null ? tools.size() : 0, config.getResponseFormat());
+
         return AiExecutionRequest.builder()
                 .messages(messages)
                 .modelOptions(modelOptions)
-                .toolObjects(toolRegistry.getToolList())
+                .toolObjects(tools != null ? tools : List.of())
                 .responseFormat(config.getResponseFormat())
                 .contextMetadata(contextMetadata)
                 .build();

@@ -99,6 +99,7 @@ class WorkflowEngineServiceUuidIntegrationTest {
         
         // Create NodeExecutionOrchestrator with the execution gateway
         NodeExecutionOrchestrator orchestrator = new NodeExecutionOrchestrator(
+                contextManager,
                 executionGateway,
                 pluginNodeRegistry
         );

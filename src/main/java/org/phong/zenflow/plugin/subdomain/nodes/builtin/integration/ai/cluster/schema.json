@@ -32,7 +32,7 @@
             "openai",
             "openai:chatgpt",
             "openrouter",
-            "opernrouter:chat"
+            "openrouter:chat"
           ]
         },
         "model": {
@@ -93,6 +93,65 @@
           "maximum": 100,
           "default": 10,
           "description": "Maximum number of history messages to include in context"
+        },
+        "tools": {
+          "type": "object",
+          "description": "Tool routing configuration",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable tool routing"
+            },
+            "default_pack": {
+              "type": "string",
+              "enum": ["platform", "minimal", "extended"],
+              "description": "Optional default tool pack"
+            },
+            "custom_tools": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Spring bean names exposing @Tool methods"
+            }
+          },
+          "additionalProperties": true
+        },
+        "memory": {
+          "type": "object",
+          "description": "Memory backend configuration",
+          "properties": {
+            "backend": {
+              "type": "string",
+              "enum": ["context", "in_memory", "kv", "vector", "external"],
+              "default": "context"
+            },
+            "key": { "type": "string", "description": "Memory key / session id" },
+            "namespace": { "type": "string", "description": "Optional namespace" },
+            "max_history_messages": { "type": "integer", "minimum": 1, "maximum": 100, "default": 10 },
+            "persistent": { "type": "boolean", "default": true },
+            "options": { "type": "object", "description": "Backend-specific options" }
+          },
+          "additionalProperties": true
+        },
+        "parser": {
+          "type": "object",
+          "description": "Output parser strategy",
+          "properties": {
+            "strategy": {
+              "type": "string",
+              "enum": ["auto", "text", "json", "schema", "raw"],
+              "default": "auto"
+            },
+            "on_error": {
+              "type": "string",
+              "enum": ["fail", "fallback_to_text"],
+              "default": "fail",
+              "description": "Error handling when parse fails"
+            },
+            "max_retries": { "type": "integer", "minimum": 0, "default": 0 },
+            "options": { "type": "object" }
+          },
+          "additionalProperties": true
         },
         "child_nodes": {
           "type": "object",

@@ -8,6 +8,9 @@ import java.util.List;
 import java.util.Map;
 
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.cluster.ToolRouterConfig;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.cluster.MemoryConfig;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.cluster.ParserConfig;
 
 /**
  * Configuration for AI cluster node.
@@ -85,6 +88,24 @@ public class AiClusterConfig {
     @Builder.Default
     Map<String, String> childExecutorTypes = Map.of();
 
+    /**
+     * Tool routing configuration.
+     */
+    @Builder.Default
+    ToolRouterConfig toolRouterConfig = ToolRouterConfig.builder().build();
+
+    /**
+     * Memory configuration.
+     */
+    @Builder.Default
+    MemoryConfig memoryConfig = MemoryConfig.builder().build();
+
+    /**
+     * Parser configuration.
+     */
+    @Builder.Default
+    ParserConfig parserConfig = ParserConfig.builder().build();
+
     public static AiClusterConfig fromNodeConfig(WorkflowConfig workflowConfig) {
         Map<String, Object> input = workflowConfig != null ? workflowConfig.input() : Map.of();
         String prompt = (String) input.get("prompt");
@@ -107,6 +128,9 @@ public class AiClusterConfig {
 
         Map<String, String> childNodes = extractStringMap(input.get("child_nodes"));
         Map<String, String> childExecutorTypes = extractStringMap(input.get("child_executor_types"));
+        ToolRouterConfig toolConfig = ToolRouterConfig.fromRaw(input.get("tools"));
+        MemoryConfig memoryConfig = MemoryConfig.fromRaw(input.get("memory"));
+        ParserConfig parserConfig = ParserConfig.fromRaw(input.get("parser"));
 
         return AiClusterConfig.builder()
                 .prompt(prompt)
@@ -119,6 +143,9 @@ public class AiClusterConfig {
                 .maxHistoryMessages(maxHistoryMessages)
                 .childNodes(childNodes)
                 .childExecutorTypes(childExecutorTypes)
+                .toolRouterConfig(toolConfig)
+                .memoryConfig(memoryConfig)
+                .parserConfig(parserConfig)
                 .build();
     }
 

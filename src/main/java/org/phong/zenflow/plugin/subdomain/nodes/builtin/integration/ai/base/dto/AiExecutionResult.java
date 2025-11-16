@@ -10,7 +10,7 @@ import java.util.Map;
  * Returned by abstract provider to cluster.
  */
 @Value
-@Builder
+@Builder(toBuilder = true)
 public class AiExecutionResult {
     /**
      * Processed output (parsed JSON or raw text)
