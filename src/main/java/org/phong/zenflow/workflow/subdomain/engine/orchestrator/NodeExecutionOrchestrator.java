@@ -44,30 +44,36 @@ public class NodeExecutionOrchestrator {
             log.info("[traceId={}] [hierarchy={}] Node started", ctx.traceId(), ctx.hierarchy());
             
             execCtx.setCurrentConfig(config);
-            execCtx.setNodeKey(node.getKey());
+            
+            String parentNodeKey = execCtx.getNodeKey();
+            try {
+                execCtx.setNodeKey(node.getKey());
 
-            String executorType = node.getPluginNode().getExecutorType();
-            if (executorType == null) {
-                throw new WorkflowEngineException("Executor type is not defined for node: " + node.getKey());
-            } else if (node.getPluginNode().getNodeId() == null) {
-                throw new WorkflowEngineException("Plugin node ID is not defined for node: " + node.getKey());
+                String executorType = node.getPluginNode().getExecutorType();
+                if (executorType == null) {
+                    throw new WorkflowEngineException("Executor type is not defined for node: " + node.getKey());
+                } else if (node.getPluginNode().getNodeId() == null) {
+                    throw new WorkflowEngineException("Plugin node ID is not defined for node: " + node.getKey());
+                }
+
+                ExecutionTaskEnvelope envelope = ExecutionTaskEnvelope.builder()
+                        .taskId(execCtx.taskId())
+                        .executorIdentifier(node.getPluginNode().getNodeId().toString())
+                        .executorType(executorType)
+                        .config(config)
+                        .context(execCtx)
+                        .pluginNodeId(node.getPluginNode().getNodeId())
+                        .build();
+
+                ExecutionResult result = executionGateway.executeAsync(envelope).join();
+                
+                log.info("[traceId={}] [hierarchy={}] Node finished with status: {}", 
+                        ctx.traceId(), ctx.hierarchy(), result.getStatus());
+                
+                return result;
+            } finally {
+                execCtx.setNodeKey(parentNodeKey);
             }
-
-            ExecutionTaskEnvelope envelope = ExecutionTaskEnvelope.builder()
-                    .taskId(execCtx.taskId())
-                    .executorIdentifier(node.getPluginNode().getNodeId().toString())
-                    .executorType(executorType)
-                    .config(config)
-                    .context(execCtx)
-                    .pluginNodeId(node.getPluginNode().getNodeId())
-                    .build();
-
-            ExecutionResult result = executionGateway.executeAsync(envelope).join();
-            
-            log.info("[traceId={}] [hierarchy={}] Node finished with status: {}", 
-                    ctx.traceId(), ctx.hierarchy(), result.getStatus());
-            
-            return result;
         });
     }
     

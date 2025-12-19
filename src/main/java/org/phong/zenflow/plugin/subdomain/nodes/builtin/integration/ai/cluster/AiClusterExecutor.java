@@ -77,7 +77,7 @@ public class AiClusterExecutor implements NodeExecutor {
             }
 
             // Build tool list via router
-            List<Object> tools = resolveTools(config);
+            List<Object> tools = resolveTools(config, context);
 
             // Build typed execution request
             AiExecutionRequest request = requestFactory.build(config, tools, conversationHistory);
@@ -223,8 +223,14 @@ public class AiClusterExecutor implements NodeExecutor {
                 .build();
     }
 
-    private List<Object> resolveTools(AiClusterConfig config) {
-        ToolRouter router = new DefaultToolRouter(toolRegistry.copy(), config.getToolRouterConfig());
+    private List<Object> resolveTools(AiClusterConfig config, ExecutionContext context) {
+        ToolRouter router = new DefaultToolRouter(
+                toolRegistry.copy(), 
+                config.getToolRouterConfig(),
+                context,
+                orchestrator,
+                objectMapper
+        );
         return router.resolveTools();
     }
 
