@@ -8,6 +8,7 @@ import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionError;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.entity.PluginNode;
 import org.phong.zenflow.workflow.subdomain.context.resolution.ContextValueResolver;
+import org.phong.zenflow.workflow.subdomain.engine.orchestrator.NodeExecutionOrchestrator;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContextImpl;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
@@ -39,6 +40,7 @@ public class SingleNodeExecutionService {
     private final TemplateService templateService;
     private final AuthService authService;
     private final ContextValueResolver contextValueResolver;
+    private final NodeExecutionOrchestrator orchestrator;
 
     public ExecutionResult executeNode(PluginNode pluginNode, BaseWorkflowNode node) {
         RuntimeContext context = new RuntimeContext();
@@ -69,6 +71,7 @@ public class SingleNodeExecutionService {
                 .logPublisher(logPublisher)
                 .templateService(templateService)
                 .contextValueResolver(contextValueResolver)
+                .orchestrator(orchestrator)
                 .nodeConfigs(nodeConfigs)
                 .workflowNodes(workflowNodes)
                 .build();

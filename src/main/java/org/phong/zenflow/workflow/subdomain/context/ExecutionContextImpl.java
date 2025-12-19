@@ -11,12 +11,16 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import lombok.Setter;
+
+import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
+import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.plugin.subdomain.node.definition.policy.ContextAccessPolicy;
 import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
 import org.phong.zenflow.secret.exception.SecretDomainException;
 import org.phong.zenflow.workflow.subdomain.context.refvalue.ExecutionOutputEntry;
 import org.phong.zenflow.workflow.subdomain.context.refvalue.dto.WriteOptions;
 import org.phong.zenflow.workflow.subdomain.context.resolution.ContextValueResolver;
+import org.phong.zenflow.workflow.subdomain.engine.orchestrator.NodeExecutionOrchestrator;
 import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
@@ -57,6 +61,7 @@ public class ExecutionContextImpl implements ExecutionContext {
     private final TemplateService templateService;
     private final RuntimeContextManager contextManager;
     private final ContextValueResolver contextValueResolver;
+    private final NodeExecutionOrchestrator orchestrator;
 
     @Builder.Default
     private Map<String, WorkflowConfig> nodeConfigs = new ConcurrentHashMap<>();
@@ -66,6 +71,50 @@ public class ExecutionContextImpl implements ExecutionContext {
 
     @Getter
     private WorkflowConfig currentConfig;
+
+    @Builder.Default
+    private boolean captureMode = false;
+    private final Map<String, Object> capturedOutputs = new ConcurrentHashMap<>();
+
+    @Override
+    public void setCaptureMode(boolean enabled) {
+        this.captureMode = enabled;
+    }
+
+    @Override
+    public Map<String, Object> getCapturedOutputs() {
+        return new HashMap<>(capturedOutputs);
+    }
+    @Override
+    public void clearCapturedOutputs() {
+        capturedOutputs.clear();
+    }
+
+    @Override
+    public ExecutionResult executeSubNode(BaseWorkflowNode node, WorkflowConfig config) {
+        if (orchestrator == null) {
+            throw new IllegalStateException("NodeExecutionOrchestrator is not configured for this ExecutionContext");
+        }
+
+        boolean previousCaptureMode = this.captureMode;
+        this.setCaptureMode(true);
+        this.clearCapturedOutputs();
+
+        try {
+            ExecutionResult result = orchestrator.executeNode(node, config, this);
+
+            if (result.getStatus() == ExecutionStatus.SUCCESS) {
+                // If outputPayload is missing, try to populate it from captured outputs
+                if (result.getOutputPayload() == null && !capturedOutputs.isEmpty()) {
+                    result.setOutputPayload(new HashMap<>(capturedOutputs));
+                }
+            }
+            return result;
+        } finally {
+            this.setCaptureMode(previousCaptureMode);
+            this.clearCapturedOutputs();
+        }
+    }
 
     @Override
     public void setContextAccessPolicy(ContextAccessPolicy policy) {
@@ -286,6 +335,10 @@ public class ExecutionContextImpl implements ExecutionContext {
 
     @Override
     public void writeAll(Map<String, Object> values, WriteOptions options) {
+        if (captureMode) {
+            capturedOutputs.putAll(values);
+            return;
+        }
         RuntimeContext context = getContext();
         WriteOptions effective = normalizeWriteOptions(options);
         for (Map.Entry<String, Object> entry : values.entrySet()) {
@@ -295,6 +348,10 @@ public class ExecutionContextImpl implements ExecutionContext {
 
     @Override
     public void writeAllEntries(Map<String, ExecutionOutputEntry> entries) {
+        if (captureMode) {
+            entries.forEach((k, v) -> capturedOutputs.put(k, v.value()));
+            return;
+        }
         RuntimeContext context = getContext();
         for (Map.Entry<String, ExecutionOutputEntry> entry : entries.entrySet()) {
             ExecutionOutputEntry outputEntry = entry.getValue();
@@ -326,6 +383,17 @@ public class ExecutionContextImpl implements ExecutionContext {
     
     @Override
     public void writeStream(String key, InputStream inputStream, WriteOptions options) throws IOException {
+        if (captureMode) {
+            // For capture mode, we might need to materialize the stream or handle it differently.
+            // For now, let's assume we read it into memory or store the stream (risky if closed).
+            // Given this is for AI tools returning JSON usually, streams are rare.
+            // Let's throw or handle basic materialization.
+            // Actually, RefValue handles streams. But capturedOutputs is a simple Map.
+            // Let's just warn and skip for now, or materialize if small.
+            // Better: just put the stream in the map and let the caller handle it.
+            capturedOutputs.put(key, inputStream); 
+            return;
+        }
         RuntimeContext context = getContext();
         if (context == null) {
             throw new IOException("Runtime context not available");

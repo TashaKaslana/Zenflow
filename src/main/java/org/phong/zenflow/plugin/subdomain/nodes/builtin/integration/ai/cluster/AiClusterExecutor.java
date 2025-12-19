@@ -228,7 +228,6 @@ public class AiClusterExecutor implements NodeExecutor {
                 toolRegistry.copy(), 
                 config.getToolRouterConfig(),
                 context,
-                orchestrator,
                 objectMapper
         );
         return router.resolveTools();

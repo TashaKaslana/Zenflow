@@ -20,7 +20,7 @@ class DefaultToolRouterTest {
 
         ToolRouterConfig cfg = ToolRouterConfig.builder().build();
 
-        DefaultToolRouter router = new DefaultToolRouter(registry, cfg);
+        DefaultToolRouter router = new DefaultToolRouter(registry, cfg, null, null);
 
         List<Object> tools = router.resolveTools();
 
@@ -37,7 +37,7 @@ class DefaultToolRouterTest {
                 .enabled(false)
                 .build();
 
-        DefaultToolRouter router = new DefaultToolRouter(registry, cfg);
+        DefaultToolRouter router = new DefaultToolRouter(registry, cfg, null, null);
 
         List<Object> tools = router.resolveTools();
 

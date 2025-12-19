@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.engine.orchestrator.NodeExecutionOrchestrator;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.springframework.ai.tool.ToolCallback;
@@ -20,17 +19,14 @@ import java.util.Map;
 public class NodeToolCallback implements ToolCallback {
 
     private final BaseWorkflowNode node;
-    private final NodeExecutionOrchestrator orchestrator;
     private final ExecutionContext context;
     private final ObjectMapper objectMapper;
     private final ToolDefinition toolDefinition;
 
     public NodeToolCallback(BaseWorkflowNode node,
-                            NodeExecutionOrchestrator orchestrator,
                             ExecutionContext context,
                             ObjectMapper objectMapper) {
         this.node = node;
-        this.orchestrator = orchestrator;
         this.context = context;
         this.objectMapper = objectMapper;
         this.toolDefinition = buildToolDefinition(node);
@@ -38,7 +34,7 @@ public class NodeToolCallback implements ToolCallback {
 
     private ToolDefinition buildToolDefinition(BaseWorkflowNode node) {
         String name = node.getKey().replace(":", "_").replace("-", "_"); // Sanitize name
-        String description = "Execute node: " + node.getName();
+        String description = "Execute node: " + node.getKey();
         
         // For now, we accept a generic JSON object as input.
         // Ideally, we should derive this from the node's schema if available.
@@ -71,32 +67,15 @@ public class NodeToolCallback implements ToolCallback {
             
             WorkflowConfig config = new WorkflowConfig(inputMap);
             
-            // Execute the node using the orchestrator
-            // The orchestrator handles context switching (fixed in previous step)
-            ExecutionResult result = orchestrator.executeNode(node, config, context);
+            ExecutionResult result = context.executeSubNode(node, config);
             
             if (result.getStatus() == ExecutionStatus.SUCCESS) {
-                // Return the output from the context (assuming the node writes to 'response' or similar, 
-                // or we check the context for changes. 
-                // Standard Zenflow nodes usually write to context. 
-                // We might need to capture what the node wrote.
-                // For simplicity, we return the execution status or a specific output key if known.
-                // But wait, executeNode returns ExecutionResult which might not contain the data.
-                // The data is in the context.
-                
-                // We can try to read 'response' or 'output' from the context *after* execution?
-                // But the context is shared.
-                // Let's assume the node writes to a key that we can read, or we return a success message.
-                // A better approach for "Node as Tool" is to have the node return a value.
-                // But Zenflow nodes are void-like (side effects on context).
-                
-                // Let's try to read "output" or "response" from the context.
-                Object output = context.read("output", Object.class);
-                if (output == null) {
-                    output = context.read("response", Object.class);
+                // Check for output payload (populated by executeSubNode from capture or direct return)
+                if (result.getOutputPayload() != null) {
+                    return objectMapper.writeValueAsString(result.getOutputPayload());
                 }
                 
-                return objectMapper.writeValueAsString(output != null ? output : Map.of("status", "success"));
+                return objectMapper.writeValueAsString(Map.of("status", "success", "message", "Node executed successfully (no output captured)"));
             } else {
                 return objectMapper.writeValueAsString(Map.of(
                         "status", "error",

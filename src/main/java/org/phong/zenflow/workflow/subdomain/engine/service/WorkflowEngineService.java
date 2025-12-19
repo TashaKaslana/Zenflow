@@ -83,6 +83,7 @@ public class WorkflowEngineService {
                     .logPublisher(logPublisher)
                     .templateService(templateService)
                     .contextValueResolver(contextValueResolver)
+                    .orchestrator(nodeExecutionOrchestrator)
                     .nodeConfigs(nodeConfigs)
                     .workflowNodes(nodeDefinitions)
                     .build();

@@ -5,7 +5,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.AiToolRegistry;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.engine.orchestrator.NodeExecutionOrchestrator;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 
 import java.util.ArrayList;
@@ -23,7 +22,6 @@ public class DefaultToolRouter implements ToolRouter {
     private final AiToolRegistry baseRegistry;
     private final ToolRouterConfig config;
     private final ExecutionContext context;
-    private final NodeExecutionOrchestrator orchestrator;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -62,7 +60,7 @@ public class DefaultToolRouter implements ToolRouter {
                     BaseWorkflowNode childNode = context.getWorkflowNode(childKey);
                     if (childNode != null) {
                         log.debug("Registering node as tool: {}", childKey);
-                        tools.add(new NodeToolCallback(childNode, orchestrator, context, objectMapper));
+                        tools.add(new NodeToolCallback(childNode, context, objectMapper));
                     }
                 }
             }

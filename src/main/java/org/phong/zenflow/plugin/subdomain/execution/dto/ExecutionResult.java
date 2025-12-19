@@ -20,10 +20,23 @@ public class ExecutionResult {
     private String error;
     private String nextNodeKey;
     private ValidationResult validationResult;
+    
+    /**
+     * Optional output payload for sub-node execution (e.g. Node-as-Tool).
+     * This allows a node to return data directly to its caller without writing to the shared context.
+     */
+    private Object outputPayload;
 
     public static ExecutionResult success() {
         ExecutionResult result = new ExecutionResult();
         result.setStatus(ExecutionStatus.SUCCESS);
+        return result;
+    }
+
+    public static ExecutionResult success(Object outputPayload) {
+        ExecutionResult result = new ExecutionResult();
+        result.setStatus(ExecutionStatus.SUCCESS);
+        result.setOutputPayload(outputPayload);
         return result;
     }
 
