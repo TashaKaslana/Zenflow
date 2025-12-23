@@ -13,8 +13,10 @@ import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.openai.api.ResponseFormat;
+import org.springframework.ai.tool.ToolCallback;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -47,7 +49,7 @@ public class OpenRouterModelProvider implements AiModelProvider {
         } else {
             optionsBuilder = OpenAiChatOptions.builder();
         }
-        applyModelOptions(optionsBuilder, request.getModelOptions());
+        applyModelOptions(optionsBuilder, request.getModelOptions(), request.getToolObjects());
 
         if ("json".equalsIgnoreCase(request.getResponseFormat())) {
             optionsBuilder.responseFormat(ResponseFormat.builder()
@@ -113,7 +115,12 @@ public class OpenRouterModelProvider implements AiModelProvider {
                 .build();
     }
 
-    private void applyModelOptions(OpenAiChatOptions.Builder builder, Map<String, Object> options) {
+    private void applyModelOptions(OpenAiChatOptions.Builder builder, Map<String, Object> options, List<Object> toolObjects) {
+        if (toolObjects != null) {
+            List<ToolCallback> tools = toolObjects.stream().map(t -> (ToolCallback) t).toList();
+            builder.toolCallbacks(tools);
+        }
+
         if (options == null || options.isEmpty()) {
             return;
         }

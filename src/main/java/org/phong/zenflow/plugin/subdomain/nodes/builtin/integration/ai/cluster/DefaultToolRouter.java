@@ -3,7 +3,10 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.cluster;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeStateType;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.AiToolRegistry;
+import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
+import org.phong.zenflow.plugin.subdomain.schema.services.SchemaRegistry;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 
@@ -23,6 +26,8 @@ public class DefaultToolRouter implements ToolRouter {
     private final ToolRouterConfig config;
     private final ExecutionContext context;
     private final ObjectMapper objectMapper;
+    private final SchemaRegistry schemaRegistry;
+    private final PluginNodeExecutorRegistry pluginNodeExecutorRegistry;
 
     @Override
     public List<Object> resolveTools() {
@@ -59,13 +64,45 @@ public class DefaultToolRouter implements ToolRouter {
                     
                     BaseWorkflowNode childNode = context.getWorkflowNode(childKey);
                     if (childNode != null) {
+                        if (!isClusterTool(childNode)) {
+                            log.debug("Skipping internal node: {}", childKey);
+                            continue;
+                        }
                         log.debug("Registering node as tool: {}", childKey);
-                        tools.add(new NodeToolCallback(childNode, context, objectMapper));
+                        tools.add(new NodeToolCallback(childNode, context, objectMapper, schemaRegistry));
                     }
                 }
             }
         } catch (Exception e) {
             log.warn("Failed to discover node tools: {}", e.getMessage());
         }
+    }
+
+    private boolean isClusterTool(BaseWorkflowNode node) {
+        if (pluginNodeExecutorRegistry == null) return false;
+        
+        try {
+            String nodeId = null;
+            if (node.getPluginNode() != null) {
+                if (node.getPluginNode().getNodeId() != null) {
+                    nodeId = node.getPluginNode().getNodeId().toString();
+                } else {
+                    // Try composite key
+                    String compositeKey = node.getPluginNode().getPluginKey() + ":" + 
+                                          node.getPluginNode().getNodeKey() + ":" + 
+                                          node.getPluginNode().getVersion();
+                    nodeId = pluginNodeExecutorRegistry.getIdByCompositeKey(compositeKey).orElse(null);
+                }
+            }
+            
+            if (nodeId != null) {
+                return pluginNodeExecutorRegistry.getDefinition(nodeId)
+                        .map(def -> NodeStateType.isAITool(def.getNodeState().stateTypes()))
+                        .orElse(false);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to check if node is internal: {}", e.getMessage());
+        }
+        return false;
     }
 }

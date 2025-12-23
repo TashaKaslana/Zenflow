@@ -3,8 +3,12 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.openrouter.
 import lombok.AllArgsConstructor;
 import org.phong.zenflow.plugin.subdomain.node.definition.NodeDefinition;
 import org.phong.zenflow.plugin.subdomain.node.definition.NodeDefinitionProvider;
+import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeState;
+import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeStateType;
 import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 import org.springframework.stereotype.Component;
+
+import java.util.Set;
 
 /**
  * OpenRouter chat node using the OpenAI-compatible Chat Completions API.
@@ -31,6 +35,10 @@ public class OpenRouterNode implements NodeDefinitionProvider {
         return NodeDefinition.builder()
                 .nodeExecutor(executor)
                 .nodeResourceManager(resourceManager)
+                .nodeState(new NodeState(Set.of(
+                        NodeStateType.AI_PROVIDER,
+                        NodeStateType.NORMAL
+                )))
                 .build();
     }
 }

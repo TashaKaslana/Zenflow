@@ -14,6 +14,8 @@ import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.dto.
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.dto.AiExecutionResult;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.factory.AiExecutionRequestFactory;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.cluster.AiClusterProviderResolver.ProviderInfo;
+import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
+import org.phong.zenflow.plugin.subdomain.schema.services.SchemaRegistry;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
@@ -38,17 +40,23 @@ public class AiClusterExecutor implements NodeExecutor {
     private final AiToolRegistry toolRegistry;
     private final ObjectMapper objectMapper;
     private final AiClusterProviderResolver providerResolver;
+    private final SchemaRegistry schemaRegistry;
+    private final PluginNodeExecutorRegistry pluginNodeExecutorRegistry;
 
     private final ParserStrategies parserStrategies;
 
     public AiClusterExecutor(AiExecutionRequestFactory requestFactory,
                              AiToolRegistry toolRegistry,
                              ObjectMapper objectMapper,
-                             AiClusterProviderResolver providerResolver) {
+                             AiClusterProviderResolver providerResolver,
+                             SchemaRegistry schemaRegistry,
+                             PluginNodeExecutorRegistry pluginNodeExecutorRegistry) {
         this.requestFactory = requestFactory;
         this.toolRegistry = toolRegistry;
         this.objectMapper = objectMapper;
         this.providerResolver = providerResolver;
+        this.schemaRegistry = schemaRegistry;
+        this.pluginNodeExecutorRegistry = pluginNodeExecutorRegistry;
         this.parserStrategies = new ParserStrategies(objectMapper);
     }
 
@@ -226,7 +234,9 @@ public class AiClusterExecutor implements NodeExecutor {
                 toolRegistry.copy(), 
                 config.getToolRouterConfig(),
                 context,
-                objectMapper
+                objectMapper,
+                schemaRegistry,
+                pluginNodeExecutorRegistry
         );
         return router.resolveTools();
     }

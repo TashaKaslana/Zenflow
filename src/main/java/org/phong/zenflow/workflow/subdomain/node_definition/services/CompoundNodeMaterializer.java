@@ -64,7 +64,7 @@ public class CompoundNodeMaterializer {
             }
 
             Set<BaseWorkflowNode> newChildren = materializeChildren(definition, managedChildren, parent, descriptor);
-            if (newChildren != null && !newChildren.isEmpty()) {
+            if (!newChildren.isEmpty()) {
                 childNodesToAdding.addAll(newChildren);
             }
         }
@@ -79,8 +79,8 @@ public class CompoundNodeMaterializer {
                                                       BaseWorkflowNode parent,
                                                       CompoundNodeDescriptor descriptor) {
         List<CompoundChildDescriptor> children = descriptor.childFactory().createChildren(parent);
-        if (children == null || children.isEmpty()) {
-            return null;
+        if (children == null) {
+            children = new ArrayList<>();
         }
 
         List<String> childKeys = new ArrayList<>();
@@ -97,6 +97,17 @@ public class CompoundNodeMaterializer {
                 childNodeToAdding.add(child) ;
             }
         }
+
+        // Preserve existing children (e.g. user-defined tools)
+        if (parent.getChildNodeKeys() != null) {
+            for (String existingKey : parent.getChildNodeKeys()) {
+                if (!childKeys.contains(existingKey)) {
+                    childKeys.add(existingKey);
+                    managedChildren.add(existingKey);
+                }
+            }
+        }
+
         parent.setChildNodeKeys(childKeys);
 
         return childNodeToAdding;

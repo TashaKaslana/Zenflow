@@ -2,11 +2,15 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.cluster;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.json.JSONObject;
+import org.jspecify.annotations.NonNull;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
+import org.phong.zenflow.plugin.subdomain.schema.services.SchemaRegistry;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
 
@@ -24,14 +28,25 @@ public class NodeToolCallback implements ToolCallback {
     private final BaseWorkflowNode node;
     private final ExecutionContext context;
     private final ObjectMapper objectMapper;
+    private final SchemaRegistry schemaRegistry;
     private final ToolDefinition toolDefinition;
+
+    private static final String DEFAULT_SCHEMA = """
+                {
+                    "type": "object",
+                    "description": "Input parameters for the node",
+                    "additionalProperties": true
+                }
+                """;
 
     public NodeToolCallback(BaseWorkflowNode node,
                             ExecutionContext context,
-                            ObjectMapper objectMapper) {
+                            ObjectMapper objectMapper,
+                            SchemaRegistry schemaRegistry) {
         this.node = node;
         this.context = context;
         this.objectMapper = objectMapper;
+        this.schemaRegistry = schemaRegistry;
         this.toolDefinition = buildToolDefinition(node);
     }
 
@@ -39,15 +54,30 @@ public class NodeToolCallback implements ToolCallback {
         String name = node.getKey().replace(":", "_").replace("-", "_"); // Sanitize name
         String description = "Execute node: " + node.getKey();
         
-        // For now, we accept a generic JSON object as input.
-        // Ideally, we should derive this from the node's schema if available.
-        String inputSchema = """
-                {
-                    "type": "object",
-                    "description": "Input parameters for the node",
-                    "additionalProperties": true
+        String inputSchema;
+        try {
+            // Determine schema key
+            String schemaKey = null;
+            if (node.getPluginNode() != null && node.getPluginNode().getNodeId() != null) {
+                 schemaKey = node.getPluginNode().getNodeId().toString();
+            } else if (node.getType() != NodeType.PLUGIN) {
+                 schemaKey = "builtin:" + node.getType().getNodeType();
+            }
+            
+            if (schemaKey != null && schemaRegistry != null) {
+                JSONObject schemaJson = schemaRegistry.getSchemaByTemplateString(schemaKey);
+                if (schemaJson != null) {
+                    inputSchema = schemaJson.toString();
+                } else {
+                    inputSchema = DEFAULT_SCHEMA;
                 }
-                """;
+            } else {
+                inputSchema = DEFAULT_SCHEMA;
+            }
+        } catch (Exception e) {
+            log.warn("Failed to load schema for node tool {}: {}", node.getKey(), e.getMessage());
+            inputSchema = DEFAULT_SCHEMA;
+        }
 
         return ToolDefinition.builder()
                 .name(name)
@@ -57,12 +87,12 @@ public class NodeToolCallback implements ToolCallback {
     }
 
     @Override
-    public ToolDefinition getToolDefinition() {
+    public @NonNull ToolDefinition getToolDefinition() {
         return toolDefinition;
     }
 
     @Override
-    public String call(String input) {
+    public @NonNull String call(@NonNull String input) {
         log.info("Tool call triggered for node: {}", node.getKey());
         try {
             @SuppressWarnings("unchecked")

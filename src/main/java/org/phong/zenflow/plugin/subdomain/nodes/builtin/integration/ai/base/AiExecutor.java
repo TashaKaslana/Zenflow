@@ -119,9 +119,6 @@ public class AiExecutor implements NodeExecutor {
 
     private AiExecutionRequest loadTypedRequest(ExecutionContext context, NodeLogPublisher logs) {
         try {
-            if (!context.containsKey(AiExecutionContextKeys.TYPED_REQUEST)) {
-                return null;
-            }
             AiExecutionRequest request = context.read(AiExecutionContextKeys.TYPED_REQUEST, AiExecutionRequest.class);
             if (request != null) {
                 logs.info("Using orchestrator-supplied typed AI execution request with {} messages and {} tools",

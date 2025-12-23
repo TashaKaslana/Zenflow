@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeExecutor;
+import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeState;
 import org.phong.zenflow.plugin.subdomain.node.definition.aspect.NodeValidator;
 import org.phong.zenflow.plugin.subdomain.node.definition.policy.ContextAccessPolicy;
 import org.phong.zenflow.plugin.subdomain.node.definition.policy.NodeExecutionPolicy;
@@ -41,6 +42,9 @@ public class NodeDefinition {
 
     @Nullable
     Boolean autoAcquireResource;
+
+    @Builder.Default
+    NodeState nodeState = new NodeState();
 
     public boolean shouldAutoAcquireResource() {
         if (nodeResourceManager == null) {
