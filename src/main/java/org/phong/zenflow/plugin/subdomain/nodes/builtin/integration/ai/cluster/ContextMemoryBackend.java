@@ -6,8 +6,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.engine.orchestrator.NodeExecutionOrchestrator;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
+
+import java.util.Collections;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
@@ -30,7 +31,6 @@ import java.util.Objects;
 public class ContextMemoryBackend implements MemoryBackend {
 
     private final ExecutionContext context;
-    private final NodeExecutionOrchestrator orchestrator;
     private final ObjectMapper objectMapper;
     private final MemoryConfig config;
     private final NodeLogPublisher logs;
@@ -48,15 +48,14 @@ public class ContextMemoryBackend implements MemoryBackend {
                     "default_value", List.of()
             ));
 
-            ExecutionResult result = orchestrator.executeSyntheticNodeByKey(
+            ExecutionResult result = context.executeSubNode(
                     "core:context_variable:1.0.0",
-                    "retrieve_history",
-                    retrieveConfig,
-                    context
+                    retrieveConfig
             );
 
             if (result.getStatus() == ExecutionStatus.SUCCESS) {
-                Object historyResult = context.read("result", Object.class);
+                Map<String, Object> outputs = result.getOutputPayload() != null ? result.getOutputPayload() : Collections.emptyMap();
+                Object historyResult = outputs.get("result");
                 if (historyResult instanceof Map<?, ?> historyMap) {
                     Object value = historyMap.get("value");
                     if (value instanceof List<?> list) {
@@ -90,11 +89,9 @@ public class ContextMemoryBackend implements MemoryBackend {
         payload.put("value", entry);
         payload.put("persistent", config.isPersistent());
 
-        orchestrator.executeSyntheticNodeByKey(
+        context.executeSubNode(
                 "core:context_variable:1.0.0",
-                "append_message",
-                new WorkflowConfig(payload),
-                context
+                new WorkflowConfig(payload)
         );
     }
 

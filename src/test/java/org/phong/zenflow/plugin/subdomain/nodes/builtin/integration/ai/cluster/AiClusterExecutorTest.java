@@ -61,7 +61,7 @@ class AiClusterExecutorTest {
         logPublisher = mock(NodeLogPublisher.class);
         
         providerResolver = new AiClusterProviderResolver();
-        executor = new AiClusterExecutor(orchestrator, requestFactory, toolRegistry, objectMapper, providerResolver);
+        executor = new AiClusterExecutor(requestFactory, toolRegistry, objectMapper, providerResolver);
         lenient().when(context.getWorkflowNode(anyString())).thenReturn(null);
 
         // Setup orchestrator to delegate memory operations to REAL MemoryExecutor

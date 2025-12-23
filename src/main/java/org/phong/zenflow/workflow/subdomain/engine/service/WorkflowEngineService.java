@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.services.AuthService;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
+import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.subdomain.context.resolution.ContextValueResolver;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
@@ -44,6 +45,7 @@ public class WorkflowEngineService {
     private final TemplateService templateService;
     private final AuthService authService;
     private final ContextValueResolver contextValueResolver;
+    private final PluginNodeExecutorRegistry pluginNodeRegistry;
 
     @Transactional
     public WorkflowExecutionStatus runWorkflow(Workflow workflow,
@@ -84,6 +86,7 @@ public class WorkflowEngineService {
                     .templateService(templateService)
                     .contextValueResolver(contextValueResolver)
                     .orchestrator(nodeExecutionOrchestrator)
+                    .pluginNodeRegistry(pluginNodeRegistry)
                     .nodeConfigs(nodeConfigs)
                     .workflowNodes(nodeDefinitions)
                     .build();

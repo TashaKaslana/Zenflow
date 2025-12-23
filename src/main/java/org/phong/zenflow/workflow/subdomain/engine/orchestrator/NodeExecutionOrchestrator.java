@@ -80,7 +80,9 @@ public class NodeExecutionOrchestrator {
     /**
      * Execute a synthetic/virtual node by composite key (e.g., "core:context_variable:1.0.0").
      * Used for internal nodes like context variable operations called from executors.
+     * @deprecated Use ExecutionContext.executeSubNode(String compositeKey, WorkflowConfig config) instead.
      */
+    @Deprecated
     public ExecutionResult executeSyntheticNodeByKey(String compositeKey,
                                                       String displayName,
                                                       WorkflowConfig config,
@@ -97,28 +99,37 @@ public class NodeExecutionOrchestrator {
                     .orElseThrow(() -> new WorkflowEngineException(
                             "Plugin node not found for composite key: " + compositeKey));
 
-            ExecutionTaskEnvelope envelope = ExecutionTaskEnvelope.builder()
-                    .taskId(execCtx.taskId())
-                    .executorIdentifier(pluginNodeId.toString())
-                    .executorType("builtin")
-                    .config(config)
-                    .context(execCtx)
-                    .pluginNodeId(pluginNodeId)
-                    .build();
+            String parentNodeKey = execCtx.getNodeKey();
+            String syntheticNodeKey = parentNodeKey + ":" + displayName;
 
-            RuntimeContext currentContext = contextManager.getOrCreate(execCtx.getWorkflowRunId().toString());
-            Map<String, Object> pendingWrites = currentContext.getPendingWrites();
+            try {
+                execCtx.setNodeKey(syntheticNodeKey);
 
-            ExecutionResult result = executionGateway.executeAsync(envelope).join();
-            
-            log.info("[traceId={}] [hierarchy={}] Synthetic node finished with status: {}", 
-                    ctx.traceId(), ctx.hierarchy(), result.getStatus());
+                ExecutionTaskEnvelope envelope = ExecutionTaskEnvelope.builder()
+                        .taskId(execCtx.taskId())
+                        .executorIdentifier(pluginNodeId.toString())
+                        .executorType("builtin")
+                        .config(config)
+                        .context(execCtx)
+                        .pluginNodeId(pluginNodeId)
+                        .build();
 
-            if (!ExecutionStatus.isSuccessful(result.getStatus())) {
-                currentContext.clearPendingWritesWithExclusion(pendingWrites);
+                RuntimeContext currentContext = contextManager.getOrCreate(execCtx.getWorkflowRunId().toString());
+                Map<String, Object> pendingWrites = currentContext.getPendingWrites();
+
+                ExecutionResult result = executionGateway.executeAsync(envelope).join();
+
+                log.info("[traceId={}] [hierarchy={}] Synthetic node finished with status: {}",
+                        ctx.traceId(), ctx.hierarchy(), result.getStatus());
+
+                if (!ExecutionStatus.isSuccessful(result.getStatus())) {
+                    currentContext.clearPendingWritesWithExclusion(pendingWrites);
+                }
+
+                return result;
+            } finally {
+                execCtx.setNodeKey(parentNodeKey);
             }
-            
-            return result;
         });
     }
 }

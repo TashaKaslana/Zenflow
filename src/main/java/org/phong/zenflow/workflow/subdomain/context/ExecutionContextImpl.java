@@ -14,6 +14,7 @@ import lombok.Setter;
 
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
+import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
 import org.phong.zenflow.plugin.subdomain.node.definition.policy.ContextAccessPolicy;
 import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
 import org.phong.zenflow.secret.exception.SecretDomainException;
@@ -25,6 +26,11 @@ import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
+import org.phong.zenflow.workflow.subdomain.node_definition.enums.NodeType;
+import org.phong.zenflow.workflow.subdomain.node_definition.util.WorkflowNodeKeyUtils;
+
+import java.util.Collections;
 
 @Builder
 public class ExecutionContextImpl implements ExecutionContext {
@@ -62,6 +68,7 @@ public class ExecutionContextImpl implements ExecutionContext {
     private final RuntimeContextManager contextManager;
     private final ContextValueResolver contextValueResolver;
     private final NodeExecutionOrchestrator orchestrator;
+    private final PluginNodeExecutorRegistry pluginNodeRegistry;
 
     @Builder.Default
     private Map<String, WorkflowConfig> nodeConfigs = new ConcurrentHashMap<>();
@@ -115,6 +122,39 @@ public class ExecutionContextImpl implements ExecutionContext {
             this.setCaptureMode(previousCaptureMode);
             this.clearCapturedOutputs();
         }
+    }
+
+    @Override
+    public ExecutionResult executeSubNode(String compositeKey, WorkflowConfig config) {
+        if (pluginNodeRegistry == null) {
+            throw new IllegalStateException("PluginNodeExecutorRegistry is not configured for this ExecutionContext");
+        }
+
+        UUID nodeId = pluginNodeRegistry.getIdByCompositeKey(compositeKey)
+                .map(UUID::fromString)
+                .orElseThrow(() -> new RuntimeException("Plugin node not found for composite key: " + compositeKey));
+
+        // Parse composite key to get details
+        PluginNodeIdentifier identifier = PluginNodeIdentifier.fromString(compositeKey);
+        
+        // Create a unique child key for this execution
+        String childKey = WorkflowNodeKeyUtils.buildChildKey(this.nodeKey, identifier.getNodeKey());
+
+        BaseWorkflowNode syntheticNode = new BaseWorkflowNode();
+        syntheticNode.setKey(childKey);
+        syntheticNode.setType(NodeType.PLUGIN);
+        syntheticNode.setPluginNode(new PluginNodeIdentifier(
+                nodeId,
+                identifier.getPluginKey(),
+                identifier.getNodeKey(),
+                identifier.getVersion(),
+                "builtin" // Default to builtin, or we could try to resolve it
+        ));
+        syntheticNode.setNext(Collections.emptyList());
+        syntheticNode.setChildNodeKeys(Collections.emptyList());
+        syntheticNode.setConfig(config);
+
+        return executeSubNode(syntheticNode, config);
     }
 
     @Override

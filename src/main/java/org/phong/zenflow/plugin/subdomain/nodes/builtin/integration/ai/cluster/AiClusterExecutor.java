@@ -15,7 +15,6 @@ import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.dto.
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.factory.AiExecutionRequestFactory;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.cluster.AiClusterProviderResolver.ProviderInfo;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.engine.orchestrator.NodeExecutionOrchestrator;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
@@ -34,8 +33,7 @@ import java.util.*;
 @Component
 @Slf4j
 public class AiClusterExecutor implements NodeExecutor {
-    
-    private final NodeExecutionOrchestrator orchestrator;
+
     private final AiExecutionRequestFactory requestFactory;
     private final AiToolRegistry toolRegistry;
     private final ObjectMapper objectMapper;
@@ -43,12 +41,10 @@ public class AiClusterExecutor implements NodeExecutor {
 
     private final ParserStrategies parserStrategies;
 
-    public AiClusterExecutor(NodeExecutionOrchestrator orchestrator,
-                             AiExecutionRequestFactory requestFactory,
+    public AiClusterExecutor(AiExecutionRequestFactory requestFactory,
                              AiToolRegistry toolRegistry,
                              ObjectMapper objectMapper,
                              AiClusterProviderResolver providerResolver) {
-        this.orchestrator = orchestrator;
         this.requestFactory = requestFactory;
         this.toolRegistry = toolRegistry;
         this.objectMapper = objectMapper;
@@ -241,10 +237,10 @@ public class AiClusterExecutor implements NodeExecutor {
             return null;
         }
         return switch (mc.getBackend()) {
-            case CONTEXT, IN_MEMORY -> new ContextMemoryBackend(context, orchestrator, objectMapper, mc, logs);
+            case CONTEXT, IN_MEMORY -> new ContextMemoryBackend(context, objectMapper, mc, logs);
             case KV, VECTOR, EXTERNAL -> {
                 logs.warn("Memory backend {} not implemented; falling back to context backend", mc.getBackend());
-                yield new ContextMemoryBackend(context, orchestrator, objectMapper, mc, logs);
+                yield new ContextMemoryBackend(context, objectMapper, mc, logs);
             }
         };
     }
@@ -332,20 +328,14 @@ public class AiClusterExecutor implements NodeExecutor {
         logs.info("Calling provider via orchestrator: {}", providerKey);
         ExecutionResult providerResult;
         String childKey = WorkflowNodeKeyUtils.buildChildKey(context.getNodeKey(), childAlias);
-//        String childKey = WorkflowNodeKeyUtils.buildChildKey(context.getNodeKey(), descriptor.childAlias());
         BaseWorkflowNode providerNode = context.getWorkflowNode(childKey);
         if (providerNode != null) {
             logs.info("Executing materialized provider node: {}", childKey);
             providerNode.setConfig(providerConfig);
-            providerResult = orchestrator.executeNode(providerNode, providerConfig, context);
+            providerResult = context.executeSubNode(providerNode, providerConfig);
         } else {
             logs.warn("Provider node '{}' not found in workflow definition, falling back to synthetic execution", childKey);
-            providerResult = orchestrator.executeSyntheticNodeByKey(
-                    providerKey,
-                    "ai_provider",
-                    providerConfig,
-                    context
-            );
+            providerResult = context.executeSubNode(providerKey, providerConfig);
         }
 
         // Check execution status
@@ -354,16 +344,16 @@ public class AiClusterExecutor implements NodeExecutor {
             throw new RuntimeException("Provider execution failed: " + errorMsg);
         }
 
-        // Read provider outputs from context
-        Object response = context.read("response", Object.class);
-        String rawResponse = context.read("raw_response", String.class);
-        String provider = context.read("provider", String.class);
+        Map<String, Object> outputs = providerResult.getOutputPayload() != null ? providerResult.getOutputPayload() : Collections.emptyMap();
+        Object response = outputs.get("response");
+        String rawResponse = (String) outputs.get("raw_response");
+        String provider = (String) outputs.get("provider");
         
         // Read metadata if available
         Map<String, Object> metadata = new HashMap<>();
         try {
             @SuppressWarnings("unchecked")
-            Map<String, Object> contextMetadata = context.read("metadata", Map.class);
+            Map<String, Object> contextMetadata = (Map<String, Object>) outputs.get("metadata");
             if (contextMetadata != null) {
                 metadata.putAll(contextMetadata);
             }
@@ -371,7 +361,7 @@ public class AiClusterExecutor implements NodeExecutor {
             // Metadata optional
         }
         try {
-            Object usageObj = context.read("usage", Object.class);
+            Object usageObj = outputs.get("usage");
             if (usageObj instanceof Map) {
                 metadata.put("usage", usageObj);
             }

@@ -69,6 +69,16 @@ public interface ExecutionContext {
      */
     ExecutionResult executeSubNode(BaseWorkflowNode node, WorkflowConfig config);
 
+    /**
+     * Execute a synthetic sub-node by composite key.
+     * This method resolves the plugin node ID, creates a transient node definition, and executes it.
+     *
+     * @param compositeKey The composite key of the plugin node (e.g., "core:context_variable:1.0.0")
+     * @param config The configuration for the node
+     * @return The execution result
+     */
+    ExecutionResult executeSubNode(String compositeKey, WorkflowConfig config);
+
     <T> T read(String key, Class<T> clazz);
     
     <T> T read(String key, Class<T> clazz, ReadOptions options);

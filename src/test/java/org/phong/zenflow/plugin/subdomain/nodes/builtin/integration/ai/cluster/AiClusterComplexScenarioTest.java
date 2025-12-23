@@ -48,7 +48,7 @@ class AiClusterComplexScenarioTest {
 
     @BeforeEach
     void setUp() {
-        executor = new AiClusterExecutor(orchestrator, requestFactory, toolRegistry, objectMapper, providerResolver);
+        executor = new AiClusterExecutor(requestFactory, toolRegistry, objectMapper, providerResolver);
         when(context.getLogPublisher()).thenReturn(logPublisher);
         when(toolRegistry.copy()).thenReturn(new AiToolRegistry(new ArrayList<>()));
     }
