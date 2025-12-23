@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
     type = "data",
     tags = {"context", "variable", "memory", "storage"},
     icon = "ph:database",
-    schemaPath = "/core/memory/schema.json"
+    schemaPath = "schema.json"
 )
 public class MemoryNode implements NodeDefinitionProvider {
     private final MemoryExecutor executor;

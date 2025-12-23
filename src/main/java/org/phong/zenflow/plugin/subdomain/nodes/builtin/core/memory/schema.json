@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Context Memory Node Schema",
+  "description": "Schema for storing, retrieving, and managing workflow context variables used as AI memory or temporary storage.",
+  "properties": {
+    "input": {
+      "type": "object",
+      "title": "Input",
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": ["STORE", "RETRIEVE", "APPEND", "CLEAR", "LIST"],
+          "default": "STORE",
+          "description": "Operation to perform (STORE, RETRIEVE, APPEND, CLEAR, LIST)"
+        },
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Context key used for the variable"
+        },
+        "value": {
+          "description": "Payload written for STORE/APPEND operations"
+        },
+        "overwrite": {
+          "type": "boolean",
+          "default": true,
+          "description": "When false, STORE keeps the original value if the key already exists"
+        },
+        "default_value": {
+          "description": "Value returned by RETRIEVE when the key does not exist"
+        },
+        "persistent": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, uses persistent WriteOptions when writing values"
+        }
+      },
+      "required": ["operation", "key"],
+      "additionalProperties": true
+    },
+    "output": {
+      "type": "object",
+      "title": "Output",
+      "properties": {
+        "result": {
+          "type": "object",
+          "description": "Operation summary. Example: STORE => {stored:true,key:'chat_history'}, RETRIEVE => {found:true,value:[...]}, APPEND => {appended:true,size:3}"
+        }
+      }
+    }
+  },
+  "required": ["input"]
+}

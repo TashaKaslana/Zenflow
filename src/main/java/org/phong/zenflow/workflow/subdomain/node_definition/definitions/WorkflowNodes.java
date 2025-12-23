@@ -58,6 +58,18 @@ public class WorkflowNodes implements Serializable {
         }
     }
 
+    public void putAll(Set<BaseWorkflowNode> nodes) {
+        for (BaseWorkflowNode node : nodes) {
+            put(node);
+        }
+    }
+
+    public void putAll(List<BaseWorkflowNode> nodes) {
+        for (BaseWorkflowNode node : nodes) {
+            put(node);
+        }
+    }
+
     public void remove(String key) {
         nodeMap.remove(key);
     }

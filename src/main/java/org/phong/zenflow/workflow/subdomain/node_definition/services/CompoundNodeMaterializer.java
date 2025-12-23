@@ -50,6 +50,7 @@ public class CompoundNodeMaterializer {
         WorkflowMetadata metadata = definition.metadata() != null ? definition.metadata() : new WorkflowMetadata();
         Map<String, BaseWorkflowNode> nodeMap = definition.nodes().asMap();
         Set<String> managedChildren = new HashSet<>();
+        Set<BaseWorkflowNode> childNodesToAdding = new HashSet<>();
 
         for (BaseWorkflowNode parent : nodeMap.values()) {
             PluginNodeIdentifier pluginNode = parent.getPluginNode();
@@ -62,22 +63,28 @@ public class CompoundNodeMaterializer {
                 continue;
             }
 
-            materializeChildren(definition, managedChildren, parent, descriptor);
+            Set<BaseWorkflowNode> newChildren = materializeChildren(definition, managedChildren, parent, descriptor);
+            if (newChildren != null && !newChildren.isEmpty()) {
+                childNodesToAdding.addAll(newChildren);
+            }
         }
+
+        definition.nodes().putAll(childNodesToAdding);
 
         removeOrphanChildren(definition, metadata, managedChildren);
     }
 
-    private void materializeChildren(WorkflowDefinition definition,
-                                     Set<String> managedChildren,
-                                     BaseWorkflowNode parent,
-                                     CompoundNodeDescriptor descriptor) {
+    private Set<BaseWorkflowNode> materializeChildren(WorkflowDefinition definition,
+                                                      Set<String> managedChildren,
+                                                      BaseWorkflowNode parent,
+                                                      CompoundNodeDescriptor descriptor) {
         List<CompoundChildDescriptor> children = descriptor.childFactory().createChildren(parent);
         if (children == null || children.isEmpty()) {
-            return;
+            return null;
         }
 
         List<String> childKeys = new ArrayList<>();
+        Set<BaseWorkflowNode> childNodeToAdding = new HashSet<>();
         for (CompoundChildDescriptor childDescriptor : children) {
             String childKey = WorkflowNodeKeyUtils.buildChildKey(parent.getKey(), childDescriptor.childAlias());
             childKeys.add(childKey);
@@ -85,8 +92,14 @@ public class CompoundNodeMaterializer {
             BaseWorkflowNode child = ensureChildNode(definition, parent, childKey, childDescriptor);
             transferProfileBindings(parent, child, childDescriptor.profileKeys());
             managedChildren.add(childKey);
+
+            if (definition.nodes().asMap().get(childKey) == null) {
+                childNodeToAdding.add(child) ;
+            }
         }
         parent.setChildNodeKeys(childKeys);
+
+        return childNodeToAdding;
     }
 
     private BaseWorkflowNode ensureChildNode(WorkflowDefinition definition,
@@ -102,7 +115,6 @@ public class CompoundNodeMaterializer {
             child.setMetadata(new HashMap<>());
             child.setPolicy(new HashMap<>());
             child.setConfig(new WorkflowConfig());
-            definition.nodes().put(child);
         }
 
         child.setParentNodeKey(parent.getKey());
@@ -200,4 +212,5 @@ public class CompoundNodeMaterializer {
         metadata.secrets().values().forEach(nodes -> nodes.remove(nodeKey));
         metadata.nodeConsumers().values().forEach(usage -> usage.getConsumers().remove(nodeKey));
     }
+
 }
