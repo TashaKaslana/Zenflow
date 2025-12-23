@@ -16,7 +16,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 
 @Component
@@ -45,15 +44,15 @@ public class AiClusterCompoundDescriptorProvider implements CompoundNodeDescript
     private CompoundChildFactory buildFactory() {
         return parent -> {
             AiClusterConfig config = AiClusterConfig.fromNodeConfig(parent.getConfig());
-            var providerInfo = determineProvider(parent, config);
-        List<CompoundChildDescriptor> descriptors = new ArrayList<>();
+            var providerEntry = determineProvider(parent, config);
+            List<CompoundChildDescriptor> descriptors = new ArrayList<>();
 
-        descriptors.add(buildToolsDescriptor(parent, config));
-        descriptors.add(buildContextDescriptor(parent, config));
-        descriptors.add(buildParserDescriptor(parent, config));
-        descriptors.add(buildProviderDescriptor(providerInfo));
+            descriptors.add(buildToolsDescriptor(parent, config));
+            descriptors.add(buildContextDescriptor(parent, config));
+            descriptors.add(buildParserDescriptor(parent, config));
+            descriptors.add(buildProviderDescriptor(providerEntry));
 
-        return descriptors;
+            return descriptors;
         };
     }
 
@@ -72,8 +71,7 @@ public class AiClusterCompoundDescriptorProvider implements CompoundNodeDescript
         if (config.getMemoryKey() != null) {
             overrides.put("key", config.getMemoryKey());
         }
-        overrides.put("include_history", config.isIncludeHistory());
-        overrides.put("max_history_messages", config.getMaxHistoryMessages());
+        overrides.put("operation", "RETRIEVE");
 
         PluginNodeIdentifier identifier = resolveChildPlugin(CHILD_ALIAS_CONTEXT, config, DEFAULT_CONTEXT_NODE_IDENTIFIER);
 
@@ -99,25 +97,35 @@ public class AiClusterCompoundDescriptorProvider implements CompoundNodeDescript
         );
     }
 
-    private CompoundChildDescriptor buildProviderDescriptor(AiClusterProviderResolver.ProviderInfo providerInfo) {
-    PluginNodeIdentifier pluginNodeIdentifier = new PluginNodeIdentifier(
-        providerInfo.pluginKey(),
-        providerInfo.nodeKey(),
-        providerInfo.version(),
-        providerInfo.executorType()
-    );
-    return new CompoundChildDescriptor(
-        providerInfo.childAlias(),
-        pluginNodeIdentifier,
-        Map.of(),
-        List.of()
-    );
+    private CompoundChildDescriptor buildProviderDescriptor(Map.Entry<String, AiClusterProviderResolver.ProviderInfo> providerEntry) {
+        String alias = providerEntry.getKey();
+        AiClusterProviderResolver.ProviderInfo providerInfo = providerEntry.getValue();
+        PluginNodeIdentifier pluginNodeIdentifier = new PluginNodeIdentifier(
+            providerInfo.pluginKey(),
+            providerInfo.nodeKey(),
+            providerInfo.version(),
+            providerInfo.executorType()
+        );
+        return new CompoundChildDescriptor(
+            alias,
+            pluginNodeIdentifier,
+            Map.of(),
+            List.of()
+        );
     }
 
-    private AiClusterProviderResolver.ProviderInfo determineProvider(BaseWorkflowNode parent, AiClusterConfig config) {
+    private Map.Entry<String, AiClusterProviderResolver.ProviderInfo> determineProvider(BaseWorkflowNode parent, AiClusterConfig config) {
         return resolveFromExistingChild(parent)
-                .or(() -> resolver.resolve(config.getModel()))
-                .orElse(resolver.defaultProvider());
+                .or(() -> resolver.resolve(config.getModel()).map(info -> {
+                    // Use the requested model/provider name as the alias if it's a valid alias for the provider
+                    // This allows "openai" to map to "ai_cluster::openai" instead of forcing "ai_cluster::openai-chatgpt"
+                    String requestedAlias = config.getModel();
+                    if (info.aliases().contains(requestedAlias)) {
+                        return Map.entry(requestedAlias, info);
+                    }
+                    return Map.entry(info.childAlias(), info);
+                }))
+                .orElseGet(() -> Map.entry(resolver.defaultProvider().childAlias(), resolver.defaultProvider()));
     }
 
     private PluginNodeIdentifier resolveChildPlugin(String childAlias,
@@ -137,16 +145,19 @@ public class AiClusterCompoundDescriptorProvider implements CompoundNodeDescript
         }
     }
 
-    private Optional<AiClusterProviderResolver.ProviderInfo> resolveFromExistingChild(BaseWorkflowNode parent) {
+    private Optional<Map.Entry<String, AiClusterProviderResolver.ProviderInfo>> resolveFromExistingChild(BaseWorkflowNode parent) {
         List<String> childKeys = parent.getChildNodeKeys();
         if (childKeys == null || childKeys.isEmpty()) {
             return Optional.empty();
         }
-        return childKeys.stream()
-                .map(WorkflowNodeKeyUtils::extractChildAlias)
-                .filter(Objects::nonNull)
-                .map(resolver::resolveByChildAlias)
-                .flatMap(Optional::stream)
-                .findFirst();
+        for (String key : childKeys) {
+            String alias = WorkflowNodeKeyUtils.extractChildAlias(key);
+            if (alias == null) continue;
+            Optional<AiClusterProviderResolver.ProviderInfo> info = resolver.resolveByChildAlias(alias);
+            if (info.isPresent()) {
+                return Optional.of(Map.entry(alias, info.get()));
+            }
+        }
+        return Optional.empty();
     }
 }

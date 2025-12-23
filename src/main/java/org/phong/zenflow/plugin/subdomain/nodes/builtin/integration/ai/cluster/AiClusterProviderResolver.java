@@ -77,7 +77,11 @@ public class AiClusterProviderResolver {
         if (childAlias == null || childAlias.isBlank()) {
             return Optional.empty();
         }
-        return Optional.ofNullable(childAliasIndex.get(childAlias.toLowerCase(Locale.ROOT)));
+        ProviderInfo info = childAliasIndex.get(childAlias.toLowerCase(Locale.ROOT));
+        if (info != null) {
+            return Optional.of(info);
+        }
+        return Optional.ofNullable(providers.get(childAlias.toLowerCase(Locale.ROOT)));
     }
 
     public ProviderInfo defaultProvider() {

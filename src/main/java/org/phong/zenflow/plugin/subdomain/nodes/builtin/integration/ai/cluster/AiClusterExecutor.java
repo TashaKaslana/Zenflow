@@ -71,7 +71,8 @@ public class AiClusterExecutor implements NodeExecutor {
             // Retrieve conversation history if enabled
             List<Message> conversationHistory = new ArrayList<>();
             MemoryBackend memoryBackend = buildMemoryBackend(config, context, logs);
-            if (config.isIncludeHistory() && config.getMemoryKey() != null && memoryBackend != null) {
+            boolean isUsedMemory = config.isIncludeHistory() && config.getMemoryKey() != null && memoryBackend != null;
+            if (isUsedMemory) {
                 conversationHistory = memoryBackend.loadHistory();
                 logs.info("Retrieved {} messages from conversation history", conversationHistory.size());
             }
@@ -87,14 +88,15 @@ public class AiClusterExecutor implements NodeExecutor {
             // Execute abstract provider node
             writeTypedRequest(context, request, logs);
 
-            AiExecutionResult result = executeProvider(context, providerDescriptor, request, logs);
+            String childAlias = resolveProviderChildAlias(context, providerDescriptor, config.getModel());
+            AiExecutionResult result = executeProvider(context, providerDescriptor, childAlias, request, logs);
             logs.success("Provider execution completed: {}", result.getProvider());
 
             // Apply parser strategy
             AiExecutionResult parsedResult = applyParser(config, result, logs);
 
             // Save conversation turn to memory if enabled
-            if (config.isIncludeHistory() && config.getMemoryKey() != null && memoryBackend != null) {
+            if (isUsedMemory) {
                 saveConversationTurn(memoryBackend, request, parsedResult, logs);
                 logs.info("Saved conversation turn to memory");
             }
@@ -266,6 +268,33 @@ public class AiClusterExecutor implements NodeExecutor {
                 .orElseGet(providerResolver::defaultProvider);
     }
 
+    private String resolveProviderChildAlias(ExecutionContext context, ProviderInfo providerInfo, String requestedProvider) {
+        // 1. Check if the requested provider string matches an existing child node
+        if (requestedProvider != null) {
+            String requestedKey = WorkflowNodeKeyUtils.buildChildKey(context.getNodeKey(), requestedProvider);
+            if (context.getWorkflowNode(requestedKey) != null) {
+                return requestedProvider;
+            }
+        }
+
+        // 2. Check if the canonical child alias exists
+        String canonicalKey = WorkflowNodeKeyUtils.buildChildKey(context.getNodeKey(), providerInfo.childAlias());
+        if (context.getWorkflowNode(canonicalKey) != null) {
+            return providerInfo.childAlias();
+        }
+
+        // 3. Check if any other alias of the provider exists as a child
+        for (String alias : providerInfo.aliases()) {
+            String key = WorkflowNodeKeyUtils.buildChildKey(context.getNodeKey(), alias);
+            if (context.getWorkflowNode(key) != null) {
+                return alias;
+            }
+        }
+
+        // 4. Fallback to canonical
+        return providerInfo.childAlias();
+    }
+
     private Optional<ProviderInfo> detectProviderFromChildren(ExecutionContext context) {
         BaseWorkflowNode currentNode = context.getWorkflowNode(context.getNodeKey());
         if (currentNode == null || currentNode.getChildNodeKeys() == null || currentNode.getChildNodeKeys().isEmpty()) {
@@ -283,7 +312,7 @@ public class AiClusterExecutor implements NodeExecutor {
      * Execute abstract provider node with typed request
      */
     private AiExecutionResult executeProvider(ExecutionContext context, ProviderInfo descriptor,
-                                             AiExecutionRequest request, NodeLogPublisher logs) {
+                                             String childAlias, AiExecutionRequest request, NodeLogPublisher logs) {
         String providerKey = descriptor.pluginKey() + ":" + descriptor.nodeKey() + ":" + descriptor.version();
         logs.info("Executing provider node: {}", providerKey);
 
@@ -302,7 +331,8 @@ public class AiClusterExecutor implements NodeExecutor {
         // Execute provider via orchestrator
         logs.info("Calling provider via orchestrator: {}", providerKey);
         ExecutionResult providerResult;
-        String childKey = WorkflowNodeKeyUtils.buildChildKey(context.getNodeKey(), descriptor.childAlias());
+        String childKey = WorkflowNodeKeyUtils.buildChildKey(context.getNodeKey(), childAlias);
+//        String childKey = WorkflowNodeKeyUtils.buildChildKey(context.getNodeKey(), descriptor.childAlias());
         BaseWorkflowNode providerNode = context.getWorkflowNode(childKey);
         if (providerNode != null) {
             logs.info("Executing materialized provider node: {}", childKey);
