@@ -72,6 +72,7 @@ public class ExecutionContextImpl implements ExecutionContext {
     @Getter
     private WorkflowConfig currentConfig;
 
+    @Getter
     @Builder.Default
     private boolean captureMode = false;
     private final Map<String, Object> capturedOutputs = new ConcurrentHashMap<>();
@@ -180,6 +181,11 @@ public class ExecutionContextImpl implements ExecutionContext {
     }
 
     public void write(String key, Object value, WriteOptions options) {
+        if (captureMode) {
+            capturedOutputs.put(key, value);
+            return;
+        }
+
         RuntimeContext context = getContext();
         if (context != null) {
             WriteOptions effective = normalizeWriteOptions(options);
