@@ -14,6 +14,7 @@ import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -33,10 +34,20 @@ class NodeToolCallbackTest {
     private ObjectMapper objectMapper = new ObjectMapper();
 
     private NodeToolCallback callback;
+    private WorkflowConfig baseConfig;
 
     @BeforeEach
     void setUp() {
         when(node.getKey()).thenReturn("test-node-key");
+        baseConfig = new WorkflowConfig(
+                Map.of(
+                        "method", "GET",
+                        "url", "https://api.example.com/weather"
+                ),
+                List.of("DefaultProfile"),
+                Map.of("existing", "value")
+        );
+        when(node.getConfig()).thenReturn(baseConfig);
         callback = new NodeToolCallback(node, context, objectMapper);
     }
 
@@ -61,7 +72,10 @@ class NodeToolCallbackTest {
         verify(context).executeSubNode(eq(node), configCaptor.capture());
         
         WorkflowConfig capturedConfig = configCaptor.getValue();
-        assertThat(capturedConfig.input().get("param1")).isEqualTo("value1");
+        assertThat(capturedConfig.input())
+            .containsEntry("param1", "value1")
+            .containsEntry("method", "GET")
+            .containsEntry("url", "https://api.example.com/weather");
 
         // 2. Verify return value
         Map<String, Object> resultMap = objectMapper.readValue(resultJson, Map.class);
@@ -106,5 +120,29 @@ class NodeToolCallbackTest {
         Map<String, Object> resultMap = objectMapper.readValue(resultJson, Map.class);
         assertThat(resultMap).containsEntry("status", "error");
         assertThat(resultMap).containsEntry("message", "Something went wrong");
+    }
+
+    @Test
+    void callOverridesExistingConfigValues() throws JsonProcessingException {
+        // Arrange
+        String inputJson = "{\"method\": \"POST\", \"city\": \"Tokyo\"}";
+
+        ExecutionResult mockResult = new ExecutionResult();
+        mockResult.setStatus(ExecutionStatus.SUCCESS);
+        when(context.executeSubNode(eq(node), any(WorkflowConfig.class))).thenReturn(mockResult);
+
+        // Act
+        callback.call(inputJson);
+
+        // Assert
+        ArgumentCaptor<WorkflowConfig> configCaptor = ArgumentCaptor.forClass(WorkflowConfig.class);
+        verify(context).executeSubNode(eq(node), configCaptor.capture());
+        WorkflowConfig mergedConfig = configCaptor.getValue();
+
+        assertThat(mergedConfig.input())
+                .containsEntry("method", "POST")
+                .containsEntry("url", "https://api.example.com/weather")
+                .containsEntry("city", "Tokyo");
+        assertThat(mergedConfig.profile()).containsExactly("DefaultProfile");
     }
 }

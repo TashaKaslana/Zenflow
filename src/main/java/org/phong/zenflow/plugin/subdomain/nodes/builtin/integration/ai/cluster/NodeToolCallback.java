@@ -10,6 +10,9 @@ import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.W
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -64,10 +67,10 @@ public class NodeToolCallback implements ToolCallback {
         try {
             @SuppressWarnings("unchecked")
             Map<String, Object> inputMap = objectMapper.readValue(input, Map.class);
-            
-            WorkflowConfig config = new WorkflowConfig(inputMap);
-            
-            ExecutionResult result = context.executeSubNode(node, config);
+
+            WorkflowConfig mergedConfig = mergeConfig(node.getConfig(), inputMap);
+
+            ExecutionResult result = context.executeSubNode(node, mergedConfig);
             
             if (result.getStatus() == ExecutionStatus.SUCCESS) {
                 // Check for output payload (populated by executeSubNode from capture or direct return)
@@ -87,5 +90,31 @@ public class NodeToolCallback implements ToolCallback {
             log.error("Failed to execute node tool: {}", node.getKey(), e);
             return "{\"status\": \"error\", \"message\": \"" + e.getMessage() + "\"}";
         }
+    }
+
+    private WorkflowConfig mergeConfig(WorkflowConfig baseConfig, Map<String, Object> overrides) {
+        Map<String, Object> mergedInput = new HashMap<>();
+        List<String> profileKeys = null;
+        Map<String, Object> output = null;
+
+        if (baseConfig != null) {
+            if (baseConfig.input() != null) {
+                mergedInput.putAll(baseConfig.input());
+            }
+            List<String> baseProfiles = baseConfig.profile();
+            if (baseProfiles != null && !baseProfiles.isEmpty()) {
+                profileKeys = new ArrayList<>(baseProfiles);
+            }
+            Map<String, Object> baseOutput = baseConfig.output();
+            if (baseOutput != null && !baseOutput.isEmpty()) {
+                output = new HashMap<>(baseOutput);
+            }
+        }
+
+        if (overrides != null && !overrides.isEmpty()) {
+            mergedInput.putAll(overrides);
+        }
+
+        return new WorkflowConfig(mergedInput, profileKeys, output);
     }
 }
