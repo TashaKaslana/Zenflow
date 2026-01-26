@@ -1,6 +1,7 @@
 package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.cluster;
 
 import org.junit.jupiter.api.Test;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.tools.ToolRouterConfig;
 
 import java.util.List;
 import java.util.Map;

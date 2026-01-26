@@ -1,6 +1,7 @@
 package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.cluster;
 
 import org.junit.jupiter.api.Test;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.memory.MemoryConfig;
 
 import java.util.Map;
 

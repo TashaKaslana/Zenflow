@@ -1,4 +1,4 @@
-package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.cluster;
+package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.parser;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;

@@ -1,4 +1,4 @@
-package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.cluster;
+package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.tools;
 
 import lombok.Builder;
 import lombok.Value;

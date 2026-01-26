@@ -6,6 +6,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.AiToolRegistry;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.tools.DefaultToolRouter;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.tools.NodeToolCallback;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.tools.ToolRouterConfig;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 

@@ -8,9 +8,9 @@ import java.util.List;
 import java.util.Map;
 
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
-import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.cluster.ToolRouterConfig;
-import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.cluster.MemoryConfig;
-import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.cluster.ParserConfig;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.tools.ToolRouterConfig;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.memory.MemoryConfig;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.parser.ParserConfig;
 
 /**
  * Configuration for AI cluster node.

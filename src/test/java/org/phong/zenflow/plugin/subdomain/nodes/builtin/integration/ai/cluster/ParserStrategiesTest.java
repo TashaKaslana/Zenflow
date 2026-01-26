@@ -3,6 +3,9 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.cluster;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.dto.AiExecutionResult;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.parser.ParserConfig;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.parser.ParserStrategies;
+import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.parser.ParserStrategy;
 
 import java.util.Map;
 
