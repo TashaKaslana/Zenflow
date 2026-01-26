@@ -105,7 +105,7 @@ public class OpenRouterModelProvider implements AiModelProvider {
     @Override
     public AiModelCapabilities getCapabilities() {
         return AiModelCapabilities.builder()
-                .supportsTools(false)
+                .supportsTools(true)
                 .supportsJsonMode(true)
                 .supportsStreaming(false)
                 .supportsVision(false)

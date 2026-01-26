@@ -60,7 +60,7 @@
         "config": {
           "input": {
             "prompt": "Hello, give me a random number",
-            "api_host": "https://generativelanguage.googleapis.com/v1beta"
+            "model": "gemini-2.0-flash"
           },
           "profileKeys": [
             "Gemini_JS_5"

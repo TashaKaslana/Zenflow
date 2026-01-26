@@ -7,7 +7,7 @@ import org.phong.zenflow.plugin.subdomain.node.registry.PluginNode;
 import org.springframework.stereotype.Component;
 
 /**
- * Default Gemini AI node that talks to the Gemini API via the native Gemini client.
+ * Gemini AI node backed by Spring AI Google GenAI (API key or Vertex AI).
  */
 @Component
 @AllArgsConstructor
@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
         key = "google-ai:gemini",
         name = "Gemini AI",
         version = "1.0.0",
-        description = "Execute Gemini API requests directly via Google's Gemini endpoint using host + API key credentials",
+        description = "Execute Gemini requests via Spring AI Google GenAI using API key or Vertex AI credentials",
         type = "integration.ai",
         tags = {"integration", "ai", "gemini", "llm"},
         icon = "simple-icons:googlecolab",

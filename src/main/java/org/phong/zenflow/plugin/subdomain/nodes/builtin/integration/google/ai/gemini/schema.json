@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "title": "Gemini API Chat Schema",
-  "description": "Interact with the Gemini API via the OpenAI-compatible endpoint",
+  "title": "Gemini Google GenAI Chat Schema",
+  "description": "Interact with Gemini via Spring AI Google GenAI (API key or Vertex AI)",
   "properties": {
     "input": {
       "type": "object",
@@ -25,11 +25,11 @@
         "model": {
           "type": "string",
           "default": "gemini-2.0-flash",
-          "description": "Model to use (use any OpenAI-compatible Gemini model exposed by your host)"
+          "description": "Model to use (e.g., gemini-2.0-flash, gemini-1.5-pro)"
         },
         "api_host": {
           "type": "string",
-          "description": "Optional override for the Gemini API base URL (defaults to profile BASE_URL or https://generativelanguage.googleapis.com/v1beta/openai/)"
+          "description": "Optional override for the Google GenAI API base URL (defaults to profile BASE_URL)"
         },
         "model_options": {
           "type": "object",
@@ -38,23 +38,30 @@
             "temperature": {
               "type": "number",
               "minimum": 0,
-              "maximum": 2,
+              "maximum": 1,
               "default": 0.7,
               "description": "Controls randomness. Higher values mean more random, lower values more deterministic"
             },
             "max_tokens": {
               "type": "integer",
               "minimum": 1,
-              "maximum": 32768,
-              "default": 2048,
-              "description": "Maximum number of tokens to generate"
+              "description": "Maximum number of tokens to generate (maps to max_output_tokens)"
+            },
+            "max_output_tokens": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Maximum number of output tokens"
             },
             "top_p": {
               "type": "number",
               "minimum": 0,
               "maximum": 1,
-              "default": 0.95,
               "description": "Nucleus sampling parameter. Consider tokens with top_p probability mass"
+            },
+            "top_k": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Only sample from the top K options for each subsequent token"
             },
             "frequency_penalty": {
               "type": "number",
@@ -68,9 +75,15 @@
               "maximum": 2,
               "description": "Penalizes new tokens based on whether they appear in the text so far"
             },
-            "response_format": {
-              "type": "object",
-              "description": "Raw OpenAI response_format payload for advanced control"
+            "candidate_count": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8,
+              "description": "Number of generated response candidates to return"
+            },
+            "response_mime_type": {
+              "type": "string",
+              "description": "Response MIME type (e.g., application/json)"
             }
           }
         }
@@ -85,11 +98,11 @@
       "properties": {
         "response": {
           "type": "string",
-          "description": "The raw text response from the AI model"
+          "description": "The processed response from the AI model"
         },
         "raw_response": {
           "type": "string",
-          "description": "Raw completion text (identical to response for text mode)"
+          "description": "Raw completion text"
         },
         "provider": {
           "type": "string",
@@ -111,9 +124,9 @@
     },
     "profile": {
       "profileKeys": [
-        "ai-credentials"
+        "gemini-ai-credentials"
       ],
-      "description": "Requires AI credentials profile with API_KEY and (optionally) BASE_URL that points to the Gemini-compatible host."
+      "description": "Requires Gemini credentials profile with API_KEY for Gemini Developer API or GCP credentials for Vertex AI."
     }
   },
   "required": ["input", "output"],

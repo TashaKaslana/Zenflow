@@ -8,10 +8,11 @@ import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.AiEx
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.AiObservationRegistry;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.AiToolRegistry;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
+import org.springframework.ai.google.genai.GoogleGenAiChatModel;
 import org.springframework.stereotype.Component;
 
 /**
- * Gemini executor that delegates to the native GeminiChatModel implementation.
+ * Gemini executor that delegates to the Spring AI Google GenAI chat model.
  */
 @Component
 @Slf4j
@@ -27,12 +28,12 @@ public class GeminiAiExecutor implements NodeExecutor {
         this.toolRegistry = baseToolRegistry.copy();
         this.observationRegistry = baseObservationRegistry.copy();
 
-        log.info("Gemini API executor initialized with {} tools (independent copy)", this.toolRegistry.size());
+        log.info("Gemini GenAI executor initialized with {} tools (independent copy)", this.toolRegistry.size());
 
         this.baseExecutor = new AiExecutor(objectMapper, this.toolRegistry, this.observationRegistry);
 
         this.baseExecutor.setModelProviderFactory(context -> {
-            GeminiChatModel chatModel = context.getResource();
+            GoogleGenAiChatModel chatModel = context.getResource();
             return new GeminiModelProvider(chatModel, objectMapper);
         });
     }

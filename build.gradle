@@ -85,10 +85,10 @@ dependencies {
     implementation 'com.google.apis:google-api-services-docs:v1-rev20250325-2.0.0'
     implementation 'com.google.http-client:google-http-client-jackson2:2.0.0'
 
-    // Spring AI for Gemini
-    implementation platform("org.springframework.ai:spring-ai-bom:1.0.3")
-    implementation "org.springframework.ai:spring-ai-vertex-ai-gemini"
+    // Spring AI
+    implementation platform("org.springframework.ai:spring-ai-bom:1.1.2")
     implementation "org.springframework.ai:spring-ai-starter-model-openai"
+    implementation 'org.springframework.ai:spring-ai-starter-model-google-genai'
 
     testImplementation 'org.testcontainers:junit-jupiter'
     testImplementation 'org.springframework.boot:spring-boot-testcontainers'

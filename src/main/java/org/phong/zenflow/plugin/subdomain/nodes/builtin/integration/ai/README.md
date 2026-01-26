@@ -1,11 +1,10 @@
 # AI Node Implementation
 
-This implementation provides a flexible AI node system with support for various AI model providers (OpenAI, Gemini API, and Gemini Vertex).  
+This implementation provides a flexible AI node system with support for various AI model providers (OpenAI and Google GenAI).  
 We now ship the following AI nodes:
 
 - **OpenAI ChatGPT** &mdash; default OpenAI node backed by the Chat Completions API (or any compatible host).
-- **Gemini AI** &mdash; default node backed by the public Gemini API exposed through the OpenAI-compatible protocol (host + API key).
-- **Gemini AI (Vertex)** &mdash; legacy node that talks to Google Vertex AI with full GCP credentials.
+- **Gemini AI** &mdash; unified node backed by Spring AI Google GenAI (Gemini Developer API via API key or Vertex AI via GCP credentials).
 
 ## Architecture
 
@@ -35,32 +34,26 @@ We now ship the following AI nodes:
 - **OpenAiResourceManager** - Creates pooled OpenAI chat clients from host + API key secrets
 - **OpenAiChatgptNode** - Plugin definition exposed under `openai:chatgpt`
 
-#### Gemini API
-- **GeminiModelProvider** - Wraps the OpenAI-compatible Gemini chat model
-- **GeminiAiExecutor** - Configures the base executor with the Gemini API provider
-- **GeminiResourceManager** - Builds OpenAI-compatible Gemini clients from host + API key secrets
+#### Gemini (Google GenAI)
+- **GeminiModelProvider** - Wraps the Spring AI Google GenAI chat model
+- **GeminiAiExecutor** - Configures the base executor with the Gemini provider
+- **GeminiResourceManager** - Builds Google GenAI clients for API key or Vertex AI credentials
 - **GeminiAiNode** - Plugin definition exposed under `google-ai:gemini`
-
-#### Gemini Vertex (legacy)
-- **GeminiVertexModelProvider** - Wraps the Vertex AI chat model
-- **GeminiVertexAiExecutor** - Configures the base executor with the Vertex provider
-- **GeminiVertexResourceManager** - Manages Vertex AI clients and pooling
-- **GeminiVertexAiNode** - Plugin definition exposed under `google-ai:gemini-vertex`
 
 ## Profile Configuration
 
-All nodes reuse the **`ai-credentials`** profile descriptor:
+All Gemini nodes use the **`gemini-ai-credentials`** profile descriptor:
 
 ```json
 {
   "API_KEY": "sk-gemini-...",
-  "BASE_URL": "https://generativelanguage.googleapis.com/v1beta/openai/"
+  "BASE_URL": "https://generativelanguage.googleapis.com/v1beta"
 }
 ```
 
 **Common fields**
-- `API_KEY` (required) &mdash; API key for the OpenAI / Gemini API (or any compatible host).
-- `BASE_URL` (optional) &mdash; Override host. Defaults to `https://api.openai.com/v1/` for OpenAI and `https://generativelanguage.googleapis.com/v1beta/openai/` for Gemini.
+- `API_KEY` (required for API-key mode) &mdash; Gemini Developer API key.
+- `BASE_URL` (optional) &mdash; Override host for Google GenAI requests.
 
 **Vertex-only fields**
 - `PROJECT_ID` &mdash; GCP project id that hosts Vertex AI.
@@ -95,7 +88,7 @@ nodes:
         max_tokens: 800
 ```
 
-### Gemini API
+### Gemini (Google GenAI)
 
 #### Basic Text Response
 ```yaml
@@ -129,37 +122,28 @@ nodes:
     type: google-ai:gemini
     config:
       prompt: "Route this request through my custom host"
-      api_host: https://my-gemini-proxy.example.com/v1beta/openai/
+      api_host: https://my-gemini-proxy.example.com/v1beta
 ```
 
-### Gemini Vertex (legacy)
-
+#### Vertex AI Mode
 ```yaml
 nodes:
   - id: gemini_vertex
-    type: google-ai:gemini-vertex
+    type: google-ai:gemini
     config:
-      project_id: "your-gcp-project"
-      location: "us-central1"
       model: "gemini-1.5-pro"
       prompt: "Summarise today's revenue numbers"
 ```
 
 ## Configuration Options
 
-### Gemini API Node
+### Gemini (Google GenAI) Node
 - `prompt` (required) &mdash; user message sent to Gemini.
 - `model` &mdash; defaults to `gemini-2.0-flash`.
 - `system_prompt` &mdash; optional system instruction.
 - `response_format` &mdash; `text` (default) or `json`.
 - `api_host` &mdash; override host if the profile BASE_URL should not be used.
-- `model_options` &mdash; map of OpenAI-compatible settings (temperature, max_tokens, top_p, penalties, raw `response_format`, etc.).
-
-### Gemini Vertex Node
-- `project_id` (required) &mdash; Vertex project id.
-- `location` &mdash; Vertex region (`us-central1` default).
-- `prompt` (required).
-- Same `model`, `system_prompt`, `response_format`, and `model_options` knobs as above, plus Vertex-only `top_k`.
+- `model_options` &mdash; map of Google GenAI settings (temperature, max_tokens/max_output_tokens, top_p, top_k, penalties, candidate_count, response_mime_type).
 
 ## Output Context Variables
 
@@ -204,9 +188,9 @@ public class OpenAiModelProvider implements AiModelProvider {
 
 This implementation uses Spring AI:
 ```gradle
-implementation platform("org.springframework.ai:spring-ai-bom:1.0.3")
+implementation platform("org.springframework.ai:spring-ai-bom:1.1.2")
 implementation "org.springframework.ai:spring-ai-starter-model-openai"
-implementation "org.springframework.ai:spring-ai-vertex-ai-gemini"
+implementation "org.springframework.ai:spring-ai-starter-model-google-genai"
 ```
 
 ## Features
@@ -218,11 +202,11 @@ implementation "org.springframework.ai:spring-ai-vertex-ai-gemini"
 - Token usage tracking
 - Resource pooling for efficient connection management
 - Lambda injection for provider customization
+- Tool/function calling support
 - Extensible architecture for future enhancements
 
 ## Future Enhancements
 
-- Tool/Function calling support
 - Multi-turn conversations with history
 - Streaming responses
 - Image and multimodal inputs

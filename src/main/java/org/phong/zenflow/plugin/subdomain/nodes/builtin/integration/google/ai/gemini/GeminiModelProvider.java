@@ -7,8 +7,12 @@ import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.AiMo
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.dto.AiExecutionRequest;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.dto.AiExecutionResult;
 import org.phong.zenflow.plugin.subdomain.nodes.builtin.integration.ai.base.dto.AiModelCapabilities;
-import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.google.genai.GoogleGenAiChatModel;
+import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
+import org.springframework.ai.tool.ToolCallback;
 
 import java.util.HashMap;
 import java.util.List;
@@ -17,10 +21,10 @@ import java.util.Map;
 @Slf4j
 public class GeminiModelProvider implements AiModelProvider {
 
-    private final GeminiChatModel chatModel;
+    private final GoogleGenAiChatModel chatModel;
     private final ObjectMapper objectMapper;
 
-    public GeminiModelProvider(GeminiChatModel chatModel,
+    public GeminiModelProvider(GoogleGenAiChatModel chatModel,
                                ObjectMapper objectMapper) {
         this.chatModel = chatModel;
         this.objectMapper = objectMapper;
@@ -28,35 +32,30 @@ public class GeminiModelProvider implements AiModelProvider {
 
     @Override
     public ChatModel getChatModel() {
-        // Custom Gemini implementation does not expose a Spring ChatModel adapter yet.
-        return null;
+        return chatModel;
     }
 
     @Override
     public AiExecutionResult execute(AiExecutionRequest request) {
-        List<Message> messages = request.getMessages() != null ? request.getMessages() : List.of();
-        List<Object> tools = request.getToolObjects() != null ? request.getToolObjects() : List.of();
         String responseFormat = request.getResponseFormat();
         if (responseFormat == null || responseFormat.isBlank()) {
             responseFormat = "text";
         }
         log.debug("Executing Gemini API with {} messages, {} tools, format: {}",
-                messages.size(),
-                tools.size(),
+                request.getMessages().size(),
+                request.getToolObjects().size(),
                 responseFormat);
 
-        if (!tools.isEmpty()) {
-            log.warn("Gemini API (direct) does not yet support tool-calling; {} tool(s) ignored", tools.size());
-        }
+        GoogleGenAiChatOptions chatOptions = buildOptions(request);
+        Prompt prompt = new Prompt(request.getMessages(), chatOptions);
+        ChatResponse response = chatModel.call(prompt);
 
-        String prompt = buildPrompt(messages);
-        GeminiChatModel.GeminiResponse response = chatModel.call(prompt);
-        String rawResponse = response != null ? response.getText() : null;
+        String rawResponse = response.getResult().getOutput().getText();
         log.debug("Received response from Gemini API: {} chars", rawResponse != null ? rawResponse.length() : null);
 
         Object parsedOutput = rawResponse;
-        boolean parseSuccess = rawResponse != null;
-        if ("json".equalsIgnoreCase(responseFormat) && rawResponse != null) {
+        boolean parseSuccess = true;
+        if ("json".equalsIgnoreCase(responseFormat)) {
             try {
                 parsedOutput = objectMapper.readValue(rawResponse, Object.class);
             } catch (JsonProcessingException e) {
@@ -65,7 +64,17 @@ public class GeminiModelProvider implements AiModelProvider {
             }
         }
 
-        Map<String, Object> metadata = buildMetadata(response);
+        Map<String, Object> metadata = new HashMap<>();
+        if (response.getMetadata().getUsage() != null) {
+            metadata.put("usage", Map.of(
+                    "prompt_tokens", response.getMetadata().getUsage().getPromptTokens(),
+                    "completion_tokens", response.getMetadata().getUsage().getCompletionTokens(),
+                    "total_tokens", response.getMetadata().getUsage().getTotalTokens()
+            ));
+        }
+        if (chatOptions.getModel() != null) {
+            metadata.put("model", chatOptions.getModel());
+        }
 
         return AiExecutionResult.builder()
                 .output(parsedOutput)
@@ -84,62 +93,91 @@ public class GeminiModelProvider implements AiModelProvider {
     @Override
     public AiModelCapabilities getCapabilities() {
         return AiModelCapabilities.builder()
-                .supportsTools(false)
+                .supportsTools(true)
                 .supportsJsonMode(true)
-                .supportsStreaming(false)
-                .supportsVision(false)
+                .supportsStreaming(true)
+                .supportsVision(true)
                 .supportsSystemMessages(true)
                 .maxContextTokens(1_000_000)
                 .maxOutputTokens(8192)
                 .build();
     }
 
-    private String buildPrompt(List<Message> messages) {
-        if (messages == null || messages.isEmpty()) {
-            return "";
+    private GoogleGenAiChatOptions buildOptions(AiExecutionRequest request) {
+        GoogleGenAiChatOptions options;
+        if (chatModel.getDefaultOptions() instanceof GoogleGenAiChatOptions defaultOptions) {
+            options = GoogleGenAiChatOptions.fromOptions(defaultOptions);
+        } else {
+            options = GoogleGenAiChatOptions.builder().build();
         }
 
-        StringBuilder builder = new StringBuilder();
-        for (Message message : messages) {
-            String content = message.getText();
-            if (content == null) {
-                content = "";
-            }
-            builder.append(message.getMessageType().name().toLowerCase())
-                    .append(": ")
-                    .append(content)
-                    .append("\n");
+        applyModelOptions(options, request.getModelOptions(), request.getToolObjects());
+
+        if ("json".equalsIgnoreCase(request.getResponseFormat())) {
+            options.setResponseMimeType("application/json");
         }
 
-        return builder.toString().trim();
+        return options;
     }
 
-    private Map<String, Object> buildMetadata(GeminiChatModel.GeminiResponse response) {
-        Map<String, Object> metadata = new HashMap<>();
-        if (response == null) {
-            return metadata;
+    private void applyModelOptions(GoogleGenAiChatOptions options, Map<String, Object> modelOptions, List<Object> toolObjects) {
+        if (toolObjects != null) {
+            List<ToolCallback> tools = toolObjects.stream().map(t -> (ToolCallback) t).toList();
+            options.setToolCallbacks(tools);
         }
 
-        if (response.getPromptTokens() > 0
-                || response.getOutputTokens() > 0
-                || response.getTotalTokens() > 0) {
-            Map<String, Object> usage = new HashMap<>();
-            usage.put("prompt_tokens", response.getPromptTokens());
-            usage.put("completion_tokens", response.getOutputTokens());
-            usage.put("total_tokens", response.getTotalTokens());
-            metadata.put("usage", usage);
+        if (modelOptions == null || modelOptions.isEmpty()) {
+            return;
         }
 
-        if (response.getFinishReason() != null) {
-            metadata.put("finish_reason", response.getFinishReason());
-        }
-        if (response.getResponseId() != null) {
-            metadata.put("response_id", response.getResponseId());
-        }
-        if (response.getModelVersion() != null) {
-            metadata.put("model_version", response.getModelVersion());
+        Object temperature = modelOptions.get("temperature");
+        if (temperature instanceof Number temp) {
+            options.setTemperature(temp.doubleValue());
         }
 
-        return metadata;
+        Object maxTokens = modelOptions.get("max_tokens");
+        if (maxTokens instanceof Number max) {
+            options.setMaxOutputTokens(max.intValue());
+        }
+
+        Object maxOutputTokens = modelOptions.get("max_output_tokens");
+        if (maxOutputTokens instanceof Number max) {
+            options.setMaxOutputTokens(max.intValue());
+        }
+
+        Object topP = modelOptions.get("top_p");
+        if (topP instanceof Number top) {
+            options.setTopP(top.doubleValue());
+        }
+
+        Object topK = modelOptions.get("top_k");
+        if (topK instanceof Number top) {
+            options.setTopK(top.intValue());
+        }
+
+        Object frequencyPenalty = modelOptions.get("frequency_penalty");
+        if (frequencyPenalty instanceof Number freq) {
+            options.setFrequencyPenalty(freq.doubleValue());
+        }
+
+        Object presencePenalty = modelOptions.get("presence_penalty");
+        if (presencePenalty instanceof Number presence) {
+            options.setPresencePenalty(presence.doubleValue());
+        }
+
+        Object candidateCount = modelOptions.get("candidate_count");
+        if (candidateCount instanceof Number candidates) {
+            options.setCandidateCount(candidates.intValue());
+        }
+
+        Object modelOverride = modelOptions.get("model");
+        if (modelOverride instanceof String modelName && !modelName.isBlank()) {
+            options.setModel(modelName);
+        }
+
+        Object responseMimeType = modelOptions.get("response_mime_type");
+        if (responseMimeType instanceof String mimeType && !mimeType.isBlank()) {
+            options.setResponseMimeType(mimeType);
+        }
     }
 }
