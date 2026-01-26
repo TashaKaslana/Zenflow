@@ -8,7 +8,6 @@ import com.github.benmanes.caffeine.cache.Scheduler;
 import lombok.NonNull;
 import org.phong.zenflow.core.utils.ObjectConversion;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
-import org.phong.zenflow.workflow.subdomain.context.ExecutionContextKey;
 import org.phong.zenflow.workflow.subdomain.context.ReadOptions;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
 import org.phong.zenflow.workflow.subdomain.context.common.ContextKeyResolver;
@@ -179,6 +178,11 @@ public class ContextValueResolver {
         String scopeKey = ContextKeyResolver.scopeKey(nodeKey, key);
         Object runtimeValue = resolveRuntimeValue(nodeKey, scopeKey, runtimeContext, templateService, executionContext);
         maybeInvalidateIfNoConsumers(runtimeContext, executionContext.getWorkflowRunId(), scopeKey, key);
+
+        if (runtimeValue == null) {
+            runtimeValue = runtimeContext.getPendingWrites().get(key);
+        }
+
         return runtimeValue;
     }
 

@@ -6,8 +6,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.core.services.AuthService;
 import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionError;
+import org.phong.zenflow.plugin.subdomain.execution.registry.PluginNodeExecutorRegistry;
 import org.phong.zenflow.plugin.subdomain.node.infrastructure.persistence.entity.PluginNode;
 import org.phong.zenflow.workflow.subdomain.context.resolution.ContextValueResolver;
+import org.phong.zenflow.workflow.subdomain.engine.orchestrator.NodeExecutionOrchestrator;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.context.ExecutionContextImpl;
 import org.phong.zenflow.workflow.subdomain.context.RuntimeContext;
@@ -39,6 +41,8 @@ public class SingleNodeExecutionService {
     private final TemplateService templateService;
     private final AuthService authService;
     private final ContextValueResolver contextValueResolver;
+    private final NodeExecutionOrchestrator orchestrator;
+    private final PluginNodeExecutorRegistry pluginNodeRegistry;
 
     public ExecutionResult executeNode(PluginNode pluginNode, BaseWorkflowNode node) {
         RuntimeContext context = new RuntimeContext();
@@ -57,6 +61,8 @@ public class SingleNodeExecutionService {
         WorkflowConfig safeConfig = (config != null) ? config : new WorkflowConfig();
         Map<String, WorkflowConfig> nodeConfigs = new HashMap<>();
         nodeConfigs.put(node.getKey(), safeConfig);
+        Map<String, BaseWorkflowNode> workflowNodes = new HashMap<>();
+        workflowNodes.put(node.getKey(), new BaseWorkflowNode(node));
 
         ExecutionContext execCtx = ExecutionContextImpl.builder()
                 .workflowId(workflowId)
@@ -67,7 +73,10 @@ public class SingleNodeExecutionService {
                 .logPublisher(logPublisher)
                 .templateService(templateService)
                 .contextValueResolver(contextValueResolver)
+                .orchestrator(orchestrator)
+                .pluginNodeRegistry(pluginNodeRegistry)
                 .nodeConfigs(nodeConfigs)
+                .workflowNodes(workflowNodes)
                 .build();
 
         execCtx.setNodeKey(node.getKey());

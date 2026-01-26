@@ -1,0 +1,134 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Gemini Google GenAI Chat Schema",
+  "description": "Interact with Gemini via Spring AI Google GenAI (API key or Vertex AI)",
+  "properties": {
+    "input": {
+      "type": "object",
+      "title": "Input Schema",
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "description": "The user prompt/message to send to the AI model"
+        },
+        "system_prompt": {
+          "type": "string",
+          "description": "Optional system prompt to guide the AI's behavior"
+        },
+        "response_format": {
+          "type": "string",
+          "enum": ["text", "json"],
+          "default": "text",
+          "description": "Expected response format - 'text' for plain text or 'json' for structured JSON"
+        },
+        "model": {
+          "type": "string",
+          "default": "gemini-2.0-flash",
+          "description": "Model to use (e.g., gemini-2.0-flash, gemini-1.5-pro)"
+        },
+        "api_host": {
+          "type": "string",
+          "description": "Optional override for the Google GenAI API base URL (defaults to profile BASE_URL)"
+        },
+        "model_options": {
+          "type": "object",
+          "description": "Model-specific options",
+          "properties": {
+            "temperature": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.7,
+              "description": "Controls randomness. Higher values mean more random, lower values more deterministic"
+            },
+            "max_tokens": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Maximum number of tokens to generate (maps to max_output_tokens)"
+            },
+            "max_output_tokens": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Maximum number of output tokens"
+            },
+            "top_p": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Nucleus sampling parameter. Consider tokens with top_p probability mass"
+            },
+            "top_k": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Only sample from the top K options for each subsequent token"
+            },
+            "frequency_penalty": {
+              "type": "number",
+              "minimum": -2,
+              "maximum": 2,
+              "description": "Penalizes new tokens based on their frequency in the text so far"
+            },
+            "presence_penalty": {
+              "type": "number",
+              "minimum": -2,
+              "maximum": 2,
+              "description": "Penalizes new tokens based on whether they appear in the text so far"
+            },
+            "candidate_count": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8,
+              "description": "Number of generated response candidates to return"
+            },
+            "response_mime_type": {
+              "type": "string",
+              "description": "Response MIME type (e.g., application/json)"
+            }
+          }
+        }
+      },
+      "required": ["prompt"],
+      "additionalProperties": false
+    },
+    "output": {
+      "type": "object",
+      "title": "Output Schema",
+      "description": "AI response output",
+      "properties": {
+        "response": {
+          "type": "string",
+          "description": "The processed response from the AI model"
+        },
+        "raw_response": {
+          "type": "string",
+          "description": "Raw completion text"
+        },
+        "provider": {
+          "type": "string",
+          "description": "The AI provider name (e.g., 'gemini')"
+        },
+        "usage": {
+          "type": "object",
+          "description": "Token usage information"
+        },
+        "model": {
+          "type": "string",
+          "description": "Model actually used for the call"
+        },
+        "parse_success": {
+          "type": "boolean",
+          "description": "Indicates if JSON parsing succeeded when response_format=json"
+        }
+      }
+    },
+    "profile": {
+      "profileKeys": [
+        "gemini-ai-credentials"
+      ],
+      "description": "Requires Gemini credentials profile with API_KEY for Gemini Developer API or GCP credentials for Vertex AI."
+    }
+  },
+  "required": ["input", "output"],
+  "additionalProperties": false
+}

@@ -10,6 +10,7 @@ import org.phong.zenflow.workflow.subdomain.node_definition.definitions.Workflow
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.dto.OutputUsage;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
+import org.phong.zenflow.workflow.subdomain.node_definition.util.WorkflowNodeKeyUtils;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
 import org.phong.zenflow.workflow.subdomain.schema_validator.enums.ValidationErrorCode;
@@ -70,6 +71,7 @@ public class WorkflowValidationService {
         errors.addAll(workflowDependencyValidator.validateNodeDependencyLoops(workflow));
 
         errors.addAll(validateAliasKeys(workflow));
+        errors.addAll(validateNodeKeys(workflow));
 
         return new ValidationResult("definition", errors);
     }
@@ -102,6 +104,102 @@ public class WorkflowValidationService {
                         .build());
             }
         }
+        return errors;
+    }
+
+    private List<ValidationError> validateNodeKeys(WorkflowDefinition workflow) {
+        List<ValidationError> errors = new ArrayList<>();
+        if (workflow == null || workflow.nodes() == null) {
+            return errors;
+        }
+
+        Map<String, BaseWorkflowNode> nodeMap = workflow.nodes().asMap();
+
+        nodeMap.forEach((key, node) -> {
+            boolean hasDelimiter = WorkflowNodeKeyUtils.isCompoundChildKey(key);
+            boolean hasParent = node.getParentNodeKey() != null && !node.getParentNodeKey().isBlank();
+
+            if (hasDelimiter && !hasParent) {
+                errors.add(ValidationError.builder()
+                        .nodeKey(key)
+                        .errorType("definition")
+                        .errorCode(ValidationErrorCode.INVALID_VALUE)
+                        .path("nodes." + key + ".key")
+                        .message("Node keys containing '" + WorkflowNodeKeyUtils.SYNTHETIC_NODE_DELIMITER
+                                + "' must declare parentNodeKey")
+                        .build());
+            }
+
+            if (!hasDelimiter && hasParent) {
+                errors.add(ValidationError.builder()
+                        .nodeKey(key)
+                        .errorType("definition")
+                        .errorCode(ValidationErrorCode.INVALID_VALUE)
+                        .path("nodes." + key + ".parentNodeKey")
+                        .message("Child nodes must use the '" + WorkflowNodeKeyUtils.SYNTHETIC_NODE_DELIMITER
+                                + "' delimiter in their key")
+                        .build());
+            }
+
+            if (hasParent && !key.startsWith(node.getParentNodeKey() + WorkflowNodeKeyUtils.SYNTHETIC_NODE_DELIMITER)) {
+                errors.add(ValidationError.builder()
+                        .nodeKey(key)
+                        .errorType("definition")
+                        .errorCode(ValidationErrorCode.INVALID_VALUE)
+                        .path("nodes." + key + ".parentNodeKey")
+                        .message("Child node key must start with '<parent>::'. Expected prefix: "
+                                + node.getParentNodeKey() + WorkflowNodeKeyUtils.SYNTHETIC_NODE_DELIMITER)
+                        .build());
+            }
+        });
+
+        nodeMap.forEach((key, node) -> {
+            List<String> children = node.getChildNodeKeys();
+            if (children == null || children.isEmpty()) {
+                return;
+            }
+            for (String childKey : children) {
+                if (!WorkflowNodeKeyUtils.isCompoundChildKey(childKey)) {
+                    errors.add(ValidationError.builder()
+                            .nodeKey(key)
+                            .errorType("definition")
+                            .errorCode(ValidationErrorCode.INVALID_VALUE)
+                            .path("nodes." + key + ".childNodeKeys")
+                            .message("Child key '" + childKey + "' must use the '"
+                                    + WorkflowNodeKeyUtils.SYNTHETIC_NODE_DELIMITER + "' delimiter")
+                            .value(childKey)
+                            .build());
+                    continue;
+                }
+
+                BaseWorkflowNode child = nodeMap.get(childKey);
+                if (child == null) {
+                    errors.add(ValidationError.builder()
+                            .nodeKey(key)
+                            .errorType("definition")
+                            .errorCode(ValidationErrorCode.MISSING_NODE_REFERENCE)
+                            .path("nodes." + key + ".childNodeKeys")
+                            .message("Child node '" + childKey + "' does not exist in workflow")
+                            .value(childKey)
+                            .expectedType("existing_node_key")
+                            .build());
+                    continue;
+                }
+
+                if (!key.equals(child.getParentNodeKey())) {
+                    errors.add(ValidationError.builder()
+                            .nodeKey(key)
+                            .errorType("definition")
+                            .errorCode(ValidationErrorCode.INVALID_CONNECTION)
+                            .path("nodes." + key + ".childNodeKeys")
+                            .message("Child node '" + childKey + "' is not linked back to parent '" + key + "'")
+                            .value(childKey)
+                            .expectedType("matching_parent_node")
+                            .build());
+                }
+            }
+        });
+
         return errors;
     }
 

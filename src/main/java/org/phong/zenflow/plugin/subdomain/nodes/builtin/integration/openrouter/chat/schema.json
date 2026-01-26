@@ -1,0 +1,133 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "OpenRouter Chat Schema",
+  "description": "Execute OpenRouter chat completions via OpenRouter's OpenAI-compatible API proxy.",
+  "properties": {
+    "input": {
+      "type": "object",
+      "title": "Input Schema",
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "description": "The user prompt/message to send to the AI model"
+        },
+        "system_prompt": {
+          "type": "string",
+          "description": "Optional system prompt to steer the assistant's behaviour"
+        },
+        "response_format": {
+          "type": "string",
+          "enum": ["text", "json"],
+          "default": "text",
+          "description": "Expected response format - 'text' for plain text or 'json' for structured JSON output"
+        },
+        "model": {
+          "type": "string",
+          "default": "openrouter/auto",
+          "description": "OpenRouter model identifier (e.g. openrouter/auto, openai/gpt-4o-mini, openai/gpt-4.1)"
+        },
+        "api_host": {
+          "type": "string",
+          "description": "Override for the OpenRouter API host (defaults to profile BASE_URL or https://openrouter.ai/api/v1)"
+        },
+        "api_completions_path": {
+          "type": "string",
+          "default": "/chat/completions",
+          "description": "Override for the chat completions path (combined with the API host)"
+        },
+        "api_embeddings_path": {
+          "type": "string",
+          "default": "/embeddings",
+          "description": "Override for the embeddings path (combined with the API host)"
+        },
+        "model_options": {
+          "type": "object",
+          "description": "Advanced OpenRouter/OpenAI chat options",
+          "properties": {
+            "temperature": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 2,
+              "default": 0.7,
+              "description": "Controls randomness. Higher = more creative, lower = more deterministic"
+            },
+            "max_tokens": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 128000,
+              "default": 2048,
+              "description": "Maximum number of tokens to generate in the completion"
+            },
+            "top_p": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.95,
+              "description": "Nucleus sampling parameter (alternative to temperature)"
+            },
+            "frequency_penalty": {
+              "type": "number",
+              "minimum": -2,
+              "maximum": 2,
+              "description": "Penalizes tokens based on how often they already appeared"
+            },
+            "presence_penalty": {
+              "type": "number",
+              "minimum": -2,
+              "maximum": 2,
+              "description": "Penalizes tokens based on whether they appear in the text so far"
+            },
+            "seed": {
+              "type": "integer",
+              "description": "Deterministic seed (where supported) for reproducible completions"
+            },
+            "response_format": {
+              "type": "object",
+              "description": "Raw OpenAI response_format payload for fine-grained JSON control"
+            }
+          }
+        }
+      },
+      "required": ["prompt"],
+      "additionalProperties": false
+    },
+    "output": {
+      "type": "object",
+      "title": "Output Schema",
+      "properties": {
+        "response": {
+          "description": "Processed response (string for text mode, object for JSON mode)"
+        },
+        "raw_response": {
+          "type": "string",
+          "description": "Raw completion text from OpenRouter"
+        },
+        "provider": {
+          "type": "string",
+          "description": "Provider name ('openrouter')"
+        },
+        "usage": {
+          "type": "object",
+          "description": "Token usage metadata direct from OpenRouter/OpenAI"
+        },
+        "model": {
+          "type": "string",
+          "description": "Actual model used for the request"
+        },
+        "parse_success": {
+          "type": "boolean",
+          "description": "Indicates if JSON parsing succeeded when response_format=json"
+        }
+      }
+    },
+    "profile": {
+      "profileKeys": [
+        "openrouter-ai-credentials"
+      ],
+      "description": "Requires AI credentials profile with API_KEY (and optional BASE_URL pointing to OpenRouter)."
+    }
+  },
+  "required": ["input", "output"],
+  "additionalProperties": false
+}

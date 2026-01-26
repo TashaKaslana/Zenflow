@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "AI Cluster Output Parser",
+  "description": "Select the response parsing strategy applied to provider outputs",
+  "properties": {
+    "input": {
+      "type": "object",
+      "title": "Input Schema",
+      "properties": {
+        "strategy": {
+          "type": "string",
+          "enum": ["auto", "text", "json", "schema", "raw"],
+          "default": "auto",
+          "description": "Parsing strategy to apply"
+        },
+        "response_format": {
+          "type": "string",
+          "enum": ["text", "json"],
+          "description": "Desired response format when orchestrating providers"
+        },
+        "on_error": {
+          "type": "string",
+          "enum": ["fail", "fallback_to_text"],
+          "default": "fail",
+          "description": "Behaviour when parsing fails"
+        },
+        "max_retries": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0
+        },
+        "options": {
+          "type": "object",
+          "description": "Strategy-specific options (e.g., schema)"
+        }
+      }
+    },
+    "output": {
+      "type": "object",
+      "title": "Output Schema",
+      "properties": {}
+    }
+  },
+  "additionalProperties": true
+}

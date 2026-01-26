@@ -57,6 +57,10 @@ spring:
             class: org.quartz.simpl.SimpleThreadPool
             threadCount: 25
             threadPriority: 5
+  ai:
+    openai:
+      base-url: ${SYSTEM_AI_HOST}
+      api-key: ${SYSTEM_AI_KEY}
 
 server:
   servlet:
@@ -158,6 +162,12 @@ management:
 #    org:
 #      springframework:
 #        transaction: TRACE
+#        client.RestClient: DEBUG
+#        web.reactive.function.client.ExchangeFunctions: TRACE
+#        ai: DEBUG
+#        http.client: TRACE
+#        orm:
+#          jpa: DEBUG
 #      hibernate:
 #        SQL: DEBUG
 #        type:
@@ -173,9 +183,18 @@ management:
 #        engine:
 #          internal:
 #            EntityEntry: TRACE
+#          spi:
+#            SqlExceptionHelper: DEBUG
+
 #    com:
 #      fasterxml:
 #        jackson:
 #          databind: DEBUG
 #    root: DEBUG
 #    org.phong.zenflow: DEBUG
+
+#logging:
+#  level:
+#    org.springframework.web.client.RestClient: DEBUG
+#    org.springframework.web.reactive.function.client.ExchangeFunctions: TRACE
+#    org.springframework.ai: DEBUG

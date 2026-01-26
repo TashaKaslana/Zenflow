@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "AI Cluster Tooling",
+  "description": "Configure tool packs and custom tool wiring for the AI cluster",
+  "properties": {
+    "input": {
+      "type": "object",
+      "title": "Input Schema",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable tool routing"
+        },
+        "default_pack": {
+          "type": "string",
+          "description": "Optional default tool pack to load (platform defined)",
+          "enum": ["platform", "minimal", "extended"],
+          "default": "platform"
+        },
+        "custom_tools": {
+          "type": "array",
+          "description": "Additional Spring bean names that expose @Tool annotated methods",
+          "items": {
+            "type": "string"
+          }
+        },
+        "node_tools": {
+          "type": "array",
+          "description": "Optional node-as-tool descriptors (<pluginKey>:<nodeKey>:<version>)",
+          "items": { "type": "string" }
+        },
+        "memory_tool": {
+          "description": "Enable memory-as-tool injection",
+          "type": "boolean"
+        }
+      }
+    },
+    "output": {
+      "type": "object",
+      "title": "Output Schema",
+      "properties": {}
+    }
+  },
+  "additionalProperties": true
+}

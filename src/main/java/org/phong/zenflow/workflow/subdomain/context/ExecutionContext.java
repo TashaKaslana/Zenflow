@@ -1,10 +1,13 @@
 package org.phong.zenflow.workflow.subdomain.context;
 
 import org.phong.zenflow.plugin.subdomain.resource.ScopedNodeResource;
+import org.phong.zenflow.plugin.subdomain.execution.dto.ExecutionResult;
+import org.phong.zenflow.plugin.subdomain.node.definition.policy.ContextAccessPolicy;
 import org.phong.zenflow.workflow.subdomain.context.refvalue.ExecutionOutputEntry;
 import org.phong.zenflow.workflow.subdomain.context.refvalue.dto.WriteOptions;
 import org.phong.zenflow.workflow.subdomain.evaluator.services.TemplateService;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
+import org.phong.zenflow.workflow.subdomain.node_definition.definitions.BaseWorkflowNode;
 import org.phong.zenflow.workflow.subdomain.node_definition.definitions.config.WorkflowConfig;
 
 import java.io.IOException;
@@ -34,6 +37,47 @@ public interface ExecutionContext {
     void setPluginNodeId(UUID pluginNodeId);
 
     void setScopedResource(ScopedNodeResource<?> resource);
+
+    ContextAccessPolicy getContextAccessPolicy();
+
+    void setContextAccessPolicy(ContextAccessPolicy policy);
+
+    /**
+     * Enable capture mode for this context.
+     * When enabled, writes are redirected to a temporary capture buffer instead of the persistent context.
+     */
+    void setCaptureMode(boolean enabled);
+
+    /**
+     * Get the captured outputs from the current capture session.
+     * @return Map of captured keys and values
+     */
+    Map<String, Object> getCapturedOutputs();
+
+    /**
+     * Clear the captured outputs buffer.
+     */
+    void clearCapturedOutputs();
+
+    /**
+     * Execute a sub-node with automatic resource management and output capture.
+     * This method handles context switching, capture mode setup/cleanup, and result extraction.
+     * 
+     * @param node The node to execute
+     * @param config The configuration for the node
+     * @return The execution result, with outputPayload populated from capture if needed
+     */
+    ExecutionResult executeSubNode(BaseWorkflowNode node, WorkflowConfig config);
+
+    /**
+     * Execute a synthetic sub-node by composite key.
+     * This method resolves the plugin node ID, creates a transient node definition, and executes it.
+     *
+     * @param compositeKey The composite key of the plugin node (e.g., "core:context_variable:1.0.0")
+     * @param config The configuration for the node
+     * @return The execution result
+     */
+    ExecutionResult executeSubNode(String compositeKey, WorkflowConfig config);
 
     <T> T read(String key, Class<T> clazz);
     
@@ -120,6 +164,11 @@ public interface ExecutionContext {
     TemplateService.ImmutableEvaluator getEvaluator();
 
     Map<String, Object> getCurrentNodeEntrypoint();
+
+    /**
+     * Returns a defensive copy of the workflow node definition for the provided key, if available.
+     */
+    BaseWorkflowNode getWorkflowNode(String nodeKey);
 
     Object getProfileSecret(String key);
 

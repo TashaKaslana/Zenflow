@@ -1,0 +1,78 @@
+{
+  "upsert": {
+    "nodes": [
+      {
+        "key": "start",
+        "type": "TRIGGER",
+        "pluginNode": {
+          "pluginKey": "core",
+          "nodeKey": "manual.trigger",
+          "version": "1.0.0",
+          "executorType": "builtin"
+        },
+        "next": [
+          "ai_cluster"
+        ],
+        "config": {
+          "input": {},
+          "profileKeys": []
+        },
+        "metadata": null,
+        "policy": null
+      },
+      {
+        "key": "ai_cluster",
+        "type": "PLUGIN",
+        "pluginNode": {
+          "pluginKey": "core",
+          "nodeKey": "ai.cluster",
+          "version": "1.0.0",
+          "executorType": "builtin"
+        },
+        "childNodeKeys": [
+          "ai_cluster::google-ai-gemini"
+        ],
+        "next": [],
+        "config": {
+          "input": {
+            "prompt": "Hello, give me a random char",
+            "provider": "gemini",
+            "response_format": "text",
+            "model": ""
+          },
+          "profileKeys": [],
+          "output": null
+        },
+        "metadata": null,
+        "policy": null
+      },
+      {
+        "key": "ai_cluster::google-ai-gemini",
+        "parentNodeKey": "ai_cluster",
+        "type": "PLUGIN",
+        "pluginNode": {
+          "pluginKey": "google-ai",
+          "nodeKey": "gemini",
+          "version": "1.0.0",
+          "executorType": "builtin"
+        },
+        "next": [],
+        "config": {
+          "input": {
+            "prompt": "Hello, give me a random number",
+            "model": "gemini-2.0-flash"
+          },
+          "profileKeys": [
+            "Gemini_JS_5"
+          ],
+          "output": null
+        },
+        "metadata": null,
+        "policy": null
+      }
+    ]
+  },
+  "remove": [
+    "ai_cluster::google-ai-gemini"
+  ]
+}

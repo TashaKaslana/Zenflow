@@ -4,6 +4,9 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.util.Map;
+
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionError;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
@@ -20,10 +23,23 @@ public class ExecutionResult {
     private String error;
     private String nextNodeKey;
     private ValidationResult validationResult;
+    
+    /**
+     * Optional output payload for sub-node execution (e.g. Node-as-Tool).
+     * This allows a node to return data directly to its caller without writing to the shared context.
+     */
+    private Map<String, Object> outputPayload;
 
     public static ExecutionResult success() {
         ExecutionResult result = new ExecutionResult();
         result.setStatus(ExecutionStatus.SUCCESS);
+        return result;
+    }
+
+    public static ExecutionResult success(Map<String, Object> outputPayload) {
+        ExecutionResult result = new ExecutionResult();
+        result.setStatus(ExecutionStatus.SUCCESS);
+        result.setOutputPayload(outputPayload);
         return result;
     }
 

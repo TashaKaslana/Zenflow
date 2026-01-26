@@ -12,7 +12,6 @@ import org.phong.zenflow.plugin.subdomain.node.interfaces.PluginNodeSchemaProvid
 import org.phong.zenflow.plugin.subdomain.schema.exception.NodeSchemaException;
 import org.phong.zenflow.plugin.subdomain.schema.exception.NodeSchemaMissingException;
 import org.phong.zenflow.plugin.subdomain.schema.registry.SchemaIndexRegistry;
-import org.phong.zenflow.workflow.subdomain.node_definition.definitions.plugin.PluginNodeIdentifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -348,29 +347,6 @@ public class SchemaRegistry {
     }
 
     /**
-     * Convenience method to get schemas by PluginNodeIdentifier and return with PluginNodeIdentifier keys
-     * @deprecated Use getPluginSchemasByIds instead - this method is for backward compatibility only
-     * @param identifiers Set of plugin node identifiers
-     * @return Map of PluginNodeIdentifier -> schema JSONObject
-     */
-    @Deprecated
-    public Map<PluginNodeIdentifier, JSONObject> getPluginSchemasByIdentifiersAsIdentifier(Set<PluginNodeIdentifier> identifiers) {
-        Set<String> nodeIds = identifiers.stream()
-                .map(identifier -> identifier.getNodeId() != null ? identifier.getNodeId().toString() : identifier.toCacheKey())
-                .collect(Collectors.toSet());
-
-        Map<String, JSONObject> stringKeyMap = getPluginSchemasByIds(nodeIds);
-        return identifiers.stream()
-                .collect(Collectors.toMap(
-                        identifier -> identifier,
-                        identifier -> {
-                            String key = identifier.getNodeId() != null ? identifier.getNodeId().toString() : identifier.toCacheKey();
-                            return stringKeyMap.get(key);
-                        }
-                ));
-    }
-
-    /**
      * Force database-based schema loading for specific use cases (e.g., frontend API)
      * @param nodeId The plugin node UUID
      * @return JSONObject containing the schema from database
@@ -432,18 +408,6 @@ public class SchemaRegistry {
      */
     public void invalidatePluginLevelSchema(String pluginId) {
         pluginSchemaCache.invalidate(pluginId);
-    }
-
-    /**
-     * Invalidate a plugin schema entry from cache.
-     *
-     * @deprecated Use invalidatePluginSchema(String nodeId) instead
-     * @param identifier the plugin node identifier
-     */
-    @Deprecated
-    public void invalidatePluginSchema(PluginNodeIdentifier identifier) {
-        String key = identifier.getNodeId() != null ? identifier.getNodeId().toString() : identifier.toCacheKey();
-        pluginCache.invalidate(key);
     }
 
     /**
