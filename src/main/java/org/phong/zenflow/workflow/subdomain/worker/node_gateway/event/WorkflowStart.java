@@ -1,6 +1,7 @@
 package org.phong.zenflow.workflow.subdomain.worker.node_gateway.event;
 
 import lombok.Data;
+import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 
 import javax.annotation.Nullable;
 import javax.validation.constraints.NotNull;
@@ -17,4 +18,7 @@ public class WorkflowStart {
 
     @Nullable
     private String callbackUrl;
+
+    @NotNull
+    private TriggerType triggerType = TriggerType.MANUAL;
 }

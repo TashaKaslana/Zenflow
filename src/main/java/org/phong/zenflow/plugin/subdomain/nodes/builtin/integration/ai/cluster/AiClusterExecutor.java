@@ -351,7 +351,7 @@ public class AiClusterExecutor implements NodeExecutor {
         if (providerNode != null) {
             logs.info("Executing materialized provider node: {}", childKey);
             providerNode.setConfig(providerConfig);
-            providerResult = context.executeSubNode(providerNode, providerConfig);
+            providerResult = context.executeSubNode(providerNode);
         } else {
             logs.warn("Provider node '{}' not found in workflow definition, falling back to synthetic execution", childKey);
             providerResult = context.executeSubNode(providerKey, providerConfig);

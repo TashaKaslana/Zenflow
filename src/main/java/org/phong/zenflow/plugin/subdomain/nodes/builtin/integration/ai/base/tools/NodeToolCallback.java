@@ -99,8 +99,9 @@ public class NodeToolCallback implements ToolCallback {
             Map<String, Object> inputMap = objectMapper.readValue(input, Map.class);
 
             WorkflowConfig mergedConfig = mergeConfig(node.getConfig(), inputMap);
+            node.setConfig(mergedConfig);
 
-            ExecutionResult result = context.executeSubNode(node, mergedConfig);
+            ExecutionResult result = context.executeSubNode(node);
             
             if (result.getStatus() == ExecutionStatus.SUCCESS) {
                 // Check for output payload (populated by executeSubNode from capture or direct return)

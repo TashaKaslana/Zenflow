@@ -37,13 +37,10 @@ public class NodeExecutionOrchestrator {
      * Supports nested execution: ParentNode -> ChildNode
      */
     public ExecutionResult executeNode(BaseWorkflowNode node,
-                                       WorkflowConfig config,
                                        ExecutionContext execCtx) {
         return LogContextManager.withComponent(node.getKey(), () -> {
             LogContext ctx = LogContextManager.snapshot();
             log.info("[traceId={}] [hierarchy={}] Node started", ctx.traceId(), ctx.hierarchy());
-            
-            execCtx.setCurrentConfig(config);
             
             String parentNodeKey = execCtx.getNodeKey();
             try {
@@ -60,7 +57,7 @@ public class NodeExecutionOrchestrator {
                         .taskId(execCtx.taskId())
                         .executorIdentifier(node.getPluginNode().getNodeId().toString())
                         .executorType(executorType)
-                        .config(config)
+                        .config(node.getConfig())
                         .context(execCtx)
                         .pluginNodeId(node.getPluginNode().getNodeId())
                         .build();

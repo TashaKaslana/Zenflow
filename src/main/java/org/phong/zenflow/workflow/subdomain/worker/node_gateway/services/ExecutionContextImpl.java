@@ -101,7 +101,7 @@ public class ExecutionContextImpl implements ExecutionContext {
     }
 
     @Override
-    public ExecutionResult executeSubNode(BaseWorkflowNode node, WorkflowConfig config) {
+    public ExecutionResult executeSubNode(BaseWorkflowNode node) {
         if (orchestrator == null) {
             throw new IllegalStateException("NodeExecutionOrchestrator is not configured for this ExecutionContext");
         }
@@ -111,7 +111,7 @@ public class ExecutionContextImpl implements ExecutionContext {
         this.clearCapturedOutputs();
 
         try {
-            ExecutionResult result = orchestrator.executeNode(node, config, this);
+            ExecutionResult result = orchestrator.executeNode(node, this);
 
             if (result.getStatus() == ExecutionStatus.SUCCESS) {
                 // If outputPayload is missing, try to populate it from captured outputs
@@ -156,7 +156,7 @@ public class ExecutionContextImpl implements ExecutionContext {
         syntheticNode.setChildNodeKeys(Collections.emptyList());
         syntheticNode.setConfig(config);
 
-        return executeSubNode(syntheticNode, config);
+        return executeSubNode(syntheticNode);
     }
 
     @Override

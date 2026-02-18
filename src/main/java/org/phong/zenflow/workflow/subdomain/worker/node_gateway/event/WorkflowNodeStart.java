@@ -8,10 +8,12 @@ import java.util.UUID;
 
 @Getter
 public class WorkflowNodeStart extends BaseTaskEnvelope {
-    public WorkflowNodeStart(UUID workflowRunId, PluginNodeIdentifier pluginNodeIdentifier) {
+    public WorkflowNodeStart(UUID workflowRunId, PluginNodeIdentifier pluginNodeIdentifier, String instanceNodeKey) {
         super(workflowRunId);
         this.pluginNodeIdentifier = pluginNodeIdentifier;
+        this.instanceNodeKey = instanceNodeKey;
     }
 
     private final PluginNodeIdentifier pluginNodeIdentifier;
+    private final String instanceNodeKey;
 }
