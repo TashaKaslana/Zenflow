@@ -32,7 +32,7 @@ public class BaseWorkflowNode {
     private List<String> next;
 
     @NotNull
-    private WorkflowConfig config;
+    private WorkflowConfig config = new WorkflowConfig();
 
     private Map<String, Object> metadata;
 

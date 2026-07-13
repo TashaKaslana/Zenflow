@@ -64,10 +64,9 @@ public interface ExecutionContext {
      * This method handles context switching, capture mode setup/cleanup, and result extraction.
      * 
      * @param node The node to execute
-     * @param config The configuration for the node
      * @return The execution result, with outputPayload populated from capture if needed
      */
-    ExecutionResult executeSubNode(BaseWorkflowNode node, WorkflowConfig config);
+    ExecutionResult executeSubNode(BaseWorkflowNode node);
 
     /**
      * Execute a synthetic sub-node by composite key.
