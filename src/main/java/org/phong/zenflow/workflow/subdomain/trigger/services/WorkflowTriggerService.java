@@ -8,7 +8,7 @@ import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.CreateWorkflowTriggerRequest;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.UpdateWorkflowTriggerRequest;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerDto;
-import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerEvent;
+import org.phong.zenflow.workflow.subdomain.worker.node_gateway.event.WorkflowStartEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.phong.zenflow.workflow.subdomain.trigger.events.WorkflowTriggerRestartEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.events.WorkflowTriggerStartEvent;
@@ -308,7 +308,7 @@ public class WorkflowTriggerService {
         UUID workflowRunId = UUID.randomUUID();
         log.info("Execute workflow trigger with ID: {}", triggerId);
         WorkflowTrigger trigger = markTriggered(triggerId);
-        publisher.publishEvent(new WorkflowTriggerEvent(
+        publisher.publishEvent(new WorkflowStartEvent(
                 workflowRunId,
                 trigger.getType(),
                 trigger.getTriggerExecutorId(),

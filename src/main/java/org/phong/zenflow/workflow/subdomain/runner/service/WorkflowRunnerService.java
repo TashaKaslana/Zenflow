@@ -112,8 +112,6 @@ public class WorkflowRunnerService {
 
             WorkflowExecutionStatus status = workflowEngineService.runWorkflow(workflow, workflowRunId, startFromNodeKey, context);
 
-            handleWorkflowExecutionStatus(workflowRunId, workflowId, status, context);
-
         } catch (Exception e) {
             log.warn("Error running workflow with ID: {}", workflowId, e);
             workflowRunService.handleWorkflowError(workflowRunId, e);

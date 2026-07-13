@@ -22,7 +22,7 @@ import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationError
 import org.phong.zenflow.workflow.subdomain.schema_validator.dto.ValidationResult;
 import org.phong.zenflow.workflow.dto.WorkflowDefinitionUpdateResult;
 import org.phong.zenflow.workflow.cache.WorkflowValidationCache;
-import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerEvent;
+import org.phong.zenflow.workflow.subdomain.worker.node_gateway.event.WorkflowStartEvent;
 import org.phong.zenflow.workflow.event.WorkflowDefinitionUpdatedEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.springframework.context.ApplicationEventPublisher;
@@ -90,7 +90,7 @@ public class WorkflowService {
         UUID workflowRunId = UUID.randomUUID();
         String callbackUrl = "/workflow-runs/" + workflowRunId;
 
-        eventPublisher.publishEvent(new WorkflowTriggerEvent(
+        eventPublisher.publishEvent(new WorkflowStartEvent(
                 workflowRunId,
                 TriggerType.MANUAL,
                 workflowId,

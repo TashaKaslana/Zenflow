@@ -2,7 +2,7 @@ package org.phong.zenflow.workflow.subdomain.engine.service;
 
 import lombok.AllArgsConstructor;
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
-import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerEvent;
+import org.phong.zenflow.workflow.subdomain.worker.node_gateway.event.WorkflowStartEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.quartz.Job;
 import org.quartz.JobDataMap;
@@ -24,7 +24,7 @@ public class WorkflowRetryJob implements Job {
         String nodeKey = dataMap.getString("nodeKey");
         String callBackUrl = dataMap.getString("callbackUrl");
 
-        publisher.publishEvent(new WorkflowTriggerEvent(
+        publisher.publishEvent(new WorkflowStartEvent(
                 workflowRunId,
                 TriggerType.SCHEDULE_RETRY,
                 workflowId,

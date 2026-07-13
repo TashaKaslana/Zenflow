@@ -3,7 +3,7 @@ package org.phong.zenflow.plugin.subdomain.nodes.builtin.core.flow.timeout;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
-import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerEvent;
+import org.phong.zenflow.workflow.subdomain.worker.node_gateway.event.WorkflowStartEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.quartz.Job;
 import org.quartz.JobDataMap;
@@ -27,7 +27,7 @@ public class TimeoutResumeJob implements Job {
         String nodeKey = dataMap.getString("nodeKey");
 
         log.info("Resuming timeout node: {} in run {}", nodeKey, workflowRunId);
-        publisher.publishEvent(new WorkflowTriggerEvent(
+        publisher.publishEvent(new WorkflowStartEvent(
                 workflowRunId,
                 TriggerType.SCHEDULE,
                 workflowId,

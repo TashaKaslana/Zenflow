@@ -7,7 +7,7 @@ import org.phong.zenflow.workflow.subdomain.context.ExecutionContext;
 import org.phong.zenflow.workflow.subdomain.logging.core.NodeLogPublisher;
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
 import org.phong.zenflow.workflow.subdomain.trigger.dto.TriggerContext;
-import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerEvent;
+import org.phong.zenflow.workflow.subdomain.worker.node_gateway.event.WorkflowStartEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContextTool;
@@ -81,7 +81,7 @@ public class WorkflowTriggerExecutor implements TriggerExecutor {
             return ExecutionResult.error("'start_from_node_key' is required to trigger the workflow.");
         }
 
-        eventPublisher.publishEvent(new WorkflowTriggerEvent(
+        eventPublisher.publishEvent(new WorkflowStartEvent(
                 workflowRunId,
                 isAsync ? TriggerType.EVENT : TriggerType.MANUAL,
                 workflowId,

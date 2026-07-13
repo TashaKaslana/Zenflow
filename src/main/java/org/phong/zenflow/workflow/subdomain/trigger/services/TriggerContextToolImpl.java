@@ -2,7 +2,7 @@ package org.phong.zenflow.workflow.subdomain.trigger.services;
 
 import lombok.extern.slf4j.Slf4j;
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
-import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerEvent;
+import org.phong.zenflow.workflow.subdomain.worker.node_gateway.event.WorkflowStartEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.phong.zenflow.workflow.subdomain.trigger.interfaces.TriggerContextTool;
 import org.springframework.context.ApplicationEventPublisher;
@@ -28,7 +28,7 @@ public class TriggerContextToolImpl implements TriggerContextTool {
     public void startWorkflow(UUID workflowId, UUID triggerExecutorId, Map<String, Object> payload) {
         log.debug("Publishing WorkflowTriggerEvent for workflow {}", workflowId);
         publisher.publishEvent(
-                new WorkflowTriggerEvent(
+                new WorkflowStartEvent(
                         UUID.randomUUID(),
                         TriggerType.EVENT,
                         triggerExecutorId,

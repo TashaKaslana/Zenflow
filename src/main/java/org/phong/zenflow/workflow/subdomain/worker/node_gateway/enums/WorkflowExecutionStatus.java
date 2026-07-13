@@ -3,12 +3,13 @@ package org.phong.zenflow.workflow.subdomain.worker.node_gateway.enums;
 import org.phong.zenflow.plugin.subdomain.execution.enums.ExecutionStatus;
 
 public enum WorkflowExecutionStatus {
+    COMPLETED,
+
     SUCCESS,
     FAILED,
     ERROR,
     PENDING,
-    PROCESSING,
-    HALT;
+    PROCESSING;
 
     public static WorkflowExecutionStatus mapStatus(ExecutionStatus status) {
         return switch (status) {

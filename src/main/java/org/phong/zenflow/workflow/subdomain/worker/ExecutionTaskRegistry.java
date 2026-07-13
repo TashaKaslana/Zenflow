@@ -13,6 +13,9 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ExecutionTaskRegistry {
     private final ConcurrentHashMap<String, ExecutionTaskEntry> taskRegistry = new ConcurrentHashMap<>();
 
+    public ExecutionTaskEnvelope getTaskEnvelope(String taskId) {
+        return taskRegistry.get(taskId).envelope();
+    }
     public boolean registerTask(ExecutionTaskEnvelope envelope,
                                 CompletableFuture<ExecutionResult> task) {
         if (envelope == null || task == null) {

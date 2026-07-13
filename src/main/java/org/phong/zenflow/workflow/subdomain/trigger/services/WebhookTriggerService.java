@@ -7,7 +7,7 @@ import lombok.AllArgsConstructor;
 import org.phong.zenflow.workflow.infrastructure.persistence.entity.Workflow;
 import org.phong.zenflow.workflow.infrastructure.persistence.repository.WorkflowRepository;
 import org.phong.zenflow.workflow.subdomain.runner.dto.WorkflowRunnerRequest;
-import org.phong.zenflow.workflow.subdomain.trigger.dto.WorkflowTriggerEvent;
+import org.phong.zenflow.workflow.subdomain.worker.node_gateway.event.WorkflowStartEvent;
 import org.phong.zenflow.workflow.subdomain.trigger.enums.TriggerType;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.entity.WorkflowTrigger;
 import org.phong.zenflow.workflow.subdomain.trigger.infrastructure.persistence.repository.WorkflowTriggerRepository;
@@ -59,7 +59,7 @@ public class WebhookTriggerService {
         run = runRepo.save(run);
 
         WorkflowRun finalRun = run;
-        eventPublisher.publishEvent(new WorkflowTriggerEvent(
+        eventPublisher.publishEvent(new WorkflowStartEvent(
                 finalRun.getId(),
                 TriggerType.WEBHOOK,
                 trigger.getTriggerExecutorId(),

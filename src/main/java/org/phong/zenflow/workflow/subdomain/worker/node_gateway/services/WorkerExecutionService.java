@@ -64,6 +64,12 @@ public class WorkerExecutionService {
         //switch to WorkflowExecutionStatus in worker
         ExecutionResult executionResult = nodeExecutionOrchestrator.executeNode(workflowNode, executionContext);
 
-        eventPublisher.publishEvent(new WorkflowNodeFinished(task.getWorkflowRunId(), WorkflowExecutionStatus.mapStatus(executionResult.getStatus())));
+        eventPublisher.publishEvent(
+                new WorkflowNodeFinished(task.getWorkflowRunId(),
+                        WorkflowExecutionStatus.mapStatus(executionResult.getStatus()),
+                        executionResult,
+                        null
+                )
+        );
     }
 }

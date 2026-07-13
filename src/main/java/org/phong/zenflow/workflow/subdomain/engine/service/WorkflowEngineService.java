@@ -136,7 +136,7 @@ public class WorkflowEngineService {
         execCtx.setPluginNodeId(workingNode.getPluginNode().getNodeId());
         WorkflowConfig config = workingNode.getConfig() != null ? workingNode.getConfig() : new WorkflowConfig();
 
-        result = nodeExecutionOrchestrator.executeNode(workingNode, config, execCtx);
+        result = nodeExecutionOrchestrator.executeNode(workingNode, execCtx);
 
         Map<String, Object> outputForHistory = context.getPendingWrites();
         

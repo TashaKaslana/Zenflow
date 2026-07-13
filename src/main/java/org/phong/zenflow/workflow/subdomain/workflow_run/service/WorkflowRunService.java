@@ -117,9 +117,9 @@ public class WorkflowRunService {
     }
 
     @Transactional
-    public void handleWorkflowError(UUID workflowRunId, Exception e) {
+    public void handleWorkflowError(UUID workflowRunId, String messsage) {
         // Log the error and create a workflow run with error status
-        String errorMessage = e.getMessage() != null ? e.getMessage() : "Unknown error occurred";
+        String errorMessage = messsage != null ? messsage : "Unknown error occurred";
         UpdateWorkflowRunRequest request = new UpdateWorkflowRunRequest(
                 WorkflowStatus.ERROR,
                 errorMessage,
